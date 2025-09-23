@@ -1,0 +1,36 @@
+meta {
+  name: consumer_update
+  type: http
+  seq: 23
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/consumers/{{consumer_id}}/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+  {
+    "username": "test_consumer222",
+    "name": "test_consumer222",
+    "group_id": "{{group_id}}",
+    "config": {
+      "desc": "",
+      "labels": {
+        "a": "1",
+        "b": "2"
+      },
+      "username": "test_consumer222",
+      "group_id": "{{group_id}}",
+      "plugins": {}
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+}

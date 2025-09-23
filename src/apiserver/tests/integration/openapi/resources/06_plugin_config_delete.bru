@@ -1,0 +1,18 @@
+meta {
+  name: plugin_config_delete
+  type: http
+  seq: 35
+}
+
+delete {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/plugin_configs/{{plugin_config_id}}/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+assert {
+  res.status: eq 204
+}

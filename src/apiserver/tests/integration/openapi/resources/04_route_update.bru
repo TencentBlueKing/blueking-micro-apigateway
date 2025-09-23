@@ -1,0 +1,46 @@
+meta {
+  name: route_update
+  type: http
+  seq: 25
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/routes/{{route_id}}/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+  {
+    "name": "test_route-222",
+    "config": {
+      "name": "test_route-222",
+      "uri": "/index.html",
+      "hosts": [
+        "foo.com",
+        "*.bar.com"
+      ],
+      "remote_addrs": [
+        "127.0.0.0/8"
+      ],
+      "methods": [
+        "PUT",
+        "GET"
+      ],
+      "enable_websocket": true,
+      "upstream": {
+        "type": "roundrobin",
+        "nodes": {
+          "127.0.0.1:1980": 1
+        }
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+}

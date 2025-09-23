@@ -1,0 +1,107 @@
+[
+  {
+    "name": "bk-traffic-label",
+    "type": "bk-apisix",
+    "example": {
+      "rules": [
+        {
+          "match": [
+            [
+              "arg_env",
+              "==",
+              "prod"
+            ]
+          ],
+          "actions": [
+            {
+              "set_headers": {
+                "X-Gray-label": "base"
+              }
+            }
+          ]
+        },
+        {
+          "match": [
+            [
+              "arg_env",
+              "==",
+              "dev"
+            ]
+          ],
+          "actions": [
+            {
+              "set_headers": {
+                "X-Gray-label": "v1"
+              },
+              "weight": 50
+            },
+            {
+              "set_headers": {
+                "X-Gray-label": "v2"
+              },
+              "weight": 50
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "bk-break-recursive-call",
+    "type": "bk-apisix",
+    "example": {
+      "instance_id_header": "X-BKAPISIX-Instance-Id",
+      "instance_id": "instance-id1"
+    }
+  },
+  {
+    "name": "bk-delete-cookie",
+    "type": "bk-apisix",
+    "example": {
+
+    }
+  },
+  {
+    "name": "bk-echo",
+    "type": "bk-apisix",
+    "example": {
+
+    }
+  },
+  {
+    "name": "bk-header-rewrite",
+    "type": "bk-apisix",
+    "example": {
+      "add": {
+        "X-Custom-Header": "value",
+        "X-Number-Header": 123
+      },
+      "set": {
+        "User-Agent": "custom-agent"
+      },
+      "remove": ["Referer", "Cookie"]
+    }
+  },
+  {
+    "name": "bk-jwt",
+    "type": "bk-apisix",
+    "example": {
+      "public_key": "PUBLIC KEY",
+      "verify_app": true,
+      "verify_user": false,
+      "add_headers": true
+    }
+  },
+  {
+    "name": "bk-login-required",
+    "type": "bk-apisix",
+    "example": {
+      "auth_type": "bk_token",
+      "url": "https://api.example.com/auth/verify",
+      "bk_app_code": "my-app",
+      "bk_app_secret": "secret-key-123",
+      "bk_tenant_id": "tenant-001",
+      "add_header_username": true
+    }
+  }
+]

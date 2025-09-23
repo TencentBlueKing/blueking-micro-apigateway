@@ -1,0 +1,51 @@
+{
+  "plugins": {
+    "bk-traffic-label": {
+      "priority": 1100,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "match": {
+                  "type": "array"
+                },
+                "actions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "set_headers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "weight": {
+                        "description": "percentage of all matched which would do the actions",
+                        "type": "integer",
+                        "default": 1,
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "minItems": 1,
+                  "maxItems": 20
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    }
+  }
+}

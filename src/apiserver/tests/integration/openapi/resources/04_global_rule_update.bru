@@ -1,0 +1,33 @@
+meta {
+  name: global_rule_update
+  type: http
+  seq: 23
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/global_rules/{{global_rule_id}}/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+    {
+        "name": "test_global_rule-22",
+        "config": {
+            "name": "test_global_rule-22",
+            "plugins": {
+                "jwt-auth": {
+                    "algorithm": "HS256",
+                    "key": "your_jwt_key"
+                }
+            }
+        }
+    }
+}
+
+assert {
+  res.status: eq 200
+}

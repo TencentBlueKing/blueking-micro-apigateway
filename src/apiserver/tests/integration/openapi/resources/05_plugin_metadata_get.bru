@@ -1,0 +1,21 @@
+meta {
+  name: get_plugin_metadata
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/plugin_metadatas/{{plugin_metadata_id}}/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.name: eq datadog
+  res.body.data.host: eq 198.168.0.1
+  res.body.data.port: eq 1234
+}

@@ -1,0 +1,20 @@
+meta {
+  name: get_upstream_status
+  type: http
+  seq: 42
+}
+
+get {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/upstreams/{{upstream_id}}/status/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.status: eq delete_draft
+  res.body.data.id: matches /^bk.*/
+}

@@ -1,0 +1,45 @@
+meta {
+  name: create_plugin_config
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/plugin_configs/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+      {
+          "name": "test_plugin_config",
+          "config": {
+              "desc": "",
+              "labels": {
+                  "a": "1",
+                  "b": "2"
+              },
+              "plugins": {
+                  "jwt-auth": {
+                      "algorithm": "HS256",
+                      "key": "your_jwt_key"
+                  }
+              }
+          }
+      }
+    ]
+}
+
+script:post-response {
+    bru.setVar("plugin_config_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_plugin_config"
+  res.body.data[0].id: matches /^bk.*/
+}

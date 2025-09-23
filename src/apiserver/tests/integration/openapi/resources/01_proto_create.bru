@@ -1,0 +1,36 @@
+meta {
+  name: create_proto
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/protos/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+        {
+          "name": "test_proto",
+          "config": {
+            "desc": "",
+            "content": "syntax = \"proto3\";"
+          }
+        }
+    ]
+}
+
+script:post-response {
+    bru.setVar("proto_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_proto"
+  res.body.data[0].id: matches /^bk.*/
+}

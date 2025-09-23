@@ -1,0 +1,43 @@
+meta {
+  name: create_plugin_metadata
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/plugin_metadatas/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+      {
+        "name": "datadog",
+        "config": {
+          "constant_tags": [
+              "source:apisix",
+              "service:custom"
+          ],
+          "host": "127.0.0.1",
+          "namespace": "apisix",
+          "port": 8126,
+          "id": "datadog",
+          "name": "datadog"
+        }
+      }
+    ]
+}
+
+script:post-response {
+    bru.setVar("plugin_metadata_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "datadog"
+  res.body.data[0].id: matches /^bk.*/
+}

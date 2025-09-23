@@ -1,0 +1,109 @@
+/*
+ 表单元素公用样式
+ */
+.form-element {
+
+  //.bk-form-item {
+  //  margin-bottom: 12px !important;
+  //}
+
+  .form-item {
+    position: relative;
+    //max-width: 960px;
+    max-width: 790px;
+
+    &.w640 {
+      max-width: 640px;
+    }
+
+    &.w600 {
+      .bk-input {
+        max-width: 600px;
+      }
+    }
+
+    &.w490 {
+      .bk-input {
+        max-width: 490px;
+      }
+    }
+
+    &.w480 {
+      .bk-input {
+        max-width: 480px;
+      }
+    }
+
+    &.w360 {
+      max-width: 360px;
+    }
+
+    &.w310 {
+      max-width: 310px;
+    }
+
+    &.w240 {
+      max-width: 240px;
+    }
+
+    &.w180 {
+      .bk-input {
+        max-width: 180px;
+      }
+    }
+
+    &.w120 {
+      .bk-input {
+        max-width: 120px;
+      }
+    }
+
+    .multi-line-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .multi-line-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+    }
+  }
+
+  .multi-column-wrapper {
+    display: flex;
+    //align-items: center;
+
+    .form-item {
+      flex-grow: 1;
+    }
+
+    .multi-line-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    &.gap-6 {
+      gap: 12px;
+    }
+
+    &.gap-12 {
+      gap: 12px;
+    }
+
+    &.gap-24 {
+      gap: 12px;
+    }
+  }
+
+  .icon-btn {
+    font-size: 18px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--button-default-hover-border-color);
+    }
+  }
+}

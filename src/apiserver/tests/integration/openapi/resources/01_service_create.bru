@@ -1,0 +1,42 @@
+meta {
+  name: create_service
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/services/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+        {
+          "name": "test_service",
+          "config": {
+            "retries": 3,
+            "connect_timeout": 1000,
+            "read_timeout": 1000,
+            "write_timeout": 1000,
+            "type": "roundrobin",
+            "nodes": {
+              "127.0.0.1:8080": 1
+            }
+          }
+        }
+    ]
+}
+
+script:post-response {
+    bru.setVar("service_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_service"
+  res.body.data[0].id: matches /^bk.*/
+}

@@ -1,0 +1,40 @@
+meta {
+  name: create_global_rule
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/global_rules/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+        "name": "test_global_rule",
+        "config": {
+            "plugins": {
+                "jwt-auth": {
+                    "algorithm": "HS256",
+                    "key": "your_jwt_key"
+                }
+            }
+        }
+    }
+  ]
+}
+
+script:post-response {
+    bru.setVar("global_rule_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_global_rule"
+  res.body.data[0].id: matches /^bk.*/
+}

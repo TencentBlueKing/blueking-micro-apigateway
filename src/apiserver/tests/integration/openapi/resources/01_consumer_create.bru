@@ -1,0 +1,44 @@
+meta {
+  name: create_consumer
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/consumers/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+      {
+        "username": "test_consumer",
+        "name": "test_consumer",
+        "group_id": "{{group_id}}",
+        "config": {
+          "desc": "",
+          "labels": {
+            "a": "1",
+            "b": "2"
+          },
+          "username": "test_consumer",
+          "group_id": "{{group_id}}",
+          "plugins": {}
+        }
+      }
+    ]
+}
+
+script:post-response {
+    bru.setVar("consumer_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_consumer"
+  res.body.data[0].id: matches /^bk.*/
+}

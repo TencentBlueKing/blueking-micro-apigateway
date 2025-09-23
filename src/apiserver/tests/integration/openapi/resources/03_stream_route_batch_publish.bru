@@ -1,0 +1,24 @@
+meta {
+  name: stream_route_batch_publish
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/stream_routes/publish/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+  {
+    "ids": ["{{stream_route_id}}"]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

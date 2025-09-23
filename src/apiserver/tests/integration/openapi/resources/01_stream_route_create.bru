@@ -1,0 +1,48 @@
+meta {
+  name: create_stream_route
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/stream_routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+        {
+          "name": "test_stream_route",
+          "config": {
+            "remote_addr": "127.0.0.1",
+            "server_addr": "127.0.0.1",
+            "server_port": 8080,
+            "sni": "test.com",
+            "protocol": {
+                "name": "redis",
+                "conf": {}
+            },
+            "upstream": {
+              "type": "roundrobin",
+              "nodes": {
+                "127.0.0.1:1980": 1
+              }
+            }
+          }
+        }
+    ]
+}
+
+script:post-response {
+    bru.setVar("stream_route_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_stream_route"
+  res.body.data[0].id: matches /^bk.*/
+}

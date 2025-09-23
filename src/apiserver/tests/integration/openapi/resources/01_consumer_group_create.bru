@@ -1,0 +1,46 @@
+meta {
+  name: create_consumer_group
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/consumer_groups/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+      {
+          "name": "test_group",
+          "config": {
+              "desc": "",
+              "labels": {
+                  "a": "1",
+                  "b": "2"
+              },
+              "name": "test_group",
+              "plugins": {
+                  "jwt-auth": {
+                      "algorithm": "HS256",
+                      "key": "your_jwt_key"
+                  }
+              }
+          }
+      }
+    ]
+}
+
+script:post-response {
+    bru.setVar("group_id", res.body.data[0].id);
+}
+
+assert {
+  res.status: eq 200
+  res.body.data[0].name: eq "test_group"
+  res.body.data[0].id: matches /^bk.*/
+}

@@ -1,0 +1,39 @@
+meta {
+  name: create_gateway
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/
+}
+
+body {
+    {
+      "name": "bk-apisix-test",
+      "description": "Test Gateway",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin",
+        "test"
+      ],
+      "etcd_prefix": "/apisix",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+assert {
+  res.status: eq 200
+}

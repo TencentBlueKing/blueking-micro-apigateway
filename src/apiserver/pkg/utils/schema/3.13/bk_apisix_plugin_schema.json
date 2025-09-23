@@ -1,0 +1,217 @@
+{
+  "plugins": {
+    "bk-traffic-label": {
+      "priority": 1100,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "match": {
+                  "type": "array"
+                },
+                "actions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "set_headers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "weight": {
+                        "description": "percentage of all matched which would do the actions",
+                        "type": "integer",
+                        "default": 1,
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  "minItems": 1,
+                  "maxItems": 20
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-break-recursive-call": {
+      "priority": 24000,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "instance_id_header": {
+            "type": "string",
+            "default": "X-BKAPISIX-Instance-Id",
+            "description": "The header name of the instance_id, default is X-BKAPISIX-Instance-Id"
+          },
+          "instance_id": {
+            "type": "string",
+            "description": "The instance_id of the current apisix"
+          }
+        },
+        "required": [
+          "instance_id"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-delete-cookie": {
+      "priority": 1120,
+      "schema": {},
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-echo": {
+      "priority": 700,
+      "schema": {},
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-header-rewrite": {
+      "priority": 1110,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "add": {
+            "type": "object",
+            "minProperties": 1,
+            "patternProperties": {
+              "^[^:]+$": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "set": {
+            "type": "object",
+            "minProperties": 1,
+            "patternProperties": {
+              "^[^:]+$": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "remove": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[^:]+$"
+            }
+          }
+        },
+        "minProperties": 1,
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-jwt": {
+      "priority": 1900,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "public_key": {
+            "type": "string",
+            "description": "Public key for JWT verification"
+          },
+          "verify_app": {
+            "type": "boolean",
+            "description": "Verify the app of the JWT token",
+            "default": true
+          },
+          "verify_user": {
+            "type": "boolean",
+            "description": "Verify the user of the JWT token",
+            "default": false
+          },
+          "add_headers": {
+            "type": "boolean",
+            "description": "Add headers of the username and app_code to the request",
+            "default": true
+          }
+        },
+        "required": [
+          "public_key",
+          "verify_app",
+          "verify_user"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-login-required": {
+      "priority": 1900,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "auth_type": {
+            "type": "string",
+            "enum": ["bk_token", "bk_ticket"],
+            "description": "Authentication type"
+          },
+          "url": {
+            "type": "string",
+            "description": "API endpoint URL"
+          },
+          "bk_app_code": {
+            "type": "string",
+            "description": "BlueKing application code"
+          },
+          "bk_app_secret": {
+            "type": "string",
+            "description": "BlueKing application secret"
+          },
+          "bk_tenant_id": {
+            "type": "string",
+            "description": "BlueKing tenant ID"
+          },
+          "add_header_username": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to add username header"
+          }
+        },
+        "required": [
+          "auth_type",
+          "url"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    }
+  }
+}

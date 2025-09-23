@@ -1,0 +1,44 @@
+name: apiserver ci
+
+on:
+  push:
+    branches: [ master, pre_*, ft_*, release/* ]
+    paths: ['src/apiserver/**']
+  pull_request:
+    branches: [ master, pre_*, ft_*, release/* ]
+    paths: ['src/apiserver/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache-dependency-path: src/apiserver/go.sum
+
+      - name: Build
+        run: make build
+        working-directory: src/apiserver
+
+      - name: Vet
+        run: make vet
+        working-directory: src/apiserver
+
+      - name: Lint
+        run: make init && make lint
+        working-directory: src/apiserver
+
+      - name: Aqua Security Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          scan-type: 'fs'
+          scan-ref: 'src/apiserver'
+
+      - name: Test
+        run: make tidy && make test
+        working-directory: src/apiserver

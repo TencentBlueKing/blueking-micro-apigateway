@@ -1,0 +1,20 @@
+.custom-scroll-bar {
+  &::-webkit-scrollbar {
+    width: 4px;
+    background-color: lighten(#c4c6cc, 80%);
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background-color: #c4c6cc;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    height: 5px;
+    border-radius: 2px;
+    background-color: #f5f7fb;
+  }
+
+  &::-webkit-scrollbar-track {
+    background-color: #f5f7fb;
+  }
+}

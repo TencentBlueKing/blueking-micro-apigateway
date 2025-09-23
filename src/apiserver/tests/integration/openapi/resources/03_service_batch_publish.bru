@@ -1,0 +1,24 @@
+meta {
+  name: service_batch_publish
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/services/publish/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+  {
+    "ids": ["{{service_id}}"]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

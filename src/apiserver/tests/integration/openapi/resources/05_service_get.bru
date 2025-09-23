@@ -1,0 +1,20 @@
+meta {
+  name: get_service
+  type: http
+  seq: 33
+}
+
+get {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/services/{{service_id}}/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.name: eq test_service-222
+  res.body.data.id: matches /^bk.*/
+}

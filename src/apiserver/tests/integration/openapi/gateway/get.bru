@@ -1,0 +1,60 @@
+meta {
+  name: get_gateway
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("should be able to get the gateway", function() {
+    expect(res.status).to.equal(200);
+  });
+
+  test("should get gateway info", function() {
+   // 定义期望的JSON对象
+     let expectedBody = {
+       "name": "bk-apisix-test",
+       "mode": 1,
+       "read_only": false,
+       "maintainers": [
+         "admin"
+       ],
+       "description": "Test Gateway",
+       "apisix": {
+         "version": "3.11.0",
+         "type": "bk-apisix"
+       },
+       "etcd": {
+         "instance_id": "",
+         "endpoints": [
+           "http://etcd:2379"
+         ],
+         "schema_type": "http",
+         "prefix": "/apisix",
+         "username": "root",
+         "password": "******",
+         "ca_cert": "",
+         "cert_cert": "",
+         "cert_key": ""
+       },
+       "creator": "",
+       "updater": ""
+     };
+
+     // 从实际响应中删除不需要的字段
+     delete res.body.data.created_at;
+     delete res.body.data.id;
+     delete res.body.data.updated_at;
+
+     // 进行比较
+     expect(JSON.stringify(res.body.data)).to.equal(JSON.stringify(expectedBody));
+  });
+}

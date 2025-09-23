@@ -1,0 +1,52 @@
+meta {
+  name: create_route_with_valid_cert
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+    [
+        {
+          "name": "test_route_1",
+          "config": {
+            "uri": "/index.html",
+            "hosts": [
+              "foo.com",
+              "*.bar.com"
+            ],
+            "remote_addrs": [
+              "127.0.0.0/8"
+            ],
+            "methods": [
+              "PUT",
+              "GET"
+            ],
+            "enable_websocket": true,
+            "upstream": {
+              "scheme": "https",
+              "type": "roundrobin",
+              "nodes": {
+                "127.0.0.1:1980": 1
+              },
+               "tls": {
+                          "client_cert": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqeeeeeeehkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCd6R/T449MFmJN\nCc9h83EEpECjelOtXOcNhLvww+Kx8aQpgjeWQcn+D/vjEhArep0L31aAstkTKdeK\nrbsaRhRfxwqZIEJR75XAQ7Zglczpsok0yi5/UqJOfxyag6CyQSuTpVsRiQdHpfmL\nB9DXZBCaCamNW5955EpA/6ouzauMepH7ORvYvaIJnbEkFE6D46p8OyrbsMyseIBw\nyTHNCDzVYjKl6AeLYzBIaMjinR6bNp0WslCb/48jJ1cG+pAE4YEOwJbS4icgh72o\n1/SnVHIgGqn1wDyhLoXom4NDmmk5+Trnodm1IaTeY9C2hDST5Ogd0JDWeE7sztmD\ngMSDIKABAgMBAAECggEAEQtfGPoCpz/xxZa53JzgHbQEeZjMNCXXVy9U8WaVXydh\n1KymZxisDrknMzHpjqXeEnBdiAf19BJzvldk/w+iJpnngBJ6MhmiEHYGlxuIOg/g\nLTNnDC1tUTt5aQis5VyxMU87epOvtlk5C5uQ/FTD0XqaQ2SovKmKZcRq2EExI3kS\nZgrzaUAxjWGaKpQC38gzeyRQPRneEw+r8Gs+Qy6Yp4YVb0I1u+5yu0TEjJoxUHAF\nr9W6vy8EQxRoUD4T+pgExzBEr9boMY0eAvlUvjTnU1pF9zcFUuwL/HdFYAmfKFp+\nYq+lzQMV8zJiWpqa4eTCVwOk9fABrcuu75kmpZzLCQKBgQDY5AumHvgsFG0pOY7A\nzB9BNvy3AiNC5ENVXcuu8PDoQrkT+aOkv10zbX0DCl9MwSg9a1EbK5H8NkwvV30c\nXOa6PUndlg0gV7A/JeBtr1hYaiIa4kiqvoKESjHQYsSRiX5zAeZ10xfyPMFwRG/I\nVeiZOOGlgNu0bO1Ib3q9kNRsKQKBgQC6YnrUhXN7B9gdHUaLfHDc3YzlyVheloPf\nEYSb60zkaIJjtvE8fWLUm+7lcDS9O41TlTLWhrvc4k9LpwaPruj0EyHosRU+WuMG\n/hI5Arf8cT0tHbM8Y8qqqyWVEKabsU52ckghsOx9XSEInA+jIxrwTHC6NpgP4gAX\n3WfqVpOQGQKBgQCbdgH/hY0/EzkXZoEzIlx4wzArASZDKRg2VS/M6jjTUhgVAEfS\nq7PjS+RiTIn4my77rzOIdReDn2vGN0CfFtvuvEV4xbgM6a2T5dNS6284mIJvoKiT\nclBdAE1qX5Ej/FidmMwWwkMUx4Wjsfopr6I0SXg7x/wy/CysUfO5ctk/2QKBgC5+\nOl2hHHloL4SztNE+rXiq22bGnwCZUzPlzsqGG5wuZbgx/mM0c97NNv6MytsZa9uZ\nsCDLYzlqSpV4iK521y1rSF4fLklrqo4n+qu1/ec+6B/E9Nzvl7KTFsDkcmsMA6KQ\nR2YAGD39aSwYod3z99hReR06WRw9KADL/gv6pLyhAoGBAII+iliei7g6PMzUrkux\nxy3FjF6g6yjVHPs94Fr+I2kkUHLwR2iNS4u18uw05+5Na/EP8t+kzobvjZJj9+yM\nhN+weZvmze/HfdVoMZYuO6u66eqinfg60vKa1Tx7hJdIxiYcjl7wLml/hWz4IAQk\nZT4GfZSbZ5x7l6OIBzc3GfEz\n-----END PRIVATE KEY-----\n",
+                          "client_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCd6R/T449MFmJN\nCc9h83EEpECjelOtXOcNhLvww+Kx8aQpgjeWQcn+D/vjEhArep0L31aAstkTKdeK\nrbsaRhRfxwqZIEJR75XAQ7Zglczpsok0yi5/UqJOfxyag6CyQSuTpVsRiQdHpfmL\nB9DXZBCaCamNW5955EpA/6ouzauMepH7ORvYvaIJnbEkFE6D46p8OyrbsMyseIBw\nyTHNCDzVYjKl6AeLYzBIaMjinR6bNp0WslCb/48jJ1cG+pAE4YEOwJbS4icgh72o\n1/SnVHIgGqn1wDyhLoXom4NDmmk5+Trnodm1IaTeY9C2hDST5Ogd0JDWeE7sztmD\ngMSDIKABAgMBAAECggEAEQtfGPoCpz/xxZa53JzgHbQEeZjMNCXXVy9U8WaVXydh\n1KymZxisDrknMzHpjqXeEnBdiAf19BJzvldk/w+iJpnngBJ6MhmiEHYGlxuIOg/g\nLTNnDC1tUTt5aQis5VyxMU87epOvtlk5C5uQ/FTD0XqaQ2SovKmKZcRq2EExI3kS\nZgrzaUAxjWGaKpQC38gzeyRQPRneEw+r8Gs+Qy6Yp4YVb0I1u+5yu0TEjJoxUHAF\nr9W6vy8EQxRoUD4T+pgExzBEr9boMY0eAvlUvjTnU1pF9zcFUuwL/HdFYAmfKFp+\nYq+lzQMV8zJiWpqa4eTCVwOk9fABrcuu75kmpZzLCQKBgQDY5AumHvgsFG0pOY7A\nzB9BNvy3AiNC5ENVXcuu8PDoQrkT+aOkv10zbX0DCl9MwSg9a1EbK5H8NkwvV30c\nXOa6PUndlg0gV7A/JeBtr1hYaiIa4kiqvoKESjHQYsSRiX5zAeZ10xfyPMFwRG/I\nVeiZOOGlgNu0bO1Ib3q9kNRsKQKBgQC6YnrUhXN7B9gdHUaLfHDc3YzlyVheloPf\nEYSb60zkaIJjtvE8fWLUm+7lcDS9O41TlTLWhrvc4k9LpwaPruj0EyHosRU+WuMG\n/hI5Arf8cT0tHbM8Y8qqqyWVEKabsU52ckghsOx9XSEInA+jIxrwTHC6NpgP4gAX\n3WfqVpOQGQKBgQCbdgH/hY0/EzkXZoEzIlx4wzArASZDKRg2VS/M6jjTUhgVAEfS\nq7PjS+RiTIn4my77rzOIdReDn2vGN0CfFtvuvEV4xbgM6a2T5dNS6284mIJvoKiT\nclBdAE1qX5Ej/FidmMwWwkMUx4Wjsfopr6I0SXg7x/wy/CysUfO5ctk/2QKBgC5+\nOl2hHHloL4SztNE+rXiq22bGnwCZUzPlzsqGG5wuZbgx/mM0c97NNv6MytsZa9uZ\nsCDLYzlqSpV4iK521y1rSF4fLklrqo4n+qu1/ec+6B/E9Nzvl7KTFsDkcmsMA6KQ\nR2YAGD39aSwYod3z99hReR06WRw9KADL/gv6pLyhAoGBAII+iliei7g6PMzUrkux\nxy3FjF6g6yjVHPs94Fr+I2kkUHLwR2iNS4u18uw05+5Na/EP8t+kzobvjZJj9+yM\nhN+weZvmze/HfdVoMZYuO6u66eqinfg60vKa1Tx7hJdIxiYcjl7wLml/hWz4IAQk\nZT4GfZSbZ5x7l6OIBzc3GfEz\n-----END PRIVATE KEY-----\n"
+                      }
+            }
+          }
+        }
+    ]
+}
+
+assert {
+  res.status: eq 400
+}

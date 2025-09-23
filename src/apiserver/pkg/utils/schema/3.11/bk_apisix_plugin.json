@@ -1,0 +1,49 @@
+[
+  {
+    "name": "bk-traffic-label",
+    "type": "bk-apisix",
+    "example": {
+      "rules": [
+        {
+          "match": [
+            [
+              "arg_env",
+              "==",
+              "prod"
+            ]
+          ],
+          "actions": [
+            {
+              "set_headers": {
+                "X-Gray-label": "base"
+              }
+            }
+          ]
+        },
+        {
+          "match": [
+            [
+              "arg_env",
+              "==",
+              "dev"
+            ]
+          ],
+          "actions": [
+            {
+              "set_headers": {
+                "X-Gray-label": "v1"
+              },
+              "weight": 50
+            },
+            {
+              "set_headers": {
+                "X-Gray-label": "v2"
+              },
+              "weight": 50
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

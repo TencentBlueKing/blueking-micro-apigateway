@@ -1,0 +1,35 @@
+meta {
+  name: plugin_metadata_update
+  type: http
+  seq: 23
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/plugin_metadatas/{{plugin_metadata_id}}/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+  {
+    "name": "datadog",
+    "config": {
+        "id": "datadog",
+        "host": "198.168.0.1",
+        "name": "datadog",
+        "port": 1234,
+        "namespace": "apisix",
+        "constant_tags": [
+          "source:apisix",
+          "service:custom"
+        ]
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+}

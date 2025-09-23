@@ -1,0 +1,36 @@
+name: integration ci
+
+on:
+  push:
+    branches: [ master, pre_*, ft_*, release/* ]
+    paths: ['src/apiserver/**']
+  pull_request:
+    branches: [ master, pre_*, ft_*, release/* ]
+    paths: ['src/apiserver/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache-dependency-path: src/apiserver/go.sum
+
+      - name: Build
+        uses: nick-fields/retry@v2
+        with:
+          timeout_seconds: 300
+          max_attempts: 3
+          retry_on: error
+          command: cd src/apiserver && make docker-build
+
+      - name: Integration Test
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          make integration-test
+        working-directory: src/apiserver

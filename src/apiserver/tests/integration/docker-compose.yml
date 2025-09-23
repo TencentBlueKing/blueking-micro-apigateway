@@ -1,0 +1,59 @@
+services:
+  etcd:
+    image: rancher/etcd:v3.4.13
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=no
+      - ETCD_ROOT_PASSWORD=123456     # 设置root密码
+    ports:
+      - "2479:2379"
+      - "2480:2380"
+  mysql:
+    image: docker.io/bitnami/mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_DATABASE=bk_micro_gateway
+      - MYSQL_USER=blueking
+      - MYSQL_PASSWORD=123456
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "3306:3306"
+  bk-micro-gateway:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    image: bk-micro-apigw:dev
+    ports:
+      - "8080:8080"
+    environment:
+      - CRYPTO_NONCE=k2dbCGetyusW
+      - CRYPTO_KEY=jxi28GX82qgHwfZCFpn07q8FScXJOd58
+      - MYSQL_HOST=mysql
+      - MYSQL_NAME=bk_micro_gateway
+      - MYSQL_PASSWORD=123456
+      - MYSQL_PORT=3306
+      - MYSQL_USER=blueking
+      - OPEN_API_TOKEN_WHITELIST=test123433445
+      - STANDALONE=true
+    command: [ "/bin/sh", "-c", "until nc -z mysql 3306; do echo waiting for mysql; sleep 2; done; /usr/bin/apiserver migrate && /usr/bin/apiserver webserver" ]
+    depends_on:
+      - mysql
+      - etcd
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  bruno:
+    image: alpine/bruno:1.30.0
+    working_dir: /apps
+    depends_on:
+      bk-micro-gateway:
+        condition: service_healthy  # 只有在 bk-micro-gateway 健康检查成功后才启动
+    volumes:
+      - ${PWD}:/apps
+    command: ["run", ".", "-r","--bail","--env=dev"]

@@ -1,0 +1,20 @@
+meta {
+  name: get_upstream
+  type: http
+  seq: 34
+}
+
+get {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/upstreams/{{upstream_id}}/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.name: eq test_upstream-222
+  res.body.data.id: matches /^bk.*/
+}

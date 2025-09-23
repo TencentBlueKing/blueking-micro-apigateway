@@ -1,0 +1,35 @@
+meta {
+  name: service_update
+  type: http
+  seq: 27
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/services/{{service_id}}/
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+  Content-Type: application/json
+}
+
+body {
+  {
+    "name": "test_service-222",
+    "config": {
+      "name": "test_service-222",
+      "retries": 3,
+      "connect_timeout": 1000,
+      "read_timeout": 1000,
+      "write_timeout": 1000,
+      "type": "roundrobin",
+      "nodes": {
+        "127.0.0.1:8080": 1
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+}

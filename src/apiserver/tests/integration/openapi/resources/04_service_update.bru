@@ -17,14 +17,15 @@ body {
   {
     "name": "test_service-222",
     "config": {
-      "name": "test_service-222",
-      "retries": 3,
-      "connect_timeout": 1000,
-      "read_timeout": 1000,
-      "write_timeout": 1000,
-      "type": "roundrobin",
-      "nodes": {
-        "127.0.0.1:8080": 1
+      "upstream": {
+        "type": "roundrobin",
+        "nodes": [
+          {
+            "host": "httpbin.org",
+            "port": 443,
+            "weight": 1
+          }
+        ]
       }
     }
   }

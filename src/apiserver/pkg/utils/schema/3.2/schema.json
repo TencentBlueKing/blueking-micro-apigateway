@@ -7346,7 +7346,10 @@
               "apisix"
             ],
             "items": {
-              "pattern": "^(?!tag=)[ -~]*",
+              "pattern": "^[ -~]*$",
+              "not": {
+                "pattern": "^tag="
+              },
               "type": "string"
             },
             "minItems": 1,

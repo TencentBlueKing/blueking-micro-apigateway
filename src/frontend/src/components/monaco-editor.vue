@@ -17,14 +17,14 @@
  */
 
 <template>
-  <div :id="id" :style="style" class="monaco-editor"></div>
+  <div :id="uniqueEditorId" :style="style" class="monaco-editor" />
 </template>
 
 <script lang="ts" setup>
 import monaco from 'monaco-editor';
 import yaml from 'js-yaml';
 import { Message } from 'bkui-vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import useJsonTransformer from '@/hooks/use-json-transformer';
 
@@ -60,21 +60,28 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const { formatJSON } = useJsonTransformer();
-let editor: monaco.editor.IStandaloneCodeEditor; // 编辑器实例
+let editor: monaco.editor.IStandaloneCodeEditor | null = null; // 编辑器实例
+// 确保id唯一性
+const uniqueEditorId = ref(`${id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
 
 const style = computed(() => ({
   width: typeof width === 'number' ? `${width}px` : width,
   height: typeof height === 'number' ? `${height}px` : height,
 }));
 
-watch(() => source, (newSource, oldSource) => {
-  if (newSource === oldSource) {
-    return;
-  }
-  nextTick(() => {
-    editor?.setValue(formatJSON({ source }));
-  });
-}, { immediate: true });
+watch(
+  () => source, (newSource, oldSource) => {
+    if (newSource === oldSource || !editor) {
+      return;
+    }
+    nextTick(() => {
+      editor?.setValue(formatJSON({ source: newSource }));
+    });
+  },
+  {
+    immediate: true,
+  },
+);
 
 watch(() => readOnly, () => {
   nextTick(() => {
@@ -100,11 +107,23 @@ const getValue = () => {
 
 // 初始化编辑器
 const initEditor = () => {
-  editor = monaco.editor.create(document.querySelector(`#${id}`), {
+  // 先销毁可能存在的旧实例
+  disposeEditor();
+  let el = document.getElementById(uniqueEditorId.value);
+  // 兼容id不存在异常情况，兜底创建容器
+  if (!el) {
+    el = document.createElement('div');
+    el.id = uniqueEditorId.value;
+    el.style.width = style.value.width;
+    el.style.height = style.value.height;
+    const parentEl = document.querySelector('.monaco-editor');
+    if (parentEl) parentEl.appendChild(el);
+  }
+
+  editor = monaco.editor.create(el, {
     theme, // 主题
     language,
     readOnly, // 是否只读  取值 true | false
-    value: source,
     folding: true, // 是否折叠
     foldingHighlight: true, // 折叠等高线
     foldingStrategy: 'indentation', // 折叠方式  auto | indentation
@@ -137,6 +156,8 @@ const initEditor = () => {
   editor.onDidChangeModelContent(() => {
     emit('change', { source: getValue() });
   });
+
+  editor.setValue(formatJSON({ source }));
 
   // 定义一个资源导入导出页要用的主题
   monaco.editor.defineTheme('import-theme', {
@@ -187,15 +208,28 @@ const updateOptions = (options: monaco.editor.IEditorOptions) => {
   editor.updateOptions(options);
 };
 
+const disposeEditor = () => {
+  if (editor && typeof editor.isDisposed === 'function' && !editor.isDisposed()) {
+    editor.dispose();
+    editor = null;
+  }
+
+  const el = document.getElementById(uniqueEditorId.value);
+  if (el) {
+    el.innerHTML = '';
+    // 清除 Monaco注入的上下文属性
+    el.removeAttribute('data-monaco-editor-context');
+  }
+};
+
 // 挂载
 onMounted(() => {
   initEditor();
 });
 
 // 卸载
-onBeforeUnmount(() => {
-  editor?.dispose();
-  editor = null;
+onUnmounted(() => {
+  disposeEditor();
 });
 
 defineExpose({
@@ -206,6 +240,8 @@ defineExpose({
   setLanguage,
   format,
   updateOptions,
+  disposeEditor,
+  initEditor,
 });
 
 </script>

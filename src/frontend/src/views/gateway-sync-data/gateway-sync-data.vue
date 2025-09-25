@@ -127,7 +127,7 @@ import { useCommon } from '@/store';
 import { useI18n } from 'vue-i18n';
 import { Message, InfoBox, Checkbox } from 'bkui-vue';
 import { useTDesignSelection } from '@/hooks/use-tdesign-selection';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useTableSortChange } from '@/hooks/use-table-sort-change';
 import { useSearchSelectPopoverHidden } from '@/hooks/use-search-select-popover-hidden';
 import {

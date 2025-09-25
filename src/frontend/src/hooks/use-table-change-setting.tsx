@@ -32,7 +32,7 @@ export default function useTableChangeSetting(setting: ShallowRef<ITableSettings
   } else {
     tempName = name;
   }
-  const tableName = `table-setting-${lang}-${tempName}`;
+  const tableName = `table-setting-${lang.value}-${tempName}`;
 
   onMounted(() => {
     const cache = localStorage.getItem(tableName);

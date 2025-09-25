@@ -53,5 +53,4 @@ func RegisterOpenApi(path string, router *gin.RouterGroup) {
 
 	// resource publish
 	resourceGroup.POST("/:resource_type/publish/", handler.ResourcePublish)
-
 }

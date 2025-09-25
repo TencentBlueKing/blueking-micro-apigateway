@@ -22,7 +22,6 @@ package handler
 import (
 	"fmt"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -33,6 +32,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -385,5 +385,4 @@ func ResourceImport(c *gin.Context) {
 		return
 	}
 	ginx.SuccessJSONResponse(c, uploadInfo)
-
 }

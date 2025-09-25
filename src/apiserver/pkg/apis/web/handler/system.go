@@ -363,8 +363,12 @@ func PluginsGet(c *gin.Context) {
 		if kind == constant.Metadata && len(plugin.MetadataExample) == 0 {
 			continue
 		}
-		// stream 类型的插件
+		// 当查询的插件类别为 stream 时，仅获取 StreamRoutePluginMap 匹配的插件
 		if kind == constant.Stream && schema.StreamRoutePluginMap[plugin.Name] == "" {
+			continue
+		}
+		// 只有 stream route 资源才能使用 stream 类型的插件，其他资源需要排除掉
+		if kind != constant.Stream && plugin.Type == constant.Stream {
 			continue
 		}
 		// 根据 apisixType 过滤

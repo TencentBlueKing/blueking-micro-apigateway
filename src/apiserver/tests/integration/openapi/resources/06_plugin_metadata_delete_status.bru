@@ -16,5 +16,5 @@ headers {
 assert {
   res.status: eq 200
   res.body.data.status: eq delete_draft
-  res.body.data.id: matches "datadog"
+  res.body.data.id: eg datadog
 }

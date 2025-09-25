@@ -16,7 +16,7 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-// filex ...
+// Package filex ...
 package filex
 
 import (

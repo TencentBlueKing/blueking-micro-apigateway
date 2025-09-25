@@ -255,8 +255,8 @@ func SSLList(c *gin.Context) {
 //	@Summary	ssl 详情
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.SSLOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [get]
 func SSLGet(c *gin.Context) {
@@ -294,8 +294,8 @@ func SSLGet(c *gin.Context) {
 //	@Summary	ssl 删除
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [delete]
 func SSLDelete(c *gin.Context) {

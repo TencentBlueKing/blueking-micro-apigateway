@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -42,7 +43,7 @@ import (
 //	@Param		gateway_id	path		int										true	"网关 ID"
 //	@Param		request		query		serializer.OperationAuditLogListRequest	false	"查询参数"
 //	@Success	200			{object}	ginx.PaginatedResponse{results=[]serializer.OperationAuditLogListResponse}
-//	@Router		/api/v1/web/gateways/{gateway_id}/audits/logs// [get]
+//	@Router		/api/v1/web/gateways/{gateway_id}/audits/logs/ [get]
 func OperationAuditLogList(c *gin.Context) {
 	var req serializer.OperationAuditLogListRequest
 	if err := c.ShouldBind(&req); err != nil {
@@ -92,9 +93,25 @@ func getOperationAuditLogResourceIDNames(
 ) (map[string]string, error) {
 	// 按资源类型分类 IDs
 	auditLogResourceTypeIDMap := map[constant.APISIXResource][]string{}
+	deleteResourceIDNameMap := map[string]string{}
 	for _, log := range operationAuditLogs {
 		if log.ResourceType == "" || log.ResourceIDs == "" {
 			continue
+		}
+		// 资源删除后，无法从数据库中查询到资源名称，获取删除前 config 中存储的资源名称
+		if log.OperationType == constant.OperationTypeDelete {
+			for _, data := range gjson.ParseBytes(log.DataBefore).Array() {
+				resourceID := data.Get("id").String()
+				resourceName := ""
+				if log.ResourceType == constant.Schema {
+					resourceName = data.Get("config").Get("Name").String()
+				} else {
+					resourceName = data.Get("config").Get(model.GetResourceNameKey(log.ResourceType)).String()
+				}
+				if _, ok := deleteResourceIDNameMap[resourceID]; !ok {
+					deleteResourceIDNameMap[resourceID] = resourceName
+				}
+			}
 		}
 		resourceIDs := strings.Split(log.ResourceIDs, ",")
 		auditLogResourceTypeIDMap[log.ResourceType] = append(
@@ -126,6 +143,12 @@ func getOperationAuditLogResourceIDNames(
 			for _, resource := range resources {
 				resourceIDNameMap[resource.ID] = resource.GetName(resourceType)
 			}
+		}
+	}
+	// 可能存在删除后又撤销的操作，所以检查已删除的资源 ID 是否能够被匹配到，未匹配到需将删除前的资源名称补充进去
+	for id, name := range deleteResourceIDNameMap {
+		if _, ok := resourceIDNameMap[id]; !ok {
+			resourceIDNameMap[id] = name
 		}
 	}
 	return resourceIDNameMap, nil

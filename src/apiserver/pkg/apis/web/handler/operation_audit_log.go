@@ -104,11 +104,12 @@ func getOperationAuditLogResourceIDNames(
 				resourceID := data.Get("id").String()
 				resourceName := ""
 				if log.ResourceType == constant.Schema {
+					// schema 审计日志类型需要单独处理 Name
 					resourceName = data.Get("config").Get("Name").String()
 				} else {
 					resourceName = data.Get("config").Get(model.GetResourceNameKey(log.ResourceType)).String()
 				}
-				if _, ok := deleteResourceIDNameMap[resourceID]; !ok {
+				if _, ok := deleteResourceIDNameMap[resourceID]; !ok && resourceName != "" {
 					deleteResourceIDNameMap[resourceID] = resourceName
 				}
 			}

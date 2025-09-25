@@ -98,6 +98,9 @@ func CreateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup)
 
 // BatchCreateConsumerGroups 批量创建 ConsumerGroup
 func BatchCreateConsumerGroups(ctx context.Context, consumerGroups []*model.ConsumerGroup) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Create(consumerGroups...)
+	}
 	return repo.ConsumerGroup.WithContext(ctx).Create(consumerGroups...)
 }
 
@@ -154,7 +157,7 @@ func BatchDeleteConsumerGroups(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.ConsumerGroup.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -197,7 +200,7 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, consumerGroup := range consumerGroups {
-			err := repo.ConsumerGroup.WithContext(ctx).Save(consumerGroup)
+			err := tx.ConsumerGroup.WithContext(ctx).Save(consumerGroup)
 			if err != nil {
 				return err
 			}

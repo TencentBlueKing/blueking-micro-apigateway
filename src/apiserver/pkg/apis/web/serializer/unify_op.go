@@ -19,8 +19,6 @@
 package serializer
 
 import (
-	"encoding/json"
-
 	validator "github.com/go-playground/validator/v10"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -75,21 +73,7 @@ type ResourceDiffRequest struct {
 type ResourceDiffResponse []dto.ResourceChangeInfo
 
 // EtcdExportOutput ...
-type EtcdExportOutput map[constant.APISIXResource][]ResourceInfo
-
-// ResourceInfo ...
-type ResourceInfo struct {
-	ResourceType constant.APISIXResource `json:"resource_type,omitempty"`               // 资源类型
-	ResourceID   string                  `json:"resource_id,omitempty"`                 // 资源ID
-	Name         string                  `json:"name,omitempty"`                        // 资源名称
-	Config       json.RawMessage         `json:"config,omitempty" swaggertype:"object"` // 资源配置
-	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
-}
-
-type ResourceUploadInfo struct {
-	Adds   map[constant.APISIXResource][]ResourceInfo `json:"add,omitempty"`
-	Update map[constant.APISIXResource][]ResourceInfo `json:"update,omitempty"`
-}
+type EtcdExportOutput map[constant.APISIXResource][]dto.ResourceInfo
 
 // OperationTypeToResourceStatus 操作类型转换资源状态
 func OperationTypeToResourceStatus(operationType []constant.OperationType) []constant.ResourceStatus {

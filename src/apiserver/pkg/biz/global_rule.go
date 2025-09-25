@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ListGlobalRules 查询网关 GlobalRule 列表
@@ -88,6 +89,9 @@ func CreateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 
 // BatchCreateGlobalRules 批量创建 GlobalRule
 func BatchCreateGlobalRules(ctx context.Context, globalRules []*model.GlobalRule) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Create(globalRules...)
+	}
 	return repo.GlobalRule.WithContext(ctx).Create(globalRules...)
 }
 
@@ -128,7 +132,7 @@ func BatchDeleteGlobalRules(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.GlobalRule.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -170,7 +174,7 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, globalRule := range globalRules {
-			err := repo.GlobalRule.WithContext(ctx).Save(globalRule)
+			err := tx.GlobalRule.WithContext(ctx).Save(globalRule)
 			if err != nil {
 				return err
 			}

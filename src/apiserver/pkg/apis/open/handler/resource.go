@@ -20,6 +20,8 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +31,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -339,4 +342,58 @@ func ResourcePublish(c *gin.Context) {
 		return
 	}
 	ginx.SuccessCreateResponse(c)
+}
+
+// ResourceImport ...
+//
+//	@ID			openapi_resource_import
+//	@Summary	资源导入
+//	@Accept		json
+//	@Produce	json
+//	@Tags		openapi.resource
+//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的token"
+//	@Param		gateway_name	path	string	true	"网关名称"
+//	@Accept		multipart/form-data
+//	@Param		resource_file	formData	file	true	"资源配置文件(json)"
+//	@Param		gateway_name	path		string	true	"网关名称"
+//	@Success	200				{object}	dto.ResourceUploadInfo
+//	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/publish/ [post]
+func ResourceImport(c *gin.Context) {
+	fileHeader, err := c.FormFile("resource_file")
+	if err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	file, _ := fileHeader.Open()
+	defer file.Close()
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(file)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	resourceData := buf.Bytes()
+	var resourceInfoTypeMap map[constant.APISIXResource][]dto.ResourceInfo
+	if err := json.Unmarshal(resourceData, &resourceInfoTypeMap); err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	uploadInfo, err := biz.ClassifyImportResourceInfo(c.Request.Context(), resourceInfoTypeMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	addResourcesMap, updateResourcesMap, err := biz.HandlerImportResources(c.Request.Context(), uploadInfo)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	// 插入数据
+	err = biz.UploadResources(c.Request.Context(), addResourcesMap, updateResourcesMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	ginx.SuccessJSONResponse(c, uploadInfo)
+
 }

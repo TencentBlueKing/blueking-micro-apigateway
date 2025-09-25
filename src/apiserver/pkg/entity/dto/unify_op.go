@@ -48,3 +48,18 @@ type ResourceDiffDetailResponse struct {
 	EditorConfig json.RawMessage `json:"editor_config" swaggertype:"object"` // 编辑区配置
 	EtcdConfig   json.RawMessage `json:"etcd_config" swaggertype:"object"`   // etcd生效配置
 }
+
+// ResourceUploadInfo ...
+type ResourceUploadInfo struct {
+	Add    map[constant.APISIXResource][]ResourceInfo `json:"add,omitempty"`
+	Update map[constant.APISIXResource][]ResourceInfo `json:"update,omitempty"`
+}
+
+// ResourceInfo ...
+type ResourceInfo struct {
+	ResourceType constant.APISIXResource `json:"resource_type,omitempty"`               // 资源类型
+	ResourceID   string                  `json:"resource_id,omitempty"`                 // 资源ID
+	Name         string                  `json:"name,omitempty"`                        // 资源名称
+	Config       json.RawMessage         `json:"config,omitempty" swaggertype:"object"` // 资源配置
+	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
+}

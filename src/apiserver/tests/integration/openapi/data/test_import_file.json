@@ -1,0 +1,233 @@
+{
+  "consumer": [
+    {
+      "resource_type": "consumer",
+      "resource_id": "bk.c.euXnstAAQe",
+      "name": "tom",
+      "config": {
+        "username": "tom",
+        "id": "bk.c.euXnstAAQe",
+        "plugins": {
+          "authz-casbin": {
+            "model": "path/to/model.conf",
+            "policy": "path/to/policy.csv",
+            "username": "admin"
+          }
+        },
+        "group_id": "bk.cg.euXoMOAAQe"
+      }
+    }
+  ],
+  "consumer_group": [
+    {
+      "resource_type": "consumer_group",
+      "resource_id": "bk.cg.euXoMOAAQe",
+      "name": "cg1",
+      "config": {
+        "labels": {
+          "1": "2"
+        },
+        "plugins": {
+          "udp-logger": {
+            "host": "udp-logger.example.com",
+            "port": 514,
+            "timeout": 3
+          }
+        },
+        "id": "bk.cg.euXoMOAAQe",
+        "name": "cg1",
+      }
+    }
+  ],
+  "global_rule": [
+    {
+      "resource_type": "global_rule",
+      "resource_id": "bk.gr.euYDGnAAQe",
+      "name": "aaaaa",
+      "config": {
+        "plugins": {
+          "echo": {
+            "after_body": "request body after filter",
+            "before_body": "request body before filter",
+            "body": "response body",
+            "headers": {
+              "Content-Type": "text/plain"
+            }
+          }
+        },
+        "id": "bk.gr.euYDGnAAQe",
+        "name": "aaaaa"
+      }
+    }
+  ],
+  "plugin_config": [
+    {
+      "resource_type": "plugin_config",
+      "resource_id": "bk.pc.eyaDNnAAM7",
+      "name": "aaaa",
+      "config": {
+        "id": "bk.pc.eyaDNnAAM7",
+        "name": "aaaa",
+        "desc": "123",
+        "plugins": {
+          "authz-casbin": {
+            "model": "path/to/model.conf",
+            "policy": "path/to/policy.csv",
+            "username": "admin"
+          }
+        }
+      }
+    }
+  ],
+  "plugin_metadata": [
+    {
+      "resource_type": "plugin_metadata",
+      "resource_id": "bk.pm.ggSRcoAAOZ",
+      "name": "authz-casbin",
+      "config": {
+        "model": "rbac_model1111.conf",
+        "policy": "rbac_policy.csv",
+        "id": "authz-casbin",
+        "name": "authz-casbin"
+      }
+    }
+  ],
+  "route": [
+    {
+      "resource_type": "route",
+      "resource_id": "bk.r.euYDyHAAQe",
+      "name": "get_clone",
+      "config": {
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "enable_websocket": false,
+        "uris": [
+          "/get"
+        ],
+        "labels": {
+          "1": "2",
+          "g": "h",
+          "a": "b",
+          "c": "d",
+          "e": "f"
+        },
+        "desc": "aaaa",
+        "id": "bk.r.euYDyHAAQe",
+        "name": "get_clone",
+        "service_id": "bk.s.euXYOUAAQe"
+      }
+    },
+    {
+      "resource_type": "route",
+      "resource_id": "bk.r.eyZvoiAAM7",
+      "name": "delete",
+      "config": {
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "enable_websocket": false,
+        "uris": [
+          "/delete"
+        ],
+        "labels": {
+          "1": "2"
+        },
+        "desc": "222",
+        "id": "bk.r.eyZvoiAAM7",
+        "name": "delete",
+        "plugins": {
+          "loggly": {
+            "customer_token": "your_customer_token",
+            "tags": [
+              "apisix",
+              "loggly"
+            ]
+          }
+        },
+        "upstream": {
+          "scheme": "http",
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "pass_host": "pass",
+          "type": "roundrobin"
+        }
+      }
+    }
+  ],
+  "service": [
+    {
+      "resource_type": "service",
+      "resource_id": "bk.s.euXYOUAAQe",
+      "name": "httpbin",
+      "config": {
+        "name": "httpbin",
+        "enable_websocket": false,
+        "upstream": {
+          "scheme": "http",
+          "hash_on": "vars",
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "key": "remote_addr",
+          "timeout": {
+            "send": 6,
+            "connect": 6,
+            "read": 6
+          },
+          "pass_host": "pass",
+          "type": "roundrobin",
+          "keepalive_pool": {
+            "idle_timeout": 60,
+            "requests": 1000,
+            "size": 320
+          }
+        },
+        "id": "bk.s.euXYOUAAQe"
+      }
+    },
+    {
+      "resource_type": "service",
+      "resource_id": "bk.s.eyaLZPAAM7",
+      "name": "aaaa",
+      "config": {
+        "name": "aaaa",
+        "upstream": {
+          "scheme": "http",
+          "pass_host": "pass",
+          "type": "roundrobin",
+          "service_name": "svc-name",
+          "discovery_type": "dns"
+        },
+        "id": "bk.s.eyaLZPAAM7"
+      }
+    }
+  ],
+  "upstream": [
+    {
+      "resource_type": "upstream",
+      "resource_id": "bk.u.eyaO7.AAM7",
+      "name": "upstream-svcs",
+      "config": {
+        "scheme": "http",
+        "pass_host": "pass",
+        "type": "roundrobin",
+        "service_name": "ssss",
+        "discovery_type": "dns",
+        "id": "bk.u.eyaO7.AAM7",
+        "name": "upstream-svcs"
+      }
+    }
+  ]
+}

@@ -15,4 +15,5 @@ headers {
 
 assert {
   res.status: eq 201
+  res.json.add.length: eq 2
 }

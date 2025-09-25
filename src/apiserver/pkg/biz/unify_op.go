@@ -155,7 +155,7 @@ func AddSyncedResources( //nolint:gocyclo
 		syncedResourceTypeStats[item.Type]++
 	}
 	// 分类同步
-	err = InsertSyncedResources(ctx, typeSyncedItemMap)
+	err = InsertSyncedResources(ctx, typeSyncedItemMap, constant.ResourceStatusSuccess)
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +166,13 @@ func AddSyncedResources( //nolint:gocyclo
 func InsertSyncedResources(
 	ctx context.Context,
 	typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) error {
 	// 分类同步
 	var err error
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		err = insertSyncedResourcesModel(ctx, typeSyncedItemMap)
+		ctx = ginx.SetTx(ctx, tx)
+		err = insertSyncedResourcesModel(ctx, typeSyncedItemMap, status, true)
 		if err != nil {
 			return err
 		}
@@ -185,14 +187,18 @@ func InsertSyncedResources(
 func insertSyncedResourcesModel(
 	ctx context.Context,
 	typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	status constant.ResourceStatus,
+	removeDuplicated bool,
 ) error {
 	var err error
 	for resourceType, itemList := range typeSyncedItemMap {
-		itemList, err = RemoveDuplicatedResourceName(ctx, resourceType, itemList)
-		if err != nil {
-			return err
+		if removeDuplicated {
+			itemList, err = RemoveDuplicatedResourceName(ctx, resourceType, itemList)
+			if err != nil {
+				return err
+			}
 		}
-		resourceList := SyncedResourceToAPISIXResource(resourceType, itemList)
+		resourceList := SyncedResourceToAPISIXResource(resourceType, itemList, status)
 		switch resourceType {
 		case constant.Route:
 			err = BatchCreateRoutes(ctx, resourceList.([]*model.Route))
@@ -263,22 +269,23 @@ func UploadResources(
 	// 分类同步
 	var err error
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ginx.SetTx(ctx, tx)
 		// 先删除再插入
 		for resourceType, itemList := range updateTypeResourcesTypeMap {
 			var ids []string
 			for _, item := range itemList {
 				ids = append(ids, item.ID)
 			}
-			err = BatchDeleteResource(ctx, resourceType, ids)
+			err = DeleteResourceByIDs(ctx, resourceType, ids)
 			if err != nil {
 				return err
 			}
 		}
-		err = insertSyncedResourcesModel(ctx, updateTypeResourcesTypeMap)
+		err = insertSyncedResourcesModel(ctx, updateTypeResourcesTypeMap, constant.ResourceStatusUpdateDraft, false)
 		if err != nil {
 			return err
 		}
-		err = insertSyncedResourcesModel(ctx, addResourcesTypeMap)
+		err = insertSyncedResourcesModel(ctx, addResourcesTypeMap, constant.ResourceStatusCreateDraft, false)
 		if err != nil {
 			return err
 		}
@@ -732,35 +739,39 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 func SyncedResourceToAPISIXResource(
 	resourceType constant.APISIXResource,
 	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) interface{} {
 	switch resourceType {
 	case constant.Route:
-		return syncedResourceToAPISIXRoute(syncedResources)
+		return syncedResourceToAPISIXRoute(syncedResources, status)
 	case constant.Service:
-		return syncedServiceToAPISIXRoute(syncedResources)
+		return syncedServiceToAPISIXRoute(syncedResources, status)
 	case constant.Upstream:
-		return syncedResourceToAPISIXUpstream(syncedResources)
+		return syncedResourceToAPISIXUpstream(syncedResources, status)
 	case constant.PluginConfig:
-		return syncedResourceToAPISIXPluginConfig(syncedResources)
+		return syncedResourceToAPISIXPluginConfig(syncedResources, status)
 	case constant.PluginMetadata:
-		return syncedResourceToAPISIXPluginMetadata(syncedResources)
+		return syncedResourceToAPISIXPluginMetadata(syncedResources, status)
 	case constant.Consumer:
-		return syncedResourceToAPISIXConsumer(syncedResources)
+		return syncedResourceToAPISIXConsumer(syncedResources, status)
 	case constant.ConsumerGroup:
-		return syncedResourceToAPISIXConsumerGroup(syncedResources)
+		return syncedResourceToAPISIXConsumerGroup(syncedResources, status)
 	case constant.GlobalRule:
-		return syncedResourceToAPISIXGlobalRule(syncedResources)
+		return syncedResourceToAPISIXGlobalRule(syncedResources, status)
 	case constant.SSL:
-		return syncedResourceToAPISIXSSL(syncedResources)
+		return syncedResourceToAPISIXSSL(syncedResources, status)
 	case constant.Proto:
-		return syncedResourceToAPISIXProto(syncedResources)
+		return syncedResourceToAPISIXProto(syncedResources, status)
 	case constant.StreamRoute:
-		return syncedResourceToAPISIXStreamRoute(syncedResources)
+		return syncedResourceToAPISIXStreamRoute(syncedResources, status)
 	}
 	return nil
 }
 
-func syncedResourceToAPISIXRoute(syncedResources []*model.GatewaySyncData) []*model.Route {
+func syncedResourceToAPISIXRoute(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.Route {
 	var routes []*model.Route
 	for _, syncedResource := range syncedResources {
 		routes = append(routes, &model.Route{
@@ -772,14 +783,17 @@ func syncedResourceToAPISIXRoute(syncedResources []*model.GatewaySyncData) []*mo
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return routes
 }
 
-func syncedServiceToAPISIXRoute(syncedResources []*model.GatewaySyncData) []*model.Service {
+func syncedServiceToAPISIXRoute(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.Service {
 	var services []*model.Service
 	for _, syncedResource := range syncedResources {
 		services = append(services, &model.Service{
@@ -789,14 +803,17 @@ func syncedServiceToAPISIXRoute(syncedResources []*model.GatewaySyncData) []*mod
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return services
 }
 
-func syncedResourceToAPISIXUpstream(syncedResources []*model.GatewaySyncData) []*model.Upstream {
+func syncedResourceToAPISIXUpstream(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.Upstream {
 	var upstreams []*model.Upstream
 	for _, syncedResource := range syncedResources {
 		upstreams = append(upstreams, &model.Upstream{
@@ -805,14 +822,17 @@ func syncedResourceToAPISIXUpstream(syncedResources []*model.GatewaySyncData) []
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return upstreams
 }
 
-func syncedResourceToAPISIXPluginConfig(syncedResources []*model.GatewaySyncData) []*model.PluginConfig {
+func syncedResourceToAPISIXPluginConfig(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.PluginConfig {
 	var pluginConfigs []*model.PluginConfig
 	for _, syncedResource := range syncedResources {
 		pluginConfigs = append(pluginConfigs, &model.PluginConfig{
@@ -821,31 +841,40 @@ func syncedResourceToAPISIXPluginConfig(syncedResources []*model.GatewaySyncData
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return pluginConfigs
 }
 
-func syncedResourceToAPISIXPluginMetadata(syncedResources []*model.GatewaySyncData) []*model.PluginMetadata {
+func syncedResourceToAPISIXPluginMetadata(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.PluginMetadata {
 	var pluginMetadata []*model.PluginMetadata
 	for _, syncedResource := range syncedResources {
 		name := syncedResource.GetConfigID()
+		if syncedResource.ID == "" {
+			syncedResource.ID = idx.GenResourceID(constant.PluginMetadata)
+		}
 		pluginMetadata = append(pluginMetadata, &model.PluginMetadata{
 			Name: name,
 			ResourceCommonModel: model.ResourceCommonModel{
-				ID:        idx.GenResourceID(constant.PluginMetadata),
+				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return pluginMetadata
 }
 
-func syncedResourceToAPISIXConsumer(syncedResources []*model.GatewaySyncData) []*model.Consumer {
+func syncedResourceToAPISIXConsumer(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.Consumer {
 	var consumers []*model.Consumer
 	for _, syncedResource := range syncedResources {
 		consumers = append(consumers, &model.Consumer{
@@ -861,7 +890,10 @@ func syncedResourceToAPISIXConsumer(syncedResources []*model.GatewaySyncData) []
 	return consumers
 }
 
-func syncedResourceToAPISIXConsumerGroup(syncedResources []*model.GatewaySyncData) []*model.ConsumerGroup {
+func syncedResourceToAPISIXConsumerGroup(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.ConsumerGroup {
 	var consumerGroups []*model.ConsumerGroup
 	for _, syncedResource := range syncedResources {
 		consumerGroups = append(consumerGroups, &model.ConsumerGroup{
@@ -870,14 +902,17 @@ func syncedResourceToAPISIXConsumerGroup(syncedResources []*model.GatewaySyncDat
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return consumerGroups
 }
 
-func syncedResourceToAPISIXGlobalRule(syncedResources []*model.GatewaySyncData) []*model.GlobalRule {
+func syncedResourceToAPISIXGlobalRule(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.GlobalRule {
 	var globalRules []*model.GlobalRule
 	for _, syncedResource := range syncedResources {
 		globalRules = append(globalRules, &model.GlobalRule{
@@ -886,14 +921,14 @@ func syncedResourceToAPISIXGlobalRule(syncedResources []*model.GatewaySyncData) 
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return globalRules
 }
 
-func syncedResourceToAPISIXSSL(syncedResources []*model.GatewaySyncData) []*model.SSL {
+func syncedResourceToAPISIXSSL(syncedResources []*model.GatewaySyncData, status constant.ResourceStatus) []*model.SSL {
 	var ssls []*model.SSL
 	for _, syncedResource := range syncedResources {
 		ssls = append(ssls, &model.SSL{
@@ -902,14 +937,17 @@ func syncedResourceToAPISIXSSL(syncedResources []*model.GatewaySyncData) []*mode
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return ssls
 }
 
-func syncedResourceToAPISIXProto(syncedResources []*model.GatewaySyncData) []*model.Proto {
+func syncedResourceToAPISIXProto(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.Proto {
 	var protos []*model.Proto
 	for _, syncedResource := range syncedResources {
 		protos = append(protos, &model.Proto{
@@ -918,14 +956,17 @@ func syncedResourceToAPISIXProto(syncedResources []*model.GatewaySyncData) []*mo
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}
 	return protos
 }
 
-func syncedResourceToAPISIXStreamRoute(syncedResources []*model.GatewaySyncData) []*model.StreamRoute {
+func syncedResourceToAPISIXStreamRoute(
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
+) []*model.StreamRoute {
 	var streamRoutes []*model.StreamRoute
 	for _, syncedResource := range syncedResources {
 		streamRoutes = append(streamRoutes, &model.StreamRoute{
@@ -936,7 +977,7 @@ func syncedResourceToAPISIXStreamRoute(syncedResources []*model.GatewaySyncData)
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}

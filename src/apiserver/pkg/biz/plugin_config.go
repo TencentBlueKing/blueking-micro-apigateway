@@ -98,6 +98,9 @@ func CreatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 
 // BatchCreatePluginConfigs 批量创建 PluginConfig
 func BatchCreatePluginConfigs(ctx context.Context, pluginConfigs []*model.PluginConfig) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Create(pluginConfigs...)
+	}
 	return repo.PluginConfig.WithContext(ctx).Create(pluginConfigs...)
 }
 
@@ -145,6 +148,7 @@ func ExistsPluginConfig(ctx context.Context, id string) bool {
 func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 	u := repo.PluginConfig
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.PluginConfig, ids)
 		if err != nil {
 			return err
@@ -154,7 +158,7 @@ func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.PluginConfig.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -197,7 +201,7 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, pluginConfig := range pluginConfigs {
-			err := repo.PluginConfig.WithContext(ctx).Save(pluginConfig)
+			err := tx.PluginConfig.WithContext(ctx).Save(pluginConfig)
 			if err != nil {
 				return err
 			}

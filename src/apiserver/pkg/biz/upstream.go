@@ -98,6 +98,9 @@ func CreateUpstream(ctx context.Context, upstream model.Upstream) error {
 
 // BatchCreateUpstreams 批量创建 upstream
 func BatchCreateUpstreams(ctx context.Context, upstreams []*model.Upstream) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).Upstream.WithContext(ctx).Create(upstreams...)
+	}
 	return repo.Upstream.WithContext(ctx).Create(upstreams...)
 }
 
@@ -146,11 +149,12 @@ func ExistsUpstream(ctx context.Context, id string) bool {
 func BatchDeleteUpstreams(ctx context.Context, ids []string) error {
 	u := repo.Upstream
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Upstream, ids)
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.Upstream.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -199,7 +203,7 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, upstream := range upstreams {
-			err := repo.Upstream.WithContext(ctx).Save(upstream)
+			err := tx.Upstream.WithContext(ctx).Save(upstream)
 			if err != nil {
 				return err
 			}

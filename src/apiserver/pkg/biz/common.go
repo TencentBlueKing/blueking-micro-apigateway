@@ -27,12 +27,14 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
@@ -120,16 +122,16 @@ func (l Labels) Value() (driver.Value, error) {
 
 // BatchUpdateResourceStatusWithAuditLog 批量更新资源状态并添加审计日志
 func BatchUpdateResourceStatusWithAuditLog(
-	ctx context.Context,
-	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
+ctx context.Context,
+resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
 	return WrapBatchUpdateResourceStatusAddAuditLog(ctx, resourceType, ids, status, BatchUpdateResourceStatus)
 }
 
 // BatchDeleteResourceWithAuditLog 批量删除资源并添加审计日志
 func BatchDeleteResourceWithAuditLog(
-	ctx context.Context,
-	resourceType constant.APISIXResource, ids []string,
+ctx context.Context,
+resourceType constant.APISIXResource, ids []string,
 ) error {
 	switch resourceType {
 	case constant.Route:
@@ -160,8 +162,8 @@ func BatchDeleteResourceWithAuditLog(
 
 // BatchUpdateResourceStatus 批量更新资源状态
 func BatchUpdateResourceStatus(
-	ctx context.Context,
-	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
+ctx context.Context,
+resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
 	return database.Client().WithContext(ctx).Table(
 		resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
@@ -171,8 +173,8 @@ func BatchUpdateResourceStatus(
 
 // UpdateResourceStatus 单个更新状态
 func UpdateResourceStatus(
-	ctx context.Context,
-	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
+ctx context.Context,
+resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
 	return database.Client().WithContext(ctx).Table(
 		resourceTableMap[resourceType]).Where("id = ?", id).Updates(map[string]interface{}{
@@ -183,16 +185,16 @@ func UpdateResourceStatus(
 
 // UpdateResourceStatusWithAuditLog  更新资源状态并添加审计日志
 func UpdateResourceStatusWithAuditLog(
-	ctx context.Context,
-	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
+ctx context.Context,
+resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
 	return WrapUpdateResourceStatusByIDAddAuditLog(ctx, resourceType, id, status, UpdateResourceStatus)
 }
 
 // BatchGetResources 批量获取资源
 func BatchGetResources(
-	ctx context.Context,
-	resourceType constant.APISIXResource, ids []string,
+ctx context.Context,
+resourceType constant.APISIXResource, ids []string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
 	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
@@ -209,8 +211,8 @@ func BatchGetResources(
 
 // GetResourcesLabels 获取资源标签
 func GetResourcesLabels(
-	ctx context.Context,
-	resourceType constant.APISIXResource,
+ctx context.Context,
+resourceType constant.APISIXResource,
 ) (map[string]string, error) {
 	var labelsList []Labels
 	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
@@ -270,8 +272,8 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 
 // GetResourceByID 根据id获取资源
 func GetResourceByID(
-	ctx context.Context,
-	resourceType constant.APISIXResource, id string,
+ctx context.Context,
+resourceType constant.APISIXResource, id string,
 ) (model.ResourceCommonModel, error) {
 	var res model.ResourceCommonModel
 	err := database.Client().WithContext(ctx).Table(
@@ -281,9 +283,9 @@ func GetResourceByID(
 
 // GetResourceByIDs 根据 ids 获取资源
 func GetResourceByIDs(
-	ctx context.Context,
-	resourceType constant.APISIXResource,
-	ids []string,
+ctx context.Context,
+resourceType constant.APISIXResource,
+ids []string,
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
 	err := database.Client().WithContext(ctx).Table(
@@ -291,10 +293,21 @@ func GetResourceByIDs(
 	return res, err
 }
 
+// DeleteResourceByIDs 根据 ids 删除资源
+func DeleteResourceByIDs(
+ctx context.Context,
+resourceType constant.APISIXResource,
+ids []string,
+) error {
+	err := database.Client().WithContext(ctx).Table(
+		resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
+	return err
+}
+
 // GetSchemaByIDs 根据 ids 获取 schema
 func GetSchemaByIDs(
-	ctx context.Context,
-	ids []string,
+ctx context.Context,
+ids []string,
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
 	err := database.Client().WithContext(ctx).Table(
@@ -304,10 +317,10 @@ func GetSchemaByIDs(
 
 // QueryResource ... 根据条件查询资源
 func QueryResource(
-	ctx context.Context,
-	resourceType constant.APISIXResource,
-	params map[string]interface{},
-	name string,
+ctx context.Context,
+resourceType constant.APISIXResource,
+params map[string]interface{},
+name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
 	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(params)
@@ -320,7 +333,7 @@ func QueryResource(
 
 // LabelConditionList 标签查询条件列表
 func LabelConditionList(
-	labelList map[string][]string,
+labelList map[string][]string,
 ) []gen.Condition {
 	var conditions []gen.Condition
 	for k, values := range labelList {
@@ -337,10 +350,10 @@ func LabelConditionList(
 
 // DuplicatedResourceName 查询资源名称是否重复
 func DuplicatedResourceName(
-	ctx context.Context,
-	resourceType constant.APISIXResource,
-	id string,
-	name string,
+ctx context.Context,
+resourceType constant.APISIXResource,
+id string,
+name string,
 ) bool {
 	var res []*model.ResourceCommonModel
 	d := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
@@ -360,9 +373,9 @@ func DuplicatedResourceName(
 }
 
 func getQueryNameParams(
-	ctx context.Context,
-	resourceType constant.APISIXResource,
-	name []string,
+ctx context.Context,
+resourceType constant.APISIXResource,
+name []string,
 ) map[string]interface{} {
 	params := map[string]interface{}{}
 	params[model.GetResourceNameKey(resourceType)] = name
@@ -375,9 +388,9 @@ func getQueryNameParams(
 
 // BatchCheckNameDuplication 批量校验名称是否重复
 func BatchCheckNameDuplication(
-	ctx context.Context,
-	resourceType constant.APISIXResource,
-	names []string,
+ctx context.Context,
+resourceType constant.APISIXResource,
+names []string,
 ) (bool, error) {
 	var res []*model.ResourceCommonModel
 	params := getQueryNameParams(ctx, resourceType, names)
@@ -394,8 +407,8 @@ func BatchCheckNameDuplication(
 
 // BatchCreateResources 批量创建资源
 func BatchCreateResources(
-	ctx context.Context,
-	resourceType constant.APISIXResource, resources []*model.ResourceCommonModel,
+ctx context.Context,
+resourceType constant.APISIXResource, resources []*model.ResourceCommonModel,
 ) error {
 	modelSlice, exists := resourceModelSliceMap[resourceType]
 	if !exists {
@@ -411,8 +424,8 @@ func BatchCreateResources(
 
 // UpdateResource 更新单个资源
 func UpdateResource(
-	ctx context.Context,
-	resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
+ctx context.Context,
+resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
 ) error {
 	resourceModel, exists := resourceModelMap[resourceType]
 	if !exists {
@@ -427,8 +440,8 @@ func UpdateResource(
 
 // GetResourceUpdateStatus 获取资源更新状态
 func GetResourceUpdateStatus(
-	ctx context.Context,
-	resourceType constant.APISIXResource, id string,
+ctx context.Context,
+resourceType constant.APISIXResource, id string,
 ) (constant.ResourceStatus, error) {
 	resource, err := GetResourceByID(ctx, resourceType, id)
 	if err != nil {
@@ -443,9 +456,9 @@ func GetResourceUpdateStatus(
 
 // ParseOrderByExprList 解析排序字段
 func ParseOrderByExprList(
-	ascFieldMap map[string]field.Expr,
-	descFieldMap map[string]field.Expr,
-	orderBy string,
+ascFieldMap map[string]field.Expr,
+descFieldMap map[string]field.Expr,
+orderBy string,
 ) []field.Expr {
 	var orderByExprs []field.Expr
 
@@ -478,6 +491,12 @@ func ParseOrderByExprList(
 func ValidateResource(ctx context.Context, resources map[constant.APISIXResource][]*model.GatewaySyncData) error {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	resourceTypeIDMap := make(map[constant.APISIXResource]map[string]struct{})
+	for resourceType, resourceList := range resources {
+		resourceTypeIDMap[resourceType] = make(map[string]struct{})
+		for _, resource := range resourceList {
+			resourceTypeIDMap[resourceType][resource.ID] = struct{}{}
+		}
+	}
 	for resourceType, resource := range resources {
 		schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
 			"main."+resourceType.String())
@@ -551,4 +570,95 @@ func ValidateResource(ctx context.Context, resources map[constant.APISIXResource
 	}
 
 	return nil
+}
+
+// HandlerImportResources 处理导入资源
+func HandlerImportResources(
+ctx context.Context,
+resourcesImport *dto.ResourceUploadInfo,
+) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
+	// 分类聚合
+	resourceTypeAddMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+	resourceTypeUpdateMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+	for resourceType, resourceInfoList := range resourcesImport.Add {
+		for _, imp := range resourceInfoList {
+			resourceImp := &model.GatewaySyncData{
+				Type:   resourceType,
+				ID:     imp.ResourceID,
+				Config: datatypes.JSON(imp.Config),
+			}
+			if _, ok := resourceTypeAddMap[imp.ResourceType]; !ok {
+				resourceTypeAddMap[resourceType] = []*model.GatewaySyncData{resourceImp}
+				continue
+			}
+			resourceTypeAddMap[resourceType] = append(resourceTypeAddMap[resourceType], resourceImp)
+		}
+	}
+	err := ValidateResource(ctx, resourceTypeAddMap)
+	if err != nil {
+		return nil, nil, fmt.Errorf("add resources validate failed, err: %v", err)
+	}
+	for resourceType, resourceInfoList := range resourcesImport.Update {
+		for _, imp := range resourceInfoList {
+			resourceImp := &model.GatewaySyncData{
+				Type:   resourceType,
+				ID:     imp.ResourceID,
+				Config: datatypes.JSON(imp.Config),
+			}
+			if _, ok := resourceTypeUpdateMap[imp.ResourceType]; ok {
+				resourceTypeUpdateMap[resourceType] = []*model.GatewaySyncData{resourceImp}
+				continue
+			}
+			resourceTypeUpdateMap[resourceType] = append(resourceTypeUpdateMap[resourceType], resourceImp)
+		}
+	}
+	err = ValidateResource(ctx, resourceTypeUpdateMap)
+	if err != nil {
+		return nil, nil, fmt.Errorf("updated resources validate failed, err: %v", err)
+	}
+	return resourceTypeAddMap, resourceTypeUpdateMap, nil
+}
+
+// ClassifyImportResourceInfo 分类合并导入资源信息
+func ClassifyImportResourceInfo(
+ctx context.Context,
+importDataList map[constant.APISIXResource][]dto.ResourceInfo,
+) (*dto.ResourceUploadInfo, error) {
+	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
+	for _, impList := range importDataList {
+		for _, imp := range impList {
+			if idList, ok := resourceIDMap[imp.ResourceType]; ok {
+				resourceIDMap[imp.ResourceType] = append(idList, imp.ResourceID)
+			} else {
+				resourceIDMap[imp.ResourceType] = []string{imp.ResourceID}
+			}
+		}
+	}
+	dbResourceIDMap := make(map[string]*model.ResourceCommonModel)
+	for resourceType, idList := range resourceIDMap {
+		dbResources, err := BatchGetResources(ctx, resourceType, idList)
+		if err != nil {
+			return nil, err
+		}
+		for _, dbResource := range dbResources {
+			dbResourceIDMap[dbResource.ID] = dbResource
+		}
+	}
+	uploadOutput := &dto.ResourceUploadInfo{
+		Add:    make(map[constant.APISIXResource][]dto.ResourceInfo),
+		Update: make(map[constant.APISIXResource][]dto.ResourceInfo),
+	}
+	for _, impList := range importDataList {
+		for _, imp := range impList {
+			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
+			if _, ok := dbResourceIDMap[imp.ResourceID]; !ok {
+				imp.Status = constant.UploadStatusAdd
+				uploadOutput.Add[imp.ResourceType] = append(uploadOutput.Add[imp.ResourceType], imp)
+			} else {
+				imp.Status = constant.UploadStatusUpdate
+				uploadOutput.Update[imp.ResourceType] = append(uploadOutput.Update[imp.ResourceType], imp)
+			}
+		}
+	}
+	return uploadOutput, nil
 }

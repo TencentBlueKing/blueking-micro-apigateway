@@ -58,6 +58,9 @@ const UserIDKey CtxKey = "bk_uid"
 // ResourceTypeKey resource type 在 context 中的 key
 const ResourceTypeKey CtxKey = "resource_type"
 
+// DbTxKey transaction 在 context 中的 key
+const DbTxKey CtxKey = "db_tx"
+
 // SystemConfigUserWhitest system config key
 const (
 	// SystemConfigUserWhitest user whitelist

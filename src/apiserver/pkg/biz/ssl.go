@@ -126,6 +126,9 @@ func CreateSSL(ctx context.Context, sslModel *model.SSL) error {
 
 // BatchCreateSSL 批量创建 SSL
 func BatchCreateSSL(ctx context.Context, ssls []*model.SSL) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).SSL.WithContext(ctx).Create(ssls...)
+	}
 	return repo.SSL.WithContext(ctx).Create(ssls...)
 }
 
@@ -179,7 +182,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, sls := range ssls {
-			err := repo.SSL.WithContext(ctx).Save(sls)
+			err := tx.SSL.WithContext(ctx).Save(sls)
 			if err != nil {
 				return err
 			}
@@ -215,11 +218,12 @@ func ExistsSSL(ctx context.Context, id string) bool {
 func BatchDeleteSSL(ctx context.Context, ids []string) error {
 	u := repo.SSL
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.SSL, ids)
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.SSL.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

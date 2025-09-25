@@ -108,6 +108,9 @@ func CreateService(ctx context.Context, service model.Service) error {
 
 // BatchCreateServices 批量创建 service
 func BatchCreateServices(ctx context.Context, services []*model.Service) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).Service.WithContext(ctx).Create(services...)
+	}
 	return repo.Service.WithContext(ctx).Create(services...)
 }
 
@@ -156,6 +159,7 @@ func ExistsService(ctx context.Context, id string) bool {
 func BatchDeleteServices(ctx context.Context, ids []string) error {
 	u := repo.Service
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Service, ids)
 		if err != nil {
 			return err
@@ -165,7 +169,7 @@ func BatchDeleteServices(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.Service.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -216,7 +220,7 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, service := range services {
-			err := repo.Service.WithContext(ctx).Save(service)
+			err := tx.Service.WithContext(ctx).Save(service)
 			if err != nil {
 				return err
 			}

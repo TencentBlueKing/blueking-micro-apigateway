@@ -172,7 +172,7 @@ import { getDiffByType, getResourceDiff, IDiffGroup, publish } from '@/http/publ
 import dayjs from 'dayjs';
 import i18n from '@/i18n';
 import useTsxRouter from '@/hooks/use-tsx-router';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useTableSortChange } from '@/hooks/use-table-sort-change';
 import TagStatus from '@/components/tag-status.vue';
 import DialogPublishResource from '@/components/dialog-publish-resource.vue';

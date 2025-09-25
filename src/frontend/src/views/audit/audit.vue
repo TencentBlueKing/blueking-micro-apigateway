@@ -83,7 +83,7 @@ import { IOperationAuditLogs, ITableMethod } from '@/types';
 import dayjs from 'dayjs';
 import { useCommon } from '@/store';
 import { useDatePicker } from '@/hooks/use-date-picker';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useSearchSelectPopoverHidden } from '@/hooks/use-search-select-popover-hidden';
 import { getOperationAuditLogs } from '@/http/audit';
 // @ts-ignore

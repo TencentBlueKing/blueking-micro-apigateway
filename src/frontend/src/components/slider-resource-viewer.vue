@@ -70,6 +70,7 @@
               </div>
               <div class="editor">
                 <monaco-editor
+                  v-if="activeTabName === 'source'"
                   ref="monaco-editor"
                   :height="editorHeight"
                   :source="source"
@@ -185,6 +186,21 @@ watch(sourceLanguage, () => {
   editor.value?.setLanguage(sourceLanguage.value);
 });
 
+watch(activeTabName, (tab: string) => {
+  if (editor.value && ['source'].includes(tab)) {
+    editor.value?.initEditor();
+  }
+});
+
+watch(
+  () => source.value,
+  (newSource) => {
+    if (['source'].includes(activeTabName.value) && editor.value) {
+      editor.value.setValue(newSource);
+    }
+  },
+);
+
 const handleEditorChange = ({ source }: { source: string }) => {
   localSource.value = source;
 };
@@ -219,6 +235,7 @@ const handleCancelClick = () => {
 
 const handleClose = () => {
   sourceLanguage.value = 'json';
+  activeTabName.value = 'list';
   editor.value?.setValue(formatJSON({ source }));
   localSource.value = source;
   isEditing.value = false;

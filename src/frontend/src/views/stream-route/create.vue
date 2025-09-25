@@ -41,7 +41,11 @@
             </BkFormItem>
 
             <BkFormItem :label="t('绑定服务')" class="form-item">
-              <SelectService v-model="formModel.service_id" :check-disabled="formModel.service_id === '__none__'">
+              <SelectService
+                v-model="formModel.service_id"
+                :check-disabled="formModel.service_id === '__none__'"
+                @change="handleServiceChange"
+              >
                 <BkOption id="__none__" :name="t('不绑定服务')" />
               </SelectService>
             </BkFormItem>
@@ -267,18 +271,6 @@ const routeDtoId = computed(() => {
   return route.params.id as string;
 });
 
-watch(() => formModel.value.service_id, () => {
-  // 如果选择了不绑定服务，上游不允许为“不选择”
-  if (formModel.value.service_id === '__none__' && formModel.value.upstream_id === '__none__') {
-    formModel.value.upstream_id = '__config__';
-  }
-
-  // 选择了绑定的服务，上游自动改为不选择
-  if (formModel.value.service_id && formModel.value.service_id !== '__none__') {
-    formModel.value.upstream_id = '__none__';
-  }
-});
-
 watch(() => route.params.id, async (id: string | null) => {
   if (id) {
     const response = await getStreamRoute({ id } as { id: string });
@@ -496,7 +488,7 @@ const handleSubmit = async () => {
 
       // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
       if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
-        data.upstream_id =  formModel.value.upstream_id;
+        data.upstream_id = formModel.value.upstream_id;
       }
 
       if (routeConfig.value.plugin_config_id) {
@@ -544,6 +536,19 @@ const handleCancelClick = () => {
 const getUpstreamList = async () => {
   const response = await getUpstreams({ query: { offset: 0, limit: 100 } });
   upstreamList.value = response.results || [];
+};
+
+// 绑定服务联动选择上游服务
+const handleServiceChange = () => {
+  // 如果选择了不绑定服务，上游不允许为“不选择”
+  if (formModel.value.service_id === '__none__' && formModel.value.upstream_id === '__none__') {
+    formModel.value.upstream_id = '__config__';
+  }
+
+  // 选择了绑定的服务，上游自动改为不选择
+  if (formModel.value.service_id && formModel.value.service_id !== '__none__') {
+    formModel.value.upstream_id = '__none__';
+  }
 };
 
 const handleUpstreamSelect = () => {

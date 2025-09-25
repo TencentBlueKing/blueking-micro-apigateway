@@ -19,10 +19,10 @@
 package handler
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/gin-gonic/gin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
@@ -326,10 +326,22 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 			Config:       json.RawMessage(resource.Config),
 		}
 		if _, ok := outputs[resource.Type]; !ok {
-			outputs[resource.Type] = []dto.ResourceInfo{resourceOutput}
+			outputs[resource.Type] = []serializer.ResourceInfo{
+				{
+					ResourceType: resourceOutput.ResourceType,
+					ResourceID:   resourceOutput.ResourceID,
+					Name:         resourceOutput.Name,
+					Config:       resourceOutput.Config,
+				},
+			}
 			continue
 		}
-		outputs[resource.Type] = append(outputs[resource.Type], resourceOutput)
+		outputs[resource.Type] = append(outputs[resource.Type], serializer.ResourceInfo{
+			ResourceType: resourceOutput.ResourceType,
+			ResourceID:   resourceOutput.ResourceID,
+			Name:         resourceOutput.Name,
+			Config:       resourceOutput.Config,
+		})
 	}
 	return outputs
 }
@@ -363,17 +375,8 @@ func ResourceUpload(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	file, _ := fileHeader.Open()
-	defer file.Close()
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(file)
-	if err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
-		return
-	}
-	resourceData := buf.Bytes()
 	var resourceInfoTypeMap map[constant.APISIXResource][]dto.ResourceInfo
-	if err := json.Unmarshal(resourceData, &resourceInfoTypeMap); err != nil {
+	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -433,7 +436,7 @@ func ResourceImport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := biz.HandlerImportResources(c.Request.Context(), &resourcesImport)
+	addResourcesMap, updateResourcesMap, err := biz.HandleImportResources(c.Request.Context(), &resourcesImport)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

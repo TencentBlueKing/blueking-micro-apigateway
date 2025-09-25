@@ -20,10 +20,9 @@
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -357,24 +356,15 @@ func ResourcePublish(c *gin.Context) {
 //	@Param		resource_file	formData	file	true	"资源配置文件(json)"
 //	@Param		gateway_name	path		string	true	"网关名称"
 //	@Success	200				{object}	dto.ResourceUploadInfo
-//	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/publish/ [post]
+//	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/import/ [post]
 func ResourceImport(c *gin.Context) {
 	fileHeader, err := c.FormFile("resource_file")
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	file, _ := fileHeader.Open()
-	defer file.Close()
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(file)
-	if err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
-		return
-	}
-	resourceData := buf.Bytes()
 	var resourceInfoTypeMap map[constant.APISIXResource][]dto.ResourceInfo
-	if err := json.Unmarshal(resourceData, &resourceInfoTypeMap); err != nil {
+	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -383,7 +373,7 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := biz.HandlerImportResources(c.Request.Context(), uploadInfo)
+	addResourcesMap, updateResourcesMap, err := biz.HandleImportResources(c.Request.Context(), uploadInfo)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -37,7 +37,8 @@ func RegisterOpenApi(path string, router *gin.RouterGroup) {
 	gatewayGroup.PUT("/:gateway_name/", handler.GatewayUpdate)
 	gatewayGroup.DELETE("/:gateway_name/", handler.GatewayDelete)
 	gatewayGroup.POST("/:gateway_name/publish/", handler.GatewayPublish)
-	gatewayGroup.POST("/:gateway_name/resources/", handler.GatewayPublish)
+	// resource import
+	gatewayGroup.POST("/:gateway_name/resources/-/import/", handler.ResourceImport)
 
 	// resource
 	resourceGroup := gatewayGroup.Group("/:gateway_name/resources")
@@ -52,6 +53,5 @@ func RegisterOpenApi(path string, router *gin.RouterGroup) {
 
 	// resource publish
 	resourceGroup.POST("/:resource_type/publish/", handler.ResourcePublish)
-	// resource import
-	resourceGroup.POST("/-/import/", handler.ResourceImport)
+
 }

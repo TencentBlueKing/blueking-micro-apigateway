@@ -39,5 +39,5 @@ script:post-response {
 assert {
   res.status: eq 200
   res.body.data[0].name: eq "datadog"
-  res.body.data[0].id: matches /^bk.*/
+  res.body.data[0].id: eq "datadog"
 }

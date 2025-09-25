@@ -107,7 +107,7 @@ import { useCommon } from '@/store';
 import TableResourceToPublish from '@/components/table-resource-to-publish.vue';
 import { getDiffAll, IDiffGroup } from '@/http/publish';
 import usePublishSearch from '@/hooks/use-publish-search';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useSearchSelectPopoverHidden } from '@/hooks/use-search-select-popover-hidden';
 import { getSyncLastTime, postGatewaySyncData } from '@/http/gateway-sync-data';
 // @ts-ignore

@@ -84,6 +84,7 @@ const columns = shallowRef<PrimaryTableProps['columns']>([
     title: t('服务'),
     colKey: 'service_id',
     ellipsis: true,
+    width: 120,
     filter: {
       type: 'single',
       showConfirmAndReset: true,
@@ -102,6 +103,7 @@ const columns = shallowRef<PrimaryTableProps['columns']>([
     title: t('上游'),
     colKey: 'upstream_id',
     ellipsis: true,
+    width: 120,
     filter: {
       type: 'single',
       showConfirmAndReset: true,

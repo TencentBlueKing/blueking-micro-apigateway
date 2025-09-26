@@ -19,7 +19,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/gookit/goutil v0.7.0
-	github.com/gorilla/csrf v1.7.3
+	github.com/gorilla/csrf v1.7.2
 	github.com/gwatts/gin-adapter v1.0.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/lib/pq v1.10.9

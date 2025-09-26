@@ -343,9 +343,9 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 //	@Produce	json
 //	@Tags		webapi.unify_op
 //	@Accept		multipart/form-data
-//	@Param		resource_file	formData	file					true	"资源配置文件(json)"
-//	@Param		gateway_id		path		int						true	"网关 ID"
-//	@Success	200				{object}	dto.ResourceUploadInfo	"导入资源列表"
+//	@Param		resource_file	formData	file						true	"资源配置文件(json)"
+//	@Param		gateway_id		path		int							true	"网关 ID"
+//	@Success	200				{object}	common.ResourceUploadInfo	"导入资源列表"
 //	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/upload/ [post]
 //
 // ResourceUpload handles the upload of resource configuration files for import.
@@ -414,8 +414,8 @@ func ResourceUpload(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.unify_op
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	dto.ResourceUploadInfo	true	"待导入的资源列表"
+//	@Param		gateway_id	path	int							true	"网关 ID"
+//	@Param		request		body	common.ResourceUploadInfo	true	"待导入的资源列表"
 //	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/import/ [post]
 //
 // ResourceImport handles importing resources from the request body,

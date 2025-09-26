@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ResourceInfo ...
@@ -49,8 +50,8 @@ type ResourceUploadInfo struct {
 
 // ClassifyImportResourceInfo 分类合并导入资源信息
 func ClassifyImportResourceInfo(
-	importDataList map[constant.APISIXResource][]ResourceInfo,
-	existsResourceIdList map[string]struct{},
+importDataList map[constant.APISIXResource][]ResourceInfo,
+existsResourceIdList map[string]struct{},
 ) (*ResourceUploadInfo, error) {
 	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
 	for _, impList := range importDataList {
@@ -83,8 +84,8 @@ func ClassifyImportResourceInfo(
 
 // HandleImportResources 处理导入资源
 func HandleImportResources(
-	ctx context.Context,
-	resourcesImport *ResourceUploadInfo,
+ctx context.Context,
+resourcesImport *ResourceUploadInfo,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	// 分类聚合
 	resourceTypeAddMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
@@ -92,9 +93,10 @@ func HandleImportResources(
 	for resourceType, resourceInfoList := range resourcesImport.Add {
 		for _, imp := range resourceInfoList {
 			resourceImp := &model.GatewaySyncData{
-				Type:   resourceType,
-				ID:     imp.ResourceID,
-				Config: datatypes.JSON(imp.Config),
+				Type:      resourceType,
+				ID:        imp.ResourceID,
+				Config:    datatypes.JSON(imp.Config),
+				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
 			}
 			if _, ok := resourceTypeAddMap[imp.ResourceType]; !ok {
 				resourceTypeAddMap[resourceType] = []*model.GatewaySyncData{resourceImp}
@@ -110,9 +112,10 @@ func HandleImportResources(
 	for resourceType, resourceInfoList := range resourcesImport.Update {
 		for _, imp := range resourceInfoList {
 			resourceImp := &model.GatewaySyncData{
-				Type:   resourceType,
-				ID:     imp.ResourceID,
-				Config: datatypes.JSON(imp.Config),
+				Type:      resourceType,
+				ID:        imp.ResourceID,
+				Config:    datatypes.JSON(imp.Config),
+				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
 			}
 			if _, ok := resourceTypeUpdateMap[imp.ResourceType]; !ok {
 				resourceTypeUpdateMap[resourceType] = []*model.GatewaySyncData{resourceImp}

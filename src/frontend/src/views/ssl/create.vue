@@ -66,10 +66,12 @@
               </bk-form-item>
 
               <bk-form-item class="form-item" label="SNIS" property="snis">
-                <bk-input
+                <bk-tag-input
                   v-model="formModel.snis"
-                  :placeholder="t('请输入 SNIS')"
-                  clearable
+                  :placeholder="t('请输入 SNIS，按 Enter 确定')"
+                  allow-create
+                  collapse-tags
+                  has-delete-icon
                 />
               </bk-form-item>
 
@@ -112,7 +114,7 @@ interface IFormModel {
   name: string;
   cert: string;
   key: string;
-  snis: string;
+  snis: string[];
 }
 
 const { t } = useI18n();
@@ -130,7 +132,7 @@ const formModel = ref<IFormModel>({
   name: '',
   cert: '',
   key: '',
-  snis: '',
+  snis: [],
 });
 
 const fileList = ref([]);
@@ -171,7 +173,7 @@ watch(() => route.params.id, async (id: unknown) => {
     formModel.value.name = response.name;
     formModel.value.cert = response.config.cert;
     formModel.value.key = response.config.key;
-    formModel.value.snis = response.config.snis[0] || '';
+    formModel.value.snis = response.config.snis || [];
     fileList.value = [];
     await nextTick(() => {
       checkStatus.value = {
@@ -259,7 +261,7 @@ const handleSubmit = async () => {
     const config = {
       cert: checkResponse.cert,
       key: checkResponse.key,
-      snis: formModel.value.snis ? [formModel.value.snis] : checkResponse.snis,
+      snis: formModel.value.snis.length ? formModel.value.snis : checkResponse.snis,
     };
 
     const data = {

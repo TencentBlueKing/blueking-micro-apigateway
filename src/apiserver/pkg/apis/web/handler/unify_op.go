@@ -320,29 +320,17 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 		if resource.ID == "" {
 			resource.ID = idx.GenResourceID(resource.Type)
 		}
-		resourceOutput := common.ResourceInfo{
+		resourceOutput := serializer.ResourceInfo{
 			ResourceType: resource.Type,
 			ResourceID:   resource.ID,
 			Name:         resource.GetName(),
 			Config:       json.RawMessage(resource.Config),
 		}
 		if _, ok := outputs[resource.Type]; !ok {
-			outputs[resource.Type] = []serializer.ResourceInfo{
-				{
-					ResourceType: resourceOutput.ResourceType,
-					ResourceID:   resourceOutput.ResourceID,
-					Name:         resourceOutput.Name,
-					Config:       resourceOutput.Config,
-				},
-			}
+			outputs[resource.Type] = []serializer.ResourceInfo{resourceOutput}
 			continue
 		}
-		outputs[resource.Type] = append(outputs[resource.Type], serializer.ResourceInfo{
-			ResourceType: resourceOutput.ResourceType,
-			ResourceID:   resourceOutput.ResourceID,
-			Name:         resourceOutput.Name,
-			Config:       resourceOutput.Config,
-		})
+		outputs[resource.Type] = append(outputs[resource.Type], resourceOutput)
 	}
 	return outputs
 }

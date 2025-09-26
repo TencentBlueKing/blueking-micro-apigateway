@@ -199,8 +199,8 @@ func ConsumerGroupList(c *gin.Context) {
 //	@Summary	consumer_group 详情
 //	@Produce	json
 //	@Tags		webapi.consumer_group
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ConsumerGroupOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [get]
 func ConsumerGroupGet(c *gin.Context) {
@@ -236,8 +236,8 @@ func ConsumerGroupGet(c *gin.Context) {
 //	@Summary	consumer_group 删除
 //	@Produce	json
 //	@Tags		webapi.consumer_group
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [delete]
 func ConsumerGroupDelete(c *gin.Context) {

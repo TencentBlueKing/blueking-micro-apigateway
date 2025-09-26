@@ -194,8 +194,8 @@ func PluginMetadataList(c *gin.Context) {
 //	@Summary	plugin_metadata 详情
 //	@Produce	json
 //	@Tags		webapi.plugin_metadata
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.PluginMetadataOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas/{id}/ [get]
 func PluginMetadataGet(c *gin.Context) {
@@ -234,8 +234,8 @@ func PluginMetadataGet(c *gin.Context) {
 //	@Summary	plugin_metadata 删除
 //	@Produce	json
 //	@Tags		webapi.plugin_metadata
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas/{id}/ [delete]
 func PluginMetadataDelete(c *gin.Context) {

@@ -213,8 +213,8 @@ func RouteList(c *gin.Context) {
 //	@Summary	route 详情
 //	@Produce	json
 //	@Tags		webapi.route
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"路由 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"路由 ID"
 //	@Success	200			{object}	serializer.RouteOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/routes/{id}/ [get]
 func RouteGet(c *gin.Context) {
@@ -255,8 +255,8 @@ func RouteGet(c *gin.Context) {
 //	@Summary	路由删除
 //	@Produce	json
 //	@Tags		webapi.route
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"路由 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"路由 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/routes/{id}/ [delete]
 func RouteDelete(c *gin.Context) {

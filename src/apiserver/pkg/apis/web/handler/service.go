@@ -201,8 +201,8 @@ func ServiceList(c *gin.Context) {
 //	@Summary	service 详情
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ServiceOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [get]
 func ServiceGet(c *gin.Context) {
@@ -241,8 +241,8 @@ func ServiceGet(c *gin.Context) {
 //	@Summary	service 删除
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [delete]
 func ServiceDelete(c *gin.Context) {

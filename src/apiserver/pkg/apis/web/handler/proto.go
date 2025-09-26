@@ -124,8 +124,8 @@ func ProtoUpdate(c *gin.Context) {
 //	@Summary	proto 详情
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ProtoOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [get]
 func ProtoGet(c *gin.Context) {
@@ -163,8 +163,8 @@ func ProtoGet(c *gin.Context) {
 //	@Summary	proto 删除
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [delete]
 func ProtoDelete(c *gin.Context) {

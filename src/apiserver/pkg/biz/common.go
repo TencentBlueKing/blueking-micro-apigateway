@@ -496,6 +496,16 @@ func ValidateResource(ctx context.Context, resources map[constant.APISIXResource
 		}
 	}
 	for resourceType, resource := range resources {
+		existResourceInfoList, err := BatchGetResources(ctx, resourceType, []string{})
+		if err != nil {
+			return err
+		}
+		if _, ok := resourceTypeIDMap[resourceType]; !ok {
+			resourceTypeIDMap[resourceType] = make(map[string]struct{})
+		}
+		for _, res := range existResourceInfoList {
+			resourceTypeIDMap[resourceType][res.ID] = struct{}{}
+		}
 		schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
 			"main."+resourceType.String())
 		if err != nil {

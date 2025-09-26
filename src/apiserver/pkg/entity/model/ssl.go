@@ -126,7 +126,7 @@ func (s *SSL) HandleConfig() (err error) {
 		if err != nil {
 			return err
 		}
-		s.Config, err = sjson.SetBytes(s.Config, "snis", snis)
+		s.Config, _ = sjson.SetBytes(s.Config, "snis", snis)
 	}
 	return nil
 }

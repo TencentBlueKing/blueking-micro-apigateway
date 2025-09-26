@@ -90,7 +90,7 @@ func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
 
 // RemoveDuplicatedResourceName 去除同名资源
 func RemoveDuplicatedResourceName(ctx context.Context, resourceType constant.APISIXResource,
-resources []*model.GatewaySyncData,
+	resources []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	var syncedResources []*model.GatewaySyncData
 	var ids []string
@@ -117,8 +117,8 @@ resources []*model.GatewaySyncData,
 
 // AddSyncedResources 添加同步资源到编辑区
 func AddSyncedResources( //nolint:gocyclo
-ctx context.Context,
-idList []string,
+	ctx context.Context,
+	idList []string,
 ) (map[constant.APISIXResource]int, error) {
 	// 同步资源统计
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
@@ -164,9 +164,9 @@ idList []string,
 
 // InsertSyncedResources 插入数据
 func InsertSyncedResources(
-ctx context.Context,
-typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
-status constant.ResourceStatus,
+	ctx context.Context,
+	typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) error {
 	// 分类同步
 	var err error
@@ -185,10 +185,10 @@ status constant.ResourceStatus,
 }
 
 func insertSyncedResourcesModel(
-ctx context.Context,
-typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
-status constant.ResourceStatus,
-removeDuplicated bool,
+	ctx context.Context,
+	typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	status constant.ResourceStatus,
+	removeDuplicated bool,
 ) error {
 	var err error
 	for resourceType, itemList := range typeSyncedItemMap {
@@ -262,9 +262,9 @@ removeDuplicated bool,
 
 // UploadResources 插入数据
 func UploadResources(
-ctx context.Context,
-addResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
-updateTypeResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	ctx context.Context,
+	addResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	updateTypeResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
 ) error {
 	// 分类同步
 	var err error
@@ -299,8 +299,8 @@ updateTypeResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
 
 // GetSyncItemsAssociatedResources 获取同步资源关联的资源
 func GetSyncItemsAssociatedResources(
-ctx context.Context,
-items []*model.GatewaySyncData,
+	ctx context.Context,
+	items []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	idMap := make(map[string]bool)
 	for _, item := range items {
@@ -345,8 +345,8 @@ items []*model.GatewaySyncData,
 
 // SyncResources 同步资源
 func SyncResources(
-ctx context.Context,
-resourceType constant.APISIXResource,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
 ) (map[constant.APISIXResource]int, error) {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	prefix := gatewayInfo.EtcdConfig.Prefix
@@ -402,7 +402,7 @@ func (s *UnifyOp) SyncerRun(ctx context.Context, resourceChan chan []*model.Gate
 	minDelay := 1
 	maxDelay := 300
 	ticker := time.NewTicker(config.G.Biz.SyncInterval +
-	time.Second*time.Duration(rand.Intn(maxDelay-minDelay+1)+minDelay))
+		time.Second*time.Duration(rand.Intn(maxDelay-minDelay+1)+minDelay))
 	for range ticker.C {
 		// prefix可能会更新,再查一次
 		gatewayInfo, err := GetGateway(ctx, s.gatewayInfo.ID)
@@ -475,9 +475,9 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 
 // SyncWithPrefixWithChannel 同步 prefix 下面的所有资源，通过 channel 来落库
 func (s *UnifyOp) SyncWithPrefixWithChannel(
-ctx context.Context,
-prefix string,
-resourceChannel chan []*model.GatewaySyncData,
+	ctx context.Context,
+	prefix string,
+	resourceChannel chan []*model.GatewaySyncData,
 ) error {
 	if !s.isLeader {
 		return nil
@@ -494,7 +494,7 @@ resourceChannel chan []*model.GatewaySyncData,
 }
 
 var revertConfigByIDListFunc = map[constant.APISIXResource]func(ctx context.Context,
-syncDataList []*model.GatewaySyncData) error{
+	syncDataList []*model.GatewaySyncData) error{
 	constant.Route:          BatchRevertRoutes,
 	constant.Service:        BatchRevertServices,
 	constant.Upstream:       BatchRevertUpstreams,
@@ -510,9 +510,9 @@ syncDataList []*model.GatewaySyncData) error{
 
 // RevertConfigByIDList 根据 ID 列表，回滚配置
 func (s *UnifyOp) RevertConfigByIDList(
-ctx context.Context,
-resourceType constant.APISIXResource,
-idList []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	idList []string,
 ) error {
 	// 状态机判断
 	resources, err := BatchGetResources(ctx, resourceType, idList)
@@ -737,9 +737,9 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 
 // SyncedResourceToAPISIXResource 将同步的资源转换为 apisix 的资源
 func SyncedResourceToAPISIXResource(
-resourceType constant.APISIXResource,
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	resourceType constant.APISIXResource,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) interface{} {
 	switch resourceType {
 	case constant.Route:
@@ -769,8 +769,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXRoute(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.Route {
 	var routes []*model.Route
 	for _, syncedResource := range syncedResources {
@@ -791,8 +791,8 @@ status constant.ResourceStatus,
 }
 
 func syncedServiceToAPISIXRoute(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.Service {
 	var services []*model.Service
 	for _, syncedResource := range syncedResources {
@@ -811,8 +811,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXUpstream(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.Upstream {
 	var upstreams []*model.Upstream
 	for _, syncedResource := range syncedResources {
@@ -830,8 +830,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXPluginConfig(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.PluginConfig {
 	var pluginConfigs []*model.PluginConfig
 	for _, syncedResource := range syncedResources {
@@ -849,8 +849,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXPluginMetadata(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.PluginMetadata {
 	var pluginMetadata []*model.PluginMetadata
 	for _, syncedResource := range syncedResources {
@@ -872,8 +872,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXConsumer(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.Consumer {
 	var consumers []*model.Consumer
 	for _, syncedResource := range syncedResources {
@@ -891,8 +891,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXConsumerGroup(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.ConsumerGroup {
 	var consumerGroups []*model.ConsumerGroup
 	for _, syncedResource := range syncedResources {
@@ -910,8 +910,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXGlobalRule(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.GlobalRule {
 	var globalRules []*model.GlobalRule
 	for _, syncedResource := range syncedResources {
@@ -945,8 +945,8 @@ func syncedResourceToAPISIXSSL(syncedResources []*model.GatewaySyncData, status 
 }
 
 func syncedResourceToAPISIXProto(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.Proto {
 	var protos []*model.Proto
 	for _, syncedResource := range syncedResources {
@@ -964,8 +964,8 @@ status constant.ResourceStatus,
 }
 
 func syncedResourceToAPISIXStreamRoute(
-syncedResources []*model.GatewaySyncData,
-status constant.ResourceStatus,
+	syncedResources []*model.GatewaySyncData,
+	status constant.ResourceStatus,
 ) []*model.StreamRoute {
 	var streamRoutes []*model.StreamRoute
 	for _, syncedResource := range syncedResources {
@@ -986,12 +986,12 @@ status constant.ResourceStatus,
 
 // DiffResources 对比资源数据
 func DiffResources(
-ctx context.Context,
-resourceType constant.APISIXResource,
-idList []string,
-name string,
-resourceStatus []constant.ResourceStatus,
-isDiffAll bool,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	idList []string,
+	name string,
+	resourceStatus []constant.ResourceStatus,
+	isDiffAll bool,
 ) ([]dto.ResourceChangeInfo, error) {
 	diffResourceTypeMap := make(map[constant.APISIXResource][]string) // type:idList
 	for _, rt := range constant.ResourceTypeList {
@@ -1098,7 +1098,7 @@ isDiffAll bool,
 
 // GetResourceConfigDiffDetail 获取资源差异详情
 func GetResourceConfigDiffDetail(ctx context.Context, resourceType constant.APISIXResource, id string) (
-*dto.ResourceDiffDetailResponse, error,
+	*dto.ResourceDiffDetailResponse, error,
 ) {
 	// todo: 同步资源可能存在延时，基于什么样的策略选择从mysql拿还是从etcd拿
 	// 获取同步资源配置

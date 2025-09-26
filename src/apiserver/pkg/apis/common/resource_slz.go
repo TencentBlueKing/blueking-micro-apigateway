@@ -50,8 +50,8 @@ type ResourceUploadInfo struct {
 
 // ClassifyImportResourceInfo 分类合并导入资源信息
 func ClassifyImportResourceInfo(
-importDataList map[constant.APISIXResource][]ResourceInfo,
-existsResourceIdList map[string]struct{},
+	importDataList map[constant.APISIXResource][]ResourceInfo,
+	existsResourceIdList map[string]struct{},
 ) (*ResourceUploadInfo, error) {
 	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
 	for _, impList := range importDataList {
@@ -84,8 +84,8 @@ existsResourceIdList map[string]struct{},
 
 // HandleImportResources 处理导入资源
 func HandleImportResources(
-ctx context.Context,
-resourcesImport *ResourceUploadInfo,
+	ctx context.Context,
+	resourcesImport *ResourceUploadInfo,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	// 分类聚合
 	resourceTypeAddMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)

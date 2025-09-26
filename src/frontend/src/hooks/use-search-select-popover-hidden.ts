@@ -37,8 +37,12 @@ export function useSearchSelectPopoverHidden() {
     } else {
       // 单个输入
       setTimeout(() => {
-        const popoverVisible = document.querySelector('.bk-popover.bk-pop2-content.visible') as IElement;
-        if (popoverVisible) {
+        const popoverVisible = Array.from(document.querySelectorAll('.bk-popover.bk-pop2-content.visible'))
+          .find((elem) => {
+            const classes = elem.className.trim().split(/\s+/);
+            return classes.length === 3 && classes.every(cl => ['bk-popover', 'bk-pop2-content', 'visible'].includes(cl));
+          }) as IElement;
+        if (popoverVisible?.classList?.value === 'bk-popover bk-pop2-content visible') {
           popoverVisible.classList.remove('visible');
           popoverVisible.classList.add('hidden');
           popoverVisible.style.display = 'none';

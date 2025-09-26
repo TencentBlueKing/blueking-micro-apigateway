@@ -368,7 +368,7 @@ func PluginsGet(c *gin.Context) {
 			continue
 		}
 		// 只有 stream route 资源才能使用 stream 类型的插件，其他资源需要排除掉
-		if kind != constant.Stream && plugin.Type == constant.Stream {
+		if kind != constant.Stream && plugin.ProxyType == constant.Stream {
 			continue
 		}
 		// 根据 apisixType 过滤

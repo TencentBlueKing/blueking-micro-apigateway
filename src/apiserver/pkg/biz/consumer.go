@@ -28,6 +28,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ListConsumers 查询网关 Consumer 列表
@@ -107,6 +108,9 @@ func CreateConsumer(ctx context.Context, consumer model.Consumer) error {
 
 // BatchCreateConsumers 批量创建 Consumer
 func BatchCreateConsumers(ctx context.Context, consumers []*model.Consumer) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).Consumer.WithContext(ctx).Create(consumers...)
+	}
 	return repo.Consumer.WithContext(ctx).Create(consumers...)
 }
 
@@ -139,6 +143,7 @@ func QueryConsumers(ctx context.Context, param map[string]interface{}) ([]*model
 func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 	u := repo.Consumer
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Consumer, ids)
 		if err != nil {
 			return err
@@ -148,7 +153,7 @@ func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.Consumer.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -193,7 +198,7 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, consumer := range consumers {
-			err := repo.Consumer.WithContext(ctx).Save(consumer)
+			err := tx.Consumer.WithContext(ctx).Save(consumer)
 			if err != nil {
 				return err
 			}

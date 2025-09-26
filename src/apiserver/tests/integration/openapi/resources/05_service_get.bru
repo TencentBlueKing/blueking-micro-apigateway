@@ -15,6 +15,6 @@ headers {
 
 assert {
   res.status: eq 200
-  res.body.data.name: eq test_service-222
+  res.body.data.name: eq test_service
   res.body.data.id: matches /^bk.*/
 }

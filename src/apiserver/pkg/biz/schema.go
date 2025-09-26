@@ -200,6 +200,13 @@ func BatchDeleteResourceSchemaAssociation(
 	resourceType constant.APISIXResource,
 ) error {
 	u := repo.GatewayResourceSchemaAssociation
+	if ginx.GetTx(ctx) != nil {
+		_, err := ginx.GetTx(ctx).GatewayResourceSchemaAssociation.WithContext(ctx).Where(
+			u.ResourceID.In(resourceIDs...),
+			u.ResourceType.Eq(resourceType.String()),
+		).Delete()
+		return err
+	}
 	_, err := repo.GatewayResourceSchemaAssociation.WithContext(ctx).Where(
 		u.ResourceID.In(resourceIDs...),
 		u.ResourceType.Eq(resourceType.String()),

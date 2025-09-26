@@ -28,6 +28,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ListPluginMetadatas 查询网关 PluginMetadata 列表
@@ -86,6 +87,9 @@ func CreatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 
 // batchCreatePluginMetadatas 批量创建 PluginMetadata
 func batchCreatePluginMetadatas(ctx context.Context, pluginMetadataList []*model.PluginMetadata) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Create(pluginMetadataList...)
+	}
 	return repo.PluginMetadata.WithContext(ctx).Create(pluginMetadataList...)
 }
 
@@ -117,6 +121,7 @@ func QueryPluginMetadatas(ctx context.Context, param map[string]interface{}) ([]
 func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 	u := repo.PluginMetadata
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.PluginMetadata, ids)
 		if err != nil {
 			return err
@@ -126,7 +131,7 @@ func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.PluginMetadata.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -169,7 +174,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, pluginMetadata := range pluginMetadatas {
-			err := repo.PluginMetadata.WithContext(ctx).Save(pluginMetadata)
+			err := tx.PluginMetadata.WithContext(ctx).Save(pluginMetadata)
 			if err != nil {
 				return err
 			}

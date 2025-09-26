@@ -89,6 +89,9 @@ func CreateProto(ctx context.Context, proto model.Proto) error {
 
 // BatchCreateProtos 批量创建 Proto
 func BatchCreateProtos(ctx context.Context, protos []*model.Proto) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).Proto.WithContext(ctx).Create(protos...)
+	}
 	return repo.Proto.WithContext(ctx).Create(protos...)
 }
 
@@ -136,11 +139,12 @@ func ExistsProto(ctx context.Context, id string) bool {
 func BatchDeleteProtos(ctx context.Context, ids []string) error {
 	u := repo.Proto
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Proto, ids)
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.Proto.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -183,7 +187,7 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, pb := range protos {
-			err := repo.Proto.WithContext(ctx).Save(pb)
+			err := tx.Proto.WithContext(ctx).Save(pb)
 			if err != nil {
 				return err
 			}

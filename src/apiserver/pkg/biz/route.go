@@ -31,6 +31,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ListRoutes 查询网关路由列表
@@ -139,6 +140,9 @@ func CreateRoute(ctx context.Context, route model.Route) error {
 
 // BatchCreateRoutes 批量创建路由
 func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).Route.WithContext(ctx).Create(routes...)
+	}
 	return repo.Route.WithContext(ctx).Create(routes...)
 }
 
@@ -173,6 +177,7 @@ func QueryRoutes(ctx context.Context, param map[string]interface{}) ([]*model.Ro
 func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 	u := repo.Route
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Route, ids)
 		if err != nil {
 			return err
@@ -182,7 +187,7 @@ func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = tx.Route.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -235,7 +240,7 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, route := range routes {
-			err := repo.Route.WithContext(ctx).Save(route)
+			err := tx.Route.WithContext(ctx).Save(route)
 			if err != nil {
 				return err
 			}

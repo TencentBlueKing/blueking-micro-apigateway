@@ -91,6 +91,9 @@ func AddBatchAuditLog(ctx context.Context, operationType constant.OperationType,
 		DataAfter:     dataAfterRaw,
 		Operator:      ginx.GetUserIDFromContext(ctx),
 	}
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+	}
 	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
 }
 

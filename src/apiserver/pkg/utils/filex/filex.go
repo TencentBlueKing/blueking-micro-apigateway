@@ -16,35 +16,32 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-// Package middleware ...
-package middleware
+// Package filex ...
+package filex
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/spf13/cast"
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/pkg/errors"
 )
 
-// GatewayAccess  网关权限校验
-func GatewayAccess() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		gatewayID := c.Param("gateway_id")
-		gatewayInfo, err := biz.GetGateway(c.Request.Context(), cast.ToInt(gatewayID))
-		if err != nil {
-			ginx.BadRequestErrorJSONResponse(c, err)
-			c.Abort()
-			return
-		}
-		//// 校验权限
-		// if !gatewayInfo.HasPermission(ginx.GetUserID(c)) {
-		//	ginx.ForbiddenJSONResponse(c, errors.New("没有权限访问该网关"))
-		//	c.Abort()
-		//	return
-		//}
-		ginx.SetGatewayInfo(c, gatewayInfo)
-		ginx.SetValidateErrorInfo(c)
-		c.Next()
+// ReadFileToObject 读取文件内容到对象中
+func ReadFileToObject(fileHeader *multipart.FileHeader, obj interface{}) error {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return errors.Wrap(err, "open file failed")
 	}
+	defer file.Close()
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(file)
+	if err != nil {
+		return errors.Wrap(err, "read file failed")
+	}
+	rawData := buf.Bytes()
+	if err := json.Unmarshal(rawData, obj); err != nil {
+		return errors.Wrap(err, "unmarshal file failed")
+	}
+	return nil
 }

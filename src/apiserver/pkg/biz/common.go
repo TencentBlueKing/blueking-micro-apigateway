@@ -31,8 +31,8 @@ import (
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
@@ -291,6 +291,17 @@ func GetResourceByIDs(
 	return res, err
 }
 
+// DeleteResourceByIDs 根据 ids 删除资源
+func DeleteResourceByIDs(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) error {
+	err := database.Client().WithContext(ctx).Table(
+		resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
+	return err
+}
+
 // GetSchemaByIDs 根据 ids 获取 schema
 func GetSchemaByIDs(
 	ctx context.Context,
@@ -475,16 +486,29 @@ func ParseOrderByExprList(
 }
 
 // ValidateResource 校验资源
-func ValidateResource(ctx context.Context, resources map[constant.APISIXResource][]*model.GatewaySyncData) error {
+// ValidateResource validates resources based on schema and association checks
+// ctx: context containing request information
+// resources: map of APISIX resources to their sync data
+// allResourceIDMap: map of all valid resource IDs for association validation
+// Returns: error if validation fails, nil otherwise
+func ValidateResource(
+	ctx context.Context,
+	resources map[constant.APISIXResource][]*model.GatewaySyncData,
+	allResourceIDMap map[string]struct{},
+) error {
+	// Extract gateway information from context
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	resourceTypeIDMap := make(map[constant.APISIXResource]map[string]struct{})
+	// Iterate through each resource type and its associated data
 	for resourceType, resource := range resources {
+		// Create schema validator for the resource type
 		schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
 			"main."+resourceType.String())
 		if err != nil {
 			return err
 		}
+		// Validate each resource instance
 		for _, r := range resource {
+			// Validate resource against schema
 			if err = schemaValidator.Validate(json.RawMessage(r.Config)); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
 				return err
@@ -502,53 +526,40 @@ func ValidateResource(ctx context.Context, resources map[constant.APISIXResource
 			}
 
 			// 校验关联数据是否存在
-			var resourceAssociateIDInfo serializer.ResourceAssociateID
+			var resourceAssociateIDInfo dto.ResourceAssociateID
 			err = json.Unmarshal(r.Config, &resourceAssociateIDInfo)
 			if err != nil {
 				return err
 			}
 			if resourceAssociateIDInfo.ServiceID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.Service]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.ServiceID]; !ok {
 					return fmt.Errorf("associated service [id:%s] not found",
 						resourceAssociateIDInfo.ServiceID)
-				} else {
-					if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.ServiceID]; !ok {
-						return fmt.Errorf("associated service [id:%s] not found",
-							resourceAssociateIDInfo.ServiceID)
-					}
 				}
 			}
 			if resourceAssociateIDInfo.UpstreamID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.Upstream]; !ok {
-					return fmt.Errorf("associated upstream [id:%s] not found",
-						resourceAssociateIDInfo.UpstreamID)
-				} else if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.UpstreamID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.UpstreamID]; !ok {
 					return fmt.Errorf("associated upstream [id:%s] not found",
 						resourceAssociateIDInfo.UpstreamID)
 				}
-			}
 
-			if resourceAssociateIDInfo.PluginConfigID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.PluginConfig]; !ok {
-					return fmt.Errorf("associated plugin_config [id:%s] not found",
-						resourceAssociateIDInfo.PluginConfigID)
-				} else if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.PluginConfigID]; !ok {
-					return fmt.Errorf("associated plugin_config [id:%s] not found",
-						resourceAssociateIDInfo.PluginConfigID)
+				if resourceAssociateIDInfo.PluginConfigID != "" {
+					if _, ok := allResourceIDMap[resourceAssociateIDInfo.PluginConfigID]; !ok {
+						return fmt.Errorf("associated plugin_config [id:%s] not found",
+							resourceAssociateIDInfo.PluginConfigID)
+					}
 				}
-			}
 
-			if resourceAssociateIDInfo.GroupID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.ConsumerGroup]; !ok {
-					return fmt.Errorf("associated consumer_group [id:%s] not found",
-						resourceAssociateIDInfo.GroupID)
-				} else if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.GroupID]; !ok {
-					return fmt.Errorf("associated consumer_group [id:%s] not found",
-						resourceAssociateIDInfo.GroupID)
+				if resourceAssociateIDInfo.GroupID != "" {
+					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GroupID]; !ok {
+						return fmt.Errorf("associated consumer_group [id:%s] not found",
+							resourceAssociateIDInfo.GroupID)
+					}
 				}
 			}
 		}
-	}
 
+		return nil
+	}
 	return nil
 }

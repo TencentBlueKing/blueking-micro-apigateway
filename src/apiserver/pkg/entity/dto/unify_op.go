@@ -48,3 +48,11 @@ type ResourceDiffDetailResponse struct {
 	EditorConfig json.RawMessage `json:"editor_config" swaggertype:"object"` // 编辑区配置
 	EtcdConfig   json.RawMessage `json:"etcd_config" swaggertype:"object"`   // etcd生效配置
 }
+
+// ResourceAssociateID 资源关联ID
+type ResourceAssociateID struct {
+	ServiceID      string `json:"service_id" validate:"serviceID"`            // 服务ID
+	UpstreamID     string `json:"upstream_id" validate:"upstreamID"`          // 上游服务地址ID
+	PluginConfigID string `json:"plugin_config_id" validate:"pluginConfigID"` // 插件配置groupID
+	GroupID        string `json:"group_id" validate:"groupID"`
+}

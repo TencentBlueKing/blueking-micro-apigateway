@@ -21,6 +21,7 @@ require (
 	github.com/gookit/goutil v0.7.0
 	github.com/gorilla/csrf v1.7.2
 	github.com/gwatts/gin-adapter v1.0.0
+	github.com/iancoleman/orderedmap v0.3.0
 	github.com/lib/pq v1.10.9
 	github.com/looplab/fsm v1.0.3
 	github.com/mdobak/go-xerrors v1.0.0
@@ -44,7 +45,6 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/xeipuuv/gojsonschema v1.2.0
-	github.com/iancoleman/orderedmap v0.3.0
 	go.etcd.io/etcd/api/v3 v3.5.19
 	go.etcd.io/etcd/client/v3 v3.5.19
 	go.etcd.io/etcd/server/v3 v3.5.19

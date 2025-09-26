@@ -120,13 +120,13 @@ func (s *SSL) HandleConfig() (err error) {
 	}
 	crt := gjson.GetBytes(s.Config, "cert").String()
 	key := gjson.GetBytes(s.Config, "key").String()
-	snis, err := sslx.ParseCert(crt, key)
-	if err != nil {
-		return err
-	}
-	s.Config, err = sjson.SetBytes(s.Config, "snis", snis)
-	if err != nil {
-		return err
+	sins := gjson.GetBytes(s.Config, "snis").String()
+	if sins == "" {
+		snis, err := sslx.ParseCert(crt, key)
+		if err != nil {
+			return err
+		}
+		s.Config, _ = sjson.SetBytes(s.Config, "snis", snis)
 	}
 	return nil
 }

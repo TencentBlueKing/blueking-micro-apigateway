@@ -26,11 +26,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -339,4 +341,59 @@ func ResourcePublish(c *gin.Context) {
 		return
 	}
 	ginx.SuccessCreateResponse(c)
+}
+
+// ResourceImport ...
+//
+//	@ID			openapi_resource_import
+//	@Summary	资源导入
+//	@Accept		json
+//	@Produce	json
+//	@Tags		openapi.resource
+//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的token"
+//	@Param		gateway_name	path	string	true	"网关名称"
+//	@Accept		multipart/form-data
+//	@Param		resource_file	formData	file	true	"资源配置文件(json)"
+//	@Param		gateway_name	path		string	true	"网关名称"
+//	@Success	200				{object}	common.ResourceUploadInfo
+//	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/import/ [post]
+func ResourceImport(c *gin.Context) {
+	fileHeader, err := c.FormFile("resource_file")
+	if err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	var resourceInfoTypeMap map[constant.APISIXResource][]common.ResourceInfo
+	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	existsResourceIdList := make(map[string]struct{})
+	for resourceType := range resourceInfoTypeMap {
+		dbResources, err := biz.BatchGetResources(c.Request.Context(), resourceType, []string{})
+		if err != nil {
+			ginx.SystemErrorJSONResponse(c, err)
+			return
+		}
+		for _, dbResource := range dbResources {
+			existsResourceIdList[dbResource.ID] = struct{}{}
+		}
+	}
+	uploadInfo, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, existsResourceIdList)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	addResourcesMap, updateResourcesMap, err := common.HandleImportResources(c.Request.Context(), uploadInfo)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	// 插入数据
+	err = biz.UploadResources(c.Request.Context(), addResourcesMap, updateResourcesMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	ginx.SuccessJSONResponse(c, uploadInfo)
 }

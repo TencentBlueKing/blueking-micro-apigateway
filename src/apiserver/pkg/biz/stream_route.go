@@ -28,6 +28,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ListStreamRoutes 查询网关 StreamRoute 列表
@@ -115,6 +116,9 @@ func CreateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error
 
 // BatchCreateStreamRoutes 批量创建 StreamRoute
 func BatchCreateStreamRoutes(ctx context.Context, streamRoutes []*model.StreamRoute) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Create(streamRoutes...)
+	}
 	return repo.StreamRoute.WithContext(ctx).Create(streamRoutes...)
 }
 
@@ -148,6 +152,7 @@ func QueryStreamRoutes(ctx context.Context, param map[string]interface{}) ([]*mo
 func BatchDeleteStreamRoutes(ctx context.Context, ids []string) error {
 	u := repo.StreamRoute
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.StreamRoute, ids)
 		if err != nil {
 			return err
@@ -195,7 +200,7 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		for _, sr := range streamRoutes {
-			err := repo.StreamRoute.WithContext(ctx).Save(sr)
+			err := tx.StreamRoute.WithContext(ctx).Save(sr)
 			if err != nil {
 				return err
 			}

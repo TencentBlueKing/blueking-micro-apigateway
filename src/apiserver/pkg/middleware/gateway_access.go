@@ -20,6 +20,8 @@
 package middleware
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
 
@@ -37,12 +39,12 @@ func GatewayAccess() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		//// 校验权限
-		// if !gatewayInfo.HasPermission(ginx.GetUserID(c)) {
-		//	ginx.ForbiddenJSONResponse(c, errors.New("没有权限访问该网关"))
-		//	c.Abort()
-		//	return
-		//}
+		// 校验权限
+		if !gatewayInfo.HasPermission(ginx.GetUserID(c)) {
+			ginx.ForbiddenJSONResponse(c, errors.New("没有权限访问该网关"))
+			c.Abort()
+			return
+		}
 		ginx.SetGatewayInfo(c, gatewayInfo)
 		ginx.SetValidateErrorInfo(c)
 		c.Next()

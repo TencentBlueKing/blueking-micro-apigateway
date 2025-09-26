@@ -88,45 +88,54 @@ func HandleImportResources(
 	resourcesImport *ResourceUploadInfo,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	// 分类聚合
-	resourceTypeAddMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	resourceTypeUpdateMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for resourceType, resourceInfoList := range resourcesImport.Add {
-		for _, imp := range resourceInfoList {
-			resourceImp := &model.GatewaySyncData{
-				Type:      resourceType,
-				ID:        imp.ResourceID,
-				Config:    datatypes.JSON(imp.Config),
-				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
-			}
-			if _, ok := resourceTypeAddMap[imp.ResourceType]; !ok {
-				resourceTypeAddMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeAddMap[resourceType] = append(resourceTypeAddMap[resourceType], resourceImp)
-		}
+	allResourceIdMap := make(map[string]struct{})
+	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap)
+	if err != nil {
+		return nil, nil, err
 	}
-	err := biz.ValidateResource(ctx, resourceTypeAddMap)
+	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = biz.ValidateResource(ctx, resourceTypeAddMap, allResourceIdMap)
 	if err != nil {
 		return nil, nil, fmt.Errorf("add resources validate failed, err: %v", err)
 	}
-	for resourceType, resourceInfoList := range resourcesImport.Update {
-		for _, imp := range resourceInfoList {
-			resourceImp := &model.GatewaySyncData{
-				Type:      resourceType,
-				ID:        imp.ResourceID,
-				Config:    datatypes.JSON(imp.Config),
-				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
-			}
-			if _, ok := resourceTypeUpdateMap[imp.ResourceType]; !ok {
-				resourceTypeUpdateMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeUpdateMap[resourceType] = append(resourceTypeUpdateMap[resourceType], resourceImp)
-		}
-	}
-	err = biz.ValidateResource(ctx, resourceTypeUpdateMap)
+	err = biz.ValidateResource(ctx, resourceTypeUpdateMap, allResourceIdMap)
 	if err != nil {
 		return nil, nil, fmt.Errorf("updated resources validate failed, err: %v", err)
 	}
 	return resourceTypeAddMap, resourceTypeUpdateMap, nil
+}
+
+func handleResources(
+	ctx context.Context,
+	resourcesImport map[constant.APISIXResource][]ResourceInfo,
+	allResourceIdMap map[string]struct{},
+) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
+	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+	for resourceType, resourceInfoList := range resourcesImport {
+		allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
+		if err != nil {
+			return nil, fmt.Errorf("get exist resources failed, err: %v", err)
+		}
+		for _, imp := range resourceInfoList {
+			allResourceIdMap[imp.ResourceID] = struct{}{}
+			resourceImp := &model.GatewaySyncData{
+				Type:      resourceType,
+				ID:        imp.ResourceID,
+				Config:    datatypes.JSON(imp.Config),
+				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
+			}
+			if _, ok := resourceTypeMap[imp.ResourceType]; !ok {
+				resourceTypeMap[resourceType] = []*model.GatewaySyncData{resourceImp}
+				continue
+			}
+			resourceTypeMap[resourceType] = append(resourceTypeMap[resourceType], resourceImp)
+		}
+		for _, resource := range allResourceList {
+			allResourceIdMap[resource.ID] = struct{}{}
+		}
+	}
+	return resourceTypeMap, nil
 }

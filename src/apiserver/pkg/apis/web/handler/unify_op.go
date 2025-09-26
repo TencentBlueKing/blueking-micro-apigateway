@@ -394,7 +394,7 @@ func ResourceUpload(c *gin.Context) {
 			resourceTypeMap[resourceInfo.ResourceType] = []*model.GatewaySyncData{res}
 		}
 	}
-	err = biz.ValidateResource(c.Request.Context(), resourceTypeMap)
+	err = biz.ValidateResource(c.Request.Context(), resourceTypeMap, existsResourceIdList)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %v", err))
 		return

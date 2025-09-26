@@ -21,7 +21,6 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -38,12 +37,12 @@ func GatewayAccess() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		// 校验权限
-		if !gatewayInfo.HasPermission(ginx.GetUserID(c)) {
-			ginx.ForbiddenJSONResponse(c, errors.New("没有权限访问该网关"))
-			c.Abort()
-			return
-		}
+		//// 校验权限
+		// if !gatewayInfo.HasPermission(ginx.GetUserID(c)) {
+		//	ginx.ForbiddenJSONResponse(c, errors.New("没有权限访问该网关"))
+		//	c.Abort()
+		//	return
+		//}
 		ginx.SetGatewayInfo(c, gatewayInfo)
 		ginx.SetValidateErrorInfo(c)
 		c.Next()

@@ -191,8 +191,8 @@ func GlobalRuleList(c *gin.Context) {
 //	@Summary	global_rule 详情
 //	@Produce	json
 //	@Tags		webapi.global_rule
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源自增 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.GlobalRuleOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [get]
 func GlobalRuleGet(c *gin.Context) {
@@ -230,8 +230,8 @@ func GlobalRuleGet(c *gin.Context) {
 //	@Summary	global_rule 删除
 //	@Produce	json
 //	@Tags		webapi.global_rule
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源自增 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [delete]
 func GlobalRuleDelete(c *gin.Context) {

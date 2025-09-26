@@ -49,17 +49,10 @@ type ResourceDiffDetailResponse struct {
 	EtcdConfig   json.RawMessage `json:"etcd_config" swaggertype:"object"`   // etcd生效配置
 }
 
-// ResourceUploadInfo ...
-type ResourceUploadInfo struct {
-	Add    map[constant.APISIXResource][]ResourceInfo `json:"add,omitempty"`
-	Update map[constant.APISIXResource][]ResourceInfo `json:"update,omitempty"`
-}
-
-// ResourceInfo ...
-type ResourceInfo struct {
-	ResourceType constant.APISIXResource `json:"resource_type,omitempty"`               // 资源类型
-	ResourceID   string                  `json:"resource_id,omitempty"`                 // 资源ID
-	Name         string                  `json:"name,omitempty"`                        // 资源名称
-	Config       json.RawMessage         `json:"config,omitempty" swaggertype:"object"` // 资源配置
-	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
+// ResourceAssociateID 资源关联ID
+type ResourceAssociateID struct {
+	ServiceID      string `json:"service_id" validate:"serviceID"`            // 服务ID
+	UpstreamID     string `json:"upstream_id" validate:"upstreamID"`          // 上游服务地址ID
+	PluginConfigID string `json:"plugin_config_id" validate:"pluginConfigID"` // 插件配置groupID
+	GroupID        string `json:"group_id" validate:"groupID"`
 }

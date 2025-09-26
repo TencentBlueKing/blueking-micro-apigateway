@@ -26,10 +26,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
@@ -363,17 +363,28 @@ func ResourceImport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	var resourceInfoTypeMap map[constant.APISIXResource][]dto.ResourceInfo
+	var resourceInfoTypeMap map[constant.APISIXResource][]common.ResourceInfo
 	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	uploadInfo, err := biz.ClassifyImportResourceInfo(c.Request.Context(), resourceInfoTypeMap)
+	existsResourceIdList := make(map[string]struct{})
+	for resourceType := range resourceInfoTypeMap {
+		dbResources, err := biz.BatchGetResources(c.Request.Context(), resourceType, []string{})
+		if err != nil {
+			ginx.SystemErrorJSONResponse(c, err)
+			return
+		}
+		for _, dbResource := range dbResources {
+			existsResourceIdList[dbResource.ID] = struct{}{}
+		}
+	}
+	uploadInfo, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, existsResourceIdList)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := biz.HandleImportResources(c.Request.Context(), uploadInfo)
+	addResourcesMap, updateResourcesMap, err := common.HandleImportResources(c.Request.Context(), uploadInfo)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

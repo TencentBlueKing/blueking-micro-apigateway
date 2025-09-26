@@ -27,12 +27,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -521,7 +519,7 @@ func ValidateResource(ctx context.Context, resources map[constant.APISIXResource
 			}
 
 			// 校验关联数据是否存在
-			var resourceAssociateIDInfo serializer.ResourceAssociateID
+			var resourceAssociateIDInfo dto.ResourceAssociateID
 			err = json.Unmarshal(r.Config, &resourceAssociateIDInfo)
 			if err != nil {
 				return err
@@ -570,95 +568,4 @@ func ValidateResource(ctx context.Context, resources map[constant.APISIXResource
 	}
 
 	return nil
-}
-
-// HandleImportResources 处理导入资源
-func HandleImportResources(
-	ctx context.Context,
-	resourcesImport *dto.ResourceUploadInfo,
-) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
-	// 分类聚合
-	resourceTypeAddMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	resourceTypeUpdateMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for resourceType, resourceInfoList := range resourcesImport.Add {
-		for _, imp := range resourceInfoList {
-			resourceImp := &model.GatewaySyncData{
-				Type:   resourceType,
-				ID:     imp.ResourceID,
-				Config: datatypes.JSON(imp.Config),
-			}
-			if _, ok := resourceTypeAddMap[imp.ResourceType]; !ok {
-				resourceTypeAddMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeAddMap[resourceType] = append(resourceTypeAddMap[resourceType], resourceImp)
-		}
-	}
-	err := ValidateResource(ctx, resourceTypeAddMap)
-	if err != nil {
-		return nil, nil, fmt.Errorf("add resources validate failed, err: %v", err)
-	}
-	for resourceType, resourceInfoList := range resourcesImport.Update {
-		for _, imp := range resourceInfoList {
-			resourceImp := &model.GatewaySyncData{
-				Type:   resourceType,
-				ID:     imp.ResourceID,
-				Config: datatypes.JSON(imp.Config),
-			}
-			if _, ok := resourceTypeUpdateMap[imp.ResourceType]; !ok {
-				resourceTypeUpdateMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeUpdateMap[resourceType] = append(resourceTypeUpdateMap[resourceType], resourceImp)
-		}
-	}
-	err = ValidateResource(ctx, resourceTypeUpdateMap)
-	if err != nil {
-		return nil, nil, fmt.Errorf("updated resources validate failed, err: %v", err)
-	}
-	return resourceTypeAddMap, resourceTypeUpdateMap, nil
-}
-
-// ClassifyImportResourceInfo 分类合并导入资源信息
-func ClassifyImportResourceInfo(
-	ctx context.Context,
-	importDataList map[constant.APISIXResource][]dto.ResourceInfo,
-) (*dto.ResourceUploadInfo, error) {
-	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
-	for _, impList := range importDataList {
-		for _, imp := range impList {
-			if idList, ok := resourceIDMap[imp.ResourceType]; ok {
-				resourceIDMap[imp.ResourceType] = append(idList, imp.ResourceID)
-			} else {
-				resourceIDMap[imp.ResourceType] = []string{imp.ResourceID}
-			}
-		}
-	}
-	dbResourceIDMap := make(map[string]*model.ResourceCommonModel)
-	for resourceType, idList := range resourceIDMap {
-		dbResources, err := BatchGetResources(ctx, resourceType, idList)
-		if err != nil {
-			return nil, err
-		}
-		for _, dbResource := range dbResources {
-			dbResourceIDMap[dbResource.ID] = dbResource
-		}
-	}
-	uploadOutput := &dto.ResourceUploadInfo{
-		Add:    make(map[constant.APISIXResource][]dto.ResourceInfo),
-		Update: make(map[constant.APISIXResource][]dto.ResourceInfo),
-	}
-	for _, impList := range importDataList {
-		for _, imp := range impList {
-			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
-			if _, ok := dbResourceIDMap[imp.ResourceID]; !ok {
-				imp.Status = constant.UploadStatusAdd
-				uploadOutput.Add[imp.ResourceType] = append(uploadOutput.Add[imp.ResourceType], imp)
-			} else {
-				imp.Status = constant.UploadStatusUpdate
-				uploadOutput.Update[imp.ResourceType] = append(uploadOutput.Update[imp.ResourceType], imp)
-			}
-		}
-	}
-	return uploadOutput, nil
 }

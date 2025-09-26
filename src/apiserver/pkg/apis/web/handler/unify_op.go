@@ -23,11 +23,12 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
@@ -319,7 +320,7 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 		if resource.ID == "" {
 			resource.ID = idx.GenResourceID(resource.Type)
 		}
-		resourceOutput := dto.ResourceInfo{
+		resourceOutput := common.ResourceInfo{
 			ResourceType: resource.Type,
 			ResourceID:   resource.ID,
 			Name:         resource.GetName(),
@@ -375,25 +376,34 @@ func ResourceUpload(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	var resourceInfoTypeMap map[constant.APISIXResource][]dto.ResourceInfo
+	var resourceInfoTypeMap map[constant.APISIXResource][]common.ResourceInfo
 	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// check 配置
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for _, resourceInfoList := range resourceTypeMap {
+	existsResourceIdList := make(map[string]struct{})
+	for resourceType, resourceInfoList := range resourceInfoTypeMap {
+		dbResources, err := biz.BatchGetResources(c.Request.Context(), resourceType, []string{})
+		if err != nil {
+			ginx.SystemErrorJSONResponse(c, err)
+			return
+		}
+		for _, dbResource := range dbResources {
+			existsResourceIdList[dbResource.ID] = struct{}{}
+		}
 		for _, resourceInfo := range resourceInfoList {
 			res := &model.GatewaySyncData{
-				Type:   resourceInfo.Type,
-				ID:     resourceInfo.ID,
-				Config: resourceInfo.Config,
+				Type:   resourceInfo.ResourceType,
+				ID:     resourceInfo.ResourceID,
+				Config: datatypes.JSON(resourceInfo.Config),
 			}
-			if _, ok := resourceTypeMap[resourceInfo.Type]; ok {
-				resourceTypeMap[resourceInfo.Type] = append(resourceTypeMap[resourceInfo.Type], res)
+			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
+				resourceTypeMap[resourceInfo.ResourceType] = append(resourceTypeMap[resourceInfo.ResourceType], res)
 				continue
 			}
-			resourceTypeMap[resourceInfo.Type] = []*model.GatewaySyncData{res}
+			resourceTypeMap[resourceInfo.ResourceType] = []*model.GatewaySyncData{res}
 		}
 	}
 	err = biz.ValidateResource(c.Request.Context(), resourceTypeMap)
@@ -401,7 +411,7 @@ func ResourceUpload(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %v", err))
 		return
 	}
-	resources, err := biz.ClassifyImportResourceInfo(c.Request.Context(), resourceInfoTypeMap)
+	resources, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, existsResourceIdList)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -431,12 +441,12 @@ func ResourceImport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	var resourcesImport dto.ResourceUploadInfo
+	var resourcesImport common.ResourceUploadInfo
 	if err := c.ShouldBindJSON(&resourcesImport); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := biz.HandleImportResources(c.Request.Context(), &resourcesImport)
+	addResourcesMap, updateResourcesMap, err := common.HandleImportResources(c.Request.Context(), &resourcesImport)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -457,6 +457,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     title: t('更新时间'),
     colKey: 'updated_at',
     ellipsis: true,
+    width: 160,
     sorter: true,
     cell: (h, { row }) => {
       return dayjs.unix(row.updated_at as number)
@@ -468,7 +469,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     title: t('更新人'),
     colKey: 'updater',
     ellipsis: true,
-    width: 80,
+    width: 85,
     cell: (h, { row }) => <span>{row.updater || row.update_by || '--'}</span>,
   },
   {

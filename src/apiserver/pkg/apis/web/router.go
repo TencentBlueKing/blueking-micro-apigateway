@@ -26,6 +26,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/account"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/handler"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
@@ -39,14 +40,14 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	store.Options(sessions.Options{MaxAge: int(config.G.Service.SessionCookieAge.Seconds())})
 	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
 
-	////  csrf
-	// group.Use(middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret))
-	//group.Use(middleware.CSRFToken(config.G.Service.AppCode, config.G.Service.CSRFCookieDomain))
-	//
-	//// user auth
-	//authBackend := account.GetAuthBackend()
-	//group.Use(middleware.UserAuth(authBackend))
-	//group.Use(middleware.Permission())
+	//  csrf
+	group.Use(middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret))
+	group.Use(middleware.CSRFToken(config.G.Service.AppCode, config.G.Service.CSRFCookieDomain))
+
+	// user auth
+	authBackend := account.GetAuthBackend()
+	group.Use(middleware.UserAuth(authBackend))
+	group.Use(middleware.Permission())
 	group.GET("/enums/", handler.Enum)
 	group.GET("/accounts/userinfo/", handler.GetUserInfo)
 	group.GET("/version-log/", handler.GetVersionLog)

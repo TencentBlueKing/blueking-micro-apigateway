@@ -29,9 +29,10 @@ import (
 
 // Upstream upstream 表
 type Upstream struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // upstream名称
-	SSLID               string `gorm:"column:ssl_id;type:varchar(255)"`                    // ssl证书id
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	Name                string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // upstream名称
+	SSLID               string                 `gorm:"column:ssl_id;type:varchar(255)"`                    // ssl证书id
+	ResourceCommonModel                        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -52,6 +53,10 @@ func (u *Upstream) BeforeCreate(tx *gorm.DB) (err error) {
 func (u *Upstream) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := u.HandleConfig(); err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if u.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return u.AddAuditLog(tx, constant.OperationTypeUpdate)

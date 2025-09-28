@@ -164,10 +164,19 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(ssls))
 	for _, ssl := range ssls {
+		// 标识此次更新的操作类型为撤销
+		ssl.OperationType = constant.OperationTypeRevert
 		if ssl.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			ssl.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     ssl.ID,
+				Config: ssl.Config,
+				Status: ssl.Status,
+			})
 			continue
 		}
 		// 同步更新配置
@@ -175,14 +184,26 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 			ssl.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
 			ssl.Config = syncData.Config
 			ssl.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     ssl.ID,
+				Config: ssl.Config,
+				Status: ssl.Status,
+			})
 			continue
 		} else {
-			return errors.New("can not find sync data for sls id:" + ssl.ID)
+			return errors.New("can not find sync data for ssl id:" + ssl.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.SSL, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, sls := range ssls {
-			err := tx.SSL.WithContext(ctx).Save(sls)
+			_, err := tx.SSL.WithContext(ctx).Updates(sls)
 			if err != nil {
 				return err
 			}

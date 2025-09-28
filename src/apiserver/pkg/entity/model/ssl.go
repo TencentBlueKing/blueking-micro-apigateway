@@ -37,6 +37,7 @@ type SSL struct {
 	Name string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name" json:"name"` // 证书名称
 	// 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
 	ResourceCommonModel
+	OperationType constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -66,6 +67,10 @@ func (s *SSL) BeforeCreate(tx *gorm.DB) (err error) {
 func (s *SSL) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := s.HandleConfig(); err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if s.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return s.AddAuditLog(tx, constant.OperationTypeUpdate)

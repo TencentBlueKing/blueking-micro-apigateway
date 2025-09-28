@@ -354,7 +354,6 @@ func ResourcePublish(c *gin.Context) {
 //	@Param		gateway_name	path	string	true	"网关名称"
 //	@Accept		multipart/form-data
 //	@Param		resource_file	formData	file	true	"资源配置文件(json)"
-//	@Param		gateway_name	path		string	true	"网关名称"
 //	@Success	200				{object}	common.ResourceUploadInfo
 //	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/import/ [post]
 func ResourceImport(c *gin.Context) {

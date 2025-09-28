@@ -182,10 +182,19 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(consumerGroups))
 	for _, consumerGroup := range consumerGroups {
+		// 标识此次更新的操作类型为撤销
+		consumerGroup.OperationType = constant.OperationTypeRevert
 		if consumerGroup.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			consumerGroup.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumerGroup.ID,
+				Config: consumerGroup.Config,
+				Status: consumerGroup.Status,
+			})
 			continue
 		}
 		// 同步更新配置
@@ -193,14 +202,26 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 			consumerGroup.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
 			consumerGroup.Config = syncData.Config
 			consumerGroup.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumerGroup.ID,
+				Config: consumerGroup.Config,
+				Status: consumerGroup.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for consumerGroup id:" + consumerGroup.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.ConsumerGroup, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, consumerGroup := range consumerGroups {
-			err := tx.ConsumerGroup.WithContext(ctx).Save(consumerGroup)
+			_, err := tx.ConsumerGroup.WithContext(ctx).Updates(consumerGroup)
 			if err != nil {
 				return err
 			}

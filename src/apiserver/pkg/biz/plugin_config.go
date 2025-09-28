@@ -183,10 +183,19 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(pluginConfigs))
 	for _, pluginConfig := range pluginConfigs {
+		// 标识此次更新的类型为撤销
+		pluginConfig.OperationType = constant.OperationTypeRevert
 		if pluginConfig.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			pluginConfig.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginConfig.ID,
+				Config: pluginConfig.Config,
+				Status: pluginConfig.Status,
+			})
 			continue
 		}
 		// 同步更新配置
@@ -194,14 +203,26 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 			pluginConfig.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
 			pluginConfig.Config = syncData.Config
 			pluginConfig.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginConfig.ID,
+				Config: pluginConfig.Config,
+				Status: pluginConfig.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for pluginConfig id:" + pluginConfig.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.PluginConfig, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, pluginConfig := range pluginConfigs {
-			err := tx.PluginConfig.WithContext(ctx).Save(pluginConfig)
+			_, err := tx.PluginConfig.WithContext(ctx).Updates(pluginConfig)
 			if err != nil {
 				return err
 			}

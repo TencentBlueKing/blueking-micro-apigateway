@@ -29,8 +29,9 @@ import (
 
 // GlobalRule 表示数据库中的 global_rule 表
 type GlobalRule struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // 规则名称
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	Name                string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // 规则名称
+	ResourceCommonModel                        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -61,6 +62,10 @@ func (g *GlobalRule) BeforeUpdate(tx *gorm.DB) (err error) {
 	err = ResourceSchemaCallback(tx, g.GatewayID, g.ID, constant.GlobalRule, g.Config)
 	if err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if g.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return g.AddAuditLog(tx, constant.OperationTypeUpdate)

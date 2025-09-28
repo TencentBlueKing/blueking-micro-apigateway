@@ -31,8 +31,10 @@ import (
 
 // Proto 表示数据库中的 proto 表
 type Proto struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name" json:"name"` // 文件名称
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	// 文件名称
+	Name                string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name" json:"name"`
+	ResourceCommonModel                        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -53,6 +55,10 @@ func (p *Proto) BeforeCreate(tx *gorm.DB) (err error) {
 func (p *Proto) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := p.HandleConfig(); err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if p.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return p.AddAuditLog(tx, constant.OperationTypeUpdate)

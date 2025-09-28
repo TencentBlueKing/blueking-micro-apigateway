@@ -185,10 +185,19 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(upstreams))
 	for _, upstream := range upstreams {
+		// 标识此次更新的操作类型为撤销
+		upstream.OperationType = constant.OperationTypeRevert
 		if upstream.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			upstream.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     upstream.ID,
+				Config: upstream.Config,
+				Status: upstream.Status,
+			})
 			continue
 		}
 		// 同步更新配置
@@ -196,14 +205,26 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 			upstream.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
 			upstream.Config = syncData.Config
 			upstream.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     upstream.ID,
+				Config: upstream.Config,
+				Status: upstream.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for upstream id:" + upstream.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Upstream, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, upstream := range upstreams {
-			err := tx.Upstream.WithContext(ctx).Save(upstream)
+			_, err := tx.Upstream.WithContext(ctx).Updates(upstream)
 			if err != nil {
 				return err
 			}

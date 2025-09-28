@@ -178,10 +178,19 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(consumers))
 	for _, consumer := range consumers {
+		// 标识此次更新的操作类型为撤销
+		consumer.OperationType = constant.OperationTypeRevert
 		if consumer.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			consumer.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumer.ID,
+				Config: consumer.Config,
+				Status: consumer.Status,
+			})
 			continue
 		}
 		// 同步更新配置
@@ -191,14 +200,26 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 			consumer.Status = constant.ResourceStatusSuccess
 			// 更新关联关系数据
 			consumer.GroupID = gjson.ParseBytes(syncData.Config).Get("group_id").String()
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumer.ID,
+				Config: consumer.Config,
+				Status: consumer.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for consumer id:" + consumer.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Consumer, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, consumer := range consumers {
-			err := tx.Consumer.WithContext(ctx).Save(consumer)
+			_, err := tx.Consumer.WithContext(ctx).Updates(consumer)
 			if err != nil {
 				return err
 			}

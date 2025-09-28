@@ -30,10 +30,14 @@ import (
 
 // StreamRoute 表示数据库中的 stream_route 表
 type StreamRoute struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // stream_route 名称
-	ServiceID           string `gorm:"column:service_id;type:varchar(255)"`                // 关联 service_id 唯一标识
-	UpstreamID          string `gorm:"column:upstream_id;type:varchar(255)"`               // 关联 upstream_id 唯一标识
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	// stream_route 名称
+	Name string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"`
+	// 关联 service_id 唯一标识
+	ServiceID string `gorm:"column:service_id;type:varchar(255)"`
+	// 关联 upstream_id 唯一标识
+	UpstreamID          string                 `gorm:"column:upstream_id;type:varchar(255)"`
+	ResourceCommonModel                        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // GetLabels 获取 labels
@@ -59,6 +63,10 @@ func (s *StreamRoute) BeforeCreate(tx *gorm.DB) (err error) {
 func (s *StreamRoute) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := s.HandleConfig(); err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if s.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return s.AddAuditLog(tx, constant.OperationTypeUpdate)

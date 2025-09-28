@@ -122,15 +122,6 @@
           <template #subTitle>{{ t('可直接使用插件组，或逐个添加插件，也可组合使用') }}</template>
           <div>
             <BkForm class="form-element">
-              <BkFormItem :label="t('插件组')" class="form-item">
-                <SelectPluginConfig v-model="routeConfig.plugin_config_id" />
-                <div class="common-form-tips" style="line-height: 1.2;margin-top: 4px;">
-                  {{
-                    t('可以将一组通用的插件配置提取成插件组，然后在路由中引用；' +
-                      '对于同一个插件的配置，只能有一个是有效的，优先级为 Consumer > Route > Plugin Config > Service。')
-                  }}
-                </div>
-              </BkFormItem>
               <BkFormItem :label="t('插件')" class="form-item">
                 <ButtonIcon
                   icon-color="#3a84ff"
@@ -185,7 +176,6 @@ import FormLabelsNew from '@/components/form/form-labels-new.vue';
 import FormRemoteAddressNew from '@/components/form/form-remote-addrs-new.vue';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import SelectUpstream from '@/components/select/select-upstream.vue';
-import SelectPluginConfig from '@/components/select/select-plugin-config.vue';
 import SelectService from '@/components/select/select-service.vue';
 
 interface ILocalPlugin {
@@ -427,10 +417,6 @@ const handleSubmit = async () => {
       delete config.upstream_id;
     }
 
-    if (!config.plugin_config_id) {
-      delete config.plugin_config_id;
-    }
-
     // 校验表单
     await Promise.all([
       formRef.value?.validate(),
@@ -489,10 +475,6 @@ const handleSubmit = async () => {
       // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
       if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
         data.upstream_id = formModel.value.upstream_id;
-      }
-
-      if (routeConfig.value.plugin_config_id) {
-        data.plugin_config_id = routeConfig.value.plugin_config_id;
       }
 
       InfoBox({

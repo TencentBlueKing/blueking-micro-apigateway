@@ -469,7 +469,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     title: t('更新人'),
     colKey: 'updater',
     ellipsis: true,
-    width: 85,
+    width: 100,
     cell: (h, { row }) => <span>{row.updater || row.update_by || '--'}</span>,
   },
   {

@@ -9,7 +9,7 @@ services:
       - "2479:2379"
       - "2480:2380"
   mysql:
-    image: docker.io/bitnami/mysql:8.0
+    image: docker.io/bitnamilegacy/mysql:8.0
     environment:
       - MYSQL_ROOT_PASSWORD=123456
       - MYSQL_DATABASE=bk_micro_gateway

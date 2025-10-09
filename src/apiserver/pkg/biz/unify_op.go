@@ -583,6 +583,9 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 			Config:      datatypes.JSON(kv.Value),
 			ModRevision: int(kv.ModRevision),
 		}
+		// config 中去除 update_time/create_time，避免影响资源的 diff
+		resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "update_time")
+		resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "create_time")
 		if resourceType != constant.PluginMetadata && resourceInfo.GetName() == "" {
 			resourceInfo.SetName(fmt.Sprintf("%s_%s", resourceTypeValue, id))
 		} else if resourceType == constant.PluginMetadata {
@@ -664,7 +667,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 	if len(pluginConfigIDs) > 0 {
 		pluginConfigs, err := QueryPluginConfigs(context.Background(), map[string]interface{}{
 			"gateway_id": s.gatewayInfo.ID,
-			"id":         globalRuleIDs,
+			"id":         pluginConfigIDs,
 		})
 		if err != nil {
 			logging.Errorf("SearchPluginConfig error: %s", err.Error())
@@ -726,7 +729,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 			if g, ok := streamRouteIdMap[streamRoute.ID]; ok {
 				g.Config, _ = sjson.SetBytes(g.Config, "name", streamRoute.Name)
 				labels := streamRoute.GetLabels()
-				if labels != "" {
+				if labels != nil {
 					g.Config, _ = sjson.SetBytes(g.Config, "labels", labels)
 				}
 			}

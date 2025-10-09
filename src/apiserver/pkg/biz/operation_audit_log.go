@@ -178,6 +178,59 @@ func AddDeleteResourceByIDAuditLog(ctx context.Context, resourceType constant.AP
 	return nil
 }
 
+// WrapBatchRevertResourceAddAuditLog ... 批量撤销资源时添加审计日志
+func WrapBatchRevertResourceAddAuditLog(ctx context.Context, resourceType constant.APISIXResource,
+	resourceIDs []string, afterResources []*model.ResourceCommonModel,
+) error {
+	// 查询之前的配置
+	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
+	if err != nil {
+		return err
+	}
+
+	var dataBefore []model.BatchOperationData
+	var dataAfter []model.BatchOperationData
+	for _, resource := range resourceList {
+		dataBefore = append(dataBefore, model.BatchOperationData{
+			ID:     resource.ID,
+			Status: resource.Status,
+			Config: json.RawMessage(resource.Config),
+		})
+	}
+
+	for _, resource := range afterResources {
+		dataAfter = append(dataAfter, model.BatchOperationData{
+			ID:     resource.ID,
+			Status: resource.Status,
+			Config: json.RawMessage(resource.Config),
+		})
+	}
+
+	dataBeforeRaw, err := json.Marshal(dataBefore)
+	if err != nil {
+		return errors.Wrap(err, "marshal dataBefore failed")
+	}
+
+	dataAfterRaw, err := json.Marshal(dataAfter)
+	if err != nil {
+		return errors.Wrap(err, "marshal dataAfter failed")
+	}
+
+	operationAuditLog := &model.OperationAuditLog{
+		GatewayID:     ginx.GetGatewayInfoFromContext(ctx).ID,
+		ResourceType:  resourceType,
+		OperationType: constant.OperationTypeRevert,
+		ResourceIDs:   strings.Join(resourceIDs, ","),
+		DataBefore:    dataBeforeRaw,
+		DataAfter:     dataAfterRaw,
+		Operator:      ginx.GetUserIDFromContext(ctx),
+	}
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+	}
+	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+}
+
 // ListOperationAuditLogs 查询操作审计列表
 func ListOperationAuditLogs(
 	ctx context.Context,

@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -156,25 +155,46 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(pluginMetadatas))
 	for _, pluginMetadata := range pluginMetadatas {
+		// 标识此次更新的操作类型为撤销
+		pluginMetadata.OperationType = constant.OperationTypeRevert
 		if pluginMetadata.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			pluginMetadata.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginMetadata.ID,
+				Config: pluginMetadata.Config,
+				Status: pluginMetadata.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[pluginMetadata.ID]; ok {
-			pluginMetadata.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			pluginMetadata.Name = syncData.GetName()
 			pluginMetadata.Config = syncData.Config
 			pluginMetadata.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginMetadata.ID,
+				Config: pluginMetadata.Config,
+				Status: pluginMetadata.Status,
+			})
 			continue
 		} else {
 			return errors.New("未找到插件元数据 id 的同步数据:" + pluginMetadata.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.PluginMetadata, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, pluginMetadata := range pluginMetadatas {
-			err := tx.PluginMetadata.WithContext(ctx).Save(pluginMetadata)
+			_, err := tx.PluginMetadata.WithContext(ctx).Updates(pluginMetadata)
 			if err != nil {
 				return err
 			}

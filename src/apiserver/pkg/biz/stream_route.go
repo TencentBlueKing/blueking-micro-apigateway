@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -182,25 +181,46 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(streamRoutes))
 	for _, sr := range streamRoutes {
+		// 标识此次更新的操作类型为撤销
+		sr.OperationType = constant.OperationTypeRevert
 		if sr.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			sr.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     sr.ID,
+				Config: sr.Config,
+				Status: sr.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[sr.ID]; ok {
-			sr.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			sr.Name = syncData.GetName()
 			sr.Config = syncData.Config
 			sr.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     sr.ID,
+				Config: sr.Config,
+				Status: sr.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for streamRoute id:" + sr.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.StreamRoute, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, sr := range streamRoutes {
-			err := tx.StreamRoute.WithContext(ctx).Save(sr)
+			_, err := tx.StreamRoute.WithContext(ctx).Updates(sr)
 			if err != nil {
 				return err
 			}

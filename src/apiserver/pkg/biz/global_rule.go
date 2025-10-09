@@ -157,24 +157,45 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(globalRules))
 	for _, globalRule := range globalRules {
+		// 标识此次更新的操作类型为撤销
+		globalRule.OperationType = constant.OperationTypeRevert
 		if globalRule.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			globalRule.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     globalRule.ID,
+				Config: globalRule.Config,
+				Status: globalRule.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[globalRule.ID]; ok {
-			globalRule.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			globalRule.Name = syncData.GetName()
 			globalRule.Config = syncData.Config
 			globalRule.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     globalRule.ID,
+				Config: globalRule.Config,
+				Status: globalRule.Status,
+			})
 		} else {
 			return errors.New("can not find sync data for globalRule id:" + globalRule.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.GlobalRule, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, globalRule := range globalRules {
-			err := tx.GlobalRule.WithContext(ctx).Save(globalRule)
+			_, err := tx.GlobalRule.WithContext(ctx).Updates(globalRule)
 			if err != nil {
 				return err
 			}

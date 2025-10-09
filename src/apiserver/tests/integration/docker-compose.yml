@@ -1,7 +1,7 @@
 version: '2.2'
 services:
   etcd:
-    image: bitnami/etcd:3.5.9-debian-11-r99
+    image: bitnamilegacy/etcd:3.5.9-debian-11-r99
     environment:
       - ALLOW_NONE_AUTHENTICATION=no
       - ETCD_ROOT_PASSWORD=123456     # 设置root密码
@@ -9,7 +9,7 @@ services:
       - "2479:2379"
       - "2480:2380"
   mysql:
-    image: docker.io/bitnami/mysql:8.0
+    image: docker.io/bitnamilegacy/mysql:8.0
     environment:
       - MYSQL_ROOT_PASSWORD=123456
       - MYSQL_DATABASE=bk_micro_gateway

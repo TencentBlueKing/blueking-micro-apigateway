@@ -29,9 +29,10 @@ import (
 
 // Service Service 资源表
 type Service struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // service_name
-	UpstreamID          string `gorm:"column:upstream_id;type:varchar(255)"`               // upstream_id
-	ResourceCommonModel        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	Name                string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // service_name
+	UpstreamID          string                 `gorm:"column:upstream_id;type:varchar(255)"`               // upstream_id
+	ResourceCommonModel                        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -62,6 +63,10 @@ func (s *Service) BeforeUpdate(tx *gorm.DB) (err error) {
 	err = ResourceSchemaCallback(tx, s.GatewayID, s.ID, constant.Service, s.Config)
 	if err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if s.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return s.AddAuditLog(tx, constant.OperationTypeUpdate)

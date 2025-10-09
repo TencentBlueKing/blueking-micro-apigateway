@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -169,25 +168,46 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(protos))
 	for _, pb := range protos {
+		// 标识此次更新的操作类型为撤销
+		pb.OperationType = constant.OperationTypeRevert
 		if pb.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			pb.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pb.ID,
+				Config: pb.Config,
+				Status: pb.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[pb.ID]; ok {
-			pb.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			pb.Name = syncData.GetName()
 			pb.Config = syncData.Config
 			pb.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pb.ID,
+				Config: pb.Config,
+				Status: pb.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for Proto id:" + pb.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Proto, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, pb := range protos {
-			err := tx.Proto.WithContext(ctx).Save(pb)
+			_, err := tx.Proto.WithContext(ctx).Updates(pb)
 			if err != nil {
 				return err
 			}

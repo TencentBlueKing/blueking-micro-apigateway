@@ -50,6 +50,7 @@
           class="table-resource-search"
           clearable
           unique-select
+          value-behavior="need-key"
           @click.stop="handleSearchSelectClick"
         />
       </div>
@@ -130,10 +131,10 @@ import { useTDesignSelection } from '@/hooks/use-tdesign-selection';
 import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useTableSortChange } from '@/hooks/use-table-sort-change';
 import { useSearchSelectPopoverHidden } from '@/hooks/use-search-select-popover-hidden';
-import {
-  type PrimaryTableProps,
-  type SortInfo,
-  type FilterValue,
+import type {
+  PrimaryTableProps,
+  SortInfo,
+  FilterValue,
 } from '@blueking/tdesign-ui';
 import dayjs from 'dayjs';
 // @ts-ignore

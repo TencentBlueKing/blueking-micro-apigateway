@@ -82,8 +82,8 @@
             clearable
             class="table-resource-search"
             unique-select
+            value-behavior="need-key"
             @search="handleSearch"
-            @keyup.enter="handleSearch"
             @click.stop="handleSearchSelectClick"
           />
         </div>

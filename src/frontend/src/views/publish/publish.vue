@@ -47,7 +47,7 @@
           v-model="searchParams"
           v-click-outside="handleSearchOutside"
           :data="searchOptions"
-          :placeholder="t('搜索 ID、名称、操作类型')"
+          :placeholder="t('搜索名称、ID、操作类型')"
           clearable
           class="table-resource-search"
           unique-select
@@ -138,14 +138,12 @@ const emptyType = ref<'empty' | 'search-empty'>('empty');
 const searchOptions = computed(() => {
   return [
     {
-      id: 'id',
-      name: 'ID',
-      multiple: false,
-    },
-    {
       id: 'name',
       name: '名称',
-      multiple: false,
+    },
+    {
+      id: 'id',
+      name: 'ID',
     },
     {
       id: 'operation_type',

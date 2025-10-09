@@ -128,14 +128,9 @@ const operationTypeFilter = computed(() => {
 
 const columns: PrimaryTableProps['columns'] = [
   {
-    title: 'ID',
-    colKey: 'resource_id',
-    ellipsis: true,
-    fixed: 'left',
-  },
-  {
     title: t('名称'),
     colKey: 'name',
+    fixed: 'left',
     cell: (h, { row }) => {
       if (!row?.name) {
         return '--';
@@ -156,6 +151,11 @@ const columns: PrimaryTableProps['columns'] = [
         </div>
       );
     },
+  },
+  {
+    title: 'ID',
+    colKey: 'resource_id',
+    ellipsis: true,
   },
   {
     title: t('操作类型'),

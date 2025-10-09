@@ -172,6 +172,9 @@
             type="textarea"
           />
         </bk-form-item>
+        <span class="common-form-tips form-item-name-tips">
+          {{ t('敏感信息会加密存储确保数据安全') }}
+        </span>
       </div>
 
       <bk-form-item

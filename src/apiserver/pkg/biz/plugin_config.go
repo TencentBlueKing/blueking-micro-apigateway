@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -200,7 +199,7 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[pluginConfig.ID]; ok {
-			pluginConfig.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			pluginConfig.Name = syncData.GetName()
 			pluginConfig.Config = syncData.Config
 			pluginConfig.Status = constant.ResourceStatusSuccess
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可

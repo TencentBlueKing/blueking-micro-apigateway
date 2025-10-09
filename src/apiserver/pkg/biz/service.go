@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -217,11 +216,11 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[service.ID]; ok {
-			service.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			service.Name = syncData.GetName()
 			service.Config = syncData.Config
 			service.Status = constant.ResourceStatusSuccess
 			// 更新关联关系数据
-			service.UpstreamID = gjson.ParseBytes(syncData.Config).Get("upstream_id").String()
+			service.UpstreamID = syncData.GetUpstreamID()
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
 			afterResources = append(afterResources, &model.ResourceCommonModel{
 				ID:     service.ID,

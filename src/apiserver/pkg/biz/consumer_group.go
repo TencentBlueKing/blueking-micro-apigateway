@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -199,7 +198,7 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[consumerGroup.ID]; ok {
-			consumerGroup.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			consumerGroup.Name = syncData.GetName()
 			consumerGroup.Config = syncData.Config
 			consumerGroup.Status = constant.ResourceStatusSuccess
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可

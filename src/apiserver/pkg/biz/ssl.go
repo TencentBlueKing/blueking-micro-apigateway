@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -181,7 +180,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[ssl.ID]; ok {
-			ssl.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			ssl.Name = syncData.GetName()
 			ssl.Config = syncData.Config
 			ssl.Status = constant.ResourceStatusSuccess
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可

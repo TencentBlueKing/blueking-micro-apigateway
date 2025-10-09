@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
@@ -235,13 +234,13 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[route.ID]; ok {
-			route.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			route.Name = syncData.GetName()
 			route.Config = syncData.Config
 			route.Status = constant.ResourceStatusSuccess
 			// 更新关联关系数据
-			route.PluginConfigID = gjson.ParseBytes(syncData.Config).Get("plugin_config_id").String()
-			route.UpstreamID = gjson.ParseBytes(syncData.Config).Get("upstream_id").String()
-			route.ServiceID = gjson.ParseBytes(syncData.Config).Get("service_id").String()
+			route.PluginConfigID = syncData.GetPluginConfigID()
+			route.UpstreamID = syncData.GetUpstreamID()
+			route.ServiceID = syncData.GetServiceID()
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
 			afterResources = append(afterResources, &model.ResourceCommonModel{
 				ID:     route.ID,

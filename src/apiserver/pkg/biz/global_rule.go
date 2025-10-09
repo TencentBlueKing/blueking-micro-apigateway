@@ -174,7 +174,7 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[globalRule.ID]; ok {
-			globalRule.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			globalRule.Name = syncData.GetName()
 			globalRule.Config = syncData.Config
 			globalRule.Status = constant.ResourceStatusSuccess
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可

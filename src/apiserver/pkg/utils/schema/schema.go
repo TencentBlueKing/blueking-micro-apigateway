@@ -80,8 +80,8 @@ func GetResourceSchema(version constant.APISIXVersion, name string) interface{} 
 	return schemaVersionMap[version].Get("main." + name).Value()
 }
 
-// GetSpecialPluginSchema 获取特殊插件类型的 schema
-func GetSpecialPluginSchema(version constant.APISIXVersion, path string) interface{} {
+// GetMetadataPluginSchema 获 metadata 插件类型的 schema
+func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interface{} {
 	// 查找 apisix 插件
 	ret := schemaVersionMap[version].Get(path).Value()
 	if ret != nil {
@@ -107,19 +107,21 @@ func GetSpecialPluginSchema(version constant.APISIXVersion, path string) interfa
 func GetPluginSchema(version constant.APISIXVersion, name string, schemaType string) interface{} {
 	var ret interface{}
 	if schemaType == "consumer" || schemaType == "consumer_schema" {
-		// consumer 类型时，只需要匹配 "plugins."+name+".consumer_schema" 路径的 schema，所以匹配后直接返回
-		return GetSpecialPluginSchema(version, "plugins."+name+".consumer_schema")
+		// 需匹配常规插件和 consumer 插件，当未查询到时，继续匹配后面常规插件
+		ret = schemaVersionMap[version].Get("plugins." + name + ".consumer_schema").Value()
 	}
 	if schemaType == "metadata" || schemaType == "metadata_schema" {
-		// metadata 类型时，只需要匹配 "plugins."+name+".metadata_schema" 路径的 schema，所以匹配后直接返回
-		return GetSpecialPluginSchema(version, "plugins."+name+".metadata_schema")
+		// 只需匹配 metadata 类型的插件，根据 "plugins."+name+".metadata_schema" 路径查询 schema，可直接返回结果，无需再匹配常规插件
+		return GetMetadataPluginSchema(version, "plugins."+name+".metadata_schema")
 	}
 	if schemaType == "stream" || schemaType == "stream_schema" {
-		// stream 类型的插件已在当前项目 schema.json 中全部存在，所以可以直接返回
+		// 只需要匹配 stream 类型的插件，由于该类型所有插件已在 schema.json 中存在，可直接返回结果，无需再匹配常规插件
 		return schemaVersionMap[version].Get("stream_plugins." + name + ".schema").Value()
 	}
 	// 常规插件匹配
-	ret = schemaVersionMap[version].Get("plugins." + name + ".schema").Value()
+	if ret == nil {
+		ret = schemaVersionMap[version].Get("plugins." + name + ".schema").Value()
+	}
 	if ret != nil {
 		return ret
 	}

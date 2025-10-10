@@ -19,6 +19,8 @@
 package model
 
 import (
+	"encoding/json"
+
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
@@ -41,8 +43,12 @@ type StreamRoute struct {
 }
 
 // GetLabels 获取 labels
-func (s StreamRoute) GetLabels() string {
-	return gjson.GetBytes(s.Config, "labels").String()
+func (s StreamRoute) GetLabels() json.RawMessage {
+	labels := gjson.GetBytes(s.Config, "labels")
+	if !labels.Exists() {
+		return nil
+	}
+	return json.RawMessage(labels.Raw)
 }
 
 // TableName 设置表名

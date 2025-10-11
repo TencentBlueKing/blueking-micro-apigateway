@@ -80,7 +80,7 @@ func GetResourceSchema(version constant.APISIXVersion, name string) interface{} 
 	return schemaVersionMap[version].Get("main." + name).Value()
 }
 
-// GetMetadataPluginSchema 获 metadata 插件类型的 schema
+// GetMetadataPluginSchema 获取 metadata 插件类型的 schema
 func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interface{} {
 	// 查找 apisix 插件
 	ret := schemaVersionMap[version].Get(path).Value()

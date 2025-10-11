@@ -98,9 +98,18 @@
                   v-model="formModel.upstream_id"
                   :check-disabled="!formModel.upstream_id
                     || ['__config__', '__none__'].includes(formModel.upstream_id)"
-                  :static-options="upstreamOptions"
                   @change="handleUpstreamSelect"
-                />
+                >
+                  <BkOption
+                    id="__none__"
+                    :disabled="['__none__'].includes(formModel.service_id)"
+                    :name="t('不选择（仅在已绑定了服务时可用）')"
+                  />
+                  <BkOption
+                    id="__config__"
+                    :name="t('手动填写（会覆盖绑定服务的配置）')"
+                  />
+                </SelectUpstream>
               </BkFormItem>
             </BkForm>
 
@@ -239,17 +248,6 @@ const rules = {
     { required: true, message: t('必填项'), trigger: 'blur' },
   ],
 };
-
-const upstreamOptions = ref([
-  {
-    id: '__none__',
-    name: t('不选择（仅在已绑定了服务时可用）'),
-  },
-  {
-    id: '__config__',
-    name: t('手动填写（会覆盖绑定服务的配置）'),
-  },
-]);
 
 const upstreamList = ref<IUpstream[]>([]);
 

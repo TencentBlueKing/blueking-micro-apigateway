@@ -80,26 +80,51 @@ func GetResourceSchema(version constant.APISIXVersion, name string) interface{} 
 	return schemaVersionMap[version].Get("main." + name).Value()
 }
 
+// GetMetadataPluginSchema 获取 metadata 插件类型的 schema
+func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interface{} {
+	// 查找 apisix 插件
+	ret := schemaVersionMap[version].Get(path).Value()
+	if ret != nil {
+		return ret
+	}
+	// 查找 bk-apisix 插件
+	bkAPISIXPluginSchemaVersion, ok := bkAPISIXPluginSchemaVersionMap[version]
+	if ok {
+		ret = bkAPISIXPluginSchemaVersion.Get(path).Value()
+	}
+	if ret != nil {
+		return ret
+	}
+	// 查找 tapisix 插件
+	tapisixPluginSchemaVersion, ok := tapisixPluginSchemaVersionMap[version]
+	if ok {
+		ret = tapisixPluginSchemaVersion.Get(path).Value()
+	}
+	return ret
+}
+
 // GetPluginSchema 获取插件的schema
 func GetPluginSchema(version constant.APISIXVersion, name string, schemaType string) interface{} {
 	var ret interface{}
 	if schemaType == "consumer" || schemaType == "consumer_schema" {
+		// 需匹配常规插件和 consumer 插件，当未查询到时，继续匹配后面常规插件
 		ret = schemaVersionMap[version].Get("plugins." + name + ".consumer_schema").Value()
 	}
 	if schemaType == "metadata" || schemaType == "metadata_schema" {
-		ret = schemaVersionMap[version].Get("plugins." + name + ".metadata_schema").Value()
+		// 只需匹配 metadata 类型的插件，根据 "plugins."+name+".metadata_schema" 路径查询 schema，可直接返回结果，无需再匹配常规插件
+		return GetMetadataPluginSchema(version, "plugins."+name+".metadata_schema")
 	}
 	if schemaType == "stream" || schemaType == "stream_schema" {
-		ret = schemaVersionMap[version].Get("stream_plugins." + name + ".schema").Value()
+		// 只需要匹配 stream 类型的插件，由于该类型所有插件已在 schema.json 中存在，可直接返回结果，无需再匹配常规插件
+		return schemaVersionMap[version].Get("stream_plugins." + name + ".schema").Value()
 	}
+	// 常规插件匹配
 	if ret == nil {
 		ret = schemaVersionMap[version].Get("plugins." + name + ".schema").Value()
 	}
-
 	if ret != nil {
 		return ret
 	}
-
 	// 如果apisix插件不存在，再去bk-apisix插件中查找
 	bkAPISIXPluginSchemaVersion, ok := bkAPISIXPluginSchemaVersionMap[version]
 	if ok {

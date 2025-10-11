@@ -416,14 +416,11 @@ watch(() => route.params.id, async (id: unknown) => {
 }, { immediate: true });
 
 const handleServiceIdChanged = () => {
-  // 如果选择了不绑定服务，上游不允许为“不选择”
-  if (formModel.value.service_id === '__none__' && formModel.value.upstream_id === '__none__') {
+  // 选择了不绑定服务，则上游不允许为“不选择”, 选择了绑定的服务，则上游自动改为手动
+  const isServiceNone = formModel.value.service_id === '__none__';
+  const isUpstreamNone = formModel.value.upstream_id === '__none__';
+  if (formModel.value.service_id  && ((isServiceNone && isUpstreamNone) || !isNone)) {
     formModel.value.upstream_id = '__config__';
-  }
-
-  // 选择了绑定的服务，上游自动改为不选择
-  if (formModel.value.service_id && formModel.value.service_id !== '__none__') {
-    formModel.value.upstream_id = '__none__';
   }
 };
 

@@ -520,11 +520,10 @@ const getUpstreamList = async () => {
 
 // 绑定服务联动选择上游服务
 const handleServiceChange = () => {
-  // 选择了不绑定服务，则上游不允许为“不选择”, 选择了绑定的服务，则上游自动改为手动
+  // 选择了不绑定服务，则上游不允许为“不选择”, 选择了绑定的服务，则上游自动改为不选择
   const isServiceNone = formModel.value.service_id === '__none__';
-  const isUpstreamNone = formModel.value.upstream_id === '__none__';
-  if (formModel.value.service_id  && ((isServiceNone && isUpstreamNone) || !isServiceNone)) {
-    formModel.value.upstream_id = '__config__';
+  if (formModel.value.service_id) {
+    formModel.value.upstream_id = isServiceNone ? '__config__' : '__none__';
   }
 };
 

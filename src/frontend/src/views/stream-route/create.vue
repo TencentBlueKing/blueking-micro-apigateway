@@ -285,9 +285,9 @@ watch(() => route.params.id, async (id: string | null) => {
 
     if (service_id) {
       formModel.value.service_id = service_id;
-      // 路由绑定了服务，上游自动改为不选择
+      // 路由绑定了服务，上游自动改为手动填写
       if (!upstream_id) {
-        formModel.value.upstream_id = '__none__';
+        formModel.value.upstream_id = '__config__';
       }
     }
 

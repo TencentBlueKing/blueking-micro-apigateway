@@ -366,9 +366,9 @@ watch(() => route.params.id, async (id: unknown) => {
 
     if (service_id) {
       formModel.value.service_id = service_id;
-      // 路由绑定了服务，上游自动改为不选择
+      // 路由绑定了服务，上游自动改为手动填写
       if (!upstream_id) {
-        formModel.value.upstream_id = '__none__';
+        formModel.value.upstream_id = '__config__';
       }
     }
 
@@ -564,7 +564,7 @@ const handleSubmit = async () => {
       }
 
       // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
-      if (formModel.value.upstream_id !== '__config__' && formModel.value.upstream_id !== '__none__') {
+      if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
         data.upstream_id = formModel.value.upstream_id;
       } else {
         data.upstream_id = '';

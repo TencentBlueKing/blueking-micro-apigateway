@@ -366,9 +366,9 @@ watch(() => route.params.id, async (id: unknown) => {
 
     if (service_id) {
       formModel.value.service_id = service_id;
-      // 路由绑定了服务，上游自动改为手动填写
+      // 路由绑定了服务，上游服务有数据且upstream_id不存在改为手动填写，上游服务无数据且upstream_id不存在改为不选择
       if (!upstream_id) {
-        formModel.value.upstream_id = '__config__';
+        formModel.value.upstream_id = remoteUpstream ? '__config__' :  '__none__';
       }
     }
 

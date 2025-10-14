@@ -4,9 +4,9 @@
 
 ### 功能新增
 - 新增 stream route 资源管理
-- apisix/bk-apisix 版本支持1.13版本
-- bk-apisix(1.13) 新增 bk-jwt、bk-header-rewrite等6个插件
-- 前端表格组件升级及支持关联资源筛选过滤
+- apisix/bk-apisix 版本支持3.13版本
+- bk-apisix(3.13) 新增 bk-jwt、bk-header-rewrite等6个插件
+- 前端表格组件升级及支持关联资源筛选过滤等功能
 - 支持资源的导入导出
 - 交互优化升级
 - 相关缺陷修复

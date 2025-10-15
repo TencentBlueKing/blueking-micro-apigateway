@@ -167,6 +167,7 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 
 	// sync_data
 	gatewayGroup.GET("/synced/items/", handler.SyncedItemList)
+	gatewayGroup.GET("/synced/summary/", handler.SyncedItemSummary)
 	gatewayGroup.GET("/synced/last_time/", handler.SyncedLastTime)
 
 	// unify_op

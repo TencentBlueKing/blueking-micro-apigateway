@@ -26,8 +26,8 @@ export type IFilterOption = {
 
 // 表格filter增加全局无关联关系
 export class FilterOptionClass {
-  public displayKey?: string;
-  public displayValue?: string;
+  public displayKey?:  keyof IFilterOption;
+  public displayValue?:  keyof IFilterOption;
   public filterOptions: IFilterOption[] = [];
   private extraOptions?: boolean | IFilterOption[];
   private initFilterOption: IFilterOption[];
@@ -35,22 +35,25 @@ export class FilterOptionClass {
   // options代表原列表， key、value对应显示键值， extraOption代表是否存在额外插入项
   constructor(params?: {
     options?: IFilterOption[],
-    key?: string,
-    value?: string,
+    key?: keyof IFilterOption,
+    value?: keyof IFilterOption,
     extra?: boolean | IFilterOption[]
   }) {
     const { key, value, options = [], extra } = params ?? {};
     this.displayKey = key || 'label';
     this.displayValue = value || 'value';
     this.filterOptions = options.map(item => ({
-      [this.displayKey]: item.name,
-      [this.displayValue]: item.id,
+      [this.displayKey]: item[this.displayKey],
+      [this.displayValue]: item[this.displayValue],
     }));
     // 如果有额外的option，如果是个数组代表是各模块自定义的数据，如果为true默认新增固定的option
     const isExistExtra = extra && (Array.isArray(extra) || typeof extra === 'boolean');
     if (isExistExtra) {
       this.extraOptions = extra;
-      this.initFilterOption = [{ [this.displayKey]: i18n.global.t('无关联关系'), [this.displayValue]: '--' }];
+      this.initFilterOption = [{
+        [this.displayKey]: i18n.global.t('无关联关系'),
+        [this.displayValue]: '--',
+      }];
       this.filterOptions = Array.isArray(this.extraOptions)
         ? [...this.extraOptions, ...this.filterOptions]
         : [...this.initFilterOption, ...this.filterOptions];

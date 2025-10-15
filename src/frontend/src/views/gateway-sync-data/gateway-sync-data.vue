@@ -238,7 +238,7 @@ const setIndeterminate = computed(() => {
   return isExistCheck && selectionHook.selections.value.length > 0 && !selectionHook.isAllSelection.value;
 });
 
-const columns: PrimaryTableProps['columns'] = [
+const columns: PrimaryTableProps['columns'] = computed(() => [
   {
     colKey: 'row-select',
     type: 'custom-checkbox',
@@ -407,7 +407,7 @@ const columns: PrimaryTableProps['columns'] = [
       );
     },
   },
-];
+]);
 
 const searchOptions = computed(() => {
   return [

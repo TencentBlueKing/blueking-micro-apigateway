@@ -576,7 +576,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
   },
 ]);
 
-const tableColumn = ref<PrimaryTableProps['columns']>([
+const tableColumn = computed<PrimaryTableProps['columns']>(() => [
   ...selectionColumns.value,
   {
     title: t('名称'),

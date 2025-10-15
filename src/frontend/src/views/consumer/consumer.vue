@@ -36,7 +36,7 @@
 </template>
 
 <script lang="tsx" setup>
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { FilterOptionClass, type IFilterOption } from '@/types/table-filter';
@@ -60,7 +60,7 @@ const isResourceViewerShow = ref(false);
 
 let consumerGroupNameMap: Record<string, string> = {};
 
-const columns = shallowRef<PrimaryTableProps['columns']>([
+const columns = computed<PrimaryTableProps['columns']>(() => [
   {
     title: 'ID',
     colKey: 'id',
@@ -133,6 +133,8 @@ const getConsumerGroupSelectOptions = async () => {
   consumerGroupSelectOptions.value = (response ?? []).map(item => ({
     name: item.name,
     id: item.id,
+    label: item.name,
+    value: item.id,
     desc: item.desc,
   }));
   const filterOptions = getFilterOptions({ options: consumerGroupSelectOptions.value, extra: true });

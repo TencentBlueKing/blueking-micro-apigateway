@@ -103,7 +103,7 @@ import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 import { deleteRoute, getRoutes, getRoute } from '@/http/route';
 import { getServiceDropdowns } from '@/http/service';
 import { getUpstreamDropdowns } from '@/http/upstream';
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref } from 'vue';
 import { IRoute } from '@/types/route';
 import { FilterOptionClass, type IFilterOption } from '@/types/table-filter';
 import { useI18n } from 'vue-i18n';
@@ -136,7 +136,7 @@ const methodList = computed(() => Object.keys(METHOD_THEMES)
     label: method,
   })));
 
-const columns = shallowRef<PrimaryTableProps['columns']>([
+const columns = computed<PrimaryTableProps['columns']>(() => [
   {
     title: 'ID',
     colKey: 'id',
@@ -262,13 +262,10 @@ const getServiceSelectOptions = async () => {
   serviceSelectOptions.value = (response ?? []).map(item => ({
     name: item.name,
     id: item.id,
+    label: item.name,
+    value: item.id,
     desc: item.desc,
   }));
-  const filterOptions = getFilterOptions({ options: serviceSelectOptions.value, extra: true });
-  const groupCol = columns.value.find(col => ['service_id'].includes(col.colKey));
-  if (groupCol) {
-    groupCol.filter.list = filterOptions;
-  }
   serviceNameMap = serviceSelectOptions.value.reduce<Record<string, string>>((acc, cur) => {
     acc[cur.id] = cur.name;
     return acc;
@@ -281,6 +278,8 @@ const getUpstreamSelectOptions = async () => {
   upstreamSelectOptions.value = (response ?? []).map(item => ({
     name: item.name,
     id: item.id,
+    label: item.name,
+    value: item.id,
     desc: item.desc,
   }));
   const filterOptions = getFilterOptions({ options: upstreamSelectOptions.value, extra: true });

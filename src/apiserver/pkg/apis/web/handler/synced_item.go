@@ -64,7 +64,7 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/synced/items/ [get]
 func SyncedItemList(c *gin.Context) {
 	var req serializer.SyncedItemListRequestRequest
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -109,6 +109,58 @@ func SyncedItemList(c *gin.Context) {
 		results = results[offset:end]
 	}
 	ginx.SuccessJSONResponse(c, ginx.NewPaginatedRespData(total, results))
+}
+
+// SyncedItemSummary 同步数据数量汇总
+//
+//	@ID			sync_data_summary
+//	@Summary	sync data summary
+//	@Produce	json
+//	@Tags		webapi.sync_data
+//	@Param		gateway_id	path		int											true	"网关 ID"
+//	@Param		request		query		serializer.SyncedItemListRequestRequest		false	"查询参数"
+//	@Success	200			{object}	serializer.SyncedSummaryOutputInfo		"同步数据数量汇总"
+//	@Router		/api/v1/web/gateways/{gateway_id}/synced/summary/ [get]
+func SyncedItemSummary(c *gin.Context) {
+	var req serializer.SyncedItemListRequestRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	queryParam := map[string]interface{}{}
+	queryParam["gateway_id"] = ginx.GetGatewayInfo(c).ID
+	if req.ID != "" {
+		queryParam["id"] = req.ID
+	}
+	if req.ResourceType != "" {
+		queryParam["type"] = req.ResourceType
+	}
+	// 需查询全部数据，不带分页
+	syncDataList, err := biz.QuerySyncedItems(c.Request.Context(), queryParam)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	results, err := enrichOutputInfo(c.Request.Context(), syncDataList, req.Status, req.Name)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	var successCount int64
+	var missCount int64
+	// 统计一致/缺失数量
+	for _, item := range results {
+		switch item.Status {
+		case constant.SyncedResourceStatusSuccess:
+			successCount++
+		case constant.SyncedResourceStatusMiss:
+			missCount++
+		}
+	}
+	ginx.SuccessJSONResponse(c, serializer.SyncedSummaryOutputInfo{
+		Success: successCount,
+		Miss:    missCount,
+	})
 }
 
 // enrichOutputInfo 丰富输出信息，补充同步资源状态、来源等数据

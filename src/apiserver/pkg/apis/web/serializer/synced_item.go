@@ -54,6 +54,12 @@ type SyncDataOutputInfo struct {
 	UpdatedAt     int64                   `json:"updated_at"` // 同步时间
 }
 
+// SyncedSummaryOutputInfo 同步数据数量汇总
+type SyncedSummaryOutputInfo struct {
+	Success int64 `json:"success"` // 一致数量
+	Miss    int64 `json:"miss"`    // 缺失数量
+}
+
 // SyncedTimeOutputInfo ...
 type SyncedTimeOutputInfo struct {
 	LatestTime int64 `json:"latest_time"` // 同步时间

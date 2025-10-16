@@ -57,14 +57,21 @@
     </div>
     <div class="table-wrapper">
       <div class="table-top-total">
-        <span class="equal">{{ equalCount }}</span>
+        <span class="equal">{{ summary.success }}</span>
         <span>{{ t('一致') }}</span>
         <span class="line"></span>
-        <span class="lose">{{ loseCount }}</span>
+        <span class="lose">{{ summary.miss }}</span>
         <span>{{ t('缺失') }}</span>
-        <template v-if="loseCount">
+        <template v-if="summary.miss">
           <span> , </span>
-          <span class="add-opt" @click="handleBatchAdd">{{ t('一键添加到编辑区维护') }}</span>
+          <bk-pop-confirm
+            width="288"
+            :content="t('将所有差异的数据添加到编辑区！')"
+            trigger="click"
+            @confirm="handleBatchAdd"
+          >
+            <span class="add-opt">{{ t('一键添加到编辑区维护') }}</span>
+          </bk-pop-confirm>
         </template>
       </div>
       <MicroAgTable
@@ -142,7 +149,7 @@ import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 // @ts-ignore
 import SliderResourceDiffViewer from '@/components/slider-resource-diff-viewer.vue';
 import MicroAgTable from '@/components/micro-ag-table/table';
-import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData } from '@/http/gateway-sync-data';
+import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData, getSyncedSummary } from '@/http/gateway-sync-data';
 import { getResourceDiff } from '@/http/publish';
 import { Copy } from 'bkui-vue/lib/icon';
 import { handleCopy } from '@/common/util';
@@ -182,6 +189,14 @@ const settings = shallowRef({
   disabled: [],
 });
 const allowSortField = shallowRef(['name']);
+
+const summary = ref<{
+  success: number,
+  miss: number
+}>({
+  success: 0,
+  miss: 0,
+});
 
 const isDisabledSelected = (item) => {
   return !['miss'].includes(item.status);
@@ -347,6 +362,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
     title: t('资源类型'),
     colKey: 'resource_type',
     ellipsis: true,
+    width: 120,
     cell: (h, { row }) => common.enums?.resource_type?.[row.resource_type] ?? '--',
     filter: {
       type: 'single',
@@ -356,6 +372,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
   {
     title: t('同步版本'),
     colKey: 'mode_revision',
+    width: 120,
   },
   {
     title: t('同步时间'),
@@ -373,6 +390,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
   {
     title: t('状态'),
     colKey: 'status',
+    width: 120,
     cell: (h, { row }) => <bk-tag theme={row.status === 'success' ? 'success' : 'danger'}>{ row.status === 'success' ? '一致' : '缺失' }</bk-tag>,
     filter: {
       type: 'single',
@@ -382,6 +400,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
   {
     title: t('操作'),
     colKey: 'opt',
+    width: 160,
     fixed: 'right',
     cell: (h, { row }) => {
       return (
@@ -436,27 +455,19 @@ const searchOptions = computed(() => {
   ];
 });
 
-const showDataList = computed(() => {
-  if (!tableData.value?.length) return [];
+// const showDataList = computed(() => {
+//   if (!tableData.value?.length) return [];
 
-  return tableData.value.map((item: IGatewaySyncDataDto) => {
-    if (item.resource_type === 'consumer') {
-      item.name = item.config.username;
-    } else {
-      item.name = item.config.name;
-    }
+//   return tableData.value.map((item: IGatewaySyncDataDto) => {
+//     if (item.resource_type === 'consumer') {
+//       item.name = item.config.username;
+//     } else {
+//       item.name = item.config.name;
+//     }
 
-    return item;
-  });
-});
-
-const equalCount = computed(() => {
-  return showDataList.value.filter(item => item.status === 'success').length;
-});
-
-const loseCount = computed(() => {
-  return showDataList.value.filter(item => item.status === 'miss').length;
-});
+//     return item;
+//   });
+// });
 
 const disabledSelected = computed(() => {
   return !tableData.value?.length || tableData.value?.every(item => !['miss'].includes(item.status));
@@ -468,6 +479,12 @@ watch(
     handleSearch();
   },
 );
+
+const fetchSyncedSummary = async () => {
+  const result = await getSyncedSummary({ gatewayId: common.gatewayId });
+  summary.value = result;
+};
+fetchSyncedSummary();
 
 const getTableData = async (params: Record<string, any> = {}) => {
   const results = await getGatewaySyncDataList({ gatewayId: common.gatewayId, query: params });
@@ -539,6 +556,7 @@ const handleSync = async () => {
     isSyncLoading.value = true;
     await postGatewaySyncData({ data: filterData.value });
     getList();
+    fetchSyncedSummary();
     Message({
       theme: 'success',
       message: t('ETCD 资源已同步到列表'),
@@ -578,11 +596,12 @@ const handleCheckDiff = async (row: IGatewaySyncDataDto) => {
 
 const addResource = async (ids?: string[]) => {
   try {
-    const response = await addResourceToEditArea(ids ? { data: { resource_id_list: ids } } : {});
+    const response = await addResourceToEditArea(ids ? { data: { resource_id_list: ids } } : { data: {} });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const validEntries = Object.entries(response).filter(([_, value]) => value);
     getList();
     handleResetSelection();
+    fetchSyncedSummary();
 
     InfoBox({
       type: 'success',

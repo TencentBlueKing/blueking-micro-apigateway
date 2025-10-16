@@ -251,7 +251,7 @@ const handlePageChange = ({ current, pageSize }: {
 };
 
 // 处理自定义重置功能和点击单选直接关闭弹框
-const handleRadioFilterClick =  () => {
+const handleRadioFilterClick = () => {
   setTimeout(() => {
     const filterPopup = document.querySelector('.t-table__filter-pop-content');
     radioEl.value = filterPopup?.querySelector('.t-radio-group');

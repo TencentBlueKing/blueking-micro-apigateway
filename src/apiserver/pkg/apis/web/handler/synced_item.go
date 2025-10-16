@@ -64,7 +64,7 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/synced/items/ [get]
 func SyncedItemList(c *gin.Context) {
 	var req serializer.SyncedItemListRequestRequest
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -123,7 +123,7 @@ func SyncedItemList(c *gin.Context) {
 //	@Router		/api/v1/web/gateways/{gateway_id}/synced/summary/ [get]
 func SyncedItemSummary(c *gin.Context) {
 	var req serializer.SyncedItemListRequestRequest
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -135,8 +135,6 @@ func SyncedItemSummary(c *gin.Context) {
 	if req.ResourceType != "" {
 		queryParam["type"] = req.ResourceType
 	}
-	var syncDataList []*model.GatewaySyncData
-
 	// 需查询全部数据，不带分页
 	syncDataList, err := biz.QuerySyncedItems(c.Request.Context(), queryParam)
 	if err != nil {

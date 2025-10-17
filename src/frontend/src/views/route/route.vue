@@ -145,8 +145,17 @@ const columns = computed<PrimaryTableProps['columns']>(() => [
   {
     title: t('路径'),
     colKey: 'uris',
-    ellipsis: true,
-    cell: (h, { row }: TableRowData) => row.config?.uris?.join(', ') || '--',
+    ellipsis: false,
+    showOverflow: false,
+    cell: (h, { row }: TableRowData) => <bk-popover>{{
+      default: () => <div
+        style="white-space: nowrap;word-wrap: normal;overflow: hidden;text-overflow: ellipsis;"
+      >{row.config?.uri || row.config?.uris?.join(', ') || '--'}</div>,
+      content: () => (row.config?.uris?.length
+        ? <div>{row.config?.uris?.map(uri => <div>{uri}</div>)}</div>
+        : row.config?.uri || '--'),
+    }}
+    </bk-popover>,
   },
   {
     colKey: 'method',

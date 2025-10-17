@@ -101,10 +101,10 @@ func RemoveDuplicatedResource(ctx context.Context, resourceType constant.APISIXR
 	if err != nil {
 		return syncedResources, err
 	}
-	resourceNameMap := make(map[string]string)
+	resourceNameMap := make(map[string]struct{})
 	resourceIDMap := make(map[string]struct{})
 	for _, r := range resourceList {
-		resourceNameMap[r.GetName(resourceType)] = r.ID
+		resourceNameMap[r.GetName(resourceType)] = struct{}{}
 		resourceIDMap[r.ID] = struct{}{}
 	}
 	for _, r := range resources {

@@ -42,7 +42,7 @@ type ResourceCommonModel struct {
 	AutoID    int            `gorm:"column:auto_id;type:int;primaryKey;autoIncrement"`                   // 自增ID
 	ID        string         `gorm:"column:id;type:varchar(255);uniqueIndex:idx_id"`                     // apisix ID
 	GatewayID int            `gorm:"column:gateway_id;type:int;uniqueIndex:idx_name;uniqueIndex:idx_id"` // 网关ID
-	Config    datatypes.JSON `gorm:"column:config;type:json"`                                            // route raw config
+	Config    datatypes.JSON `gorm:"column:config;type:json"`                                            // config
 	// 发布状态: create-draft,update-draft,success,delete-draft
 	Status constant.ResourceStatus `gorm:"column:status;type:varchar(32)"`
 }

@@ -203,36 +203,21 @@ status constant.ResourceStatus,
 	return nil
 }
 
-// insertSyncedResourcesModel inserts synced resources into the database based on their type
-// It processes each resource type in the provided map and handles them according to their specific type
-//
-// Parameters:
-//   ctx - context for the operation, used for cancellation and timeouts
-//   typeSyncedItemMap - a map where keys are resource types and values are lists of gateway sync data
-//   status - the status to be set for the resources
-//   removeDuplicated - flag indicating whether to remove duplicate resources before processing
-//
-// Returns:
-//   error - any error encountered during the insertion process
 func insertSyncedResourcesModel(
 ctx context.Context,
 typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
 status constant.ResourceStatus,
 removeDuplicated bool,
 ) error {
-	var err error // Variable to store any errors that occur during processing
-	// Iterate through each resource type and its associated list of items
+	var err error
 	for resourceType, itemList := range typeSyncedItemMap {
-		// If requested, remove duplicate resources for this type
 		if removeDuplicated {
 			itemList, err = RemoveDuplicatedResource(ctx, resourceType, itemList)
 			if err != nil {
-				return err // Return error if duplicate removal fails
+				return err
 			}
 		}
-		// Convert the sync data to the appropriate resource type with the specified status
 		resourceList := SyncedResourceToAPISIXResource(resourceType, itemList, status)
-		// Handle each resource type with its specific batch creation function
 		switch resourceType {
 		case constant.Route:
 			err = BatchCreateRoutes(ctx, resourceList.([]*model.Route))
@@ -291,7 +276,7 @@ removeDuplicated bool,
 			}
 		}
 	}
-	return nil // Return nil if all resources were processed successfully
+	return nil
 }
 
 // UploadResources 插入数据

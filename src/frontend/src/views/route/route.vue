@@ -24,6 +24,7 @@
     :delete-api="deleteRoute"
     :query-list-params="{ apiMethod: getRoutes }"
     :routes="{ create: 'route-create', edit: 'route-edit', clone: 'route-clone' }"
+    v-model:settings="settings"
     resource-type="route"
     @check-resource="toggleResourceViewerSlider"
     @clear-filter="handleTableClearFilter"
@@ -127,6 +128,12 @@ const upstreamSelectOptions = ref<{ value: string, label: string, desc: string }
 const source = ref('');
 const isResourceViewerShow = ref(false);
 const tableRef = ref();
+const settings = ref({
+  checked: ['name', 'uris', 'method', 'desc', 'service_id', 'upstream_id', 'label', 'updated_at', 'updater', 'status', 'opt'],
+  fontSize: 'medium',
+  rowSize: 'medium',
+});
+
 let serviceNameMap: Record<string, string> = {};
 let upstreamNameMap: Record<string, string> = {};
 
@@ -160,7 +167,7 @@ const columns = computed<PrimaryTableProps['columns']>(() => [
   {
     colKey: 'method',
     title: t('方法'),
-    width: 130,
+    width: 100,
     cell: (h, { row }) => <TagHttpMethod methods={row.config?.methods || []} />,
     filter: {
       type: 'single',
@@ -175,6 +182,7 @@ const columns = computed<PrimaryTableProps['columns']>(() => [
     title: t('描述'),
     colKey: 'desc',
     ellipsis: true,
+    width: 100,
     cell: (h, { row }: TableRowData) => row.config?.desc || '--',
   },
   {

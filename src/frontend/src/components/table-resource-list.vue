@@ -151,7 +151,7 @@
 import { computed, ref, watch, shallowRef, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { cloneDeep } from 'lodash-es';
-import { IQueryListParams, IDropList } from '@/types';
+import { IQueryListParams, IDropList, ITableSettings } from '@/types';
 import { Message, InfoBox, Checkbox, Dropdown } from 'bkui-vue';
 import { DownSmall } from 'bkui-vue/lib/icon';
 import { ISearchItem } from 'bkui-vue/lib/search-select/utils';
@@ -215,6 +215,14 @@ export interface ISearchParam {
   values?: { id: string, name: string }[]
 }
 
+const settings = defineModel<ITableSettings>('settings', {
+  default: () => ({
+    columns: [],
+    rowSize: 'medium',
+    fontSize: 'medium',
+  }),
+});
+
 const {
   routes = {},
   queryListParams = {},
@@ -275,12 +283,6 @@ const {
   handleCustomSelectChange,
   handleCustomSelectAllChange,
 } = useTDesignSelection();
-
-const settings = shallowRef({
-  size: 'small',
-  checked: [],
-  disabled: [],
-});
 
 const allowSortField = shallowRef(['name', 'username', 'updated_at']);
 

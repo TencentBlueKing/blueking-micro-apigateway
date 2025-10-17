@@ -93,11 +93,8 @@ func RemoveDuplicatedResource(ctx context.Context, resourceType constant.APISIXR
 resources []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	var syncedResources []*model.GatewaySyncData
-	var ids []string
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	resourceList, err := BatchGetResources(ctx, resourceType, ids)
+	// 查询数据库所有的资源
+	resourceList, err := BatchGetResources(ctx, resourceType, []string{})
 	if err != nil {
 		return syncedResources, err
 	}
@@ -159,11 +156,9 @@ idList []string,
 	for _, item := range items {
 		if _, ok := typeSyncedItemMap[item.Type]; !ok {
 			typeSyncedItemMap[item.Type] = []*model.GatewaySyncData{item}
-			syncedResourceTypeStats[item.Type]++
 			continue
 		}
 		typeSyncedItemMap[item.Type] = append(typeSyncedItemMap[item.Type], item)
-		syncedResourceTypeStats[item.Type]++
 	}
 
 	// 去重
@@ -173,6 +168,9 @@ idList []string,
 			return nil, err // Return error if duplicate removal fails
 		}
 		typeSyncedItemMap[resourceType] = itemList
+		for _, item := range itemList {
+			syncedResourceTypeStats[item.Type]++
+		}
 	}
 
 	// 分类同步

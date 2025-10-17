@@ -166,7 +166,8 @@ export type ITableMethod = {
 };
 
 export type ITableSettings  = {
-  columns: string[]
+  columns?: string[]
+  checked?: string[]
   fontSize: string
   rowSize: string
 };

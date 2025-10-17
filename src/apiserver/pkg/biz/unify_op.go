@@ -88,8 +88,8 @@ func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
 	}
 }
 
-// RemoveDuplicatedResourceName 去除同名资源
-func RemoveDuplicatedResourceName(ctx context.Context, resourceType constant.APISIXResource,
+// RemoveDuplicatedResource 去重重复资源：id重复或者name重复
+func RemoveDuplicatedResource(ctx context.Context, resourceType constant.APISIXResource,
 	resources []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	var syncedResources []*model.GatewaySyncData
@@ -102,11 +102,17 @@ func RemoveDuplicatedResourceName(ctx context.Context, resourceType constant.API
 		return syncedResources, err
 	}
 	resourceNameMap := make(map[string]string)
+	resourceIDMap := make(map[string]struct{})
 	for _, r := range resourceList {
 		resourceNameMap[r.GetName(resourceType)] = r.ID
+		resourceIDMap[r.ID] = struct{}{}
 	}
 	for _, r := range resources {
 		if _, ok := resourceNameMap[r.GetName()]; ok {
+			// 去除已经添加的资源
+			continue
+		}
+		if _, ok := resourceIDMap[r.ID]; ok {
 			// 去除已经添加的资源
 			continue
 		}
@@ -193,7 +199,7 @@ func insertSyncedResourcesModel(
 	var err error
 	for resourceType, itemList := range typeSyncedItemMap {
 		if removeDuplicated {
-			itemList, err = RemoveDuplicatedResourceName(ctx, resourceType, itemList)
+			itemList, err = RemoveDuplicatedResource(ctx, resourceType, itemList)
 			if err != nil {
 				return err
 			}

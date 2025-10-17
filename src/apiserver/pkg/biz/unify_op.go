@@ -101,15 +101,20 @@ resources []*model.GatewaySyncData,
 	if err != nil {
 		return syncedResources, err
 	}
-	resourceNameMap := make(map[string]struct{}, len(resourceList))
-	resourceIDMap := make(map[string]struct{}, len(resourceList))
+	resourceNameMap := make(map[string]string, len(resourceList))
+	resourceIDMap := make(map[string]string, len(resourceList))
 	for _, r := range resourceList {
-		resourceNameMap[r.GetName(resourceType)] = struct{}{}
-		resourceIDMap[r.ID] = struct{}{}
+		resourceNameMap[r.GetName(resourceType)] = r.ID
+		resourceIDMap[r.ID] = r.GetName(resourceType)
 	}
 	for _, r := range resources {
-		if _, ok := resourceNameMap[r.GetName()]; ok {
-			// 去除已经添加的资源
+		if id, ok := resourceNameMap[r.GetName()]; ok {
+			// 排除已经添加的资源
+			// 如果name存在,且id不一致，则说明存在冲突
+			if id != r.ID {
+				return syncedResources,
+					fmt.Errorf("existed %s [id:%s name:%s]conflict", r.Type, id, r.GetName())
+			}
 			continue
 		}
 		if _, ok := resourceIDMap[r.ID]; ok {

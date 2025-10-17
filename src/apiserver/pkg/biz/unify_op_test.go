@@ -60,7 +60,8 @@ func TestInsertSyncedResources_RemoveDuplicated(t *testing.T) {
 	//    - 冲突 ID 的记录不应被创建
 	if _, err := GetRoute(context.Background(), "dup-id"); err == nil {
 		// 依旧只能是 existing 这条，状态保持 success
-		r, _ := GetRoute(context.Background(), "dup-id")
+		r, err := GetRoute(context.Background(), "dup-id")
+		assert.NoError(t, err)
 		assert.Equal(t, "dup-name", r.Name)
 		assert.Equal(t, constant.ResourceStatusSuccess, r.Status)
 	}

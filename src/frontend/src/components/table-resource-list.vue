@@ -430,7 +430,6 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     __name__: 'label',
     title: t('标签'),
     colKey: 'label',
-    width: 'auto',
     ellipsis: false,
     cellStyle: {
       whiteSpace: 'normal',
@@ -628,6 +627,8 @@ const diffGroupList = ref<IDiffGroup[]>([]);
 const diffGroupListBack = ref<IDiffGroup[]>([]);
 const singlePublishId = ref<string>('');
 const publishDelIds = ref<string[]>([]);
+// 只计算一次标签列宽度
+let isLabelColWidthCalculated = false;
 
 const localSearchOptions = computed<ISearchItem[]>(() => {
   if (resourceType === 'plugin_custom') {
@@ -751,6 +752,7 @@ const getLabelWidth = () => {
       labelCol.width = labelWidth;
     }
   });
+  isLabelColWidthCalculated = true;
 };
 
 // 回显选中数据
@@ -854,7 +856,9 @@ const handleDropdownClick = (row: IDropList) => {
 };
 
 const handleRequestDone = () => {
-  getLabelWidth();
+  if (!isLabelColWidthCalculated) {
+    getLabelWidth();
+  }
   getSelectionData();
 };
 

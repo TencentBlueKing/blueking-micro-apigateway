@@ -101,8 +101,8 @@ resources []*model.GatewaySyncData,
 	if err != nil {
 		return syncedResources, err
 	}
-	resourceNameMap := make(map[string]struct{}, len(resources))
-	resourceIDMap := make(map[string]struct{}, len(resources))
+	resourceNameMap := make(map[string]struct{}, len(resourceList))
+	resourceIDMap := make(map[string]struct{}, len(resourceList))
 	for _, r := range resourceList {
 		resourceNameMap[r.GetName(resourceType)] = struct{}{}
 		resourceIDMap[r.ID] = struct{}{}
@@ -160,6 +160,16 @@ idList []string,
 		typeSyncedItemMap[item.Type] = append(typeSyncedItemMap[item.Type], item)
 		syncedResourceTypeStats[item.Type]++
 	}
+
+	// 去重
+	for resourceType, itemList := range typeSyncedItemMap {
+		itemList, err = RemoveDuplicatedResource(ctx, resourceType, itemList)
+		if err != nil {
+			return nil, err // Return error if duplicate removal fails
+		}
+		typeSyncedItemMap[resourceType] = itemList
+	}
+
 	// 分类同步
 	err = InsertSyncedResources(ctx, typeSyncedItemMap, constant.ResourceStatusSuccess)
 	if err != nil {
@@ -190,21 +200,36 @@ status constant.ResourceStatus,
 	return nil
 }
 
+// insertSyncedResourcesModel inserts synced resources into the database based on their type
+// It processes each resource type in the provided map and handles them according to their specific type
+//
+// Parameters:
+//   ctx - context for the operation, used for cancellation and timeouts
+//   typeSyncedItemMap - a map where keys are resource types and values are lists of gateway sync data
+//   status - the status to be set for the resources
+//   removeDuplicated - flag indicating whether to remove duplicate resources before processing
+//
+// Returns:
+//   error - any error encountered during the insertion process
 func insertSyncedResourcesModel(
 ctx context.Context,
 typeSyncedItemMap map[constant.APISIXResource][]*model.GatewaySyncData,
 status constant.ResourceStatus,
 removeDuplicated bool,
 ) error {
-	var err error
+	var err error // Variable to store any errors that occur during processing
+	// Iterate through each resource type and its associated list of items
 	for resourceType, itemList := range typeSyncedItemMap {
+		// If requested, remove duplicate resources for this type
 		if removeDuplicated {
 			itemList, err = RemoveDuplicatedResource(ctx, resourceType, itemList)
 			if err != nil {
-				return err
+				return err // Return error if duplicate removal fails
 			}
 		}
+		// Convert the sync data to the appropriate resource type with the specified status
 		resourceList := SyncedResourceToAPISIXResource(resourceType, itemList, status)
+		// Handle each resource type with its specific batch creation function
 		switch resourceType {
 		case constant.Route:
 			err = BatchCreateRoutes(ctx, resourceList.([]*model.Route))
@@ -263,7 +288,7 @@ removeDuplicated bool,
 			}
 		}
 	}
-	return nil
+	return nil // Return nil if all resources were processed successfully
 }
 
 // UploadResources 插入数据

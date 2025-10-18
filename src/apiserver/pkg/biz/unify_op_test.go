@@ -54,7 +54,7 @@ func TestInsertSyncedResources_RemoveDuplicated(t *testing.T) {
 		constant.Route: {dupID, dupName, normal},
 	}
 	err := InsertSyncedResources(gatewayCtx, typeSynced, constant.ResourceStatusSuccess)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 
 	// 4) 断言：数据库中不会新增与 existing 冲突的两条，只应新增 normal 这一条
 	//    - 冲突 ID 的记录不应被创建

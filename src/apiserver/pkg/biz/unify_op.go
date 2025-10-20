@@ -93,23 +93,25 @@ func RemoveDuplicatedResource(ctx context.Context, resourceType constant.APISIXR
 resources []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	var syncedResources []*model.GatewaySyncData
-	var ids []string
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	resourceList, err := BatchGetResources(ctx, resourceType, ids)
+	// 查询数据库所有的资源
+	resourceList, err := BatchGetResources(ctx, resourceType, []string{})
 	if err != nil {
 		return syncedResources, err
 	}
-	resourceNameMap := make(map[string]struct{}, len(resources))
-	resourceIDMap := make(map[string]struct{}, len(resources))
+	resourceNameMap := make(map[string]string, len(resourceList))
+	resourceIDMap := make(map[string]string, len(resourceList))
 	for _, r := range resourceList {
-		resourceNameMap[r.GetName(resourceType)] = struct{}{}
-		resourceIDMap[r.ID] = struct{}{}
+		resourceNameMap[r.GetName(resourceType)] = r.ID
+		resourceIDMap[r.ID] = r.GetName(resourceType)
 	}
 	for _, r := range resources {
-		if _, ok := resourceNameMap[r.GetName()]; ok {
-			// 去除已经添加的资源
+		if id, ok := resourceNameMap[r.GetName()]; ok {
+			// 排除已经添加的资源
+			// 如果name存在,且id不一致，则说明存在冲突
+			if id != r.ID {
+				return syncedResources,
+					fmt.Errorf("existed %s [id:%s name:%s]conflict", r.Type, id, r.GetName())
+			}
 			continue
 		}
 		if _, ok := resourceIDMap[r.ID]; ok {
@@ -154,12 +156,23 @@ idList []string,
 	for _, item := range items {
 		if _, ok := typeSyncedItemMap[item.Type]; !ok {
 			typeSyncedItemMap[item.Type] = []*model.GatewaySyncData{item}
-			syncedResourceTypeStats[item.Type]++
 			continue
 		}
 		typeSyncedItemMap[item.Type] = append(typeSyncedItemMap[item.Type], item)
-		syncedResourceTypeStats[item.Type]++
 	}
+
+	// 去重
+	for resourceType, itemList := range typeSyncedItemMap {
+		itemList, err = RemoveDuplicatedResource(ctx, resourceType, itemList)
+		if err != nil {
+			return nil, err // Return error if duplicate removal fails
+		}
+		typeSyncedItemMap[resourceType] = itemList
+		for _, item := range itemList {
+			syncedResourceTypeStats[item.Type]++
+		}
+	}
+
 	// 分类同步
 	err = InsertSyncedResources(ctx, typeSyncedItemMap, constant.ResourceStatusSuccess)
 	if err != nil {

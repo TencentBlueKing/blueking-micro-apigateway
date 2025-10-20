@@ -54,10 +54,17 @@ func TestInsertSyncedResources_RemoveDuplicated(t *testing.T) {
 		constant.Route: {dupID, dupName, normal},
 	}
 	err := InsertSyncedResources(gatewayCtx, typeSynced, constant.ResourceStatusSuccess)
+	// 有冲突会报错
+	assert.Error(t, err)
+
+	// 4) 断言：数据库中不会新增与 existing 冲突的两条，只应新增 normal 这一条) 调用 InsertSyncedResources（内部会调用 RemoveDuplicatedResource 做去重）
+	typeSynced = map[constant.APISIXResource][]*model.GatewaySyncData{
+		constant.Route: {dupID, normal},
+	}
+	err = InsertSyncedResources(gatewayCtx, typeSynced, constant.ResourceStatusSuccess)
+
 	assert.NoError(t, err)
 
-	// 4) 断言：数据库中不会新增与 existing 冲突的两条，只应新增 normal 这一条
-	//    - 冲突 ID 的记录不应被创建
 	if _, err := GetRoute(context.Background(), "dup-id"); err == nil {
 		// 依旧只能是 existing 这条，状态保持 success
 		r, err := GetRoute(context.Background(), "dup-id")

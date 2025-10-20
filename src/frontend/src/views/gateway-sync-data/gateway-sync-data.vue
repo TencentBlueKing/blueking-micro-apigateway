@@ -56,56 +56,58 @@
       </div>
     </div>
     <div class="table-wrapper">
-      <div class="table-top-total">
-        <span class="equal">{{ summary.success }}</span>
-        <span>{{ t('一致') }}</span>
-        <span class="line"></span>
-        <span class="lose">{{ summary.miss }}</span>
-        <span>{{ t('缺失') }}</span>
-        <template v-if="summary.miss">
-          <span> , </span>
-          <bk-pop-confirm
-            width="288"
-            :content="t('将所有差异的数据添加到编辑区！')"
-            trigger="click"
-            @confirm="handleBatchAdd"
-          >
-            <span class="add-opt">{{ t('一键添加到编辑区维护') }}</span>
-          </bk-pop-confirm>
-        </template>
-      </div>
-      <MicroAgTable
-        ref="tableRef"
-        v-model:selected-row-keys="selectionHook.selectionsRowKeys.value"
-        v-model:table-data="tableData"
-        v-model:settings="settings"
-        v-model:is-all-selection="selectionHook.isAllSelection.value"
-        row-key="id"
-        resizable
-        :disable-data-page="true"
-        :filter-value="filterData"
-        :sort="sortData"
-        :api-method="getTableData"
-        :columns="columns"
-        :is-show-first-full-row="selectionHook.selections.value.length > 0"
-        @request-done="handleRequestDone"
-        @select-change="selectionHook.handleSelectionChange"
-        @clear-filter="handleClearFilter"
-        @filter-change="handleFilterChange"
-        @sort-change="handleSortChange"
-      >
-        <template #firstFullRow>
-          <div class="table-first-full-row">
-            <span class="normal-text">
-              <span>{{ t('已选') }}</span>
-              <span class="count">{{ selectionHook.selections.value.length }}</span>
-              <span>{{ t('条') }}</span>
-              <span class="mr4">,</span>
-            </span>
-            <span class="hight-light-text" @click="handleMultiAdd">{{ t('添加到编辑区') }}</span>
-          </div>
-        </template>
-      </MicroAgTable>
+      <bk-loading :loading="isAddLoading" class="index-higher">
+        <div class="table-top-total">
+          <span class="equal">{{ summary.success }}</span>
+          <span>{{ t('一致') }}</span>
+          <span class="line"></span>
+          <span class="lose">{{ summary.miss }}</span>
+          <span>{{ t('缺失') }}</span>
+          <template v-if="summary.miss">
+            <span> , </span>
+            <bk-pop-confirm
+              width="288"
+              :content="t('将所有差异的数据添加到编辑区！')"
+              trigger="click"
+              @confirm="handleBatchAdd"
+            >
+              <span class="add-opt">{{ t('一键添加到编辑区维护') }}</span>
+            </bk-pop-confirm>
+          </template>
+        </div>
+        <MicroAgTable
+          ref="tableRef"
+          v-model:selected-row-keys="selectionHook.selectionsRowKeys.value"
+          v-model:table-data="tableData"
+          v-model:settings="settings"
+          v-model:is-all-selection="selectionHook.isAllSelection.value"
+          row-key="id"
+          resizable
+          :disable-data-page="true"
+          :filter-value="filterData"
+          :sort="sortData"
+          :api-method="getTableData"
+          :columns="columns"
+          :is-show-first-full-row="selectionHook.selections.value.length > 0"
+          @request-done="handleRequestDone"
+          @select-change="selectionHook.handleSelectionChange"
+          @clear-filter="handleClearFilter"
+          @filter-change="handleFilterChange"
+          @sort-change="handleSortChange"
+        >
+          <template #firstFullRow>
+            <div class="table-first-full-row">
+              <span class="normal-text">
+                <span>{{ t('已选') }}</span>
+                <span class="count">{{ selectionHook.selections.value.length }}</span>
+                <span>{{ t('条') }}</span>
+                <span class="mr4">,</span>
+              </span>
+              <span class="hight-light-text" @click="handleMultiAdd">{{ t('添加到编辑区') }}</span>
+            </div>
+          </template>
+        </MicroAgTable>
+      </bk-loading>
     </div>
   </div>
 
@@ -163,6 +165,7 @@ const { handleTableSortChange } = useTableSortChange();
 const { handleSearchOutside, handleSearchSelectClick } = useSearchSelectPopoverHidden();
 
 const isSyncLoading = ref<boolean>(false);
+const isAddLoading = ref<boolean>(false);
 const filterData = ref<FilterValue>({});
 const sortData =  ref<SortInfo>({});
 const searchParams = ref<{ id: string, name: string, values?: { id: string, name: string }[] }[]>([]);
@@ -595,6 +598,7 @@ const handleCheckDiff = async (row: IGatewaySyncDataDto) => {
 };
 
 const addResource = async (ids?: string[]) => {
+  isAddLoading.value = true;
   try {
     const response = await addResourceToEditArea(ids ? { data: { resource_id_list: ids } } : { data: {} });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -642,7 +646,9 @@ const addResource = async (ids?: string[]) => {
         ],
       ),
     });
-  } catch (e) {}
+  } catch (e) {} finally {
+    isAddLoading.value = false;
+  }
 };
 
 const handleAdd = (row: IGatewaySyncDataDto) => {
@@ -763,6 +769,12 @@ const handleResetSelection = () => {
   .active-text {
     color: #3A84FF;
     cursor: pointer;
+  }
+}
+
+.index-higher {
+  .bk-loading-mask {
+    z-index: 10000;
   }
 }
 </style>

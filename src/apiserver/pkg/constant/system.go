@@ -74,5 +74,5 @@ const (
 
 // DBBatchSize ...
 const (
-	DBBatchSize = 1000
+	DBBatchSize = 500
 )

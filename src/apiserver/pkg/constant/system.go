@@ -72,7 +72,8 @@ const (
 	LOG_NOTICE = slog.Level(5)
 )
 
-// DBBatchSize ...
+// DBBatchCreateSize ...
 const (
-	DBBatchSize = 500
+	DBBatchCreateSize      = 500
+	DBConditionIDMaxLength = 200
 )

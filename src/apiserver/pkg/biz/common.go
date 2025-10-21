@@ -164,7 +164,7 @@ func BatchUpdateResourceStatus(
 	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
 	// 如果 IDs 数量小于等于 MaxBatchSize，直接更新
-	if len(ids) <= constant.DBBatchSize {
+	if len(ids) <= constant.DBConditionIDMaxLength {
 		return database.Client().WithContext(ctx).Table(
 			resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
 			"status": status,
@@ -172,8 +172,8 @@ func BatchUpdateResourceStatus(
 	}
 
 	// 分批处理大量 IDs
-	for i := 0; i < len(ids); i += constant.DBBatchSize {
-		end := i + constant.DBBatchSize
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}
@@ -229,8 +229,8 @@ func BatchGetResources(
 		return res, err
 	}
 
-	// 如果 IDs 数量小于等于 MaxBatchSize，直接查询
-	if len(ids) <= constant.DBBatchSize {
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
 		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
 		gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 		if gatewayInfo != nil {
@@ -243,8 +243,8 @@ func BatchGetResources(
 
 	// 分批处理大量 IDs
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	for i := 0; i < len(ids); i += constant.DBBatchSize {
-		end := i + constant.DBBatchSize
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}
@@ -349,16 +349,16 @@ func GetResourceByIDs(
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
 
-	// 如果 IDs 数量小于等于 MaxBatchSize，直接查询
-	if len(ids) <= constant.DBBatchSize {
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
 			resourceTableMap[resourceType]).Where("id IN ?", ids).Find(&res).Error
 		return res, err
 	}
 
 	// 分批处理大量 IDs
-	for i := 0; i < len(ids); i += constant.DBBatchSize {
-		end := i + constant.DBBatchSize
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}
@@ -385,15 +385,15 @@ func DeleteResourceByIDs(
 	ids []string,
 ) error {
 	// 如果 IDs 数量小于等于 MaxBatchSize，直接删除
-	if len(ids) <= constant.DBBatchSize {
+	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
 			resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
 		return err
 	}
 
 	// 分批处理大量 IDs
-	for i := 0; i < len(ids); i += constant.DBBatchSize {
-		end := i + constant.DBBatchSize
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}
@@ -417,15 +417,15 @@ func GetSchemaByIDs(
 	var res []model.GatewayCustomPluginSchema
 
 	// 如果 IDs 数量小于等于 MaxBatchSize，直接查询
-	if len(ids) <= constant.DBBatchSize {
+	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
 			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error
 		return res, err
 	}
 
 	// 分批处理大量 IDs
-	for i := 0; i < len(ids); i += constant.DBBatchSize {
-		end := i + constant.DBBatchSize
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}

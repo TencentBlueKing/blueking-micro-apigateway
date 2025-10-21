@@ -140,9 +140,9 @@ func CreateRoute(ctx context.Context, route model.Route) error {
 // BatchCreateRoutes 批量创建路由
 func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchSize)
+		return ginx.GetTx(ctx).Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchCreateSize)
 	}
-	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchSize)
+	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchCreateSize)
 }
 
 // UpdateRoute 更新路由

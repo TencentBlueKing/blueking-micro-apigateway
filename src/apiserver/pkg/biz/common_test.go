@@ -133,10 +133,10 @@ func TestBatchGetResources_SmallBatch(t *testing.T) {
 	assert.Equal(t, constant.ResourceStatusCreateDraft, resourceMap[route2.ID].Status)
 }
 
-// TestBatchGetResources_LargeBatch 测试大批量获取资源（超过 DBBatchSize）
+// TestBatchGetResources_LargeBatch 测试大批量获取资源（超过 DBBatchCreateSize）
 func TestBatchGetResources_LargeBatch(t *testing.T) {
-	// 创建大量测试资源（超过 DBBatchSize = 500）
-	routeCount := constant.DBBatchSize + 100 // 600 个资源
+	// 创建大量测试资源（超过 DBBatchCreateSize = 500）
+	routeCount := constant.DBBatchCreateSize + 100 // 600 个资源
 	var routes []*model.Route
 	var ids []string
 
@@ -228,7 +228,7 @@ func TestBatchUpdateResourceStatus_SmallBatch(t *testing.T) {
 // TestBatchUpdateResourceStatus_LargeBatch 测试大批量更新资源状态
 func TestBatchUpdateResourceStatus_LargeBatch(t *testing.T) {
 	// 创建大量测试资源
-	routeCount := constant.DBBatchSize + 50 // 550 个资源
+	routeCount := constant.DBConditionIDMaxLength + 50 // 550 个资源
 	var routes []*model.Route
 	var ids []string
 
@@ -307,7 +307,7 @@ func TestGetResourceByIDs_SmallBatch(t *testing.T) {
 // TestGetResourceByIDs_LargeBatch 测试大批量根据 IDs 获取资源
 func TestGetResourceByIDs_LargeBatch(t *testing.T) {
 	// 创建大量测试资源
-	routeCount := constant.DBBatchSize + 200 // 700 个资源
+	routeCount := constant.DBConditionIDMaxLength + 200 // 700 个资源
 	var routes []*model.Route
 	var ids []string
 
@@ -387,7 +387,7 @@ func TestDeleteResourceByIDs_SmallBatch(t *testing.T) {
 // TestDeleteResourceByIDs_LargeBatch 测试大批量删除资源
 func TestDeleteResourceByIDs_LargeBatch(t *testing.T) {
 	// 创建大量测试资源
-	routeCount := constant.DBBatchSize + 100 // 600 个资源
+	routeCount := constant.DBConditionIDMaxLength + 100 //  300 个资源
 	var routes []*model.Route
 	var ids []string
 
@@ -435,8 +435,8 @@ func TestDeleteResourceByIDs_LargeBatch(t *testing.T) {
 // TestBatchOperations_EdgeCases 测试边界情况
 func TestBatchOperations_EdgeCases(t *testing.T) {
 	t.Run("TestBatchGetResources_ExactBatchSize", func(t *testing.T) {
-		// 测试恰好等于 DBBatchSize 的情况
-		routeCount := constant.DBBatchSize // 500 个资源
+		// 测试恰好等于 DBBatchCreateSize 的情况
+		routeCount := constant.DBConditionIDMaxLength // 200 个资源
 		var routes []*model.Route
 		var ids []string
 
@@ -476,8 +476,8 @@ func TestBatchOperations_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("TestBatchGetResources_OneMoreThanBatchSize", func(t *testing.T) {
-		// 测试比 DBBatchSize 多 1 的情况
-		routeCount := constant.DBBatchSize + 1 // 501 个资源
+		// 测试比 DBBatchCreateSize 多 1 的情况
+		routeCount := constant.DBConditionIDMaxLength + 1 // 201 个资源
 		var routes []*model.Route
 		var ids []string
 

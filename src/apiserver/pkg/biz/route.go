@@ -59,18 +59,18 @@ func GetRouteOrderExprList(orderBy string) []field.Expr {
 
 // ListPagedRoutes 分页查询网关路由列表
 func ListPagedRoutes(
-ctx context.Context,
-param map[string]interface{},
-label map[string][]string,
-status []string,
-name string,
-updater string,
-path string,
-method string,
-serviceID string,
-upstreamID string,
-orderBy string,
-page PageParam,
+	ctx context.Context,
+	param map[string]interface{},
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	path string,
+	method string,
+	serviceID string,
+	upstreamID string,
+	orderBy string,
+	page PageParam,
 ) ([]*model.Route, int64, error) {
 	u := repo.Route
 	query := u.WithContext(ctx)
@@ -140,9 +140,9 @@ func CreateRoute(ctx context.Context, route model.Route) error {
 // BatchCreateRoutes 批量创建路由
 func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchSize)
+		return ginx.GetTx(ctx).Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchCreateSize)
 	}
-	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchSize)
+	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchCreateSize)
 }
 
 // UpdateRoute 更新路由

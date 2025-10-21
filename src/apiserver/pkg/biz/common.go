@@ -163,10 +163,32 @@ func BatchUpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
-	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
-		"status": status,
-	}).Error
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		return database.Client().WithContext(ctx).Table(
+			resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
+			"status": status,
+		}).Error
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		err := database.Client().WithContext(ctx).Table(
+			resourceTableMap[resourceType]).Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
+			"status": status,
+		}).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateResourceStatus 单个更新状态
@@ -195,16 +217,56 @@ func BatchGetResources(
 	resourceType constant.APISIXResource, ids []string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	if gatewayInfo != nil {
-		query = query.Where("gateway_id = ?", gatewayInfo.ID)
+
+	// 如果没有指定 IDs，返回所有资源
+	if len(ids) == 0 {
+		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
+		gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+		if gatewayInfo != nil {
+			query = query.Where("gateway_id = ?", gatewayInfo.ID)
+		}
+		err := query.Find(&res).Error
+		return res, err
 	}
-	if len(ids) != 0 {
+
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
+		gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+		if gatewayInfo != nil {
+			query = query.Where("gateway_id = ?", gatewayInfo.ID)
+		}
 		query = query.Where("id IN (?)", ids)
+		err := query.Find(&res).Error
+		return res, err
 	}
-	err := query.Find(&res).Error
-	return res, err
+
+	// 分批处理大量 IDs
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		var batchRes []*model.ResourceCommonModel
+
+		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
+		if gatewayInfo != nil {
+			query = query.Where("gateway_id = ?", gatewayInfo.ID)
+		}
+		query = query.Where("id IN (?)", batchIDs)
+
+		err := query.Find(&batchRes).Error
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, batchRes...)
+	}
+
+	return res, nil
 }
 
 // GetResourcesLabels 获取资源标签
@@ -286,9 +348,34 @@ func GetResourceByIDs(
 	ids []string,
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
-	err := database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id IN ?", ids).Find(&res).Error
-	return res, err
+
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		err := database.Client().WithContext(ctx).Table(
+			resourceTableMap[resourceType]).Where("id IN ?", ids).Find(&res).Error
+		return res, err
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		var batchRes []model.ResourceCommonModel
+
+		err := database.Client().WithContext(ctx).Table(
+			resourceTableMap[resourceType]).Where("id IN ?", batchIDs).Find(&batchRes).Error
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, batchRes...)
+	}
+
+	return res, nil
 }
 
 // DeleteResourceByIDs 根据 ids 删除资源
@@ -297,9 +384,29 @@ func DeleteResourceByIDs(
 	resourceType constant.APISIXResource,
 	ids []string,
 ) error {
-	err := database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
-	return err
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接删除
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		err := database.Client().WithContext(ctx).Table(
+			resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
+		return err
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		err := database.Client().WithContext(ctx).Table(
+			resourceTableMap[resourceType]).Where("id IN ?", batchIDs).Delete(resourceModelMap[resourceType]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetSchemaByIDs 根据 ids 获取 schema
@@ -308,9 +415,34 @@ func GetSchemaByIDs(
 	ids []string,
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
-	err := database.Client().WithContext(ctx).Table(
-		model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error
-	return res, err
+
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		err := database.Client().WithContext(ctx).Table(
+			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error
+		return res, err
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		var batchRes []model.GatewayCustomPluginSchema
+
+		err := database.Client().WithContext(ctx).Table(
+			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", batchIDs).Find(&batchRes).Error
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, batchRes...)
+	}
+
+	return res, nil
 }
 
 // QueryResource ... 根据条件查询资源

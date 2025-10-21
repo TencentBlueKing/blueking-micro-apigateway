@@ -163,7 +163,7 @@ func BatchUpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
-	// 如果 IDs 数量小于等于 MaxBatchSize，直接更新
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		return database.Client().WithContext(ctx).Table(
 			resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
@@ -384,7 +384,7 @@ func DeleteResourceByIDs(
 	resourceType constant.APISIXResource,
 	ids []string,
 ) error {
-	// 如果 IDs 数量小于等于 MaxBatchSize，直接删除
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接删除
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
 			resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
@@ -416,7 +416,7 @@ func GetSchemaByIDs(
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
 
-	// 如果 IDs 数量小于等于 MaxBatchSize，直接查询
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
 			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error

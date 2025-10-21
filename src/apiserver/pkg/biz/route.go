@@ -142,7 +142,7 @@ func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
 	if ginx.GetTx(ctx) != nil {
 		return ginx.GetTx(ctx).Route.WithContext(ctx).Create(routes...)
 	}
-	return repo.Route.WithContext(ctx).Create(routes...)
+	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchSize)
 }
 
 // UpdateRoute 更新路由

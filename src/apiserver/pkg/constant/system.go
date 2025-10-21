@@ -71,3 +71,8 @@ const (
 const (
 	LOG_NOTICE = slog.Level(5)
 )
+
+// DBBatchSize ...
+const (
+	DBBatchSize = 1000
+)

@@ -1,6 +1,8 @@
 module github.com/TencentBlueKing/blueking-micro-apigateway/apiserver
 
-go 1.24.4
+go 1.23.0
+
+toolchain go1.24.4
 
 require (
 	github.com/agiledragon/gomonkey/v2 v2.13.0

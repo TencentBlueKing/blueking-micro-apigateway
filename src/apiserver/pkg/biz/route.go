@@ -59,18 +59,18 @@ func GetRouteOrderExprList(orderBy string) []field.Expr {
 
 // ListPagedRoutes 分页查询网关路由列表
 func ListPagedRoutes(
-ctx context.Context,
-param map[string]interface{},
-label map[string][]string,
-status []string,
-name string,
-updater string,
-path string,
-method string,
-serviceID string,
-upstreamID string,
-orderBy string,
-page PageParam,
+	ctx context.Context,
+	param map[string]interface{},
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	path string,
+	method string,
+	serviceID string,
+	upstreamID string,
+	orderBy string,
+	page PageParam,
 ) ([]*model.Route, int64, error) {
 	u := repo.Route
 	query := u.WithContext(ctx)

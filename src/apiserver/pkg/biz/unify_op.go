@@ -331,22 +331,27 @@ func GetSyncItemsAssociatedResources(
 		serviceID := item.GetServiceID()
 		if serviceID != "" && !idMap[serviceID] {
 			associatedIDs = append(associatedIDs, serviceID)
+			idMap[serviceID] = true
 		}
 		upstreamID := item.GetUpstreamID()
 		if upstreamID != "" && !idMap[upstreamID] {
 			associatedIDs = append(associatedIDs, upstreamID)
+			idMap[upstreamID] = true
 		}
 		pluginConfigID := item.GetPluginConfigID()
 		if pluginConfigID != "" && !idMap[pluginConfigID] {
 			associatedIDs = append(associatedIDs, pluginConfigID)
+			idMap[pluginConfigID] = true
 		}
 		groupID := item.GetGroupID()
 		if groupID != "" && !idMap[groupID] {
 			associatedIDs = append(associatedIDs, groupID)
+			idMap[groupID] = true
 		}
 		sslID := item.GetGroupID()
 		if sslID != "" && !idMap[sslID] {
 			associatedIDs = append(associatedIDs, sslID)
+			idMap[sslID] = true
 		}
 	}
 	if len(associatedIDs) > 0 {
@@ -795,6 +800,11 @@ func syncedResourceToAPISIXRoute(
 	status constant.ResourceStatus,
 ) []*model.Route {
 	var routes []*model.Route
+	var OperationType constant.OperationType
+	// 对于同步数量大于 100 的资源，批量操作暂时忽略审计
+	if len(syncedResources) > 100 {
+		OperationType = constant.OperationOneClickManaged
+	}
 	for _, syncedResource := range syncedResources {
 		routes = append(routes, &model.Route{
 			Name:           syncedResource.GetName(),
@@ -807,6 +817,7 @@ func syncedResourceToAPISIXRoute(
 				Config:    syncedResource.Config,
 				Status:    status,
 			},
+			OperationType: OperationType,
 		})
 	}
 	return routes

@@ -73,6 +73,10 @@ func (r *Route) BeforeCreate(tx *gorm.DB) (err error) {
 	if err != nil {
 		return err
 	}
+	// 如果操作类型为一键托管，则不触发审计
+	if r.OperationType == constant.OperationOneClickManaged {
+		return nil
+	}
 	// 添加审计
 	return r.AddAuditLog(tx, constant.OperationTypeCreate)
 }

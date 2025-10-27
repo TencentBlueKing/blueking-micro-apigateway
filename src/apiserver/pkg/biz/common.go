@@ -163,10 +163,12 @@ func BatchUpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		return database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
+			resourceTableMap[resourceType]).
+			Where("gateway_id = ? AND id IN (?)", gatewayID, ids).Updates(map[string]interface{}{
 			"status": status,
 		}).Error
 	}
@@ -180,7 +182,8 @@ func BatchUpdateResourceStatus(
 
 		batchIDs := ids[i:end]
 		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
+			resourceTableMap[resourceType]).
+			Where("gateway_id = ? AND id IN (?)", gatewayID, batchIDs).Updates(map[string]interface{}{
 			"status": status,
 		}).Error
 		if err != nil {
@@ -196,8 +199,10 @@ func UpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
 	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Updates(map[string]interface{}{
+		resourceTableMap[resourceType]).
+		Where("gateway_id = ? AND id = ?", gatewayID, id).Updates(map[string]interface{}{
 		"status":  status,
 		"updater": ginx.GetUserIDFromContext(ctx),
 	}).Error
@@ -336,8 +341,9 @@ func GetResourceByID(
 	resourceType constant.APISIXResource, id string,
 ) (model.ResourceCommonModel, error) {
 	var res model.ResourceCommonModel
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
 	err := database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Take(&res).Error
+		resourceTableMap[resourceType]).Where("gateway_id = ? AND id = ?", gatewayID, id).Take(&res).Error
 	return res, err
 }
 
@@ -349,10 +355,12 @@ func GetResourceByIDs(
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
 
+	gatewayId := ginx.GetGatewayInfoFromContext(ctx).ID
+
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", ids).Find(&res).Error
+			resourceTableMap[resourceType]).Where("gateway_id = ? AND id IN ?", gatewayId, ids).Find(&res).Error
 		return res, err
 	}
 
@@ -367,7 +375,8 @@ func GetResourceByIDs(
 		var batchRes []model.ResourceCommonModel
 
 		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", batchIDs).Find(&batchRes).Error
+			resourceTableMap[resourceType]).Where("gateway_id = ? AND id IN ?", gatewayId, batchIDs).
+			Find(&batchRes).Error
 		if err != nil {
 			return nil, err
 		}
@@ -384,10 +393,12 @@ func DeleteResourceByIDs(
 	resourceType constant.APISIXResource,
 	ids []string,
 ) error {
+	gatewayId := ginx.GetGatewayInfoFromContext(ctx).ID
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接删除
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
+			resourceTableMap[resourceType]).Where(""+
+			"gateway_id = ? AND id IN ?", gatewayId, ids).Delete(resourceModelMap[resourceType]).Error
 		return err
 	}
 
@@ -400,7 +411,8 @@ func DeleteResourceByIDs(
 
 		batchIDs := ids[i:end]
 		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", batchIDs).Delete(resourceModelMap[resourceType]).Error
+			resourceTableMap[resourceType]).Where(""+
+			"gateway_id = ? AND id IN ?", gatewayId, batchIDs).Delete(resourceModelMap[resourceType]).Error
 		if err != nil {
 			return err
 		}
@@ -415,11 +427,12 @@ func GetSchemaByIDs(
 	ids []string,
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
-
+	gatewayId := ginx.GetGatewayInfoFromContext(ctx).ID
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := database.Client().WithContext(ctx).Table(
-			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error
+			model.GatewayCustomPluginSchema{}.TableName()).Where(
+			"gateway_id = ? AND auto_id IN ?", gatewayId, ids).Find(&res).Error
 		return res, err
 	}
 
@@ -434,7 +447,8 @@ func GetSchemaByIDs(
 		var batchRes []model.GatewayCustomPluginSchema
 
 		err := database.Client().WithContext(ctx).Table(
-			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", batchIDs).Find(&batchRes).Error
+			model.GatewayCustomPluginSchema{}.TableName()).Where(
+			"gateway_id = ? AND auto_id IN ?", gatewayId, batchIDs).Find(&batchRes).Error
 		if err != nil {
 			return nil, err
 		}
@@ -453,7 +467,9 @@ func QueryResource(
 	name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(params)
+	gatewayId := ginx.GetGatewayInfoFromContext(ctx).ID
+	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).
+		Where("gateway_id = ?", gatewayId).Where(params)
 	if name != "" {
 		query = query.Where(model.GetResourceNameKey(resourceType)+" LIKE ?", "%"+name+"%")
 	}
@@ -557,6 +573,7 @@ func UpdateResource(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
 ) error {
+	gatewayId := ginx.GetGatewayInfoFromContext(ctx).ID
 	resourceModel, exists := resourceModelMap[resourceType]
 	if !exists {
 		return fmt.Errorf("unsupported resource type: %v", resourceType)
@@ -565,7 +582,8 @@ func UpdateResource(
 
 	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resource.ToResourceModel(resourceType)))
 	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Updates(newResourceModel).Error
+		resourceTableMap[resourceType]).Where("gateway_id = ? AND id = ?",
+		gatewayId, id).Updates(newResourceModel).Error
 }
 
 // GetResourceUpdateStatus 获取资源更新状态

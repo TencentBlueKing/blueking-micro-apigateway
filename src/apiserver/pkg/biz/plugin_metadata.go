@@ -95,7 +95,8 @@ func batchCreatePluginMetadatas(ctx context.Context, pluginMetadataList []*model
 // UpdatePluginMetadata 更新 PluginMetadata
 func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetadata) error {
 	u := repo.PluginMetadata
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(pluginMetadata.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(pluginMetadata.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -107,7 +108,8 @@ func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 // GetPluginMetadata 查询 PluginMetadata 详情
 func GetPluginMetadata(ctx context.Context, id string) (*model.PluginMetadata, error) {
 	u := repo.PluginMetadata
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryPluginMetadatas 搜索 PluginMetadata
@@ -130,7 +132,8 @@ func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.PluginMetadata.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.PluginMetadata.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

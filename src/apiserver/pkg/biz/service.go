@@ -116,7 +116,8 @@ func BatchCreateServices(ctx context.Context, services []*model.Service) error {
 // UpdateService 更新 Service
 func UpdateService(ctx context.Context, service model.Service) error {
 	u := repo.Service
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(service.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(service.ID)).Select(
 		u.Name,
 		u.UpstreamID,
 		u.Config,
@@ -129,7 +130,8 @@ func UpdateService(ctx context.Context, service model.Service) error {
 // GetService 查询 Service 详情
 func GetService(ctx context.Context, id string) (*model.Service, error) {
 	u := repo.Service
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryServices 搜索 service
@@ -168,7 +170,8 @@ func BatchDeleteServices(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Service.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.Service.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

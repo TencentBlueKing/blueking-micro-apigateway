@@ -98,7 +98,8 @@ func BatchCreateGlobalRules(ctx context.Context, globalRules []*model.GlobalRule
 // UpdateGlobalRule 更新 GlobalRule
 func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 	u := repo.GlobalRule
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(globalRule.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(globalRule.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -110,7 +111,8 @@ func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 // GetGlobalRule 查询 GlobalRule 详情
 func GetGlobalRule(ctx context.Context, id string) (*model.GlobalRule, error) {
 	u := repo.GlobalRule
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryGlobalRules 搜索 GlobalRule
@@ -132,7 +134,8 @@ func BatchDeleteGlobalRules(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.GlobalRule.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.GlobalRule.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

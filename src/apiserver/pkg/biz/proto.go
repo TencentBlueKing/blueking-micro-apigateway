@@ -97,7 +97,8 @@ func BatchCreateProtos(ctx context.Context, protos []*model.Proto) error {
 // UpdateProto 更新 Proto
 func UpdateProto(ctx context.Context, proto model.Proto) error {
 	u := repo.Proto
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(proto.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(proto.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -109,7 +110,8 @@ func UpdateProto(ctx context.Context, proto model.Proto) error {
 // GetProto 查询 Proto 详情
 func GetProto(ctx context.Context, id string) (*model.Proto, error) {
 	u := repo.Proto
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryProtos 搜索 Proto
@@ -143,7 +145,8 @@ func BatchDeleteProtos(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Proto.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.Proto.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

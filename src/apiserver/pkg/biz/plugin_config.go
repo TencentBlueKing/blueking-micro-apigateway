@@ -106,7 +106,8 @@ func BatchCreatePluginConfigs(ctx context.Context, pluginConfigs []*model.Plugin
 // UpdatePluginConfig 更新 PluginConfig
 func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) error {
 	u := repo.PluginConfig
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(pluginConfig.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(pluginConfig.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -118,7 +119,8 @@ func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 // GetPluginConfig 查询 PluginConfig 详情
 func GetPluginConfig(ctx context.Context, id string) (*model.PluginConfig, error) {
 	u := repo.PluginConfig
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryPluginConfigs  搜索插件配置
@@ -157,7 +159,8 @@ func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.PluginConfig.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.PluginConfig.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

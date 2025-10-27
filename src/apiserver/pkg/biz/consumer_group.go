@@ -106,7 +106,8 @@ func BatchCreateConsumerGroups(ctx context.Context, consumerGroups []*model.Cons
 // UpdateConsumerGroup 更新 ConsumerGroup
 func UpdateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup) error {
 	u := repo.ConsumerGroup
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(consumerGroup.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(consumerGroup.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -118,7 +119,8 @@ func UpdateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup)
 // GetConsumerGroup 查询 ConsumerGroup 详情
 func GetConsumerGroup(ctx context.Context, id string) (*model.ConsumerGroup, error) {
 	u := repo.ConsumerGroup
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryConsumerGroups 搜索 ConsumerGroup
@@ -156,7 +158,8 @@ func BatchDeleteConsumerGroups(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.ConsumerGroup.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.ConsumerGroup.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

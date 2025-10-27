@@ -124,7 +124,8 @@ func BatchCreateStreamRoutes(ctx context.Context, streamRoutes []*model.StreamRo
 // UpdateStreamRoute 更新 StreamRoute
 func UpdateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error {
 	u := repo.StreamRoute
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(streamRoute.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(streamRoute.ID)).Select(
 		u.Name,
 		u.ServiceID,
 		u.UpstreamID,
@@ -138,7 +139,8 @@ func UpdateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error
 // GetStreamRoute 查询 StreamRoute 详情
 func GetStreamRoute(ctx context.Context, id string) (*model.StreamRoute, error) {
 	u := repo.StreamRoute
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryStreamRoutes 搜索 StreamRoute
@@ -156,7 +158,8 @@ func BatchDeleteStreamRoutes(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

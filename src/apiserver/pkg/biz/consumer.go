@@ -116,7 +116,8 @@ func BatchCreateConsumers(ctx context.Context, consumers []*model.Consumer) erro
 // UpdateConsumer 更新 Consumer
 func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 	u := repo.Consumer
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(consumer.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(consumer.ID)).Select(
 		u.Username,
 		u.Updater,
 		u.GroupID,
@@ -129,7 +130,8 @@ func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 // GetConsumer 查询 Consumer 详情
 func GetConsumer(ctx context.Context, id string) (*model.Consumer, error) {
 	u := repo.Consumer
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryConsumers 搜索 consumer
@@ -152,7 +154,8 @@ func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Consumer.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.Consumer.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

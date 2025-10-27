@@ -134,14 +134,16 @@ func BatchCreateSSL(ctx context.Context, ssls []*model.SSL) error {
 // UpdateSSL 更新 SSL
 func UpdateSSL(ctx context.Context, ssl *model.SSL) error {
 	u := repo.SSL
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(ssl.ID)).Updates(ssl)
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(ssl.ID)).Updates(ssl)
 	return err
 }
 
 // GetSSL 查询 SSL 详情
 func GetSSL(ctx context.Context, id string) (*model.SSL, error) {
 	u := repo.SSL
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // BatchRevertSSLs 批量回滚 ssl
@@ -243,7 +245,8 @@ func BatchDeleteSSL(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.SSL.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.SSL.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

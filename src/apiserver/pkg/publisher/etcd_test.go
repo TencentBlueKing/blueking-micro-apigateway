@@ -54,7 +54,20 @@ var _ = Describe("EtcdPublisher", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			mockEtcdStore = mock.NewMockStorageInterface(ctrl)
 			ctx = context.Background()
-			gateway = &model.Gateway{}
+			gateway = &model.Gateway{
+				ID:            1,
+				Name:          "test-gateway",
+				APISIXVersion: "3.11.0",
+				EtcdConfig: model.EtcdConfig{
+					InstanceID: "test-instance",
+					EtcdConfig: base.EtcdConfig{
+						Endpoint: "localhost:2379",
+						Username: "test",
+						Password: "test",
+						Prefix:   "/apisix",
+					},
+				},
+			}
 		})
 
 		It("Test NewEtcdPublisher: ok", func() {
@@ -107,7 +120,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "key").Return("value", nil)
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 				result, err := p.Get(context.Background(), "key")
 				assert.NoError(GinkgoT(), err)
@@ -118,7 +132,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "key").Return("", errors.New("error"))
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 				result, err := p.Get(context.Background(), "key")
 				assert.Error(GinkgoT(), err)
@@ -133,7 +148,8 @@ var _ = Describe("EtcdPublisher", func() {
 					List(gomock.Any(), "prefix").
 					Return([]storage.KeyValuePair{{Key: "key1", Value: "value1"}, {Key: "key2", Value: "value2"}}, nil)
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 				result, err := p.List(context.Background(), "prefix")
 				assert.NoError(GinkgoT(), err)
@@ -148,7 +164,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().List(gomock.Any(), "prefix").Return(nil, errors.New("error"))
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 				result, err := p.List(context.Background(), "prefix")
 				assert.Error(GinkgoT(), err)
@@ -162,7 +179,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Create(gomock.Any(), "/key", "value").Return(nil)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -186,7 +204,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -212,7 +231,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Create(gomock.Any(), "/key", "value").Return(errors.New("create error"))
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -241,7 +261,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Update(gomock.Any(), "key", "value").Return(nil)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -265,7 +286,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -291,7 +313,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "/key").Return("", errors.New("get error"))
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -318,7 +341,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Update(gomock.Any(), "key", "value").Return(errors.New("update error"))
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -346,7 +370,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().BatchCreate(gomock.Any(), map[string]string{"/key": "value"}).Return(nil)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -370,7 +395,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -398,7 +424,8 @@ var _ = Describe("EtcdPublisher", func() {
 					Return(errors.New(batchCreateError))
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -426,7 +453,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().BatchCreate(gomock.Any(), map[string]string{"/key": "value"}).Return(nil)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -450,7 +478,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -478,7 +507,8 @@ var _ = Describe("EtcdPublisher", func() {
 					Return(errors.New(batchCreateError))
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -506,7 +536,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().BatchDelete(gomock.Any(), []string{"/key"}).Return(nil)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				resources := []ResourceOperation{{
@@ -524,7 +555,8 @@ var _ = Describe("EtcdPublisher", func() {
 					Return(errors.New("batch delete error"))
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				resources := []ResourceOperation{{
@@ -543,7 +575,8 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Close().Return(nil)
 
 				p := &EtcdPublisher{
-					etcdStore: mockEtcdStore,
+					etcdStore:   mockEtcdStore,
+					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
 				}
 
 				err := p.Close()

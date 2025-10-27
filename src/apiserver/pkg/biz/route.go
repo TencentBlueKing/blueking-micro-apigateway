@@ -148,7 +148,8 @@ func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
 // UpdateRoute 更新路由
 func UpdateRoute(ctx context.Context, route model.Route) error {
 	u := repo.Route
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(route.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(route.ID)).Select(
 		u.Name,
 		u.PluginConfigID,
 		u.ServiceID,
@@ -163,7 +164,8 @@ func UpdateRoute(ctx context.Context, route model.Route) error {
 // GetRoute 查询路由详情
 func GetRoute(ctx context.Context, id string) (*model.Route, error) {
 	u := repo.Route
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryRoutes 搜索路由
@@ -186,7 +188,8 @@ func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Route.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.Route.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

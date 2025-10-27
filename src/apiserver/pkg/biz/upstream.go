@@ -106,7 +106,8 @@ func BatchCreateUpstreams(ctx context.Context, upstreams []*model.Upstream) erro
 // UpdateUpstream 更新 upstream
 func UpdateUpstream(ctx context.Context, upstream model.Upstream) error {
 	u := repo.Upstream
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(upstream.ID)).Select(
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(upstream.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -119,7 +120,8 @@ func UpdateUpstream(ctx context.Context, upstream model.Upstream) error {
 // GetUpstream 查询 upstream 详情
 func GetUpstream(ctx context.Context, id string) (*model.Upstream, error) {
 	u := repo.Upstream
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
 }
 
 // QueryUpstreams 搜索 upstream
@@ -153,7 +155,8 @@ func BatchDeleteUpstreams(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Upstream.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+		_, err = tx.Upstream.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

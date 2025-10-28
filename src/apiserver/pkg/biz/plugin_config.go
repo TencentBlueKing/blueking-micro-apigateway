@@ -30,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// getPluginConfigQuery 获取 PluginConfig 查询对象
+func getPluginConfigQuery(ctx context.Context) repo.IPluginConfigDo {
+	return repo.PluginConfig.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// getPluginConfigQueryWithTx 获取 tx 的 PluginConfig 查询对象
+func getPluginConfigQueryWithTx(ctx context.Context, tx *repo.Query) repo.IPluginConfigDo {
+	return tx.WithContext(ctx).PluginConfig.Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListPluginConfigs 查询网关 PluginConfig 列表
-func ListPluginConfigs(ctx context.Context, gatewayID int) ([]*model.PluginConfig, error) {
+func ListPluginConfigs(ctx context.Context) ([]*model.PluginConfig, error) {
 	u := repo.PluginConfig
-	return repo.PluginConfig.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return getPluginConfigQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetPluginConfigOrderExprList 获取 PluginConfig 排序字段列表
@@ -66,7 +80,7 @@ func ListPagedPluginConfigs(
 	page PageParam,
 ) ([]*model.PluginConfig, int64, error) {
 	u := repo.PluginConfig
-	query := u.WithContext(ctx)
+	query := getPluginConfigQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -98,7 +112,7 @@ func CreatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 // BatchCreatePluginConfigs 批量创建 PluginConfig
 func BatchCreatePluginConfigs(ctx context.Context, pluginConfigs []*model.PluginConfig) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Create(pluginConfigs...)
+		return getPluginConfigQueryWithTx(ctx, ginx.GetTx(ctx)).Create(pluginConfigs...)
 	}
 	return repo.PluginConfig.WithContext(ctx).Create(pluginConfigs...)
 }
@@ -106,8 +120,7 @@ func BatchCreatePluginConfigs(ctx context.Context, pluginConfigs []*model.Plugin
 // UpdatePluginConfig 更新 PluginConfig
 func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) error {
 	u := repo.PluginConfig
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(pluginConfig.ID)).Select(
+	_, err := getPluginConfigQuery(ctx).Where(u.ID.Eq(pluginConfig.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -119,14 +132,12 @@ func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 // GetPluginConfig 查询 PluginConfig 详情
 func GetPluginConfig(ctx context.Context, id string) (*model.PluginConfig, error) {
 	u := repo.PluginConfig
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
+	return getPluginConfigQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryPluginConfigs  搜索插件配置
 func QueryPluginConfigs(ctx context.Context, param map[string]interface{}) ([]*model.PluginConfig, error) {
-	u := repo.PluginConfig
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+	return getPluginConfigQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsPluginConfig 查询 PluginConfig 是否存在
@@ -159,8 +170,7 @@ func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-		_, err = tx.PluginConfig.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
+		_, err = getPluginConfigQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -224,7 +234,7 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 			return err
 		}
 		for _, pluginConfig := range pluginConfigs {
-			_, err := tx.PluginConfig.WithContext(ctx).Updates(pluginConfig)
+			_, err := getPluginConfigQueryWithTx(ctx, tx).Updates(pluginConfig)
 			if err != nil {
 				return err
 			}

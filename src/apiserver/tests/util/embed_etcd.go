@@ -33,10 +33,10 @@ import (
 // StartEmbedEtcdClient StartEmbedEtcd starts an embedded etcd server
 func StartEmbedEtcdClient(ctx context.Context) (*clientv3.Client, *embed.Etcd, error) {
 	cfg := embed.NewConfig()
-	cfg.ListenClientUrls = []url.URL{{Scheme: "http", Host: "localhost:4379"}}
-	cfg.ListenPeerUrls = []url.URL{{Scheme: "http", Host: "localhost:4378"}}
-	cfg.ListenClientHttpUrls = []url.URL{{Scheme: "http", Host: "localhost:6379"}}
-	cfg.AdvertiseClientUrls = []url.URL{{Scheme: "http", Host: "localhost:5379"}}
+	cfg.ListenClientUrls = []url.URL{{Scheme: "http", Host: "localhost:4389"}}
+	cfg.ListenPeerUrls = []url.URL{{Scheme: "http", Host: "localhost:4388"}}
+	cfg.ListenClientHttpUrls = []url.URL{{Scheme: "http", Host: "localhost:6380"}}
+	cfg.AdvertiseClientUrls = []url.URL{{Scheme: "http", Host: "localhost:5380"}}
 	cfg.Dir, _ = os.MkdirTemp("", "etcd")
 	cfg.LogLevel = "error"
 

@@ -279,7 +279,7 @@ func PluginMetadataDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.PluginMetadataDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas-dropdown/ [get]
 func PluginMetadataDropDownList(c *gin.Context) {
-	pluginMetadatas, err := biz.ListPluginMetadatas(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	pluginMetadatas, err := biz.ListPluginMetadatas(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

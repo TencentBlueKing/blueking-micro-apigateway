@@ -151,7 +151,6 @@ func ConsumerGroupList(c *gin.Context) {
 		return
 	}
 	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -280,7 +279,7 @@ func ConsumerGroupDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.ConsumerGroupDropDownListResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups-dropdown/ [get]
 func ConsumerGroupDropDownList(c *gin.Context) {
-	consumerGroups, err := biz.ListConsumerGroups(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	consumerGroups, err := biz.ListConsumerGroups(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

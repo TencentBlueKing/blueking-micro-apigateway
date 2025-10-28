@@ -266,7 +266,7 @@ func SchemaDelete(c *gin.Context) {
 		)
 		return
 	}
-	if err := biz.DeleteSchema(c.Request.Context(), pathParam.AutoID); err != nil {
+	if err := biz.DeleteSchemaBySchemaID(c.Request.Context(), pathParam.AutoID); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}

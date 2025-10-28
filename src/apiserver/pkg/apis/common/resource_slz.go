@@ -48,27 +48,43 @@ type ResourceUploadInfo struct {
 	Update map[constant.APISIXResource][]ResourceInfo `json:"update,omitempty"`
 }
 
+// HandlerResourceResult ...
+type HandlerResourceResult struct {
+	AddResourceTypeMap    map[constant.APISIXResource][]*model.GatewaySyncData
+	UpdateResourceTypeMap map[constant.APISIXResource][]*model.GatewaySyncData
+}
+
+// HandlerResourceIndexResult ...
+type HandlerResourceIndexResult struct {
+	ExistsResourceIdList map[string]struct{}
+	AddedSchemaMap       map[string]*model.GatewayCustomPluginSchema
+	UpdatedSchemaMap     map[string]*model.GatewayCustomPluginSchema
+	AllSchemaMap         map[string]interface{}
+	ResourceTypeMap      map[constant.APISIXResource][]*model.GatewaySyncData
+}
+
 // ClassifyImportResourceInfo 分类合并导入资源信息
 func ClassifyImportResourceInfo(
 	importDataList map[constant.APISIXResource][]ResourceInfo,
 	existsResourceIdList map[string]struct{},
+	addPluginSchemaMap map[string]*model.GatewayCustomPluginSchema,
 ) (*ResourceUploadInfo, error) {
-	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
-	for _, impList := range importDataList {
-		for _, imp := range impList {
-			if idList, ok := resourceIDMap[imp.ResourceType]; ok {
-				resourceIDMap[imp.ResourceType] = append(idList, imp.ResourceID)
-			} else {
-				resourceIDMap[imp.ResourceType] = []string{imp.ResourceID}
-			}
-		}
-	}
 	uploadOutput := &ResourceUploadInfo{
 		Add:    make(map[constant.APISIXResource][]ResourceInfo),
 		Update: make(map[constant.APISIXResource][]ResourceInfo),
 	}
-	for _, impList := range importDataList {
+	for resourceType, impList := range importDataList {
 		for _, imp := range impList {
+			if resourceType == constant.Schema {
+				if _, ok := addPluginSchemaMap[imp.Name]; !ok {
+					imp.Status = constant.UploadStatusAdd
+					uploadOutput.Add[constant.Schema] = append(uploadOutput.Add[constant.Schema], imp)
+				} else {
+					imp.Status = constant.UploadStatusUpdate
+					uploadOutput.Update[constant.Schema] = append(uploadOutput.Update[constant.Schema], imp)
+				}
+				continue
+			}
 			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
 			if _, ok := existsResourceIdList[imp.ResourceID]; !ok {
 				imp.Status = constant.UploadStatusAdd
@@ -82,30 +98,120 @@ func ClassifyImportResourceInfo(
 	return uploadOutput, nil
 }
 
-// HandleImportResources 处理导入资源
-func HandleImportResources(
+// HandleUploadResources 处理导入资源
+func HandleUploadResources(
 	ctx context.Context,
 	resourcesImport *ResourceUploadInfo,
-) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
+	allSchemaMap map[string]interface{},
+) (*HandlerResourceResult, error) {
 	// 分类聚合
 	allResourceIdMap := make(map[string]struct{})
 	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	err = biz.ValidateResource(ctx, resourceTypeAddMap, allResourceIdMap)
+	err = biz.ValidateResource(ctx, resourceTypeAddMap, allResourceIdMap, allSchemaMap)
 	if err != nil {
-		return nil, nil, fmt.Errorf("add resources validate failed, err: %v", err)
+		return nil, fmt.Errorf("add resources validate failed, err: %v", err)
 	}
-	err = biz.ValidateResource(ctx, resourceTypeUpdateMap, allResourceIdMap)
+	err = biz.ValidateResource(ctx, resourceTypeUpdateMap, allResourceIdMap, allSchemaMap)
 	if err != nil {
-		return nil, nil, fmt.Errorf("updated resources validate failed, err: %v", err)
+		return nil, fmt.Errorf("updated resources validate failed, err: %v", err)
 	}
-	return resourceTypeAddMap, resourceTypeUpdateMap, nil
+	return &HandlerResourceResult{
+		AddResourceTypeMap:    resourceTypeAddMap,
+		UpdateResourceTypeMap: resourceTypeUpdateMap,
+	}, nil
+}
+
+// HandlerCustomerPluginSchemaImport is a function that handles the import of customer plugin schemas.
+func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []ResourceInfo) (
+	allSchemaMap map[string]interface{}, addedSchemaMap, updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
+) {
+	// Get the existing plugin schema map from the business logic layer
+	existsPluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// Initialize a map to store the newly added schemas
+	addedSchemaMap = make(map[string]*model.GatewayCustomPluginSchema)
+	updatedSchemaMap = make(map[string]*model.GatewayCustomPluginSchema)
+	// Iterate through each resource info in the schema info list
+	for _, schemaInfo := range schemaInfoList {
+		schemaModel := &model.GatewayCustomPluginSchema{
+			GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
+			Name:      schemaInfo.Name,
+			Schema:    datatypes.JSON(gjson.GetBytes(schemaInfo.Config, "schema").String()),
+			Example:   datatypes.JSON(gjson.GetBytes(schemaInfo.Config, "example").String()),
+			BaseModel: model.BaseModel{
+				Creator: ginx.GetUserIDFromContext(ctx),
+			},
+		}
+		// Check if the schema already exists in the plugin schema map
+		if _, ok := existsPluginSchemaMap[schemaInfo.Name]; !ok {
+			addedSchemaMap[schemaInfo.Name] = schemaModel
+		} else {
+			updatedSchemaMap[schemaInfo.Name] = schemaModel
+		}
+		schemaRaw, _ := json.Marshal(schemaModel.Schema)
+		var schemaMap map[string]interface{}
+		_ = json.Unmarshal(schemaRaw, &schemaMap)
+		existsPluginSchemaMap[schemaInfo.Name] = schemaMap
+
+	}
+	return existsPluginSchemaMap, addedSchemaMap, updatedSchemaMap, nil
+}
+
+// HandlerResourceIndexMap is a function that handles the indexing of resources.
+func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[constant.APISIXResource][]ResourceInfo) (
+	*HandlerResourceIndexResult, error,
+) {
+	existsResourceIdList := make(map[string]struct{})
+	var addedSchemaMap map[string]*model.GatewayCustomPluginSchema
+	var updatedSchemaMap map[string]*model.GatewayCustomPluginSchema
+	var allSchemaMap map[string]interface{}
+	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+	var err error
+	for resourceType, resourceInfoList := range resourceInfoTypeMap {
+		// 自定义插件特殊处理
+		if resourceType == constant.Schema {
+			allSchemaMap, addedSchemaMap, updatedSchemaMap, err = HandlerCustomerPluginSchemaImport(
+				ctx, resourceInfoList)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		dbResources, err := biz.BatchGetResources(ctx, resourceType, []string{})
+		if err != nil {
+			return nil, err
+		}
+		for _, dbResource := range dbResources {
+			existsResourceIdList[dbResource.ID] = struct{}{}
+		}
+		for _, resourceInfo := range resourceInfoList {
+			res := &model.GatewaySyncData{
+				Type:   resourceInfo.ResourceType,
+				ID:     resourceInfo.ResourceID,
+				Config: datatypes.JSON(resourceInfo.Config),
+			}
+			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
+				resourceTypeMap[resourceInfo.ResourceType] = append(resourceTypeMap[resourceInfo.ResourceType], res)
+				continue
+			}
+			resourceTypeMap[resourceInfo.ResourceType] = []*model.GatewaySyncData{res}
+		}
+	}
+	return &HandlerResourceIndexResult{
+		ExistsResourceIdList: existsResourceIdList,
+		AddedSchemaMap:       addedSchemaMap,
+		UpdatedSchemaMap:     updatedSchemaMap,
+		AllSchemaMap:         allSchemaMap,
+	}, nil
 }
 
 func handleResources(
@@ -115,6 +221,9 @@ func handleResources(
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
 	for resourceType, resourceInfoList := range resourcesImport {
+		if resourceType == constant.Schema {
+			continue
+		}
 		allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
 		if err != nil {
 			return nil, fmt.Errorf("get exist resources failed, err: %v", err)

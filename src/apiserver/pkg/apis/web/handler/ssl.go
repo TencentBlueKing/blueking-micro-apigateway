@@ -338,7 +338,7 @@ func SSLDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.SSLDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls-dropdown/ [get]
 func SSLDropDownList(c *gin.Context) {
-	ssls, err := biz.ListSSL(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	ssls, err := biz.ListSSL(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

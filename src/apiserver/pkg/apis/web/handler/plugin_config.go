@@ -284,7 +284,7 @@ func PluginConfigDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.PluginConfigDropDownResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs-dropdown/ [get]
 func PluginConfigDropDownList(c *gin.Context) {
-	pluginConfigs, err := biz.ListPluginConfigs(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	pluginConfigs, err := biz.ListPluginConfigs(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -284,6 +284,8 @@ func UploadResources(
 	ctx context.Context,
 	addResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
 	updateTypeResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	addSchemas map[string]*model.GatewayCustomPluginSchema,
+	updatedSchemas map[string]*model.GatewayCustomPluginSchema,
 ) error {
 	// 分类同步
 	var err error
@@ -300,13 +302,39 @@ func UploadResources(
 				return err
 			}
 		}
-		err = insertSyncedResourcesModel(ctx, updateTypeResourcesTypeMap, constant.ResourceStatusUpdateDraft, false)
+		err = insertSyncedResourcesModel(
+			ctx, updateTypeResourcesTypeMap, constant.ResourceStatusUpdateDraft, false)
 		if err != nil {
 			return err
 		}
-		err = insertSyncedResourcesModel(ctx, addResourcesTypeMap, constant.ResourceStatusCreateDraft, false)
+		err = insertSyncedResourcesModel(
+			ctx, addResourcesTypeMap, constant.ResourceStatusCreateDraft, false)
 		if err != nil {
 			return err
+		}
+		// 处理自定义插件资源,更新的插件先删除再插入
+		var updateSchemaNames []string
+		for _, schema := range updatedSchemas {
+			updateSchemaNames = append(updateSchemaNames, schema.Name)
+		}
+		if len(updateSchemaNames) > 0 {
+			err = DeleteSchemaByNames(ctx, updateSchemaNames)
+			if err != nil {
+				return err
+			}
+		}
+		var schemaInfoList []*model.GatewayCustomPluginSchema
+		for _, schema := range addSchemas {
+			schemaInfoList = append(schemaInfoList, schema)
+		}
+		for _, schema := range updatedSchemas {
+			schemaInfoList = append(schemaInfoList, schema)
+		}
+		if len(schemaInfoList) > 0 {
+			err = BatchCreateSchema(ctx, schemaInfoList)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -1136,7 +1164,7 @@ func GetResourceConfigDiffDetail(ctx context.Context, resourceType constant.APIS
 	// todo: 同步资源可能存在延时，基于什么样的策略选择从mysql拿还是从etcd拿
 	// 获取同步资源配置
 	syncedResourceConfig := json.RawMessage("{}")
-	syncedResource, err := GetSyncedItemByID(ctx, ginx.GetGatewayInfoFromContext(ctx).ID, id)
+	syncedResource, err := GetSyncedItemByID(ctx, id)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}

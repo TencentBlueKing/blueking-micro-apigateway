@@ -201,7 +201,7 @@ func GatewayList(c *gin.Context) {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		upstreamCount, err := biz.GetUpstreamCount(c, gateway.ID)
+		upstreamCount, err := biz.GetUpstreamCount(c.Request.Context())
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return

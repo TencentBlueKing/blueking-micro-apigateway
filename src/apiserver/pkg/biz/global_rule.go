@@ -33,10 +33,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// getGlobalRuleQuery 获取 GlobalRule 查询对象
+func getGlobalRuleQuery(ctx context.Context) repo.IGlobalRuleDo {
+	return repo.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// getGlobalRuleQueryWithTx 获取 GlobalRule 查询对象(带事务)
+func getGlobalRuleQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGlobalRuleDo {
+	return tx.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListGlobalRules 查询网关 GlobalRule 列表
-func ListGlobalRules(ctx context.Context, gatewayID int) ([]*model.GlobalRule, error) {
+func ListGlobalRules(ctx context.Context) ([]*model.GlobalRule, error) {
 	u := repo.GlobalRule
-	return repo.GlobalRule.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return getGlobalRuleQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetGlobalRuleOrderExprList 获取 GlobalRule 排序字段列表
@@ -68,7 +82,7 @@ func ListPagedGlobalRules(
 	page PageParam,
 ) ([]*model.GlobalRule, int64, error) {
 	u := repo.GlobalRule
-	query := u.WithContext(ctx)
+	query := getGlobalRuleQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -90,7 +104,7 @@ func CreateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 // BatchCreateGlobalRules 批量创建 GlobalRule
 func BatchCreateGlobalRules(ctx context.Context, globalRules []*model.GlobalRule) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Create(globalRules...)
+		return getGlobalRuleQueryWithTx(ctx, ginx.GetTx(ctx)).Create(globalRules...)
 	}
 	return repo.GlobalRule.WithContext(ctx).Create(globalRules...)
 }
@@ -98,8 +112,7 @@ func BatchCreateGlobalRules(ctx context.Context, globalRules []*model.GlobalRule
 // UpdateGlobalRule 更新 GlobalRule
 func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 	u := repo.GlobalRule
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(globalRule.ID)).Select(
+	_, err := getGlobalRuleQueryWithTx(ctx, ginx.GetTx(ctx)).Where(u.ID.Eq(globalRule.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -111,14 +124,12 @@ func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 // GetGlobalRule 查询 GlobalRule 详情
 func GetGlobalRule(ctx context.Context, id string) (*model.GlobalRule, error) {
 	u := repo.GlobalRule
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
+	return getGlobalRuleQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryGlobalRules 搜索 GlobalRule
 func QueryGlobalRules(ctx context.Context, param map[string]interface{}) ([]*model.GlobalRule, error) {
-	u := repo.GlobalRule
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+	return getGlobalRuleQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteGlobalRules 批量删除 GlobalRule 并添加审计日志
@@ -134,8 +145,7 @@ func BatchDeleteGlobalRules(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-		_, err = tx.GlobalRule.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
+		_, err = getGlobalRuleQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -198,7 +208,7 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 			return err
 		}
 		for _, globalRule := range globalRules {
-			_, err := tx.GlobalRule.WithContext(ctx).Updates(globalRule)
+			_, err := getGlobalRuleQueryWithTx(ctx, tx).Updates(globalRule)
 			if err != nil {
 				return err
 			}
@@ -209,8 +219,8 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 }
 
 // GetGlobalRulePluginToID 获取 global rule 配置的插件映射
-func GetGlobalRulePluginToID(ctx context.Context, gatewayID int) (map[string]dto.GlobalRulePlugin, error) {
-	globalRules, err := ListGlobalRules(ctx, gatewayID)
+func GetGlobalRulePluginToID(ctx context.Context) (map[string]dto.GlobalRulePlugin, error) {
+	globalRules, err := ListGlobalRules(ctx)
 	if err != nil {
 		return nil, err
 	}

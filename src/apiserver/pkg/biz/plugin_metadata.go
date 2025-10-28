@@ -30,10 +30,23 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// getPluginMetadataQuery 获取 PluginMetadata 查询对象
+func getPluginMetadataQuery(ctx context.Context) repo.IPluginMetadataDo {
+	return repo.PluginMetadata.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+func getPluginMetadataQueryWithTx(ctx context.Context, tx *repo.Query) repo.IPluginMetadataDo {
+	return tx.WithContext(ctx).PluginMetadata.Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListPluginMetadatas 查询网关 PluginMetadata 列表
-func ListPluginMetadatas(ctx context.Context, gatewayID int) ([]*model.PluginMetadata, error) {
+func ListPluginMetadatas(ctx context.Context) ([]*model.PluginMetadata, error) {
 	u := repo.PluginMetadata
-	return repo.PluginMetadata.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return getPluginMetadataQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetPluginMetadataOrderExprList 获取 PluginMetadata 排序字段列表
@@ -65,7 +78,7 @@ func ListPagedPluginMetadatas(
 	page PageParam,
 ) ([]*model.PluginMetadata, int64, error) {
 	u := repo.PluginMetadata
-	query := u.WithContext(ctx)
+	query := getPluginMetadataQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -87,7 +100,7 @@ func CreatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 // batchCreatePluginMetadatas 批量创建 PluginMetadata
 func batchCreatePluginMetadatas(ctx context.Context, pluginMetadataList []*model.PluginMetadata) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Create(pluginMetadataList...)
+		return getPluginMetadataQueryWithTx(ctx, ginx.GetTx(ctx)).Create(pluginMetadataList...)
 	}
 	return repo.PluginMetadata.WithContext(ctx).Create(pluginMetadataList...)
 }
@@ -95,8 +108,7 @@ func batchCreatePluginMetadatas(ctx context.Context, pluginMetadataList []*model
 // UpdatePluginMetadata 更新 PluginMetadata
 func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetadata) error {
 	u := repo.PluginMetadata
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(pluginMetadata.ID)).Select(
+	_, err := getPluginMetadataQuery(ctx).Where(u.ID.Eq(pluginMetadata.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -108,14 +120,12 @@ func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 // GetPluginMetadata 查询 PluginMetadata 详情
 func GetPluginMetadata(ctx context.Context, id string) (*model.PluginMetadata, error) {
 	u := repo.PluginMetadata
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
+	return getPluginMetadataQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryPluginMetadatas 搜索 PluginMetadata
 func QueryPluginMetadatas(ctx context.Context, param map[string]interface{}) ([]*model.PluginMetadata, error) {
-	u := repo.PluginMetadata
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+	return getPluginMetadataQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeletePluginMetadatas 批量删除 PluginMetadata 并记录审计日志
@@ -132,8 +142,7 @@ func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-		_, err = tx.PluginMetadata.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
+		_, err = getPluginMetadataQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -197,7 +206,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 			return err
 		}
 		for _, pluginMetadata := range pluginMetadatas {
-			_, err := tx.PluginMetadata.WithContext(ctx).Updates(pluginMetadata)
+			_, err := getPluginMetadataQueryWithTx(ctx, tx).Updates(pluginMetadata)
 			if err != nil {
 				return err
 			}

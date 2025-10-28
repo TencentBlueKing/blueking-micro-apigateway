@@ -96,7 +96,7 @@ func ValidateGlobalRulePlugin(ctx context.Context, fl validator.FieldLevel) bool
 		return false
 	})
 	// 校验 plugin 是否重复绑定到不同的 rule
-	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(ctx, ginx.GetGatewayInfoFromContext(ctx).ID)
+	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(ctx)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
 		return false

@@ -30,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// getProtoQuery 获取 Proto 查询对象
+func getProtoQuery(ctx context.Context) repo.IProtoDo {
+	return repo.Proto.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// getProtoQueryWithTx 获取 Proto 查询对象
+func getProtoQueryWithTx(ctx context.Context, tx *repo.Query) repo.IProtoDo {
+	return tx.WithContext(ctx).Proto.Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListProtos 查询网关 Proto 列表
-func ListProtos(ctx context.Context, gatewayID int) ([]*model.Proto, error) {
+func ListProtos(ctx context.Context) ([]*model.Proto, error) {
 	u := repo.Proto
-	return repo.Proto.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return getProtoQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetProtoOrderExprList 获取 Proto 排序字段列表
@@ -65,7 +79,7 @@ func ListPagedProtos(
 	page PageParam,
 ) ([]*model.Proto, int64, error) {
 	u := repo.Proto
-	query := u.WithContext(ctx)
+	query := getProtoQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -89,7 +103,7 @@ func CreateProto(ctx context.Context, proto model.Proto) error {
 // BatchCreateProtos 批量创建 Proto
 func BatchCreateProtos(ctx context.Context, protos []*model.Proto) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).Proto.WithContext(ctx).Create(protos...)
+		return getProtoQueryWithTx(ctx, ginx.GetTx(ctx)).Create(protos...)
 	}
 	return repo.Proto.WithContext(ctx).Create(protos...)
 }
@@ -97,8 +111,7 @@ func BatchCreateProtos(ctx context.Context, protos []*model.Proto) error {
 // UpdateProto 更新 Proto
 func UpdateProto(ctx context.Context, proto model.Proto) error {
 	u := repo.Proto
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	_, err := u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(proto.ID)).Select(
+	_, err := getProtoQuery(ctx).Where(u.ID.Eq(proto.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -110,30 +123,16 @@ func UpdateProto(ctx context.Context, proto model.Proto) error {
 // GetProto 查询 Proto 详情
 func GetProto(ctx context.Context, id string) (*model.Proto, error) {
 	u := repo.Proto
-	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).First()
+	proto, err := getProtoQuery(ctx).Where(u.ID.Eq(id)).First()
+	if err != nil {
+		return nil, err
+	}
+	return proto, nil
 }
 
 // QueryProtos 搜索 Proto
 func QueryProtos(ctx context.Context, param map[string]interface{}) ([]*model.Proto, error) {
-	u := repo.Proto
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
-}
-
-// ExistsProto 查询 Proto 是否存在
-func ExistsProto(ctx context.Context, id string) bool {
-	u := repo.Proto
-	proto, err := u.WithContext(ctx).Where(
-		u.ID.Eq(id),
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
-	).Find()
-	if err != nil {
-		return false
-	}
-	if len(proto) == 0 {
-		return false
-	}
-	return true
+	return getProtoQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteProtos 批量删除 Proto 并添加审计日志
@@ -145,8 +144,7 @@ func BatchDeleteProtos(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-		_, err = tx.Proto.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.In(ids...)).Delete()
+		_, err = getProtoQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -210,7 +208,7 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 			return err
 		}
 		for _, pb := range protos {
-			_, err := tx.Proto.WithContext(ctx).Updates(pb)
+			_, err := getProtoQueryWithTx(ctx, tx).Updates(pb)
 			if err != nil {
 				return err
 			}

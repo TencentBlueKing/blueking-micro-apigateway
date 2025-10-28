@@ -367,29 +367,33 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	existsResourceIdList := make(map[string]struct{})
-	for resourceType := range resourceInfoTypeMap {
-		dbResources, err := biz.BatchGetResources(c.Request.Context(), resourceType, []string{})
-		if err != nil {
-			ginx.SystemErrorJSONResponse(c, err)
-			return
-		}
-		for _, dbResource := range dbResources {
-			existsResourceIdList[dbResource.ID] = struct{}{}
-		}
-	}
-	uploadInfo, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, existsResourceIdList)
+	handlerResourceIndexResult, err := common.HandlerResourceIndexMap(c.Request.Context(), resourceInfoTypeMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := common.HandleImportResources(c.Request.Context(), uploadInfo)
+	uploadInfo, err := common.ClassifyImportResourceInfo(
+		resourceInfoTypeMap,
+		handlerResourceIndexResult.ExistsResourceIdList,
+		handlerResourceIndexResult.AddedSchemaMap,
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	handlerResult, err := common.HandleUploadResources(c.Request.Context(),
+		uploadInfo, handlerResourceIndexResult.AllSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// 插入数据
-	err = biz.UploadResources(c.Request.Context(), addResourcesMap, updateResourcesMap)
+	err = biz.UploadResources(c.Request.Context(),
+		handlerResult.AddResourceTypeMap,
+		handlerResult.UpdateResourceTypeMap,
+		handlerResourceIndexResult.AddedSchemaMap,
+		handlerResourceIndexResult.UpdatedSchemaMap,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

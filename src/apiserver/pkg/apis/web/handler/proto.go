@@ -270,7 +270,7 @@ func ProtoList(c *gin.Context) {
 //	@Success	200			{object}	serializer.ProtoDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos-dropdown/ [get]
 func ProtoDropDownList(c *gin.Context) {
-	protos, err := biz.ListProtos(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	protos, err := biz.ListProtos(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

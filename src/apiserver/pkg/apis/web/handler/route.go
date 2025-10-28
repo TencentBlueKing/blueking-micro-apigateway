@@ -159,7 +159,6 @@ func RouteList(c *gin.Context) {
 		return
 	}
 	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -303,7 +302,7 @@ func RouteDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.RouteDropDownOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/routes-dropdown/ [get]
 func RouteDropDownList(c *gin.Context) {
-	routes, err := biz.ListRoutes(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	routes, err := biz.ListRoutes(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

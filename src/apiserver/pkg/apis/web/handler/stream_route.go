@@ -288,7 +288,7 @@ func StreamRouteList(c *gin.Context) {
 //	@Success	200			{object}	serializer.StreamRouteDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes-dropdown/ [get]
 func StreamRouteDropDownList(c *gin.Context) {
-	streamRouteList, err := biz.ListStreamRoutes(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	streamRouteList, err := biz.ListStreamRoutes(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

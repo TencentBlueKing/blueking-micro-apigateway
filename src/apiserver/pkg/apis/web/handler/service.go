@@ -152,7 +152,6 @@ func ServiceList(c *gin.Context) {
 		return
 	}
 	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -285,7 +284,7 @@ func ServiceDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.ServiceDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/services-dropdown/ [get]
 func ServiceDropDownList(c *gin.Context) {
-	services, err := biz.ListServices(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	services, err := biz.ListServices(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -34,6 +34,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage/mock"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 const (
@@ -41,11 +42,12 @@ const (
 	batchCreateError = "batch create error"
 )
 
+var ctx context.Context
+
 var _ = Describe("EtcdPublisher", func() {
 	Describe("NewEtcdPublisher", func() {
 		var (
 			mockEtcdStore *mock.MockStorageInterface
-			ctx           context.Context
 			gateway       *model.Gateway
 			ctrl          *gomock.Controller
 		)
@@ -53,7 +55,6 @@ var _ = Describe("EtcdPublisher", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			mockEtcdStore = mock.NewMockStorageInterface(ctrl)
-			ctx = context.Background()
 			gateway = &model.Gateway{
 				ID:            1,
 				Name:          "test-gateway",
@@ -68,6 +69,7 @@ var _ = Describe("EtcdPublisher", func() {
 					},
 				},
 			}
+			ctx = ginx.SetGatewayInfoToContext(context.Background(), gateway)
 		})
 
 		It("Test NewEtcdPublisher: ok", func() {
@@ -122,6 +124,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 				result, err := p.Get(context.Background(), "key")
 				assert.NoError(GinkgoT(), err)
@@ -150,6 +153,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 				result, err := p.List(context.Background(), "prefix")
 				assert.NoError(GinkgoT(), err)
@@ -181,6 +185,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -206,6 +211,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -233,6 +239,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -263,6 +270,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -288,6 +296,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -315,6 +324,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -343,6 +353,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -372,6 +383,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -397,6 +409,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -426,6 +439,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -455,6 +469,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -480,6 +495,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -509,6 +525,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				patches = gomonkey.ApplyMethod(
@@ -538,6 +555,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				resources := []ResourceOperation{{
@@ -557,6 +575,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				resources := []ResourceOperation{{
@@ -577,6 +596,7 @@ var _ = Describe("EtcdPublisher", func() {
 				p := &EtcdPublisher{
 					etcdStore:   mockEtcdStore,
 					gatewayInfo: &model.Gateway{ID: 1, APISIXVersion: "3.11.0"},
+					ctx:         ctx,
 				}
 
 				err := p.Close()

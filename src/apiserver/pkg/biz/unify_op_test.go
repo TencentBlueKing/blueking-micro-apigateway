@@ -221,7 +221,7 @@ func TestUploadResources_SameGatewayUpdateAndAdd(t *testing.T) {
 	}
 
 	// 执行上传
-	err = UploadResources(gatewayCtx, addResourcesTypeMap, updateTypeResourcesTypeMap)
+	err = UploadResources(gatewayCtx, addResourcesTypeMap, updateTypeResourcesTypeMap, nil, nil)
 	assert.NoError(t, err)
 
 	// 验证更新后的资源
@@ -295,7 +295,7 @@ func TestUploadResources_MixedResourceTypes(t *testing.T) {
 	}
 
 	// 执行上传
-	err := UploadResources(gatewayCtx, addResourcesTypeMap, nil)
+	err := UploadResources(gatewayCtx, addResourcesTypeMap, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// 验证所有资源都被正确创建
@@ -328,14 +328,16 @@ func TestUploadResources_MixedResourceTypes(t *testing.T) {
 // TestUploadResources_EmptyResources 测试空资源上传
 func TestUploadResources_EmptyResources(t *testing.T) {
 	// 测试空的新增资源
-	err := UploadResources(gatewayCtx, nil, nil)
+	err := UploadResources(gatewayCtx, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// 测试空的更新资源
 	err = UploadResources(
 		gatewayCtx,
-		map[constant.APISIXResource][]*model.GatewaySyncData{},
-		map[constant.APISIXResource][]*model.GatewaySyncData{},
+		nil,
+		nil,
+		nil,
+		nil,
 	)
 	assert.NoError(t, err)
 }
@@ -355,7 +357,7 @@ func TestUploadResources_UpdateNonExistentResource(t *testing.T) {
 	}
 
 	// 执行上传（应该成功，因为会先删除再插入）
-	err := UploadResources(gatewayCtx, nil, updateTypeResourcesTypeMap)
+	err := UploadResources(gatewayCtx, nil, updateTypeResourcesTypeMap, nil, nil)
 	assert.NoError(t, err)
 
 	// 验证资源被创建
@@ -409,13 +411,13 @@ func TestUploadResources_CrossGatewayIsolation(t *testing.T) {
 	addResourcesTypeMap1 := map[constant.APISIXResource][]*model.GatewaySyncData{
 		constant.Route: {route1Data},
 	}
-	err = UploadResources(gatewayCtx, addResourcesTypeMap1, nil)
+	err = UploadResources(gatewayCtx, addResourcesTypeMap1, nil, nil, nil)
 	assert.NoError(t, err)
 
 	addResourcesTypeMap2 := map[constant.APISIXResource][]*model.GatewaySyncData{
 		constant.Route: {route2Data},
 	}
-	err = UploadResources(gateway2Ctx, addResourcesTypeMap2, nil)
+	err = UploadResources(gateway2Ctx, addResourcesTypeMap2, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// 验证两个网关的资源相互隔离

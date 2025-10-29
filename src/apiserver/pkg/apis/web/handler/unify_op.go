@@ -502,6 +502,7 @@ func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.API
 					BaseModel: model.BaseModel{
 						Creator: ginx.GetUserIDFromContext(c),
 					},
+					OperationType: constant.OperationImport,
 				}
 				schemaMap[resource.Name] = schemaModel
 				var schemaInfo map[string]interface{}

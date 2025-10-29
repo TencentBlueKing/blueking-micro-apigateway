@@ -43,6 +43,7 @@ type ResourceInfo struct {
 	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
 }
 
+// GetResourceKey 获取资源key
 func (r ResourceInfo) GetResourceKey() string {
 	// 插件元素数需要特殊处理,因为插件元素数没有真正id
 	if r.ResourceType == constant.PluginMetadata {

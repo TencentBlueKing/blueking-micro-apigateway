@@ -42,6 +42,7 @@ type GatewaySyncData struct {
 	UpdatedAt   time.Time               `json:"updatedAt"`               // 更新时间
 }
 
+// GetResourceKey 获取资源key
 func (g GatewaySyncData) GetResourceKey() string {
 	// 插件元素数需要特殊处理,因为插件元素数没有真正id
 	if g.Type == constant.PluginMetadata {

@@ -151,6 +151,7 @@ func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []Res
 			BaseModel: model.BaseModel{
 				Creator: ginx.GetUserIDFromContext(ctx),
 			},
+			OperationType: constant.OperationImport,
 		}
 		// Check if the schema already exists in the plugin schema map
 		if _, ok := existsPluginSchemaMap[schemaInfo.Name]; !ok {

@@ -91,7 +91,7 @@ func (g *GatewayCustomPluginSchema) CopyCustomPluginSchema() GatewayCustomPlugin
 
 // AddAuditLog 添加审计
 func (g *GatewayCustomPluginSchema) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err error) {
-	if g.OperationType == constant.OperationImport {
+	if g.OperationType == constant.OperationImport || g.AutoID == 0 {
 		// 批量导入的场景，不添加审计
 		return nil
 	}

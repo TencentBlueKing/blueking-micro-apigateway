@@ -65,9 +65,9 @@ type HandlerResourceIndexResult struct {
 
 // ClassifyImportResourceInfo 分类合并导入资源信息
 func ClassifyImportResourceInfo(
-importDataList map[constant.APISIXResource][]ResourceInfo,
-existsResourceIdList map[string]struct{},
-addPluginSchemaMap map[string]*model.GatewayCustomPluginSchema,
+	importDataList map[constant.APISIXResource][]ResourceInfo,
+	existsResourceIdList map[string]struct{},
+	addPluginSchemaMap map[string]*model.GatewayCustomPluginSchema,
 ) (*ResourceUploadInfo, error) {
 	uploadOutput := &ResourceUploadInfo{
 		Add:    make(map[constant.APISIXResource][]ResourceInfo),
@@ -100,9 +100,9 @@ addPluginSchemaMap map[string]*model.GatewayCustomPluginSchema,
 
 // HandleUploadResources 处理导入资源
 func HandleUploadResources(
-ctx context.Context,
-resourcesImport *ResourceUploadInfo,
-allSchemaMap map[string]interface{},
+	ctx context.Context,
+	resourcesImport *ResourceUploadInfo,
+	allSchemaMap map[string]interface{},
 ) (*HandlerResourceResult, error) {
 	// 分类聚合
 	allResourceIdMap := make(map[string]struct{})
@@ -130,8 +130,8 @@ allSchemaMap map[string]interface{},
 
 // HandlerCustomerPluginSchemaImport is a function that handles the import of customer plugin schemas.
 func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []ResourceInfo) (
-allSchemaMap map[string]interface{}, addedSchemaMap,
-updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
+	allSchemaMap map[string]interface{}, addedSchemaMap,
+	updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
 ) {
 	// Get the existing plugin schema map from the business logic layer
 	existsPluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
@@ -168,7 +168,7 @@ updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
 
 // HandlerResourceIndexMap is a function that handles the indexing of resources.
 func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[constant.APISIXResource][]ResourceInfo) (
-*HandlerResourceIndexResult, error,
+	*HandlerResourceIndexResult, error,
 ) {
 	existsResourceIdList := make(map[string]struct{})
 	var addedSchemaMap map[string]*model.GatewayCustomPluginSchema
@@ -216,9 +216,9 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 }
 
 func handleResources(
-ctx context.Context,
-resourcesImport map[constant.APISIXResource][]ResourceInfo,
-allResourceIdMap map[string]struct{},
+	ctx context.Context,
+	resourcesImport map[constant.APISIXResource][]ResourceInfo,
+	allResourceIdMap map[string]struct{},
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
 	for resourceType, resourceInfoList := range resourcesImport {

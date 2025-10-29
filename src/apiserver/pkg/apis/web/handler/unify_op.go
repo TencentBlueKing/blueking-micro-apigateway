@@ -322,8 +322,8 @@ func EtcdExport(c *gin.Context) {
 
 // handExportEtcdResources 处理导出etcd资源
 func handExportEtcdResources(
-ctx context.Context,
-resources []*model.GatewaySyncData,
+	ctx context.Context,
+	resources []*model.GatewaySyncData,
 ) (serializer.EtcdExportOutput, error) {
 	outputs := make(serializer.EtcdExportOutput)
 	for _, resource := range resources {
@@ -487,7 +487,7 @@ func ResourceImport(c *gin.Context) {
 }
 
 func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.APISIXResource][]common.ResourceInfo,
-allSchemaMap map[string]interface{},
+	allSchemaMap map[string]interface{},
 ) (map[string]*model.GatewayCustomPluginSchema, error) {
 	schemaMap := make(map[string]*model.GatewayCustomPluginSchema)
 	for _, resourceList := range resources {

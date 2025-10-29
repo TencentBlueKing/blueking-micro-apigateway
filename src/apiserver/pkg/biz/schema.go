@@ -78,11 +78,11 @@ func GetSchemaExprList(orderBy string) []field.Expr {
 
 // ListPagedSchema 分页查询 schema
 func ListPagedSchema(
-ctx context.Context,
-name string,
-updater string,
-orderBy string,
-page PageParam,
+	ctx context.Context,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
 ) ([]*model.GatewayCustomPluginSchema, int64, error) {
 	u := repo.GatewayCustomPluginSchema
 	query := buildSchemaQuery(ctx)
@@ -161,9 +161,9 @@ func DeleteSchemaByNames(ctx context.Context, names []string) error {
 
 // DuplicatedSchemaName 查询插件名称是否重复
 func DuplicatedSchemaName(
-ctx context.Context,
-id int,
-name string,
+	ctx context.Context,
+	id int,
+	name string,
 ) bool {
 	u := repo.GatewayCustomPluginSchema
 	query := buildSchemaQuery(ctx).Where(
@@ -246,8 +246,8 @@ func GetCustomizePluginSchemaInfoMap(ctx context.Context) (map[string]*model.Gat
 
 // GetResourceSchemaAssociation 查询资源与自定义插件的关联记录
 func GetResourceSchemaAssociation(
-ctx context.Context,
-schemaID int,
+	ctx context.Context,
+	schemaID int,
 ) ([]*model.GatewayResourceSchemaAssociation, error) {
 	u := repo.GatewayResourceSchemaAssociation
 	return u.WithContext(ctx).Where(u.SchemaID.Eq(schemaID)).Find()
@@ -255,9 +255,9 @@ schemaID int,
 
 // BatchDeleteResourceSchemaAssociation 批量删除资源与自定义插件的关联记录
 func BatchDeleteResourceSchemaAssociation(
-ctx context.Context,
-resourceIDs []string,
-resourceType constant.APISIXResource,
+	ctx context.Context,
+	resourceIDs []string,
+	resourceType constant.APISIXResource,
 ) error {
 	u := repo.GatewayResourceSchemaAssociation
 	if ginx.GetTx(ctx) != nil {

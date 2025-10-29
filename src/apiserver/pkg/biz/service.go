@@ -70,15 +70,15 @@ func GetServiceOrderExprList(orderBy string) []field.Expr {
 
 // ListPagedServices 分页查询网 service 列表
 func ListPagedServices(
-ctx context.Context,
-param map[string]interface{},
-label map[string][]string,
-status []string,
-name string,
-updater string,
-upstreamID string,
-orderBy string,
-page PageParam,
+	ctx context.Context,
+	param map[string]interface{},
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	upstreamID string,
+	orderBy string,
+	page PageParam,
 ) ([]*model.Service, int64, error) {
 	u := repo.Service
 	query := buildServiceQuery(ctx)

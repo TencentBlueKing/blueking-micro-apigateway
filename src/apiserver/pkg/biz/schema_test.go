@@ -61,7 +61,12 @@ func TestBuildSchemaQuery(t *testing.T) {
 
 			query := buildSchemaQuery(tt.ctx)
 			assert.NotNil(t, query, "查询对象不应该为空")
-			assert.Implements(t, (*repo.IGatewayCustomPluginSchemaDo)(nil), query, "应该实现 IGatewayCustomPluginSchemaDo 接口")
+			assert.Implements(
+				t,
+				(*repo.IGatewayCustomPluginSchemaDo)(nil),
+				query,
+				"应该实现 IGatewayCustomPluginSchemaDo 接口",
+			)
 		})
 	}
 }
@@ -102,7 +107,12 @@ func TestBuildSchemaQueryWithTx(t *testing.T) {
 
 			query := buildSchemaQueryWithTx(tt.ctx, tt.tx)
 			assert.NotNil(t, query, "事务查询对象不应该为空")
-			assert.Implements(t, (*repo.IGatewayCustomPluginSchemaDo)(nil), query, "应该实现 IGatewayCustomPluginSchemaDo 接口")
+			assert.Implements(
+				t,
+				(*repo.IGatewayCustomPluginSchemaDo)(nil),
+				query,
+				"应该实现 IGatewayCustomPluginSchemaDo 接口",
+			)
 		})
 	}
 }

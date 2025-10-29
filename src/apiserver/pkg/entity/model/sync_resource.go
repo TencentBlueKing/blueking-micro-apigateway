@@ -43,6 +43,10 @@ type GatewaySyncData struct {
 }
 
 func (g GatewaySyncData) GetResourceKey() string {
+	// 插件元素数需要特殊处理,因为插件元素数没有真正id
+	if g.Type == constant.PluginMetadata {
+		return fmt.Sprintf(constant.ResourceKeyFormat, g.Type, g.GetName())
+	}
 	return fmt.Sprintf(constant.ResourceKeyFormat, g.Type, g.ID)
 }
 

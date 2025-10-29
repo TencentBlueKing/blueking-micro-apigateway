@@ -136,87 +136,93 @@ func BatchDeleteResourceByIDs(
 	resourceType constant.APISIXResource,
 	ids []string,
 ) error {
-	param := field.Attrs(map[string]interface{}{
+	params := map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
-		"id":         ids,
-	})
+	}
+	// pluginMetadata特殊处理
+	if resourceType == constant.PluginMetadata {
+		params["name"] = ids
+	} else {
+		params["id"] = ids
+	}
+	fieldAttr := field.Attrs(params)
 	switch resourceType {
 	case constant.Route:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.Route.WithContext(ctx).Where(param).Delete(&model.Route{})
+			_, err := repo.Route.WithContext(ctx).Where(fieldAttr).Delete(&model.Route{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).Route.WithContext(ctx).Where(param).Delete(&model.Route{})
+		_, err := ginx.GetTx(ctx).Route.WithContext(ctx).Where(fieldAttr).Delete(&model.Route{})
 		return err
 	case constant.Upstream:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.Upstream.WithContext(ctx).Where(param).Delete(&model.Upstream{})
+			_, err := repo.Upstream.WithContext(ctx).Where(fieldAttr).Delete(&model.Upstream{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).Upstream.WithContext(ctx).Where(param).Delete(&model.Upstream{})
+		_, err := ginx.GetTx(ctx).Upstream.WithContext(ctx).Where(fieldAttr).Delete(&model.Upstream{})
 		return err
 	case constant.PluginConfig:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.PluginConfig.WithContext(ctx).Where(param).Delete(&model.PluginConfig{})
+			_, err := repo.PluginConfig.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginConfig{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Where(param).Delete(&model.PluginConfig{})
+		_, err := ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginConfig{})
 		return err
 	case constant.GlobalRule:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.GlobalRule.WithContext(ctx).Where(param).Delete(&model.GlobalRule{})
+			_, err := repo.GlobalRule.WithContext(ctx).Where(fieldAttr).Delete(&model.GlobalRule{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Where(param).Delete(&model.GlobalRule{})
+		_, err := ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Where(fieldAttr).Delete(&model.GlobalRule{})
 		return err
 	case constant.PluginMetadata:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.PluginMetadata.WithContext(ctx).Where(param).Delete(&model.PluginMetadata{})
+			_, err := repo.PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Where(param).Delete(&model.PluginMetadata{})
+		_, err := ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
 		return err
 	case constant.StreamRoute:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.StreamRoute.WithContext(ctx).Where(param).Delete(&model.StreamRoute{})
+			_, err := repo.StreamRoute.WithContext(ctx).Where(fieldAttr).Delete(&model.StreamRoute{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Where(param).Delete(&model.StreamRoute{})
+		_, err := ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Where(fieldAttr).Delete(&model.StreamRoute{})
 		return err
 	case constant.Service:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.Service.WithContext(ctx).Where(param).Delete(&model.Service{})
+			_, err := repo.Service.WithContext(ctx).Where(fieldAttr).Delete(&model.Service{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).Service.WithContext(ctx).Where(param).Delete(&model.Service{})
+		_, err := ginx.GetTx(ctx).Service.WithContext(ctx).Where(fieldAttr).Delete(&model.Service{})
 		return err
 	case constant.Proto:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.Proto.WithContext(ctx).Where(param).Delete(&model.Proto{})
+			_, err := repo.Proto.WithContext(ctx).Where(fieldAttr).Delete(&model.Proto{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).Proto.WithContext(ctx).Where(param).Delete(&model.Proto{})
+		_, err := ginx.GetTx(ctx).Proto.WithContext(ctx).Where(fieldAttr).Delete(&model.Proto{})
 		return err
 	case constant.SSL:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.SSL.WithContext(ctx).Where(param).Delete(&model.SSL{})
+			_, err := repo.SSL.WithContext(ctx).Where(fieldAttr).Delete(&model.SSL{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).SSL.WithContext(ctx).Where(param).Delete(&model.SSL{})
+		_, err := ginx.GetTx(ctx).SSL.WithContext(ctx).Where(fieldAttr).Delete(&model.SSL{})
 		return err
 	case constant.Consumer:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.Consumer.WithContext(ctx).Where(param).Delete(&model.Consumer{})
+			_, err := repo.Consumer.WithContext(ctx).Where(fieldAttr).Delete(&model.Consumer{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).Consumer.WithContext(ctx).Where(param).Delete(&model.Consumer{})
+		_, err := ginx.GetTx(ctx).Consumer.WithContext(ctx).Where(fieldAttr).Delete(&model.Consumer{})
 		return err
 	case constant.ConsumerGroup:
 		if ginx.GetTx(ctx) == nil {
-			_, err := repo.ConsumerGroup.WithContext(ctx).Where(param).Delete(&model.ConsumerGroup{})
+			_, err := repo.ConsumerGroup.WithContext(ctx).Where(fieldAttr).Delete(&model.ConsumerGroup{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Where(param).Delete(&model.ConsumerGroup{})
+		_, err := ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Where(fieldAttr).Delete(&model.ConsumerGroup{})
 		return err
 	}
 	return nil

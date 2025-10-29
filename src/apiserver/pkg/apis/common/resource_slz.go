@@ -31,6 +31,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // ResourceInfo ...
@@ -43,6 +44,10 @@ type ResourceInfo struct {
 }
 
 func (r ResourceInfo) GetResourceKey() string {
+	// 插件元素数需要特殊处理,因为插件元素数没有真正id
+	if r.ResourceType == constant.PluginMetadata {
+		return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.Name)
+	}
 	return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.ResourceID)
 }
 
@@ -202,6 +207,10 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 			allResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
 		}
 		for _, resourceInfo := range resourceInfoList {
+			// 生成ID,如果为空
+			if resourceInfo.ResourceID == "" {
+				resourceInfo.ResourceID = idx.GenResourceID(resourceType)
+			}
 			res := &model.GatewaySyncData{
 				Type:   resourceInfo.ResourceType,
 				ID:     resourceInfo.ResourceID,
@@ -240,6 +249,10 @@ func handleResources(
 			return nil, fmt.Errorf("get exist resources failed, err: %v", err)
 		}
 		for _, imp := range resourceInfoList {
+			// 生成ID,如果为空
+			if imp.ResourceID == "" {
+				imp.ResourceID = idx.GenResourceID(resourceType)
+			}
 			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
 			resourceImp := &model.GatewaySyncData{
 				Type:      resourceType,

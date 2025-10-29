@@ -295,6 +295,10 @@ func UploadResources(
 		for resourceType, itemList := range updateTypeResourcesTypeMap {
 			var ids []string
 			for _, item := range itemList {
+				if resourceType == constant.PluginMetadata {
+					ids = append(ids, item.GetName())
+					continue
+				}
 				ids = append(ids, item.ID)
 			}
 			err = DeleteResourceByIDs(ctx, resourceType, ids)

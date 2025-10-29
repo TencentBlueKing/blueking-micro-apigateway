@@ -50,6 +50,10 @@ type ResourceCommonModel struct {
 
 // GetResourceKey 获取资源key
 func (r ResourceCommonModel) GetResourceKey(resourceType constant.APISIXResource) string {
+	// 插件元素数需要特殊处理,因为插件元素数没有真正id
+	if resourceType == constant.PluginMetadata {
+		return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, r.GetName(resourceType))
+	}
 	return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, r.ID)
 }
 

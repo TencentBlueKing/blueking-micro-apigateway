@@ -33,10 +33,9 @@ import (
 // StartEmbedEtcdClient StartEmbedEtcd starts an embedded etcd server
 func StartEmbedEtcdClient(ctx context.Context) (*clientv3.Client, *embed.Etcd, error) {
 	cfg := embed.NewConfig()
-	cfg.ListenClientUrls = []url.URL{{Scheme: "http", Host: "localhost:4399"}}
-	cfg.ListenPeerUrls = []url.URL{{Scheme: "http", Host: "localhost:4388"}}
-	cfg.ListenClientHttpUrls = []url.URL{{Scheme: "http", Host: "localhost:6399"}}
-	cfg.AdvertiseClientUrls = []url.URL{{Scheme: "http", Host: "localhost:5399"}}
+	// Use port 0 to let the OS choose available ports automatically
+	cfg.ListenClientUrls = []url.URL{{Scheme: "http", Host: "localhost:4379"}}
+	cfg.ListenPeerUrls = []url.URL{{Scheme: "http", Host: "localhost:4378"}}
 	cfg.Dir, _ = os.MkdirTemp("", "etcd")
 	cfg.LogLevel = "error"
 

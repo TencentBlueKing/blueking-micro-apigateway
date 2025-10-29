@@ -30,15 +30,15 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
-// getConsumerQuery 获取 Consumer 查询对象
-func getConsumerQuery(ctx context.Context) repo.IConsumerDo {
+// buildConsumerQuery 获取 Consumer 查询对象
+func buildConsumerQuery(ctx context.Context) repo.IConsumerDo {
 	return repo.Consumer.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
-// getConsumerQueryWithTx 获取 Consumer 查询对象(带事务)
-func getConsumerQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerDo {
+// buildConsumerQueryWithTx 获取 Consumer 查询对象(带事务)
+func buildConsumerQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerDo {
 	return tx.Consumer.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
@@ -47,7 +47,7 @@ func getConsumerQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerD
 // ListConsumers 查询网关 Consumer 列表
 func ListConsumers(ctx context.Context) ([]*model.Consumer, error) {
 	u := repo.Consumer
-	return getConsumerQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
+	return buildConsumerQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetConsumerOrderExprList 获取 Consumer 排序字段列表
@@ -81,7 +81,7 @@ func ListPagedConsumers(
 	page PageParam,
 ) ([]*model.Consumer, int64, error) {
 	u := repo.Consumer
-	query := getConsumerQuery(ctx)
+	query := buildConsumerQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -122,7 +122,7 @@ func CreateConsumer(ctx context.Context, consumer model.Consumer) error {
 // BatchCreateConsumers 批量创建 Consumer
 func BatchCreateConsumers(ctx context.Context, consumers []*model.Consumer) error {
 	if ginx.GetTx(ctx) != nil {
-		return getConsumerQueryWithTx(ctx, ginx.GetTx(ctx)).Create(consumers...)
+		return buildConsumerQueryWithTx(ctx, ginx.GetTx(ctx)).Create(consumers...)
 	}
 	return repo.Consumer.WithContext(ctx).Create(consumers...)
 }
@@ -130,7 +130,7 @@ func BatchCreateConsumers(ctx context.Context, consumers []*model.Consumer) erro
 // UpdateConsumer 更新 Consumer
 func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 	u := repo.Consumer
-	_, err := getConsumerQuery(ctx).Where(u.ID.Eq(consumer.ID)).Select(
+	_, err := buildConsumerQuery(ctx).Where(u.ID.Eq(consumer.ID)).Select(
 		u.Username,
 		u.Updater,
 		u.GroupID,
@@ -143,7 +143,7 @@ func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 // GetConsumer 查询 Consumer 详情
 func GetConsumer(ctx context.Context, id string) (*model.Consumer, error) {
 	u := repo.Consumer
-	return getConsumerQuery(ctx).Where(u.ID.Eq(id)).First()
+	return buildConsumerQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryConsumers 搜索 consumer
@@ -166,7 +166,7 @@ func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = getConsumerQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildConsumerQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -232,7 +232,7 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 			return err
 		}
 		for _, consumer := range consumers {
-			_, err := getConsumerQueryWithTx(ctx, tx).Updates(consumer)
+			_, err := buildConsumerQueryWithTx(ctx, tx).Updates(consumer)
 			if err != nil {
 				return err
 			}

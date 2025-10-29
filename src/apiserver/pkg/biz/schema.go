@@ -31,21 +31,21 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
-// getSchemaQuery 获取 GatewayCustomPluginSchema 查询对象
-func getSchemaQuery(ctx context.Context) repo.IGatewayCustomPluginSchemaDo {
+// buildSchemaQuery 获取 GatewayCustomPluginSchema 查询对象
+func buildSchemaQuery(ctx context.Context) repo.IGatewayCustomPluginSchemaDo {
 	return repo.GatewayCustomPluginSchema.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
-// getSchemaQueryWithTx 获取 GatewayCustomPluginSchema 查询对象(带事务)
+// buildSchemaQueryWithTx 获取 GatewayCustomPluginSchema 查询对象(带事务)
 /**
- * getSchemaQueryWithTx creates a query for GatewayCustomPluginSchema with transaction context
+ * buildSchemaQueryWithTx creates a query for GatewayCustomPluginSchema with transaction context
  * @param ctx context.Context - The context containing request information
  * @param tx *repo.Query - The transaction/query object
  * @return repo.IGatewayCustomPluginSchemaDo - Returns a query interface for GatewayCustomPluginSchema operations
  */
-func getSchemaQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGatewayCustomPluginSchemaDo {
+func buildSchemaQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGatewayCustomPluginSchemaDo {
 	// Create query with context and filter by gateway_id from context
 	return tx.WithContext(ctx).GatewayCustomPluginSchema.Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID, // Get gateway ID from context and use as filter
@@ -55,7 +55,7 @@ func getSchemaQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGatewayCust
 // ListSchema 查询网关 schema 列表
 func ListSchema(ctx context.Context) ([]*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
-	return getSchemaQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
+	return buildSchemaQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetSchemaExprList 获取 schema 排序字段列表
@@ -78,14 +78,14 @@ func GetSchemaExprList(orderBy string) []field.Expr {
 
 // ListPagedSchema 分页查询 schema
 func ListPagedSchema(
-	ctx context.Context,
-	name string,
-	updater string,
-	orderBy string,
-	page PageParam,
+ctx context.Context,
+name string,
+updater string,
+orderBy string,
+page PageParam,
 ) ([]*model.GatewayCustomPluginSchema, int64, error) {
 	u := repo.GatewayCustomPluginSchema
-	query := getSchemaQuery(ctx)
+	query := buildSchemaQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -105,7 +105,7 @@ func CreateSchema(ctx context.Context, schema *model.GatewayCustomPluginSchema) 
 // BatchCreateSchema 批量创建 schema
 func BatchCreateSchema(ctx context.Context, schemas []*model.GatewayCustomPluginSchema) error {
 	if ginx.GetTx(ctx) != nil {
-		return getSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(
+		return buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(
 			schemas, constant.DBBatchCreateSize)
 	}
 	return repo.GatewayCustomPluginSchema.WithContext(ctx).CreateInBatches(schemas, constant.DBBatchCreateSize)
@@ -114,7 +114,7 @@ func BatchCreateSchema(ctx context.Context, schemas []*model.GatewayCustomPlugin
 // UpdateSchema 更新 schema
 func UpdateSchema(ctx context.Context, schema model.GatewayCustomPluginSchema) error {
 	u := repo.GatewayCustomPluginSchema
-	_, err := getSchemaQuery(ctx).Where(u.AutoID.Eq(schema.AutoID)).Select(
+	_, err := buildSchemaQuery(ctx).Where(u.AutoID.Eq(schema.AutoID)).Select(
 		u.Name,
 		u.Schema,
 		u.Example,
@@ -126,7 +126,7 @@ func UpdateSchema(ctx context.Context, schema model.GatewayCustomPluginSchema) e
 // GetSchemaByName 根据 name 查询 schema 详情
 func GetSchemaByName(ctx context.Context, name string) (*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
-	schemaInfo, err := getSchemaQuery(ctx).
+	schemaInfo, err := buildSchemaQuery(ctx).
 		Where(u.Name.Eq(name)).First()
 	return schemaInfo, err
 }
@@ -134,14 +134,14 @@ func GetSchemaByName(ctx context.Context, name string) (*model.GatewayCustomPlug
 // GetSchemaByID 根据 id 查询 schema 详情
 func GetSchemaByID(ctx context.Context, id int) (*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
-	schemaInfo, err := getSchemaQuery(ctx).
+	schemaInfo, err := buildSchemaQuery(ctx).
 		Where(u.AutoID.Eq(id)).First()
 	return schemaInfo, err
 }
 
-// DeleteSchemaBySchemaID 删除 schema
-func DeleteSchemaBySchemaID(ctx context.Context, schemaID int) error {
-	_, err := getSchemaQuery(ctx).Delete(&model.GatewayCustomPluginSchema{AutoID: schemaID})
+// DeleteSchemaByID 删除 schema
+func DeleteSchemaByID(ctx context.Context, schemaID int) error {
+	_, err := buildSchemaQuery(ctx).Delete(&model.GatewayCustomPluginSchema{AutoID: schemaID})
 	return err
 }
 
@@ -149,23 +149,24 @@ func DeleteSchemaBySchemaID(ctx context.Context, schemaID int) error {
 func DeleteSchemaByNames(ctx context.Context, names []string) error {
 	u := repo.GatewayCustomPluginSchema
 	if ginx.GetTx(ctx) != nil {
-		_, err := getSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).Where(u.Name.In(names...)).Delete()
+		_, err := buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).Where(u.Name.In(names...)).Delete()
 		if err != nil {
 			return err
 		}
+		return nil
 	}
-	_, err := getSchemaQuery(ctx).WithContext(ctx).Where(u.Name.In(names...)).Delete()
+	_, err := buildSchemaQuery(ctx).WithContext(ctx).Where(u.Name.In(names...)).Delete()
 	return err
 }
 
 // DuplicatedSchemaName 查询插件名称是否重复
 func DuplicatedSchemaName(
-	ctx context.Context,
-	id int,
-	name string,
+ctx context.Context,
+id int,
+name string,
 ) bool {
 	u := repo.GatewayCustomPluginSchema
-	query := getSchemaQuery(ctx).Where(
+	query := buildSchemaQuery(ctx).Where(
 		u.Name.Eq(name),
 	)
 	if id != 0 {
@@ -245,8 +246,8 @@ func GetCustomizePluginSchemaInfoMap(ctx context.Context) (map[string]*model.Gat
 
 // GetResourceSchemaAssociation 查询资源与自定义插件的关联记录
 func GetResourceSchemaAssociation(
-	ctx context.Context,
-	schemaID int,
+ctx context.Context,
+schemaID int,
 ) ([]*model.GatewayResourceSchemaAssociation, error) {
 	u := repo.GatewayResourceSchemaAssociation
 	return u.WithContext(ctx).Where(u.SchemaID.Eq(schemaID)).Find()
@@ -254,9 +255,9 @@ func GetResourceSchemaAssociation(
 
 // BatchDeleteResourceSchemaAssociation 批量删除资源与自定义插件的关联记录
 func BatchDeleteResourceSchemaAssociation(
-	ctx context.Context,
-	resourceIDs []string,
-	resourceType constant.APISIXResource,
+ctx context.Context,
+resourceIDs []string,
+resourceType constant.APISIXResource,
 ) error {
 	u := repo.GatewayResourceSchemaAssociation
 	if ginx.GetTx(ctx) != nil {

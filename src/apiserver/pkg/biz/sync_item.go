@@ -68,8 +68,8 @@ func (s *Syncer) Run() {
 	}
 }
 
-// getSyncedItemQuery 获取查询同步资源列表的 query
-func getSyncedItemQuery(ctx context.Context) repo.IGatewaySyncDataDo {
+// buildSyncedItemQuery 获取查询同步资源列表的 query
+func buildSyncedItemQuery(ctx context.Context) repo.IGatewaySyncDataDo {
 	return repo.GatewaySyncData.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
@@ -82,7 +82,7 @@ func ListPagedSyncedItems(
 	page PageParam,
 ) ([]*model.GatewaySyncData, int64, error) {
 	u := repo.GatewaySyncData
-	return getSyncedItemQuery(
+	return buildSyncedItemQuery(
 		ctx,
 	).Where(field.Attrs(param)).
 		Order(u.CreatedAt.Desc()).
@@ -91,11 +91,11 @@ func ListPagedSyncedItems(
 
 // QuerySyncedItems 查询同步资源
 func QuerySyncedItems(ctx context.Context, param map[string]interface{}) ([]*model.GatewaySyncData, error) {
-	return getSyncedItemQuery(ctx).Where(field.Attrs(param)).Find()
+	return buildSyncedItemQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // GetSyncedItemByID 通过 ID 获取同步资源
 func GetSyncedItemByID(ctx context.Context, id string) (*model.GatewaySyncData, error) {
 	u := repo.GatewaySyncData
-	return getSyncedItemQuery(ctx).Where(u.ID.Eq(id)).Take()
+	return buildSyncedItemQuery(ctx).Where(u.ID.Eq(id)).Take()
 }

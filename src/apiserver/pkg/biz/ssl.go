@@ -33,15 +33,15 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/sslx"
 )
 
-// getSSLQuery 获取 SSL 查询对象
-func getSSLQuery(ctx context.Context) repo.ISSLDo {
+// buildSSLQuery 获取 SSL 查询对象
+func buildSSLQuery(ctx context.Context) repo.ISSLDo {
 	return repo.SSL.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
-// getSSLQueryWithTx 获取 SSL 查询对象（带事务）
-func getSSLQueryWithTx(ctx context.Context, tx *repo.Query) repo.ISSLDo {
+// buildSSLQueryWithTx 获取 SSL 查询对象（带事务）
+func buildSSLQueryWithTx(ctx context.Context, tx *repo.Query) repo.ISSLDo {
 	return tx.SSL.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
@@ -50,7 +50,7 @@ func getSSLQueryWithTx(ctx context.Context, tx *repo.Query) repo.ISSLDo {
 // ListSSL 查询网关 ssl 列表
 func ListSSL(ctx context.Context) ([]*model.SSL, error) {
 	u := repo.SSL
-	return getSSLQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
+	return buildSSLQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetSSLOrderExprList 获取 ssl 排序字段列表
@@ -83,7 +83,7 @@ func ListPagedSSL(
 	page PageParam,
 ) ([]*model.SSL, int64, error) {
 	u := repo.SSL
-	query := getSSLQuery(ctx)
+	query := buildSSLQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -140,7 +140,7 @@ func CreateSSL(ctx context.Context, sslModel *model.SSL) error {
 // BatchCreateSSL 批量创建 SSL
 func BatchCreateSSL(ctx context.Context, ssls []*model.SSL) error {
 	if ginx.GetTx(ctx) != nil {
-		return getSSLQueryWithTx(ctx, ginx.GetTx(ctx)).Create(ssls...)
+		return buildSSLQueryWithTx(ctx, ginx.GetTx(ctx)).Create(ssls...)
 	}
 	return repo.SSL.WithContext(ctx).Create(ssls...)
 }
@@ -148,14 +148,14 @@ func BatchCreateSSL(ctx context.Context, ssls []*model.SSL) error {
 // UpdateSSL 更新 SSL
 func UpdateSSL(ctx context.Context, ssl *model.SSL) error {
 	u := repo.SSL
-	_, err := getSSLQuery(ctx).Where(u.ID.Eq(ssl.ID)).Updates(ssl)
+	_, err := buildSSLQuery(ctx).Where(u.ID.Eq(ssl.ID)).Updates(ssl)
 	return err
 }
 
 // GetSSL 查询 SSL 详情
 func GetSSL(ctx context.Context, id string) (*model.SSL, error) {
 	u := repo.SSL
-	return getSSLQuery(ctx).Where(u.ID.Eq(id)).First()
+	return buildSSLQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // BatchRevertSSLs 批量回滚 ssl
@@ -216,7 +216,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 			return err
 		}
 		for _, sls := range ssls {
-			_, err := getSSLQueryWithTx(ctx, tx).Updates(sls)
+			_, err := buildSSLQueryWithTx(ctx, tx).Updates(sls)
 			if err != nil {
 				return err
 			}
@@ -228,13 +228,13 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 
 // QuerySSL 搜索 SSL
 func QuerySSL(ctx context.Context, param map[string]interface{}) ([]*model.SSL, error) {
-	return getSSLQuery(ctx).Where(field.Attrs(param)).Find()
+	return buildSSLQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsSSL 查询 SSL 是否存在
 func ExistsSSL(ctx context.Context, id string) bool {
 	u := repo.SSL
-	ssl, err := getSSLQuery(ctx).Where(
+	ssl, err := buildSSLQuery(ctx).Where(
 		u.ID.Eq(id),
 	).Find()
 	if err != nil {
@@ -255,7 +255,7 @@ func BatchDeleteSSL(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = getSSLQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildSSLQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

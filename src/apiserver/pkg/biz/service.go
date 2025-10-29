@@ -30,15 +30,15 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
-// getServiceQuery 获取 Service 查询对象
-func getServiceQuery(ctx context.Context) repo.IServiceDo {
+// buildServiceQuery 获取 Service 查询对象
+func buildServiceQuery(ctx context.Context) repo.IServiceDo {
 	return repo.Service.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
-// getServiceQueryWithTx 获取 Service 查询对象（带事务）
-func getServiceQueryWithTx(ctx context.Context, tx *repo.Query) repo.IServiceDo {
+// buildServiceQueryWithTx 获取 Service 查询对象（带事务）
+func buildServiceQueryWithTx(ctx context.Context, tx *repo.Query) repo.IServiceDo {
 	return tx.WithContext(ctx).Service.Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
@@ -47,7 +47,7 @@ func getServiceQueryWithTx(ctx context.Context, tx *repo.Query) repo.IServiceDo 
 // ListServices 查询网关 Service 列表
 func ListServices(ctx context.Context) ([]*model.Service, error) {
 	u := repo.Service
-	return getServiceQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
+	return buildServiceQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetServiceOrderExprList 获取 Service 排序字段列表
@@ -70,18 +70,18 @@ func GetServiceOrderExprList(orderBy string) []field.Expr {
 
 // ListPagedServices 分页查询网 service 列表
 func ListPagedServices(
-	ctx context.Context,
-	param map[string]interface{},
-	label map[string][]string,
-	status []string,
-	name string,
-	updater string,
-	upstreamID string,
-	orderBy string,
-	page PageParam,
+ctx context.Context,
+param map[string]interface{},
+label map[string][]string,
+status []string,
+name string,
+updater string,
+upstreamID string,
+orderBy string,
+page PageParam,
 ) ([]*model.Service, int64, error) {
 	u := repo.Service
-	query := getServiceQuery(ctx)
+	query := buildServiceQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -122,7 +122,7 @@ func CreateService(ctx context.Context, service model.Service) error {
 // BatchCreateServices 批量创建 service
 func BatchCreateServices(ctx context.Context, services []*model.Service) error {
 	if ginx.GetTx(ctx) != nil {
-		return getServiceQueryWithTx(ctx, ginx.GetTx(ctx)).Create(services...)
+		return buildServiceQueryWithTx(ctx, ginx.GetTx(ctx)).Create(services...)
 	}
 	return repo.Service.WithContext(ctx).Create(services...)
 }
@@ -130,7 +130,7 @@ func BatchCreateServices(ctx context.Context, services []*model.Service) error {
 // UpdateService 更新 Service
 func UpdateService(ctx context.Context, service model.Service) error {
 	u := repo.Service
-	_, err := getServiceQuery(ctx).Where(u.ID.Eq(service.ID)).Select(
+	_, err := buildServiceQuery(ctx).Where(u.ID.Eq(service.ID)).Select(
 		u.Name,
 		u.UpstreamID,
 		u.Config,
@@ -143,18 +143,18 @@ func UpdateService(ctx context.Context, service model.Service) error {
 // GetService 查询 Service 详情
 func GetService(ctx context.Context, id string) (*model.Service, error) {
 	u := repo.Service
-	return getServiceQuery(ctx).Where(u.ID.Eq(id)).First()
+	return buildServiceQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryServices 搜索 service
 func QueryServices(ctx context.Context, param map[string]interface{}) ([]*model.Service, error) {
-	return getServiceQuery(ctx).Where(field.Attrs(param)).Find()
+	return buildServiceQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsService 查询 Service 是否存在
 func ExistsService(ctx context.Context, id string) bool {
 	u := repo.Service
-	services, err := getServiceQuery(ctx).Where(
+	services, err := buildServiceQuery(ctx).Where(
 		u.ID.Eq(id),
 	).Find()
 	if err != nil {
@@ -180,16 +180,15 @@ func BatchDeleteServices(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = getServiceQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildServiceQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
 }
 
 // GetServiceCount 查询网关 Service 数量
-func GetServiceCount(ctx context.Context, gatewayID int) (int64, error) {
-	u := repo.Service
-	return getServiceQuery(ctx).Where(u.GatewayID.Eq(gatewayID)).Count()
+func GetServiceCount(ctx context.Context) (int64, error) {
+	return buildServiceQuery(ctx).Count()
 }
 
 // BatchRevertServices 批量回滚 Service
@@ -252,7 +251,7 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 			return err
 		}
 		for _, service := range services {
-			_, err := getServiceQueryWithTx(ctx, tx).Updates(service)
+			_, err := buildServiceQueryWithTx(ctx, tx).Updates(service)
 			if err != nil {
 				return err
 			}

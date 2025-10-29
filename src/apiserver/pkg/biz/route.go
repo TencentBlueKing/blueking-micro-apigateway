@@ -33,15 +33,15 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
-// getRouteQuery 获取 Route 查询对象
-func getRouteQuery(ctx context.Context) repo.IRouteDo {
+// buildRouteQuery 获取 Route 查询对象
+func buildRouteQuery(ctx context.Context) repo.IRouteDo {
 	return repo.Route.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
-// getRouteQueryWithTx 获取 Route 查询对象，包含事务
-func getRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IRouteDo {
+// buildRouteQueryWithTx 获取 Route 查询对象，包含事务
+func buildRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IRouteDo {
 	return tx.WithContext(ctx).Route.Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
@@ -50,7 +50,7 @@ func getRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IRouteDo {
 // ListRoutes 查询网关路由列表
 func ListRoutes(ctx context.Context) ([]*model.Route, error) {
 	u := repo.Route
-	return getRouteQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
+	return buildRouteQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetRouteOrderExprList 获取路由排序字段列表
@@ -87,7 +87,7 @@ func ListPagedRoutes(
 	page PageParam,
 ) ([]*model.Route, int64, error) {
 	u := repo.Route
-	query := getRouteQuery(ctx)
+	query := buildRouteQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -154,7 +154,7 @@ func CreateRoute(ctx context.Context, route model.Route) error {
 // BatchCreateRoutes 批量创建路由
 func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
 	if ginx.GetTx(ctx) != nil {
-		return getRouteQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(routes, constant.DBBatchCreateSize)
+		return buildRouteQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(routes, constant.DBBatchCreateSize)
 	}
 	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchCreateSize)
 }
@@ -162,7 +162,7 @@ func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
 // UpdateRoute 更新路由
 func UpdateRoute(ctx context.Context, route model.Route) error {
 	u := repo.Route
-	_, err := getRouteQuery(ctx).Where(u.ID.Eq(route.ID)).Select(
+	_, err := buildRouteQuery(ctx).Where(u.ID.Eq(route.ID)).Select(
 		u.Name,
 		u.PluginConfigID,
 		u.ServiceID,
@@ -177,12 +177,12 @@ func UpdateRoute(ctx context.Context, route model.Route) error {
 // GetRoute 查询路由详情
 func GetRoute(ctx context.Context, id string) (*model.Route, error) {
 	u := repo.Route
-	return getRouteQuery(ctx).Where(u.ID.Eq(id)).First()
+	return buildRouteQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryRoutes 搜索路由
 func QueryRoutes(ctx context.Context, param map[string]interface{}) ([]*model.Route, error) {
-	return getRouteQuery(ctx).Where(field.Attrs(param)).Find()
+	return buildRouteQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteRoutes 批量删除路由 并记录审计日志
@@ -199,23 +199,7 @@ func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = getRouteQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
-		return err
-	})
-	return err
-}
-
-// BatchDeleteRoutesWithTx 批量删除路由
-func BatchDeleteRoutesWithTx(ctx context.Context, tx *repo.Query, ids []string) error {
-	u := repo.Route
-	err := tx.Transaction(func(q *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
-		// 批量删除路由关联的自定义插件记录
-		err := BatchDeleteResourceSchemaAssociation(ctx, ids, constant.Route)
-		if err != nil {
-			return err
-		}
-		_, err = getRouteQueryWithTx(ctx, q).Where(u.ID.In(ids...)).Delete()
+		_, err = buildRouteQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -289,7 +273,7 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 			return err
 		}
 		for _, route := range routes {
-			_, err := getRouteQueryWithTx(ctx, tx).Updates(route)
+			_, err := buildRouteQueryWithTx(ctx, tx).Updates(route)
 			if err != nil {
 				return err
 			}

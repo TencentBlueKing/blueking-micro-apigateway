@@ -120,11 +120,11 @@ func (l Labels) Value() (driver.Value, error) {
 	return json.Marshal(l)
 }
 
-// getCommonDbQuery 获取通用查询
+// buildCommonDbQuery 获取通用查询
 // 该查询会根据网关 ID 进行过滤，确保只能查询当前网关下的资源
-func getCommonDbQuery(
-ctx context.Context,
-resourceType constant.APISIXResource,
+func buildCommonDbQuery(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
 ) *gorm.DB {
 	return database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
 		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
@@ -132,9 +132,9 @@ resourceType constant.APISIXResource,
 
 // BatchDeleteResourceByIDs 事务批量删除资源
 func BatchDeleteResourceByIDs(
-ctx context.Context,
-resourceType constant.APISIXResource,
-ids []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
 ) error {
 	param := field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
@@ -224,16 +224,16 @@ ids []string,
 
 // BatchUpdateResourceStatusWithAuditLog 批量更新资源状态并添加审计日志
 func BatchUpdateResourceStatusWithAuditLog(
-ctx context.Context,
-resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
+	ctx context.Context,
+	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
 	return WrapBatchUpdateResourceStatusAddAuditLog(ctx, resourceType, ids, status, BatchUpdateResourceStatus)
 }
 
 // BatchDeleteResourceWithAuditLog 批量删除资源并添加审计日志
 func BatchDeleteResourceWithAuditLog(
-ctx context.Context,
-resourceType constant.APISIXResource, ids []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource, ids []string,
 ) error {
 	switch resourceType {
 	case constant.Route:
@@ -264,10 +264,10 @@ resourceType constant.APISIXResource, ids []string,
 
 // BatchUpdateResourceStatus 批量更新资源状态
 func BatchUpdateResourceStatus(
-ctx context.Context,
-resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
+	ctx context.Context,
+	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
-	query := getCommonDbQuery(ctx, resourceType)
+	query := buildCommonDbQuery(ctx, resourceType)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		return query.Where("id IN (?)", ids).Updates(map[string]interface{}{
@@ -282,7 +282,7 @@ resourceType constant.APISIXResource, ids []string, status constant.ResourceStat
 			end = len(ids)
 		}
 		batchIDs := ids[i:end]
-		query = getCommonDbQuery(ctx, resourceType)
+		query = buildCommonDbQuery(ctx, resourceType)
 		err := query.Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
 			"status": status,
 		}).Error
@@ -296,10 +296,10 @@ resourceType constant.APISIXResource, ids []string, status constant.ResourceStat
 
 // UpdateResourceStatus 单个更新状态
 func UpdateResourceStatus(
-ctx context.Context,
-resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
+	ctx context.Context,
+	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
-	query := getCommonDbQuery(ctx, resourceType)
+	query := buildCommonDbQuery(ctx, resourceType)
 	return query.Where("id = ?", id).Updates(map[string]interface{}{
 		"status":  status,
 		"updater": ginx.GetUserIDFromContext(ctx),
@@ -308,20 +308,20 @@ resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 
 // UpdateResourceStatusWithAuditLog  更新资源状态并添加审计日志
 func UpdateResourceStatusWithAuditLog(
-ctx context.Context,
-resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
+	ctx context.Context,
+	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
 	return WrapUpdateResourceStatusByIDAddAuditLog(ctx, resourceType, id, status, UpdateResourceStatus)
 }
 
 // BatchGetResources 批量获取资源（修复分批次条件叠加问题）
 func BatchGetResources(
-ctx context.Context,
-resourceType constant.APISIXResource,
-ids []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := getCommonDbQuery(ctx, resourceType)
+	query := buildCommonDbQuery(ctx, resourceType)
 
 	// 空IDs直接返回
 	if len(ids) == 0 {
@@ -343,7 +343,7 @@ ids []string,
 		}
 		batchIDs := ids[i:end]
 		// 关键点：每个批次创建新查询，避免条件叠加
-		batchQuery := getCommonDbQuery(ctx, resourceType)
+		batchQuery := buildCommonDbQuery(ctx, resourceType)
 		var batchRes []*model.ResourceCommonModel
 		if err := batchQuery.Where("id IN (?)", batchIDs).Find(&batchRes).Error; err != nil {
 			return nil, err
@@ -356,11 +356,11 @@ ids []string,
 
 // GetResourcesLabels 获取资源标签
 func GetResourcesLabels(
-ctx context.Context,
-resourceType constant.APISIXResource,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
 ) (map[string]string, error) {
 	var labelsList []Labels
-	err := getCommonDbQuery(ctx, resourceType).Select("JSON_EXTRACT(config, '$.labels') as labels").
+	err := buildCommonDbQuery(ctx, resourceType).Select("JSON_EXTRACT(config, '$.labels') as labels").
 		Scan(&labelsList).Error
 	// 去重
 	labelsMap := make(map[string]string)
@@ -412,23 +412,23 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 
 // GetResourceByID 根据id获取资源
 func GetResourceByID(
-ctx context.Context,
-resourceType constant.APISIXResource, id string,
+	ctx context.Context,
+	resourceType constant.APISIXResource, id string,
 ) (model.ResourceCommonModel, error) {
 	var res model.ResourceCommonModel
-	query := getCommonDbQuery(ctx, resourceType)
+	query := buildCommonDbQuery(ctx, resourceType)
 	err := query.Where("id = ?", id).Take(&res).Error
 	return res, err
 }
 
 // GetResourceByIDs 根据 ids 获取资源
 func GetResourceByIDs(
-ctx context.Context,
-resourceType constant.APISIXResource,
-ids []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
-	query := getCommonDbQuery(ctx, resourceType)
+	query := buildCommonDbQuery(ctx, resourceType)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := query.Where("id IN ?", ids).Find(&res).Error
@@ -444,7 +444,7 @@ ids []string,
 
 		batchIDs := ids[i:end]
 		var batchRes []model.ResourceCommonModel
-		query = getCommonDbQuery(ctx, resourceType)
+		query = buildCommonDbQuery(ctx, resourceType)
 		err := query.Where("id IN ?", batchIDs).
 			Find(&batchRes).Error
 		if err != nil {
@@ -459,9 +459,9 @@ ids []string,
 
 // DeleteResourceByIDs 根据 ids 删除资源
 func DeleteResourceByIDs(
-ctx context.Context,
-resourceType constant.APISIXResource,
-ids []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
 ) error {
 	// 空 IDs 快速返回
 	if len(ids) == 0 {
@@ -499,11 +499,11 @@ ids []string,
 
 // GetSchemaByIDs 根据 ids 获取 schema
 func GetSchemaByIDs(
-ctx context.Context,
-ids []string,
+	ctx context.Context,
+	ids []string,
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
-	query := getCommonDbQuery(ctx, constant.PluginConfig)
+	query := buildCommonDbQuery(ctx, constant.PluginConfig)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := query.Where("auto_id IN ?", ids).Find(&res).Error
@@ -534,13 +534,13 @@ ids []string,
 
 // QueryResource ... 根据条件查询资源
 func QueryResource(
-ctx context.Context,
-resourceType constant.APISIXResource,
-params map[string]interface{},
-name string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	params map[string]interface{},
+	name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := getCommonDbQuery(ctx, resourceType).Where(params)
+	query := buildCommonDbQuery(ctx, resourceType).Where(params)
 	if name != "" {
 		query = query.Where(model.GetResourceNameKey(resourceType)+" LIKE ?", "%"+name+"%")
 	}
@@ -550,7 +550,7 @@ name string,
 
 // LabelConditionList 标签查询条件列表
 func LabelConditionList(
-labelList map[string][]string,
+	labelList map[string][]string,
 ) []gen.Condition {
 	var conditions []gen.Condition
 	for k, values := range labelList {
@@ -567,13 +567,13 @@ labelList map[string][]string,
 
 // DuplicatedResourceName 查询资源名称是否重复
 func DuplicatedResourceName(
-ctx context.Context,
-resourceType constant.APISIXResource,
-id string,
-name string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+	name string,
 ) bool {
 	var res []*model.ResourceCommonModel
-	d := getCommonDbQuery(ctx, resourceType).Where(
+	d := buildCommonDbQuery(ctx, resourceType).Where(
 		getQueryNameParams(ctx, resourceType, []string{name}))
 	if id != "" {
 		d = d.Not("id = ?", id)
@@ -590,9 +590,9 @@ name string,
 }
 
 func getQueryNameParams(
-ctx context.Context,
-resourceType constant.APISIXResource,
-name []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	name []string,
 ) map[string]interface{} {
 	params := map[string]interface{}{}
 	params[model.GetResourceNameKey(resourceType)] = name
@@ -601,13 +601,13 @@ name []string,
 
 // BatchCheckNameDuplication 批量校验名称是否重复
 func BatchCheckNameDuplication(
-ctx context.Context,
-resourceType constant.APISIXResource,
-names []string,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	names []string,
 ) (bool, error) {
 	var res []*model.ResourceCommonModel
 	params := getQueryNameParams(ctx, resourceType, names)
-	query := getCommonDbQuery(ctx, resourceType).Where(params)
+	query := buildCommonDbQuery(ctx, resourceType).Where(params)
 	err := query.Find(&res).Error
 	if err != nil {
 		return false, err
@@ -620,8 +620,8 @@ names []string,
 
 // BatchCreateResources 批量创建资源
 func BatchCreateResources(
-ctx context.Context,
-resourceType constant.APISIXResource, resources []*model.ResourceCommonModel,
+	ctx context.Context,
+	resourceType constant.APISIXResource, resources []*model.ResourceCommonModel,
 ) error {
 	modelSlice, exists := resourceModelSliceMap[resourceType]
 	if !exists {
@@ -637,8 +637,8 @@ resourceType constant.APISIXResource, resources []*model.ResourceCommonModel,
 
 // UpdateResource 更新单个资源
 func UpdateResource(
-ctx context.Context,
-resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
+	ctx context.Context,
+	resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
 ) error {
 	resourceModel, exists := resourceModelMap[resourceType]
 	if !exists {
@@ -646,13 +646,13 @@ resourceType constant.APISIXResource, id string, resource *model.ResourceCommonM
 	}
 	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
 	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resource.ToResourceModel(resourceType)))
-	return getCommonDbQuery(ctx, resourceType).Where("id = ?", id).Updates(newResourceModel).Error
+	return buildCommonDbQuery(ctx, resourceType).Where("id = ?", id).Updates(newResourceModel).Error
 }
 
 // GetResourceUpdateStatus 获取资源更新状态
 func GetResourceUpdateStatus(
-ctx context.Context,
-resourceType constant.APISIXResource, id string,
+	ctx context.Context,
+	resourceType constant.APISIXResource, id string,
 ) (constant.ResourceStatus, error) {
 	resource, err := GetResourceByID(ctx, resourceType, id)
 	if err != nil {
@@ -667,9 +667,9 @@ resourceType constant.APISIXResource, id string,
 
 // ParseOrderByExprList 解析排序字段
 func ParseOrderByExprList(
-ascFieldMap map[string]field.Expr,
-descFieldMap map[string]field.Expr,
-orderBy string,
+	ascFieldMap map[string]field.Expr,
+	descFieldMap map[string]field.Expr,
+	orderBy string,
 ) []field.Expr {
 	var orderByExprs []field.Expr
 
@@ -705,10 +705,10 @@ orderBy string,
 // allResourceIDMap: map of all valid resource IDs for association validation
 // Returns: error if validation fails, nil otherwise
 func ValidateResource(
-ctx context.Context,
-resources map[constant.APISIXResource][]*model.GatewaySyncData,
-allResourceIDMap map[string]struct{},
-allPluginSchemaMap map[string]interface{},
+	ctx context.Context,
+	resources map[constant.APISIXResource][]*model.GatewaySyncData,
+	allResourceIDMap map[string]struct{},
+	allPluginSchemaMap map[string]interface{},
 ) error {
 	// Extract gateway information from context
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)

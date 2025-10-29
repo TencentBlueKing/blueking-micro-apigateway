@@ -303,7 +303,11 @@ updatedSchemas map[string]*model.GatewayCustomPluginSchema,
 			}
 		}
 		err = insertSyncedResourcesModel(
-			ctx, updateTypeResourcesTypeMap, constant.ResourceStatusUpdateDraft, false)
+			ctx,
+			updateTypeResourcesTypeMap,
+			constant.ResourceStatusUpdateDraft,
+			false,
+		)
 		if err != nil {
 			return err
 		}

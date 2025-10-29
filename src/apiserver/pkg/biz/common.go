@@ -129,6 +129,7 @@ func getCommonDbQuery(
 		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
 }
 
+// BatchDeleteResourceByIDsWithTx 事务批量删除资源
 func BatchDeleteResourceByIDsWithTx(
 	ctx context.Context,
 	resourceType constant.APISIXResource,

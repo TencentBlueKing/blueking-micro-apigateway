@@ -599,10 +599,12 @@ func (s *UnifyOp) RevertConfigByIDList(
 }
 
 // kvToResource 将 etcd 中的 key-value 转换为资源
+//
+//nolint:gocyclo
 func (s *UnifyOp) kvToResource(
 	ctx context.Context,
 	kvList []storage.KeyValuePair,
-) []*model.GatewaySyncData { //nolint:gocyclo
+) []*model.GatewaySyncData {
 	var resources []*model.GatewaySyncData
 	var metadataNames []string
 	metadataNameMap := make(map[string]*model.GatewaySyncData)

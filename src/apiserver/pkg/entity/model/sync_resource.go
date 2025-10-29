@@ -19,6 +19,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -39,6 +40,10 @@ type GatewaySyncData struct {
 	ModRevision int                     `gorm:"column:mod_revision"`     // 更新版本
 	CreatedAt   time.Time               `json:"createdAt"`               // 创建时间
 	UpdatedAt   time.Time               `json:"updatedAt"`               // 更新时间
+}
+
+func (g GatewaySyncData) GetResourceKey() string {
+	return fmt.Sprintf(constant.ResourceKeyFormat, g.Type, g.ID)
 }
 
 // GetServiceID 获取service id

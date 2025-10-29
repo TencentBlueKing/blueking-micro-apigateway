@@ -353,37 +353,37 @@ func GetSyncItemsAssociatedResources(
 	ctx context.Context,
 	items []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
-	idMap := make(map[string]bool)
+	idMap := make(map[string]bool) // type:id 不同类型资源的id可能重复
 	for _, item := range items {
-		idMap[item.ID] = true
+		idMap[item.GetResourceKey()] = true
 	}
 	// 遍历处理依赖相关资源
 	var associatedIDs []string
 	for _, item := range items {
 		serviceID := item.GetServiceID()
-		if serviceID != "" && !idMap[serviceID] {
+		if serviceID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, serviceID)
 			idMap[serviceID] = true
 		}
 		upstreamID := item.GetUpstreamID()
-		if upstreamID != "" && !idMap[upstreamID] {
+		if upstreamID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, upstreamID)
-			idMap[upstreamID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 		pluginConfigID := item.GetPluginConfigID()
-		if pluginConfigID != "" && !idMap[pluginConfigID] {
+		if pluginConfigID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, pluginConfigID)
-			idMap[pluginConfigID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 		groupID := item.GetGroupID()
-		if groupID != "" && !idMap[groupID] {
+		if groupID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, groupID)
-			idMap[groupID] = true
+			idMap[item.GetResourceKey()] = true
 		}
-		sslID := item.GetGroupID()
-		if sslID != "" && !idMap[sslID] {
+		sslID := item.GetSSLID()
+		if sslID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, sslID)
-			idMap[sslID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 	}
 	if len(associatedIDs) > 0 {
@@ -494,14 +494,14 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	}
 	syncedResources := make(map[string]struct{})
 	for _, item := range items {
-		syncedResources[item.ID] = struct{}{}
+		syncedResources[item.GetResourceKey()] = struct{}{}
 	}
 
 	// 统计最新同步的资源类型及数量
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
 	for _, resource := range resourceList {
 		// 过滤掉已同步的资源
-		if _, ok := syncedResources[resource.ID]; !ok {
+		if _, ok := syncedResources[resource.GetResourceKey()]; !ok {
 			syncedResourceTypeStats[resource.Type]++
 		}
 	}

@@ -744,26 +744,29 @@ func ValidateResource(
 				return err
 			}
 			if resourceAssociateIDInfo.ServiceID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.ServiceID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.Service, resourceAssociateIDInfo.ServiceID)]; !ok {
 					return fmt.Errorf("associated service [id:%s] not found",
 						resourceAssociateIDInfo.ServiceID)
 				}
 			}
 			if resourceAssociateIDInfo.UpstreamID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.UpstreamID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.Upstream, resourceAssociateIDInfo.UpstreamID)]; !ok {
 					return fmt.Errorf("associated upstream [id:%s] not found",
 						resourceAssociateIDInfo.UpstreamID)
 				}
 
 				if resourceAssociateIDInfo.PluginConfigID != "" {
-					if _, ok := allResourceIDMap[resourceAssociateIDInfo.PluginConfigID]; !ok {
+					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+						constant.PluginConfig, resourceAssociateIDInfo.PluginConfigID)]; !ok {
 						return fmt.Errorf("associated plugin_config [id:%s] not found",
 							resourceAssociateIDInfo.PluginConfigID)
 					}
 				}
-
 				if resourceAssociateIDInfo.GroupID != "" {
-					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GroupID]; !ok {
+					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+						constant.ConsumerGroup, resourceAssociateIDInfo.GroupID)]; !ok {
 						return fmt.Errorf("associated consumer_group [id:%s] not found",
 							resourceAssociateIDInfo.GroupID)
 					}

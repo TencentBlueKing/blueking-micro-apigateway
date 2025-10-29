@@ -408,7 +408,7 @@ func ResourceUpload(c *gin.Context) {
 		return
 	}
 	// check 配置
-	err = biz.ValidateResource(c.Request.Context(), indexResult.ResourceTypeMap, indexResult.ExistsResourceIdList,
+	err = biz.ValidateResource(c.Request.Context(), indexResult.ResourceTypeMap, indexResult.AllResourceIdList,
 		indexResult.AllSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %v", err))

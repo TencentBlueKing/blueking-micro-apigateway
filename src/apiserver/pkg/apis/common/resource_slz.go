@@ -42,6 +42,10 @@ type ResourceInfo struct {
 	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
 }
 
+func (r ResourceInfo) GetResourceKey() string {
+	return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.ResourceID)
+}
+
 // ResourceUploadInfo ...
 type ResourceUploadInfo struct {
 	Add    map[constant.APISIXResource][]ResourceInfo `json:"add,omitempty"`
@@ -57,6 +61,7 @@ type HandlerResourceResult struct {
 // HandlerResourceIndexResult ...
 type HandlerResourceIndexResult struct {
 	ExistsResourceIdList map[string]struct{}
+	AllResourceIdList    map[string]struct{}
 	AddedSchemaMap       map[string]*model.GatewayCustomPluginSchema
 	UpdatedSchemaMap     map[string]*model.GatewayCustomPluginSchema
 	AllSchemaMap         map[string]interface{}
@@ -86,7 +91,7 @@ func ClassifyImportResourceInfo(
 				continue
 			}
 			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
-			if _, ok := existsResourceIdList[imp.ResourceID]; !ok {
+			if _, ok := existsResourceIdList[imp.GetResourceKey()]; !ok {
 				imp.Status = constant.UploadStatusAdd
 				uploadOutput.Add[imp.ResourceType] = append(uploadOutput.Add[imp.ResourceType], imp)
 			} else {
@@ -172,6 +177,7 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 	*HandlerResourceIndexResult, error,
 ) {
 	existsResourceIdList := make(map[string]struct{})
+	allResourceIdList := make(map[string]struct{})
 	var addedSchemaMap map[string]*model.GatewayCustomPluginSchema
 	var updatedSchemaMap map[string]*model.GatewayCustomPluginSchema
 	var allSchemaMap map[string]interface{}
@@ -192,7 +198,8 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 			return nil, err
 		}
 		for _, dbResource := range dbResources {
-			existsResourceIdList[dbResource.ID] = struct{}{}
+			existsResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
+			allResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
 		}
 		for _, resourceInfo := range resourceInfoList {
 			res := &model.GatewaySyncData{
@@ -200,6 +207,7 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 				ID:     resourceInfo.ResourceID,
 				Config: datatypes.JSON(resourceInfo.Config),
 			}
+			allResourceIdList[res.GetResourceKey()] = struct{}{}
 			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
 				resourceTypeMap[resourceInfo.ResourceType] = append(resourceTypeMap[resourceInfo.ResourceType], res)
 				continue
@@ -209,6 +217,7 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 	}
 	return &HandlerResourceIndexResult{
 		ExistsResourceIdList: existsResourceIdList,
+		AllResourceIdList:    allResourceIdList,
 		AddedSchemaMap:       addedSchemaMap,
 		UpdatedSchemaMap:     updatedSchemaMap,
 		AllSchemaMap:         allSchemaMap,
@@ -231,7 +240,7 @@ func handleResources(
 			return nil, fmt.Errorf("get exist resources failed, err: %v", err)
 		}
 		for _, imp := range resourceInfoList {
-			allResourceIdMap[imp.ResourceID] = struct{}{}
+			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
 			resourceImp := &model.GatewaySyncData{
 				Type:      resourceType,
 				ID:        imp.ResourceID,
@@ -245,7 +254,7 @@ func handleResources(
 			resourceTypeMap[resourceType] = append(resourceTypeMap[resourceType], resourceImp)
 		}
 		for _, resource := range allResourceList {
-			allResourceIdMap[resource.ID] = struct{}{}
+			allResourceIdMap[resource.GetResourceKey(resourceType)] = struct{}{}
 		}
 	}
 	return resourceTypeMap, nil

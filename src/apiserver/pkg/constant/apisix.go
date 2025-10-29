@@ -39,6 +39,8 @@ const (
 	Gateway        APISIXResource = "gateway" // 操作审计场景使用
 )
 
+const ResourceKeyFormat = "%s-%s" // type-resource-id
+
 // RelationIDFiledMap ...
 var RelationIDFiledMap = map[APISIXResource]string{
 	Service:       "service_id",

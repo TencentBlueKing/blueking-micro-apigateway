@@ -479,6 +479,10 @@ func ResourceImport(c *gin.Context) {
 		addedSchemaMap,
 		updatedSchemaMap,
 	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
 	ginx.SuccessNoContentResponse(c)
 }
 

@@ -480,7 +480,7 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	if err != nil {
 		return nil, err
 	}
-	resourceList := s.kvToResource(kvList)
+	resourceList := s.kvToResource(ctx, kvList)
 
 	// 获取已同步资源
 	items, err := QuerySyncedItems(ctx, map[string]interface{}{"gateway_id": s.gatewayInfo.ID})
@@ -539,7 +539,7 @@ func (s *UnifyOp) SyncWithPrefixWithChannel(
 	if err != nil {
 		return err
 	}
-	resourceList := s.kvToResource(kvList)
+	resourceList := s.kvToResource(ctx, kvList)
 	resourceChannel <- resourceList
 	logging.Infof("syncer[gateway:%s] end", s.gatewayInfo.Name)
 	return nil
@@ -586,7 +586,7 @@ func (s *UnifyOp) RevertConfigByIDList(
 	if err != nil {
 		return err
 	}
-	etcdResourceList := s.kvToResource(kvList)
+	etcdResourceList := s.kvToResource(ctx, kvList)
 	var needRevertResourceList []*model.GatewaySyncData
 	for _, etcdResource := range etcdResourceList {
 		// 过滤掉不需要回滚的资源
@@ -599,7 +599,10 @@ func (s *UnifyOp) RevertConfigByIDList(
 }
 
 // kvToResource 将 etcd 中的 key-value 转换为资源
-func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySyncData { //nolint:gocyclo
+func (s *UnifyOp) kvToResource(
+	ctx context.Context,
+	kvList []storage.KeyValuePair,
+) []*model.GatewaySyncData { //nolint:gocyclo
 	var resources []*model.GatewaySyncData
 	var metadataNames []string
 	metadataNameMap := make(map[string]*model.GatewaySyncData)
@@ -678,7 +681,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 	if len(metadataNames) > 0 {
 		// 反向查找ID
 		metadatas, err := QueryPluginMetadatas(
-			context.Background(),
+			ctx,
 			map[string]interface{}{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
 		)
 		if err != nil {
@@ -1202,5 +1205,5 @@ func (s *UnifyOp) ExportEtcdResources(ctx context.Context) ([]*model.GatewaySync
 		return nil, err
 	}
 	logging.Infof("export [gateway:%s] end ", s.gatewayInfo.Name)
-	return s.kvToResource(kvList), nil
+	return s.kvToResource(ctx, kvList), nil
 }

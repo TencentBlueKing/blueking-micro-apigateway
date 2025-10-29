@@ -129,6 +129,53 @@ func getCommonDbQuery(
 		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
 }
 
+func BatchDeleteResourceByIDsWithTx(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) error {
+	param := field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+		"id":         ids,
+	})
+	switch resourceType {
+	case constant.Route:
+		_, err := ginx.GetTx(ctx).Route.WithContext(ctx).Where(param).Delete(&model.Route{})
+		return err
+	case constant.Upstream:
+		_, err := ginx.GetTx(ctx).Upstream.WithContext(ctx).Where(param).Delete(&model.Upstream{})
+		return err
+	case constant.PluginConfig:
+		_, err := ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Where(param).Delete(&model.PluginConfig{})
+		return err
+	case constant.GlobalRule:
+		_, err := ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Where(param).Delete(&model.GlobalRule{})
+		return err
+	case constant.PluginMetadata:
+		_, err := ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Where(param).Delete(&model.PluginMetadata{})
+		return err
+	case constant.StreamRoute:
+		_, err := ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Where(param).Delete(&model.StreamRoute{})
+		return err
+	case constant.Service:
+		_, err := ginx.GetTx(ctx).Service.WithContext(ctx).Where(param).Delete(&model.Service{})
+		return err
+	case constant.Proto:
+		_, err := ginx.GetTx(ctx).Proto.WithContext(ctx).Where(param).Delete(&model.Proto{})
+		return err
+	case constant.SSL:
+		_, err := ginx.GetTx(ctx).SSL.WithContext(ctx).Where(param).Delete(&model.SSL{})
+		return err
+	case constant.Consumer:
+		_, err := ginx.GetTx(ctx).Consumer.WithContext(ctx).Where(param).Delete(&model.Consumer{})
+		return err
+	case constant.ConsumerGroup:
+		_, err := ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Where(param).Delete(&model.ConsumerGroup{})
+		return err
+	}
+	return nil
+}
+
 // BatchUpdateResourceStatusWithAuditLog 批量更新资源状态并添加审计日志
 func BatchUpdateResourceStatusWithAuditLog(
 	ctx context.Context,
@@ -188,7 +235,6 @@ func BatchUpdateResourceStatus(
 		if end > len(ids) {
 			end = len(ids)
 		}
-
 		batchIDs := ids[i:end]
 		err := query.Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
 			"status": status,
@@ -363,6 +409,7 @@ func GetResourceByIDs(
 	return res, nil
 }
 
+// DeleteResourceByIDs 根据 ids 删除资源
 func DeleteResourceByIDs(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
@@ -375,9 +422,11 @@ func DeleteResourceByIDs(
 
 	// 单批次直接删除（优化小数据集性能）
 	if len(ids) <= constant.DBConditionIDMaxLength {
-		query := getCommonDbQuery(ctx, resourceType)
-		err := query.Where("id IN (?)", ids).Delete(resourceModelMap[resourceType]).Error
-		return err
+		return BatchDeleteResourceByIDsWithTx(
+			ctx,
+			resourceType,
+			ids,
+		)
 	}
 
 	// 分批次删除（避免条件叠加）
@@ -388,8 +437,11 @@ func DeleteResourceByIDs(
 		}
 		batchIDs := ids[i:end]
 		// 关键点：每个批次创建新查询
-		batchQuery := getCommonDbQuery(ctx, resourceType)
-		if err := batchQuery.Where("id IN (?)", batchIDs).Delete(resourceModelMap[resourceType]).Error; err != nil {
+		if err := BatchDeleteResourceByIDsWithTx(
+			ctx,
+			resourceType,
+			batchIDs,
+		); err != nil {
 			return err
 		}
 	}

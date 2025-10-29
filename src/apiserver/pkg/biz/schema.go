@@ -139,9 +139,9 @@ func GetSchemaByID(ctx context.Context, id int) (*model.GatewayCustomPluginSchem
 	return schemaInfo, err
 }
 
-// DeleteSchema 删除 schema
+// DeleteSchemaBySchemaID 删除 schema
 func DeleteSchemaBySchemaID(ctx context.Context, schemaID int) error {
-	_, err := getSchemaQuery(ctx).WithContext(ctx).Delete(&model.GatewayCustomPluginSchema{AutoID: schemaID})
+	_, err := getSchemaQuery(ctx).Delete(&model.GatewayCustomPluginSchema{AutoID: schemaID})
 	return err
 }
 

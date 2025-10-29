@@ -130,7 +130,8 @@ func HandleUploadResources(
 
 // HandlerCustomerPluginSchemaImport is a function that handles the import of customer plugin schemas.
 func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []ResourceInfo) (
-	allSchemaMap map[string]interface{}, addedSchemaMap, updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
+	allSchemaMap map[string]interface{}, addedSchemaMap,
+	updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
 ) {
 	// Get the existing plugin schema map from the business logic layer
 	existsPluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
@@ -161,7 +162,6 @@ func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []Res
 		var schemaMap map[string]interface{}
 		_ = json.Unmarshal(schemaRaw, &schemaMap)
 		existsPluginSchemaMap[schemaInfo.Name] = schemaMap
-
 	}
 	return existsPluginSchemaMap, addedSchemaMap, updatedSchemaMap, nil
 }

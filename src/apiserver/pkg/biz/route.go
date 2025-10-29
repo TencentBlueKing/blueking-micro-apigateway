@@ -205,6 +205,22 @@ func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 	return err
 }
 
+// BatchDeleteRoutesWithTx 批量删除路由
+func BatchDeleteRoutesWithTx(ctx context.Context, tx *repo.Query, ids []string) error {
+	u := repo.Route
+	err := tx.Transaction(func(q *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 批量删除路由关联的自定义插件记录
+		err := BatchDeleteResourceSchemaAssociation(ctx, ids, constant.Route)
+		if err != nil {
+			return err
+		}
+		_, err = getRouteQueryWithTx(ctx, q).Where(u.ID.In(ids...)).Delete()
+		return err
+	})
+	return err
+}
+
 // GetRouteCount 查询网关路由数量
 func GetRouteCount(ctx context.Context, gatewayID int) (int64, error) {
 	u := repo.Route

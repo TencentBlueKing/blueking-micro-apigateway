@@ -127,7 +127,7 @@ func CreateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error
 	if ginx.GetTx(ctx) != nil {
 		return buildStreamRouteQueryWithTx(ctx, ginx.GetTx(ctx)).Create(&streamRoute)
 	}
-	return buildStreamRouteQuery(ctx).WithContext(ctx).Create(&streamRoute)
+	return buildStreamRouteQuery(ctx).Create(&streamRoute)
 }
 
 // BatchCreateStreamRoutes 批量创建 StreamRoute
@@ -164,10 +164,18 @@ func QueryStreamRoutes(ctx context.Context, param map[string]interface{}) ([]*mo
 }
 
 // BatchDeleteStreamRoutes 批量删除 StreamRoute 并添加审计日志
+// BatchDeleteStreamRoutes deletes multiple stream routes in a batch
+// ctx: context for the operation, may contain transaction information
+// ids: slice of string IDs representing the stream routes to be deleted
+// Returns: error if any step of the operation fails
 func BatchDeleteStreamRoutes(ctx context.Context, ids []string) error {
+	// Get the StreamRoute repository instance
 	u := repo.StreamRoute
+	// Execute the operation within a transaction
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		// Set the transaction context for the operation
 		ctx = ginx.SetTx(ctx, tx)
+		// Add audit logs for the deletion operation
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.StreamRoute, ids)
 		if err != nil {
 			return err

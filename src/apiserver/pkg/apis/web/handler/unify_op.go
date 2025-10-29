@@ -473,7 +473,8 @@ func ResourceImport(c *gin.Context) {
 		return
 	}
 	// 插入数据
-	err = biz.UploadResources(c.Request.Context(),
+	err = biz.UploadResources(
+		c.Request.Context(),
 		handleResult.AddResourceTypeMap,
 		handleResult.UpdateResourceTypeMap,
 		addedSchemaMap,

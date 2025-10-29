@@ -388,8 +388,7 @@ func GetSyncItemsAssociatedResources(
 	}
 	if len(associatedIDs) > 0 {
 		associatedItems, err := QuerySyncedItems(ctx, map[string]interface{}{
-			"id":         associatedIDs,
-			"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+			"id": associatedIDs,
 		})
 		if err != nil {
 			return nil, err
@@ -467,7 +466,9 @@ func (s *UnifyOp) SyncerRun(ctx context.Context, resourceChan chan []*model.Gate
 			continue
 		}
 		s.gatewayInfo = gatewayInfo
-		_, err = s.SyncWithPrefix(ctx, s.gatewayInfo.EtcdConfig.Prefix)
+		gatewayCtx := context.Background()
+		gatewayCtx = ginx.SetGatewayInfoToContext(gatewayCtx, s.gatewayInfo)
+		_, err = s.SyncWithPrefix(gatewayCtx, s.gatewayInfo.EtcdConfig.Prefix)
 		if err != nil {
 			logging.Errorf("sync all error: %s", err.Error())
 		}
@@ -487,7 +488,7 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	resourceList := s.kvToResource(ctx, kvList)
 
 	// 获取已同步资源
-	items, err := QuerySyncedItems(ctx, map[string]interface{}{"gateway_id": s.gatewayInfo.ID})
+	items, err := QuerySyncedItems(ctx, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -779,8 +780,7 @@ func (s *UnifyOp) kvToResource(
 	// 处理 StreamRoute name，labels
 	if len(streamRouteIDs) > 0 {
 		streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         streamRouteIDs,
+			"id": streamRouteIDs,
 		})
 		if err != nil {
 			logging.Errorf("SearchStreamRoute error: %s", err.Error())

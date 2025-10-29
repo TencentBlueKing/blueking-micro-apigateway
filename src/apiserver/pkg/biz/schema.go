@@ -39,12 +39,6 @@ func buildSchemaQuery(ctx context.Context) repo.IGatewayCustomPluginSchemaDo {
 }
 
 // buildSchemaQueryWithTx 获取 GatewayCustomPluginSchema 查询对象(带事务)
-/**
- * buildSchemaQueryWithTx creates a query for GatewayCustomPluginSchema with transaction context
- * @param ctx context.Context - The context containing request information
- * @param tx *repo.Query - The transaction/query object
- * @return repo.IGatewayCustomPluginSchemaDo - Returns a query interface for GatewayCustomPluginSchema operations
- */
 func buildSchemaQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGatewayCustomPluginSchemaDo {
 	// Create query with context and filter by gateway_id from context
 	return tx.WithContext(ctx).GatewayCustomPluginSchema.Where(field.Attrs(map[string]interface{}{
@@ -108,7 +102,7 @@ func BatchCreateSchema(ctx context.Context, schemas []*model.GatewayCustomPlugin
 		return buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(
 			schemas, constant.DBBatchCreateSize)
 	}
-	return repo.GatewayCustomPluginSchema.WithContext(ctx).CreateInBatches(schemas, constant.DBBatchCreateSize)
+	return buildSchemaQuery(ctx).CreateInBatches(schemas, constant.DBBatchCreateSize)
 }
 
 // UpdateSchema 更新 schema
@@ -155,7 +149,7 @@ func DeleteSchemaByNames(ctx context.Context, names []string) error {
 		}
 		return nil
 	}
-	_, err := buildSchemaQuery(ctx).WithContext(ctx).Where(u.Name.In(names...)).Delete()
+	_, err := buildSchemaQuery(ctx).Where(u.Name.In(names...)).Delete()
 	return err
 }
 

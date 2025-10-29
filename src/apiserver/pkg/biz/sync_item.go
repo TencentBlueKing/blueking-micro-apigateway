@@ -82,9 +82,8 @@ func ListPagedSyncedItems(
 	page PageParam,
 ) ([]*model.GatewaySyncData, int64, error) {
 	u := repo.GatewaySyncData
-	return buildSyncedItemQuery(
-		ctx,
-	).Where(field.Attrs(param)).
+	return buildSyncedItemQuery(ctx).
+		Where(field.Attrs(param)).
 		Order(u.CreatedAt.Desc()).
 		FindByPage(page.Offset, page.Limit)
 }

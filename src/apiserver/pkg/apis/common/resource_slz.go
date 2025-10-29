@@ -76,7 +76,7 @@ func ClassifyImportResourceInfo(
 	for resourceType, impList := range importDataList {
 		for _, imp := range impList {
 			if resourceType == constant.Schema {
-				if _, ok := addPluginSchemaMap[imp.Name]; !ok {
+				if _, ok := addPluginSchemaMap[imp.Name]; ok {
 					imp.Status = constant.UploadStatusAdd
 					uploadOutput.Add[constant.Schema] = append(uploadOutput.Add[constant.Schema], imp)
 				} else {

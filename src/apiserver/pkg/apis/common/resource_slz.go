@@ -31,7 +31,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // ResourceInfo ...
@@ -208,9 +207,11 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 			allResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
 		}
 		for _, resourceInfo := range resourceInfoList {
-			// 生成ID,如果为空
+			// id如果为空，直接报错
 			if resourceInfo.ResourceID == "" {
-				resourceInfo.ResourceID = idx.GenResourceID(resourceType)
+				return nil, fmt.Errorf("%s: resource id is empty: %s",
+					resourceInfo.ResourceType,
+					resourceInfo.Name)
 			}
 			res := &model.GatewaySyncData{
 				Type:   resourceInfo.ResourceType,
@@ -250,9 +251,9 @@ func handleResources(
 			return nil, fmt.Errorf("get exist resources failed, err: %v", err)
 		}
 		for _, imp := range resourceInfoList {
-			// 生成ID,如果为空
+			// 如果id为空，直接报错
 			if imp.ResourceID == "" {
-				imp.ResourceID = idx.GenResourceID(resourceType)
+				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
 			}
 			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
 			resourceImp := &model.GatewaySyncData{

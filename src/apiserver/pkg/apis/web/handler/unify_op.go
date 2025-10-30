@@ -501,6 +501,7 @@ func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.API
 					Example:   datatypes.JSON(gjson.GetBytes(resource.Config, "example").String()),
 					BaseModel: model.BaseModel{
 						Creator: ginx.GetUserIDFromContext(c),
+						Updater: ginx.GetUserIDFromContext(c),
 					},
 					OperationType: constant.OperationImport,
 				}

@@ -53,6 +53,9 @@ func (s *Syncer) Run() {
 			ctx := context.Background()
 			u := repo.GatewaySyncData
 			err := repo.Q.Transaction(func(tx *repo.Query) error {
+				if len(resourceList) == 0 {
+					return nil
+				}
 				// 先删除后插入
 				_, err := tx.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(resourceList[0].GatewayID)).
 					Delete()

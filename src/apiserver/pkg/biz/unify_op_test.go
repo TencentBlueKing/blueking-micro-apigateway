@@ -329,7 +329,7 @@ func TestUploadResources_MixedResourceTypes(t *testing.T) {
 	consumer, err := GetConsumer(gatewayCtx, consumerData.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, "mixed-consumer", consumer.Username)
-	assert.Equal(t, constant.ResourceStatusSuccess, consumer.Status)
+	assert.Equal(t, constant.ResourceStatusCreateDraft, consumer.Status)
 
 	pluginConfig, err := GetPluginConfig(gatewayCtx, pluginConfigData.ID)
 	assert.NoError(t, err)

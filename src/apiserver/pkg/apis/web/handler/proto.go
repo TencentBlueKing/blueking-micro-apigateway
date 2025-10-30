@@ -219,7 +219,6 @@ func ProtoList(c *gin.Context) {
 		return
 	}
 	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

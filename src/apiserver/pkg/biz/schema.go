@@ -282,7 +282,9 @@ func GetResourceSchemaAssociation(
 	schemaID int,
 ) ([]*model.GatewayResourceSchemaAssociation, error) {
 	u := repo.GatewayResourceSchemaAssociation
-	return u.WithContext(ctx).Where(u.SchemaID.Eq(schemaID)).Find()
+	return u.WithContext(ctx).Where(
+		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
+		u.SchemaID.Eq(schemaID)).Find()
 }
 
 // BatchDeleteResourceSchemaAssociation 批量删除资源与自定义插件的关联记录
@@ -294,12 +296,14 @@ func BatchDeleteResourceSchemaAssociation(
 	u := repo.GatewayResourceSchemaAssociation
 	if ginx.GetTx(ctx) != nil {
 		_, err := ginx.GetTx(ctx).GatewayResourceSchemaAssociation.WithContext(ctx).Where(
+			u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
 			u.ResourceID.In(resourceIDs...),
 			u.ResourceType.Eq(resourceType.String()),
 		).Delete()
 		return err
 	}
 	_, err := repo.GatewayResourceSchemaAssociation.WithContext(ctx).Where(
+		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
 		u.ResourceID.In(resourceIDs...),
 		u.ResourceType.Eq(resourceType.String()),
 	).Delete()

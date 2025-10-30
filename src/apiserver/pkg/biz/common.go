@@ -784,3 +784,45 @@ func ValidateResource(
 	}
 	return nil
 }
+
+// FormatResourceIDNameList 格式化资源ID和名称列表
+func FormatResourceIDNameList(resources interface{}, resourceType constant.APISIXResource) []string {
+	switch resourceType {
+	case constant.Route:
+		routes := resources.([]*model.Route)
+		routeDetails := make([]string, 0, len(routes))
+		for _, route := range routes {
+			routeDetails = append(routeDetails, fmt.Sprintf("%s-%s", route.ID, route.Name))
+		}
+		return routeDetails
+	case constant.Upstream:
+		upstreams := resources.([]*model.Upstream)
+		upstreamDetails := make([]string, 0, len(upstreams))
+		for _, upstream := range upstreams {
+			upstreamDetails = append(upstreamDetails, fmt.Sprintf("%s-%s", upstream.ID, upstream.Name))
+		}
+		return upstreamDetails
+	case constant.Consumer:
+		consumers := resources.([]*model.Consumer)
+		consumerDetails := make([]string, 0, len(consumers))
+		for _, consumer := range consumers {
+			consumerDetails = append(consumerDetails, fmt.Sprintf("%s-%s", consumer.ID, consumer.Username))
+		}
+		return consumerDetails
+	case constant.Service:
+		services := resources.([]*model.Service)
+		serviceDetails := make([]string, 0, len(services))
+		for _, service := range services {
+			serviceDetails = append(serviceDetails, fmt.Sprintf("%s-%s", service.ID, service.Name))
+		}
+		return serviceDetails
+	case constant.StreamRoute:
+		streamRoutes := resources.([]*model.StreamRoute)
+		streamRouteDetails := make([]string, 0, len(streamRoutes))
+		for _, streamRoute := range streamRoutes {
+			streamRouteDetails = append(streamRouteDetails, fmt.Sprintf("%s-%s", streamRoute.ID, streamRoute.Name))
+		}
+		return streamRouteDetails
+	}
+	return nil
+}

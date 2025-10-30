@@ -53,6 +53,7 @@ export const RESOURCE_CN_MAP: Record<string, string> = {
   stream_route: i18n.global.t('stream 路由'),
   proto: 'proto',
   ssl: 'ssl',
+  schema: i18n.global.t('自定义插件'),
 };
 
 export const RESOURCE_ICON_MAP: Record<string, string> = {

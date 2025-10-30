@@ -518,8 +518,8 @@ func PublishStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 		return fmt.Errorf("streamRoutes 查询错误: %w", err)
 	}
 	if len(streamRoutes) == 0 {
-		logging.ErrorFWithContext(ctx, "no streamRoutes found for the specified streamRouteIDs %v", streamRoutes)
-		return fmt.Errorf("未找到指定的 streamRoutes 资源 IDs %v", streamRoutes)
+		logging.ErrorFWithContext(ctx, "no streamRoutes found for the specified streamRouteIDs %v", streamRouteIDs)
+		return fmt.Errorf("未找到指定的 streamRoutes 资源 IDs %v", streamRouteIDs)
 	}
 	var deleteStreamRouteIDs []string
 	var addStreamRouteIDs []string
@@ -602,7 +602,7 @@ func deleteServices(ctx context.Context, serviceIDs []string) error {
 		return err
 	}
 	if len(routes) > 0 {
-		return fmt.Errorf("服务不可删除, 存在关联的路由资源 %v", routes)
+		return fmt.Errorf("服务不可删除, 存在关联的路由资源 %v", FormatResourceIDNameList(routes, constant.Route))
 	}
 	// 判断 service 有没有关联的 streamRoute 数据
 	streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{"service_id": serviceIDs})
@@ -610,7 +610,10 @@ func deleteServices(ctx context.Context, serviceIDs []string) error {
 		return err
 	}
 	if len(streamRoutes) > 0 {
-		return fmt.Errorf("服务不可删除, 存在关联的 streamRoute 资源 %v", streamRoutes)
+		return fmt.Errorf(
+			"服务不可删除, 存在关联的 streamRoute 资源 %v",
+			FormatResourceIDNameList(streamRoutes, constant.StreamRoute),
+		)
 	}
 	// 先删除 etcd 的数据
 	err = batchDeleteEtcdResource(ctx, constant.Service, serviceIDs)
@@ -629,7 +632,7 @@ func deleteUpstreams(ctx context.Context, upstreamIDs []string) error {
 		return err
 	}
 	if len(services) > 0 {
-		return fmt.Errorf("上游不可删除, 存在关联的服务资源 %v", services)
+		return fmt.Errorf("上游不可删除, 存在关联的服务资源 %v", FormatResourceIDNameList(services, constant.Service))
 	}
 	// 判断 upstream 有没有关联的 route 数据
 	routes, err := QueryRoutes(ctx, map[string]interface{}{"upstream_id": upstreamIDs})
@@ -637,7 +640,7 @@ func deleteUpstreams(ctx context.Context, upstreamIDs []string) error {
 		return err
 	}
 	if len(routes) > 0 {
-		return fmt.Errorf("上游不可删除, 存在关联的路由资源 %v", routes)
+		return fmt.Errorf("上游不可删除, 存在关联的路由资源 %v", FormatResourceIDNameList(routes, constant.Route))
 	}
 	// 判断 upstream 有没有关联的 streamRoute 数据
 	streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{"upstream_id": upstreamIDs})
@@ -645,7 +648,10 @@ func deleteUpstreams(ctx context.Context, upstreamIDs []string) error {
 		return err
 	}
 	if len(streamRoutes) > 0 {
-		return fmt.Errorf("上游不可删除, 存在关联的 streamRoute 资源 %v", streamRoutes)
+		return fmt.Errorf(
+			"上游不可删除, 存在关联的 streamRoute 资源 %v",
+			FormatResourceIDNameList(streamRoutes, constant.StreamRoute),
+		)
 	}
 
 	// 先删除 etcd 的数据
@@ -666,7 +672,7 @@ func deletePluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		return err
 	}
 	if len(routes) > 0 {
-		return fmt.Errorf("插件组不可删除, 存在关联的路由资源 %v", routes)
+		return fmt.Errorf("插件组不可删除, 存在关联的路由资源 %v", FormatResourceIDNameList(routes, constant.Route))
 	}
 
 	// 先删除 etcd 的数据
@@ -710,7 +716,7 @@ func deleteConsumerGroups(ctx context.Context, consumerGroupIDs []string) error 
 		return err
 	}
 	if len(consumers) > 0 {
-		return fmt.Errorf("消费者组不可删除, 存在关联的消费者资源 %v", consumers)
+		return fmt.Errorf("消费者组不可删除, 存在关联的消费者资源 %v", FormatResourceIDNameList(consumers, constant.Consumer))
 	}
 	// 先删除 etcd 的数据
 	err = batchDeleteEtcdResource(ctx, constant.ConsumerGroup, consumerGroupIDs)
@@ -744,12 +750,12 @@ func deleteProtos(ctx context.Context, protoIDs []string) error {
 
 // deleteSSLs 删除 SSL
 func deleteSSLs(ctx context.Context, sslIDs []string) error {
-	ssls, err := QueryUpstreams(ctx, map[string]interface{}{"ssl_id": sslIDs})
+	upstreams, err := QueryUpstreams(ctx, map[string]interface{}{"ssl_id": sslIDs})
 	if err != nil {
 		return err
 	}
-	if len(ssls) > 0 {
-		return fmt.Errorf("ssl 不可删除, 存在关联的上游资源 %v", ssls)
+	if len(upstreams) > 0 {
+		return fmt.Errorf("ssl 不可删除, 存在关联的上游资源 %v", FormatResourceIDNameList(upstreams, constant.Upstream))
 	}
 	// 先删除 etcd 的数据
 	err = batchDeleteEtcdResource(ctx, constant.SSL, sslIDs)

@@ -37,7 +37,7 @@ func buildStreamRouteQuery(ctx context.Context) repo.IStreamRouteDo {
 	}))
 }
 
-// GbuildStreamRouteQueryWithTx 获取 StreamRoute 查询对象
+// buildStreamRouteQueryWithTx 获取 StreamRoute 查询对象
 func buildStreamRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IStreamRouteDo {
 	return tx.WithContext(ctx).StreamRoute.Where(field.Attrs(map[string]interface{}{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
@@ -164,10 +164,6 @@ func QueryStreamRoutes(ctx context.Context, param map[string]interface{}) ([]*mo
 }
 
 // BatchDeleteStreamRoutes 批量删除 StreamRoute 并添加审计日志
-// BatchDeleteStreamRoutes deletes multiple stream routes in a batch
-// ctx: context for the operation, may contain transaction information
-// ids: slice of string IDs representing the stream routes to be deleted
-// Returns: error if any step of the operation fails
 func BatchDeleteStreamRoutes(ctx context.Context, ids []string) error {
 	// Get the StreamRoute repository instance
 	u := repo.StreamRoute

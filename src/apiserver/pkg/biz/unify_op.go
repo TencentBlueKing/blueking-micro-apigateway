@@ -320,13 +320,27 @@ func UploadResources(
 		if err != nil {
 			return err
 		}
-		// 处理自定义插件资源,更新的插件先删除再插入
+		// 处理自定义插件schema,直接更新
 		var updateSchemaNames []string
+		updateSchemaMap := make(map[string]*model.GatewayCustomPluginSchema)
 		for _, schema := range updatedSchemas {
 			updateSchemaNames = append(updateSchemaNames, schema.Name)
+			updateSchemaMap[schema.Name] = schema
 		}
 		if len(updateSchemaNames) > 0 {
-			err = DeleteSchemaByNames(ctx, updateSchemaNames)
+			existingSchemas, err := BatchGetSchemaByName(ctx, updateSchemaNames)
+			if err != nil {
+				return err
+			}
+			for _, schema := range existingSchemas {
+				if updateSchema, ok := updateSchemaMap[schema.Name]; ok {
+					schema.Schema = updateSchema.Schema
+					schema.Example = updateSchema.Example
+					schema.OperationType = updateSchema.OperationType
+					schema.Updater = updateSchema.Updater
+				}
+			}
+			err = BatchUpdateSchema(ctx, existingSchemas)
 			if err != nil {
 				return err
 			}

@@ -125,6 +125,14 @@ func GetSchemaByName(ctx context.Context, name string) (*model.GatewayCustomPlug
 	return schemaInfo, err
 }
 
+// BatchGetSchemaByName 根据 name 批量查询 schema 详情
+func BatchGetSchemaByName(ctx context.Context, names []string) ([]*model.GatewayCustomPluginSchema, error) {
+	u := repo.GatewayCustomPluginSchema
+	schemaInfo, err := buildSchemaQuery(ctx).
+		Where(u.Name.In(names...)).Find()
+	return schemaInfo, err
+}
+
 // GetSchemaByID 根据 id 查询 schema 详情
 func GetSchemaByID(ctx context.Context, id int) (*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
@@ -139,17 +147,16 @@ func DeleteSchemaByID(ctx context.Context, schemaID int) error {
 	return err
 }
 
-// DeleteSchemaByNames 根据 names 删除 schema
-func DeleteSchemaByNames(ctx context.Context, names []string) error {
-	u := repo.GatewayCustomPluginSchema
+// BatchUpdateSchema 批量更新 schema
+func BatchUpdateSchema(ctx context.Context, schemas []*model.GatewayCustomPluginSchema) error {
 	if ginx.GetTx(ctx) != nil {
-		_, err := buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).Where(u.Name.In(names...)).Delete()
+		_, err := buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).Updates(schemas)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	_, err := buildSchemaQuery(ctx).Where(u.Name.In(names...)).Delete()
+	_, err := buildSchemaQuery(ctx).Updates(schemas)
 	return err
 }
 

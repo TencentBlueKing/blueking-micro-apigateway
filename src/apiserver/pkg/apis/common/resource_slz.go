@@ -45,7 +45,7 @@ type ResourceInfo struct {
 
 // GetResourceKey 获取资源key
 func (r ResourceInfo) GetResourceKey() string {
-	// 插件元素数需要特殊处理,因为插件元素数没有真正id
+	// 插件元数据需要特殊处理,因为插件元素数没有真正id
 	if r.ResourceType == constant.PluginMetadata {
 		return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.Name)
 	}

@@ -150,14 +150,29 @@ func DeleteSchemaByID(ctx context.Context, schemaID int) error {
 // BatchUpdateSchema 批量更新 schema
 func BatchUpdateSchema(ctx context.Context, schemas []*model.GatewayCustomPluginSchema) error {
 	if ginx.GetTx(ctx) != nil {
-		_, err := buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).Updates(schemas)
+		err := ginx.GetTx(ctx).Transaction(func(tx *repo.Query) error {
+			for _, s := range schemas {
+				u := repo.GatewayCustomPluginSchema
+				_, err := buildSchemaQueryWithTx(ctx, tx).Where(u.AutoID.Eq(s.AutoID)).Updates(s)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	_, err := buildSchemaQuery(ctx).Updates(schemas)
-	return err
+	for _, s := range schemas {
+		u := repo.GatewayCustomPluginSchema
+		_, err := buildSchemaQuery(ctx).Where(u.AutoID.Eq(s.AutoID)).Updates(s)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DuplicatedSchemaName 查询插件名称是否重复
@@ -184,25 +199,41 @@ func DuplicatedSchemaName(
 }
 
 // GetCustomizePluginExampleList 查询自定义插件的示例列表
+// GetCustomizePluginExampleList retrieves a list of custom plugin examples for a given gateway
+// Parameters:
+//
+//	ctx: context for the request, used for cancellation and timeouts
+//	gatewayID: ID of the gateway for which to retrieve plugin examples
+//
+// Returns:
+//
+//	[]*schema.Plugin: slice of plugin examples
+//	error: any error encountered during the operation
 func GetCustomizePluginExampleList(ctx context.Context, gatewayID int) ([]*schema.Plugin, error) {
-	var plugins []*schema.Plugin
+	var plugins []*schema.Plugin // Initialize an empty slice to store plugin examples
+	// Retrieve all available schemas
 	schemaList, err := ListSchema(ctx)
 	if err != nil {
-		return nil, err
+		return nil, err // Return error if schema listing fails
 	}
+	// Iterate through each schema
 	for _, s := range schemaList {
-		var plugin schema.Plugin
-		var exampleMap map[string]interface{}
+		var plugin schema.Plugin              // Create a new plugin instance
+		var exampleMap map[string]interface{} // Map to store unmarshaled example data
+		// Unmarshal the example JSON data into the map
 		err := json.Unmarshal(s.Example, &exampleMap)
 		if err != nil {
-			return nil, err
+			return nil, err // Return error if unmarshaling fails
 		}
-		plugin.Name = s.Name
-		plugin.Example = exampleMap
-		plugin.Type = constant.CustomizePlugin
+
+		// Set plugin properties
+		plugin.Name = s.Name                   // Set plugin name from schema
+		plugin.Example = exampleMap            // Set unmarshaled example data
+		plugin.Type = constant.CustomizePlugin // Set plugin type as customize
+		// Add the configured plugin to the slice
 		plugins = append(plugins, &plugin)
 	}
-	return plugins, nil
+	return plugins, nil // Return the list of plugins
 }
 
 // GetCustomizePluginSchemaMap 查询自定义插件 schema map

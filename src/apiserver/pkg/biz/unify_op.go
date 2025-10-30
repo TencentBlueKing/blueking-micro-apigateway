@@ -349,9 +349,6 @@ func UploadResources(
 		for _, schema := range addSchemas {
 			schemaInfoList = append(schemaInfoList, schema)
 		}
-		for _, schema := range updatedSchemas {
-			schemaInfoList = append(schemaInfoList, schema)
-		}
 		if len(schemaInfoList) > 0 {
 			err = BatchCreateSchema(ctx, schemaInfoList)
 			if err != nil {

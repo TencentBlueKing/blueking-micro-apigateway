@@ -378,7 +378,7 @@ func GetSyncItemsAssociatedResources(
 		serviceID := item.GetServiceID()
 		if serviceID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, serviceID)
-			idMap[serviceID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 		upstreamID := item.GetUpstreamID()
 		if upstreamID != "" && !idMap[item.GetResourceKey()] {
@@ -968,7 +968,7 @@ func syncedResourceToAPISIXConsumer(
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
 				Config:    syncedResource.Config,
-				Status:    constant.ResourceStatusSuccess,
+				Status:    status,
 			},
 		})
 	}

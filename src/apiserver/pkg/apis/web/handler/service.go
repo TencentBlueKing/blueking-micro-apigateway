@@ -123,6 +123,7 @@ func ServiceUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ServiceList ...

@@ -229,5 +229,49 @@
         "name": "upstream-svcs"
       }
     }
+  ],
+  "schema": [
+    {
+      "resource_type": "schema",
+      "name": "sc1",
+      "config": {
+        "example": {
+          "header_name": "X-Custom-Demo",
+          "header_value": "APISIX-Plugin-Works"
+        },
+        "name": "sc1",
+        "schema": {
+          "type": "object",
+          "title": "Demo Plugin Configuration",
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "required": [
+            "header_name",
+            "header_value"
+          ],
+          "properties": {
+            "header_name": {
+              "type": "string",
+              "default": "X-Demo-Header",
+              "examples": [
+                "X-Custom-Header",
+                "X-APISIX-Demo"
+              ],
+              "description": "需要设置的响应头名称"
+            },
+            "header_value": {
+              "type": "string",
+              "default": "Hello-APISIX",
+              "examples": [
+                "Test-Value",
+                "Production-Header"
+              ],
+              "description": "需要设置的响应头值"
+            }
+          },
+          "description": "用于在响应头中添加自定义Header的插件配置",
+          "additionalProperties": false
+        }
+      }
+    }
   ]
 }

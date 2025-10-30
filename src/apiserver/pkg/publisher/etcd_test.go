@@ -41,6 +41,8 @@ const (
 	batchCreateError = "batch create error"
 )
 
+var ctx context.Context
+
 var _ = Describe("EtcdPublisher", func() {
 	Describe("NewEtcdPublisher", func() {
 		var (

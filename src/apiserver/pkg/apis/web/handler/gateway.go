@@ -191,17 +191,19 @@ func GatewayList(c *gin.Context) {
 		if !gateway.HasPermission(ginx.GetUserID(c)) {
 			continue
 		}
-		routeCount, err := biz.GetRouteCount(c, gateway.ID)
+		// 设置gateway
+		ctx := ginx.SetGatewayInfoToContext(c.Request.Context(), gateway)
+		routeCount, err := biz.GetRouteCount(ctx, gateway.ID)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		serviceCount, err := biz.GetServiceCount(c, gateway.ID)
+		serviceCount, err := biz.GetServiceCount(ctx)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		upstreamCount, err := biz.GetUpstreamCount(c, gateway.ID)
+		upstreamCount, err := biz.GetUpstreamCount(ctx)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return

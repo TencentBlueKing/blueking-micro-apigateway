@@ -30,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildConsumerGroupQuery 获取 ConsumerGroup 查询对象
+func buildConsumerGroupQuery(ctx context.Context) repo.IConsumerGroupDo {
+	return repo.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildConsumerGroupQueryWithTx 获取 ConsumerGroup 查询对象
+func buildConsumerGroupQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerGroupDo {
+	return tx.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListConsumerGroups 查询网关 ConsumerGroup 列表
-func ListConsumerGroups(ctx context.Context, gatewayID int) ([]*model.ConsumerGroup, error) {
+func ListConsumerGroups(ctx context.Context) ([]*model.ConsumerGroup, error) {
 	u := repo.ConsumerGroup
-	return repo.ConsumerGroup.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildConsumerGroupQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetConsumerGroupOrderExprList 获取 ConsumerGroup 排序字段列表
@@ -66,7 +80,7 @@ func ListPagedConsumerGroups(
 	page PageParam,
 ) ([]*model.ConsumerGroup, int64, error) {
 	u := repo.ConsumerGroup
-	query := u.WithContext(ctx)
+	query := buildConsumerGroupQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -98,7 +112,7 @@ func CreateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup)
 // BatchCreateConsumerGroups 批量创建 ConsumerGroup
 func BatchCreateConsumerGroups(ctx context.Context, consumerGroups []*model.ConsumerGroup) error {
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Create(consumerGroups...)
+		return buildConsumerGroupQueryWithTx(ctx, ginx.GetTx(ctx)).Create(consumerGroups...)
 	}
 	return repo.ConsumerGroup.WithContext(ctx).Create(consumerGroups...)
 }
@@ -106,7 +120,7 @@ func BatchCreateConsumerGroups(ctx context.Context, consumerGroups []*model.Cons
 // UpdateConsumerGroup 更新 ConsumerGroup
 func UpdateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup) error {
 	u := repo.ConsumerGroup
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(consumerGroup.ID)).Select(
+	_, err := buildConsumerGroupQuery(ctx).Where(u.ID.Eq(consumerGroup.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -118,22 +132,18 @@ func UpdateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup)
 // GetConsumerGroup 查询 ConsumerGroup 详情
 func GetConsumerGroup(ctx context.Context, id string) (*model.ConsumerGroup, error) {
 	u := repo.ConsumerGroup
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildConsumerGroupQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryConsumerGroups 搜索 ConsumerGroup
 func QueryConsumerGroups(ctx context.Context, param map[string]interface{}) ([]*model.ConsumerGroup, error) {
-	u := repo.ConsumerGroup
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+	return buildConsumerGroupQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsConsumerGroup 查询 ConsumerGroup 是否存在
 func ExistsConsumerGroup(ctx context.Context, id string) bool {
 	u := repo.ConsumerGroup
-	groups, err := u.WithContext(ctx).Where(
-		u.ID.Eq(id),
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
-	).Find()
+	groups, err := buildConsumerGroupQuery(ctx).Where(u.ID.Eq(id)).Find()
 	if err != nil {
 		return false
 	}
@@ -156,7 +166,7 @@ func BatchDeleteConsumerGroups(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.ConsumerGroup.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildConsumerGroupQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -220,7 +230,7 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 			return err
 		}
 		for _, consumerGroup := range consumerGroups {
-			_, err := tx.ConsumerGroup.WithContext(ctx).Updates(consumerGroup)
+			_, err := buildConsumerGroupQueryWithTx(ctx, tx).Updates(consumerGroup)
 			if err != nil {
 				return err
 			}

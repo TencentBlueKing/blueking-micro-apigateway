@@ -69,7 +69,6 @@ func SyncedItemList(c *gin.Context) {
 		return
 	}
 	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = ginx.GetGatewayInfo(c).ID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

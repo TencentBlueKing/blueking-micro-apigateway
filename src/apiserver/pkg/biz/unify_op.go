@@ -284,6 +284,8 @@ func UploadResources(
 	ctx context.Context,
 	addResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
 	updateTypeResourcesTypeMap map[constant.APISIXResource][]*model.GatewaySyncData,
+	addSchemas map[string]*model.GatewayCustomPluginSchema,
+	updatedSchemas map[string]*model.GatewayCustomPluginSchema,
 ) error {
 	// 分类同步
 	var err error
@@ -293,6 +295,10 @@ func UploadResources(
 		for resourceType, itemList := range updateTypeResourcesTypeMap {
 			var ids []string
 			for _, item := range itemList {
+				if resourceType == constant.PluginMetadata {
+					ids = append(ids, item.GetName())
+					continue
+				}
 				ids = append(ids, item.ID)
 			}
 			err = DeleteResourceByIDs(ctx, resourceType, ids)
@@ -300,13 +306,54 @@ func UploadResources(
 				return err
 			}
 		}
-		err = insertSyncedResourcesModel(ctx, updateTypeResourcesTypeMap, constant.ResourceStatusUpdateDraft, false)
+		err = insertSyncedResourcesModel(
+			ctx,
+			updateTypeResourcesTypeMap,
+			constant.ResourceStatusUpdateDraft,
+			false,
+		)
 		if err != nil {
 			return err
 		}
-		err = insertSyncedResourcesModel(ctx, addResourcesTypeMap, constant.ResourceStatusCreateDraft, false)
+		err = insertSyncedResourcesModel(
+			ctx, addResourcesTypeMap, constant.ResourceStatusCreateDraft, false)
 		if err != nil {
 			return err
+		}
+		// 处理自定义插件schema,直接更新
+		var updateSchemaNames []string
+		updateSchemaMap := make(map[string]*model.GatewayCustomPluginSchema)
+		for _, schema := range updatedSchemas {
+			updateSchemaNames = append(updateSchemaNames, schema.Name)
+			updateSchemaMap[schema.Name] = schema
+		}
+		if len(updateSchemaNames) > 0 {
+			existingSchemas, err := BatchGetSchemaByName(ctx, updateSchemaNames)
+			if err != nil {
+				return err
+			}
+			for _, schema := range existingSchemas {
+				if updateSchema, ok := updateSchemaMap[schema.Name]; ok {
+					schema.Schema = updateSchema.Schema
+					schema.Example = updateSchema.Example
+					schema.OperationType = updateSchema.OperationType
+					schema.Updater = updateSchema.Updater
+				}
+			}
+			err = BatchUpdateSchema(ctx, existingSchemas)
+			if err != nil {
+				return err
+			}
+		}
+		var schemaInfoList []*model.GatewayCustomPluginSchema
+		for _, schema := range addSchemas {
+			schemaInfoList = append(schemaInfoList, schema)
+		}
+		if len(schemaInfoList) > 0 {
+			err = BatchCreateSchema(ctx, schemaInfoList)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -321,43 +368,42 @@ func GetSyncItemsAssociatedResources(
 	ctx context.Context,
 	items []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
-	idMap := make(map[string]bool)
+	idMap := make(map[string]bool) // type:id 不同类型资源的id可能重复
 	for _, item := range items {
-		idMap[item.ID] = true
+		idMap[item.GetResourceKey()] = true
 	}
 	// 遍历处理依赖相关资源
 	var associatedIDs []string
 	for _, item := range items {
 		serviceID := item.GetServiceID()
-		if serviceID != "" && !idMap[serviceID] {
+		if serviceID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, serviceID)
 			idMap[serviceID] = true
 		}
 		upstreamID := item.GetUpstreamID()
-		if upstreamID != "" && !idMap[upstreamID] {
+		if upstreamID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, upstreamID)
-			idMap[upstreamID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 		pluginConfigID := item.GetPluginConfigID()
-		if pluginConfigID != "" && !idMap[pluginConfigID] {
+		if pluginConfigID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, pluginConfigID)
-			idMap[pluginConfigID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 		groupID := item.GetGroupID()
-		if groupID != "" && !idMap[groupID] {
+		if groupID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, groupID)
-			idMap[groupID] = true
+			idMap[item.GetResourceKey()] = true
 		}
-		sslID := item.GetGroupID()
-		if sslID != "" && !idMap[sslID] {
+		sslID := item.GetSSLID()
+		if sslID != "" && !idMap[item.GetResourceKey()] {
 			associatedIDs = append(associatedIDs, sslID)
-			idMap[sslID] = true
+			idMap[item.GetResourceKey()] = true
 		}
 	}
 	if len(associatedIDs) > 0 {
 		associatedItems, err := QuerySyncedItems(ctx, map[string]interface{}{
-			"id":         associatedIDs,
-			"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+			"id": associatedIDs,
 		})
 		if err != nil {
 			return nil, err
@@ -435,7 +481,9 @@ func (s *UnifyOp) SyncerRun(ctx context.Context, resourceChan chan []*model.Gate
 			continue
 		}
 		s.gatewayInfo = gatewayInfo
-		_, err = s.SyncWithPrefix(ctx, s.gatewayInfo.EtcdConfig.Prefix)
+		gatewayCtx := context.Background()
+		gatewayCtx = ginx.SetGatewayInfoToContext(gatewayCtx, s.gatewayInfo)
+		_, err = s.SyncWithPrefix(gatewayCtx, s.gatewayInfo.EtcdConfig.Prefix)
 		if err != nil {
 			logging.Errorf("sync all error: %s", err.Error())
 		}
@@ -452,23 +500,23 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	if err != nil {
 		return nil, err
 	}
-	resourceList := s.kvToResource(kvList)
+	resourceList := s.kvToResource(ctx, kvList)
 
 	// 获取已同步资源
-	items, err := QuerySyncedItems(ctx, map[string]interface{}{"gateway_id": s.gatewayInfo.ID})
+	items, err := QuerySyncedItems(ctx, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
 	syncedResources := make(map[string]struct{})
 	for _, item := range items {
-		syncedResources[item.ID] = struct{}{}
+		syncedResources[item.GetResourceKey()] = struct{}{}
 	}
 
 	// 统计最新同步的资源类型及数量
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
 	for _, resource := range resourceList {
 		// 过滤掉已同步的资源
-		if _, ok := syncedResources[resource.ID]; !ok {
+		if _, ok := syncedResources[resource.GetResourceKey()]; !ok {
 			syncedResourceTypeStats[resource.Type]++
 		}
 	}
@@ -511,7 +559,7 @@ func (s *UnifyOp) SyncWithPrefixWithChannel(
 	if err != nil {
 		return err
 	}
-	resourceList := s.kvToResource(kvList)
+	resourceList := s.kvToResource(ctx, kvList)
 	resourceChannel <- resourceList
 	logging.Infof("syncer[gateway:%s] end", s.gatewayInfo.Name)
 	return nil
@@ -558,7 +606,7 @@ func (s *UnifyOp) RevertConfigByIDList(
 	if err != nil {
 		return err
 	}
-	etcdResourceList := s.kvToResource(kvList)
+	etcdResourceList := s.kvToResource(ctx, kvList)
 	var needRevertResourceList []*model.GatewaySyncData
 	for _, etcdResource := range etcdResourceList {
 		// 过滤掉不需要回滚的资源
@@ -571,7 +619,12 @@ func (s *UnifyOp) RevertConfigByIDList(
 }
 
 // kvToResource 将 etcd 中的 key-value 转换为资源
-func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySyncData { //nolint:gocyclo
+//
+//nolint:gocyclo
+func (s *UnifyOp) kvToResource(
+	ctx context.Context,
+	kvList []storage.KeyValuePair,
+) []*model.GatewaySyncData {
 	var resources []*model.GatewaySyncData
 	var metadataNames []string
 	metadataNameMap := make(map[string]*model.GatewaySyncData)
@@ -650,7 +703,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 	if len(metadataNames) > 0 {
 		// 反向查找ID
 		metadatas, err := QueryPluginMetadatas(
-			context.Background(),
+			ctx,
 			map[string]interface{}{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
 		)
 		if err != nil {
@@ -672,7 +725,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 
 	// 处理 global rule name
 	if len(globalRuleIDs) > 0 {
-		globalRules, err := QueryGlobalRules(context.Background(), map[string]interface{}{
+		globalRules, err := QueryGlobalRules(ctx, map[string]interface{}{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         globalRuleIDs,
 		})
@@ -689,7 +742,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 
 	// 处理 PluginConfig name
 	if len(pluginConfigIDs) > 0 {
-		pluginConfigs, err := QueryPluginConfigs(context.Background(), map[string]interface{}{
+		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]interface{}{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         pluginConfigIDs,
 		})
@@ -706,7 +759,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 
 	// 处理 ConsumerGroup id，name
 	if len(consumerGroupIDs) > 0 {
-		consumerGroups, err := QueryConsumerGroups(context.Background(), map[string]interface{}{
+		consumerGroups, err := QueryConsumerGroups(ctx, map[string]interface{}{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         consumerGroupIDs,
 		})
@@ -724,7 +777,7 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 
 	// 处理 Proto name
 	if len(protoIDs) > 0 {
-		protos, err := QueryProtos(context.Background(), map[string]interface{}{
+		protos, err := QueryProtos(ctx, map[string]interface{}{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         protoIDs,
 		})
@@ -741,9 +794,8 @@ func (s *UnifyOp) kvToResource(kvList []storage.KeyValuePair) []*model.GatewaySy
 
 	// 处理 StreamRoute name，labels
 	if len(streamRouteIDs) > 0 {
-		streamRoutes, err := QueryStreamRoutes(context.Background(), map[string]interface{}{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         streamRouteIDs,
+		streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{
+			"id": streamRouteIDs,
 		})
 		if err != nil {
 			logging.Errorf("SearchStreamRoute error: %s", err.Error())
@@ -1136,7 +1188,7 @@ func GetResourceConfigDiffDetail(ctx context.Context, resourceType constant.APIS
 	// todo: 同步资源可能存在延时，基于什么样的策略选择从mysql拿还是从etcd拿
 	// 获取同步资源配置
 	syncedResourceConfig := json.RawMessage("{}")
-	syncedResource, err := GetSyncedItemByID(ctx, ginx.GetGatewayInfoFromContext(ctx).ID, id)
+	syncedResource, err := GetSyncedItemByID(ctx, id)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -1174,5 +1226,5 @@ func (s *UnifyOp) ExportEtcdResources(ctx context.Context) ([]*model.GatewaySync
 		return nil, err
 	}
 	logging.Infof("export [gateway:%s] end ", s.gatewayInfo.Name)
-	return s.kvToResource(kvList), nil
+	return s.kvToResource(ctx, kvList), nil
 }

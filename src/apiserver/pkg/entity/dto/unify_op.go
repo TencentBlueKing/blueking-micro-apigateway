@@ -20,6 +20,7 @@ package dto
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
@@ -55,4 +56,9 @@ type ResourceAssociateID struct {
 	UpstreamID     string `json:"upstream_id" validate:"upstreamID"`          // 上游服务地址ID
 	PluginConfigID string `json:"plugin_config_id" validate:"pluginConfigID"` // 插件配置groupID
 	GroupID        string `json:"group_id" validate:"groupID"`
+}
+
+// GetResourceKey 获取资源key
+func (r ResourceAssociateID) GetResourceKey(resourceType constant.APISIXResource, id string) string {
+	return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, id)
 }

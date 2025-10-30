@@ -31,11 +31,12 @@ import (
 
 // GatewayCustomPluginSchema 表示数据库中的 gateway_custom_plugin_schema 表
 type GatewayCustomPluginSchema struct {
-	AutoID    int            `gorm:"column:auto_id;type:int;primaryKey;autoIncrement"`   // 自增ID
-	GatewayID int            `gorm:"column:gateway_id;type:int;uniqueIndex:idx_name"`    // 网关ID
-	Name      string         `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // 插件名称
-	Schema    datatypes.JSON `gorm:"column:schema;type:json"`                            // schema
-	Example   datatypes.JSON `gorm:"column:example;type:json"`                           // example
+	AutoID        int                    `gorm:"column:auto_id;type:int;primaryKey;autoIncrement"`   // 自增ID
+	GatewayID     int                    `gorm:"column:gateway_id;type:int;uniqueIndex:idx_name"`    // 网关ID
+	Name          string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // 插件名称
+	Schema        datatypes.JSON         `gorm:"column:schema;type:json"`                            // schema
+	Example       datatypes.JSON         `gorm:"column:example;type:json"`                           // example
+	OperationType constant.OperationType `gorm:"-"`                                                  // 用于标识操作类型，不持久化到数据库
 	BaseModel
 }
 
@@ -90,6 +91,11 @@ func (g *GatewayCustomPluginSchema) CopyCustomPluginSchema() GatewayCustomPlugin
 
 // AddAuditLog 添加审计
 func (g *GatewayCustomPluginSchema) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err error) {
+	if g.OperationType == constant.OperationImport || g.AutoID == 0 {
+		// 批量导入的场景，不添加审计
+		return nil
+	}
+
 	updater := g.Updater
 	dataAfter := datatypes.JSON{}
 	if operation != constant.OperationTypeDelete {

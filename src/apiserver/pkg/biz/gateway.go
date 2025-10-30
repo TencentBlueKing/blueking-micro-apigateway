@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
@@ -75,13 +74,6 @@ func UpdateGateway(ctx context.Context, gateway model.Gateway) error {
 		u.Name, u.Mode, u.Maintainers, u.Desc,
 		u.EtcdConfig, u.Token, u.Updater, u.ReadOnly,
 	).Updates(&gateway)
-	return err
-}
-
-// UpdateGatewayLastSyncedAt 更新网关的同步时间
-func UpdateGatewayLastSyncedAt(ctx context.Context, gatewayID int) error {
-	u := repo.Gateway
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(gatewayID)).Update(u.LastSyncedAt, time.Now())
 	return err
 }
 

@@ -19,10 +19,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
@@ -306,7 +308,12 @@ func EtcdExport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	outputs := handExportEtcdResources(resources)
+	outputs, err := handExportEtcdResources(c.Request.Context(), resources)
+	if err != nil {
+		logging.ErrorFWithContext(c.Request.Context(), "handle export etcd resources error: %s", err.Error())
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
 	// response json
 	fileData, _ := json.MarshalIndent(outputs, "", "    ")
 	fileName := fmt.Sprintf("%s_export_etcd_resources.json", ginx.GetGatewayInfo(c).Name)
@@ -314,7 +321,10 @@ func EtcdExport(c *gin.Context) {
 }
 
 // handExportEtcdResources 处理导出etcd资源
-func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.EtcdExportOutput {
+func handExportEtcdResources(
+	ctx context.Context,
+	resources []*model.GatewaySyncData,
+) (serializer.EtcdExportOutput, error) {
 	outputs := make(serializer.EtcdExportOutput)
 	for _, resource := range resources {
 		if resource.ID == "" {
@@ -332,7 +342,30 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 		}
 		outputs[resource.Type] = append(outputs[resource.Type], resourceOutput)
 	}
-	return outputs
+	// add schema
+	schemaMap, err := biz.GetCustomizePluginSchemaInfoMap(ctx)
+	if err != nil {
+		logging.ErrorFWithContext(ctx, "get customize plugin schema info map error: %s", err.Error())
+		return nil, err
+	}
+	var schemaInfoList []serializer.ResourceInfo
+	for name, schema := range schemaMap {
+		schemaInfo := map[string]interface{}{
+			"name":    name,
+			"schema":  schema.Schema,
+			"example": schema.Example,
+		}
+		schemaInfoBytes, _ := json.Marshal(schemaInfo)
+		schemaInfoList = append(schemaInfoList, serializer.ResourceInfo{
+			ResourceType: constant.Schema,
+			Name:         name,
+			Config:       schemaInfoBytes,
+		})
+	}
+	if len(schemaInfoList) > 0 {
+		outputs[constant.Schema] = schemaInfoList
+	}
+	return outputs, nil
 }
 
 // ResourceUpload 资源上传 ...
@@ -369,37 +402,21 @@ func ResourceUpload(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	// check 配置
-	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	existsResourceIdList := make(map[string]struct{})
-	for resourceType, resourceInfoList := range resourceInfoTypeMap {
-		dbResources, err := biz.BatchGetResources(c.Request.Context(), resourceType, []string{})
-		if err != nil {
-			ginx.SystemErrorJSONResponse(c, err)
-			return
-		}
-		for _, dbResource := range dbResources {
-			existsResourceIdList[dbResource.ID] = struct{}{}
-		}
-		for _, resourceInfo := range resourceInfoList {
-			res := &model.GatewaySyncData{
-				Type:   resourceInfo.ResourceType,
-				ID:     resourceInfo.ResourceID,
-				Config: datatypes.JSON(resourceInfo.Config),
-			}
-			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
-				resourceTypeMap[resourceInfo.ResourceType] = append(resourceTypeMap[resourceInfo.ResourceType], res)
-				continue
-			}
-			resourceTypeMap[resourceInfo.ResourceType] = []*model.GatewaySyncData{res}
-		}
+	indexResult, err := common.HandlerResourceIndexMap(c.Request.Context(), resourceInfoTypeMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
-	err = biz.ValidateResource(c.Request.Context(), resourceTypeMap, existsResourceIdList)
+	// check 配置
+	err = biz.ValidateResource(c.Request.Context(), indexResult.ResourceTypeMap, indexResult.AllResourceIdList,
+		indexResult.AllSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %v", err))
 		return
 	}
-	resources, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, existsResourceIdList)
+	// 分类整理资源输出信息
+	resources, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, indexResult.ExistsResourceIdList,
+		indexResult.AddedSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -434,16 +451,68 @@ func ResourceImport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := common.HandleImportResources(c.Request.Context(), &resourcesImport)
+	// 处理新增的 schema 资源
+	allSchemaMap, err := biz.GetCustomizePluginSchemaMap(c.Request.Context())
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	addedSchemaMap, err := handleResourceCustomPluginSchema(c, resourcesImport.Add, allSchemaMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	updatedSchemaMap, err := handleResourceCustomPluginSchema(c, resourcesImport.Update, allSchemaMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	handleResult, err := common.HandleUploadResources(c.Request.Context(), &resourcesImport, allSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// 插入数据
-	err = biz.UploadResources(c.Request.Context(), addResourcesMap, updateResourcesMap)
+	err = biz.UploadResources(
+		c.Request.Context(),
+		handleResult.AddResourceTypeMap,
+		handleResult.UpdateResourceTypeMap,
+		addedSchemaMap,
+		updatedSchemaMap,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	ginx.SuccessNoContentResponse(c)
+}
+
+func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.APISIXResource][]common.ResourceInfo,
+	allSchemaMap map[string]interface{},
+) (map[string]*model.GatewayCustomPluginSchema, error) {
+	schemaMap := make(map[string]*model.GatewayCustomPluginSchema)
+	for _, resourceList := range resources {
+		for _, resource := range resourceList {
+			if resource.ResourceType == constant.Schema {
+				schemaModel := &model.GatewayCustomPluginSchema{
+					GatewayID: ginx.GetGatewayInfo(c).ID,
+					Name:      resource.Name,
+					Schema:    datatypes.JSON(gjson.GetBytes(resource.Config, "schema").String()),
+					Example:   datatypes.JSON(gjson.GetBytes(resource.Config, "example").String()),
+					BaseModel: model.BaseModel{
+						Creator: ginx.GetUserIDFromContext(c),
+					},
+					OperationType: constant.OperationImport,
+				}
+				schemaMap[resource.Name] = schemaModel
+				var schemaInfo map[string]interface{}
+				err := json.Unmarshal(schemaModel.Schema, &schemaInfo)
+				if err != nil {
+					return nil, err
+				}
+				allSchemaMap[resource.Name] = schemaInfo
+			}
+		}
+	}
+	return schemaMap, nil
 }

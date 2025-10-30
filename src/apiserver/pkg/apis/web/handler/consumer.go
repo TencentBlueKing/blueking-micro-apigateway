@@ -284,7 +284,7 @@ func ConsumerDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.ConsumerDropDownListResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers-dropdown/ [get]
 func ConsumerDropDownList(c *gin.Context) {
-	consumers, err := biz.ListConsumers(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	consumers, err := biz.ListConsumers(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

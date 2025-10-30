@@ -281,7 +281,7 @@ func UpstreamDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.UpstreamDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams-dropdown/ [get]
 func UpstreamDropDownList(c *gin.Context) {
-	upstreams, err := biz.ListUpstreams(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	upstreams, err := biz.ListUpstreams(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

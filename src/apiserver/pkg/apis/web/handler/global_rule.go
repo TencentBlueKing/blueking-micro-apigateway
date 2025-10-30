@@ -144,7 +144,6 @@ func GlobalRuleList(c *gin.Context) {
 		return
 	}
 	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -274,7 +273,7 @@ func GlobalRuleDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.GlobalRuleDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules-dropdown/ [get]
 func GlobalRuleDropDownList(c *gin.Context) {
-	rules, err := biz.ListGlobalRules(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	rules, err := biz.ListGlobalRules(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -304,7 +303,7 @@ func GlobalRuleDropDownList(c *gin.Context) {
 //	@Success	200			{object}	serializer.GlobalRulePluginsResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/-/plugins/ [get]
 func GlobalRulePlugins(c *gin.Context) {
-	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

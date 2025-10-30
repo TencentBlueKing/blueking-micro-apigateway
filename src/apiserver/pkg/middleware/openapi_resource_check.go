@@ -135,7 +135,12 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			// 配置校验
-			customizePluginSchemaMap := biz.GetCustomizePluginSchemaMap(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+			customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(c.Request.Context())
+			if err != nil {
+				ginx.SystemErrorJSONResponse(c, err)
+				c.Abort()
+				return
+			}
 			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
 				resourceType, "main."+string(resourceType), customizePluginSchemaMap, constant.DATABASE)
 			if err != nil {

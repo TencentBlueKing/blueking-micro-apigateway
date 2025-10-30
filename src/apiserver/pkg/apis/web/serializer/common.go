@@ -81,7 +81,13 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	// 配置校验
-	customizePluginSchemaMap := biz.GetCustomizePluginSchemaMap(ctx, gatewayInfo.ID)
+	customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
+	if err != nil {
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %v",
+			resourceIdentification, err)
+		logging.Errorf("get customize plugin schema map failed, err: %v", err)
+		return false
+	}
 	jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
 		gatewayInfo.GetAPISIXVersionX(),
 		constant.APISIXResource(

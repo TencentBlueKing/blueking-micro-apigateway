@@ -20,6 +20,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -45,6 +46,15 @@ type ResourceCommonModel struct {
 	Config    datatypes.JSON `gorm:"column:config;type:json"`                                            // config
 	// 发布状态: create-draft,update-draft,success,delete-draft
 	Status constant.ResourceStatus `gorm:"column:status;type:varchar(32)"`
+}
+
+// GetResourceKey 获取资源key
+func (r ResourceCommonModel) GetResourceKey(resourceType constant.APISIXResource) string {
+	// 插件元素数需要特殊处理,因为插件元素数没有真正id
+	if resourceType == constant.PluginMetadata {
+		return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, r.GetName(resourceType))
+	}
+	return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, r.ID)
 }
 
 // GetResourceNameKey 获取资源名称key

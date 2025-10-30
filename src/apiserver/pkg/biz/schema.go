@@ -31,13 +31,25 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
+// buildSchemaQuery 获取 GatewayCustomPluginSchema 查询对象
+func buildSchemaQuery(ctx context.Context) repo.IGatewayCustomPluginSchemaDo {
+	return repo.GatewayCustomPluginSchema.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildSchemaQueryWithTx 获取 GatewayCustomPluginSchema 查询对象(带事务)
+func buildSchemaQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGatewayCustomPluginSchemaDo {
+	// Create query with context and filter by gateway_id from context
+	return tx.WithContext(ctx).GatewayCustomPluginSchema.Where(field.Attrs(map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID, // Get gateway ID from context and use as filter
+	}))
+}
+
 // ListSchema 查询网关 schema 列表
-func ListSchema(ctx context.Context, gatewayID int) ([]*model.GatewayCustomPluginSchema, error) {
+func ListSchema(ctx context.Context) ([]*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
-	return repo.GatewayCustomPluginSchema.WithContext(ctx).
-		Where(u.GatewayID.Eq(gatewayID)).
-		Order(u.UpdatedAt.Desc()).
-		Find()
+	return buildSchemaQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetSchemaExprList 获取 schema 排序字段列表
@@ -67,7 +79,7 @@ func ListPagedSchema(
 	page PageParam,
 ) ([]*model.GatewayCustomPluginSchema, int64, error) {
 	u := repo.GatewayCustomPluginSchema
-	query := u.WithContext(ctx).Where(u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID))
+	query := buildSchemaQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -84,10 +96,19 @@ func CreateSchema(ctx context.Context, schema *model.GatewayCustomPluginSchema) 
 	return repo.GatewayCustomPluginSchema.WithContext(ctx).Create(schema)
 }
 
+// BatchCreateSchema 批量创建 schema
+func BatchCreateSchema(ctx context.Context, schemas []*model.GatewayCustomPluginSchema) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildSchemaQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(
+			schemas, constant.DBBatchCreateSize)
+	}
+	return buildSchemaQuery(ctx).CreateInBatches(schemas, constant.DBBatchCreateSize)
+}
+
 // UpdateSchema 更新 schema
 func UpdateSchema(ctx context.Context, schema model.GatewayCustomPluginSchema) error {
 	u := repo.GatewayCustomPluginSchema
-	_, err := repo.GatewayCustomPluginSchema.WithContext(ctx).Where(u.AutoID.Eq(schema.AutoID)).Select(
+	_, err := buildSchemaQuery(ctx).Where(u.AutoID.Eq(schema.AutoID)).Select(
 		u.Name,
 		u.Schema,
 		u.Example,
@@ -99,25 +120,59 @@ func UpdateSchema(ctx context.Context, schema model.GatewayCustomPluginSchema) e
 // GetSchemaByName 根据 name 查询 schema 详情
 func GetSchemaByName(ctx context.Context, name string) (*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
-	schemaInfo, err := u.WithContext(ctx).
-		Where(u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID), u.Name.Eq(name)).
-		First()
+	schemaInfo, err := buildSchemaQuery(ctx).
+		Where(u.Name.Eq(name)).First()
+	return schemaInfo, err
+}
+
+// BatchGetSchemaByName 根据 name 批量查询 schema 详情
+func BatchGetSchemaByName(ctx context.Context, names []string) ([]*model.GatewayCustomPluginSchema, error) {
+	u := repo.GatewayCustomPluginSchema
+	schemaInfo, err := buildSchemaQuery(ctx).
+		Where(u.Name.In(names...)).Find()
 	return schemaInfo, err
 }
 
 // GetSchemaByID 根据 id 查询 schema 详情
 func GetSchemaByID(ctx context.Context, id int) (*model.GatewayCustomPluginSchema, error) {
 	u := repo.GatewayCustomPluginSchema
-	schemaInfo, err := u.WithContext(ctx).Where(u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
-		u.AutoID.Eq(id)).First()
+	schemaInfo, err := buildSchemaQuery(ctx).
+		Where(u.AutoID.Eq(id)).First()
 	return schemaInfo, err
 }
 
-// DeleteSchema 删除 schema
-func DeleteSchema(ctx context.Context, schemaID int) error {
-	_, err := repo.GatewayCustomPluginSchema.WithContext(ctx).
-		Delete(&model.GatewayCustomPluginSchema{AutoID: schemaID, GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID})
+// DeleteSchemaByID 删除 schema
+func DeleteSchemaByID(ctx context.Context, schemaID int) error {
+	_, err := buildSchemaQuery(ctx).Delete(&model.GatewayCustomPluginSchema{AutoID: schemaID})
 	return err
+}
+
+// BatchUpdateSchema 批量更新 schema
+func BatchUpdateSchema(ctx context.Context, schemas []*model.GatewayCustomPluginSchema) error {
+	if ginx.GetTx(ctx) != nil {
+		err := ginx.GetTx(ctx).Transaction(func(tx *repo.Query) error {
+			for _, s := range schemas {
+				u := repo.GatewayCustomPluginSchema
+				_, err := buildSchemaQueryWithTx(ctx, tx).Where(u.AutoID.Eq(s.AutoID)).Updates(s)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	for _, s := range schemas {
+		u := repo.GatewayCustomPluginSchema
+		_, err := buildSchemaQuery(ctx).Where(u.AutoID.Eq(s.AutoID)).Updates(s)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DuplicatedSchemaName 查询插件名称是否重复
@@ -127,8 +182,7 @@ func DuplicatedSchemaName(
 	name string,
 ) bool {
 	u := repo.GatewayCustomPluginSchema
-	query := u.WithContext(ctx).Where(
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
+	query := buildSchemaQuery(ctx).Where(
 		u.Name.Eq(name),
 	)
 	if id != 0 {
@@ -145,43 +199,81 @@ func DuplicatedSchemaName(
 }
 
 // GetCustomizePluginExampleList 查询自定义插件的示例列表
+// GetCustomizePluginExampleList retrieves a list of custom plugin examples for a given gateway
+// Parameters:
+//
+//	ctx: context for the request, used for cancellation and timeouts
+//	gatewayID: ID of the gateway for which to retrieve plugin examples
+//
+// Returns:
+//
+//	[]*schema.Plugin: slice of plugin examples
+//	error: any error encountered during the operation
 func GetCustomizePluginExampleList(ctx context.Context, gatewayID int) ([]*schema.Plugin, error) {
-	var plugins []*schema.Plugin
-	schemaList, err := ListSchema(ctx, gatewayID)
+	var plugins []*schema.Plugin // Initialize an empty slice to store plugin examples
+	// Retrieve all available schemas
+	schemaList, err := ListSchema(ctx)
 	if err != nil {
-		return nil, err
+		return nil, err // Return error if schema listing fails
 	}
+	// Iterate through each schema
 	for _, s := range schemaList {
-		var plugin schema.Plugin
-		var exampleMap map[string]interface{}
+		var plugin schema.Plugin              // Create a new plugin instance
+		var exampleMap map[string]interface{} // Map to store unmarshaled example data
+		// Unmarshal the example JSON data into the map
 		err := json.Unmarshal(s.Example, &exampleMap)
 		if err != nil {
-			return nil, err
+			return nil, err // Return error if unmarshaling fails
 		}
-		plugin.Name = s.Name
-		plugin.Example = exampleMap
-		plugin.Type = constant.CustomizePlugin
+
+		// Set plugin properties
+		plugin.Name = s.Name                   // Set plugin name from schema
+		plugin.Example = exampleMap            // Set unmarshaled example data
+		plugin.Type = constant.CustomizePlugin // Set plugin type as customize
+		// Add the configured plugin to the slice
 		plugins = append(plugins, &plugin)
 	}
-	return plugins, nil
+	return plugins, nil // Return the list of plugins
 }
 
 // GetCustomizePluginSchemaMap 查询自定义插件 schema map
-func GetCustomizePluginSchemaMap(ctx context.Context, gatewayID int) map[string]interface{} {
-	schemaList, err := ListSchema(ctx, gatewayID)
+func GetCustomizePluginSchemaMap(ctx context.Context) (map[string]interface{}, error) {
+	schemaList, err := ListSchema(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
+	pluginSchemaMap, err := GetCustomizePluginNameToSchemaMap(schemaList)
+	if err != nil {
+		return nil, err
+	}
+	return pluginSchemaMap, nil
+}
+
+// GetCustomizePluginNameToSchemaMap 查询自定义插件映射关系
+func GetCustomizePluginNameToSchemaMap(schemaList []*model.GatewayCustomPluginSchema) (map[string]interface{}, error) {
 	pluginSchemaMap := map[string]interface{}{}
 	for _, s := range schemaList {
 		var schemaInfo map[string]interface{}
-		err = json.Unmarshal(s.Schema, &schemaInfo)
+		err := json.Unmarshal(s.Schema, &schemaInfo)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		pluginSchemaMap[s.Name] = schemaInfo
 	}
-	return pluginSchemaMap
+	return pluginSchemaMap, nil
+}
+
+// GetCustomizePluginSchemaInfoMap 查询自定义插件 map
+func GetCustomizePluginSchemaInfoMap(ctx context.Context) (map[string]*model.GatewayCustomPluginSchema, error) {
+	schemaList, err := ListSchema(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pluginSchemaMap := map[string]*model.GatewayCustomPluginSchema{}
+	for _, s := range schemaList {
+		pluginSchemaMap[s.Name] = s
+	}
+	return pluginSchemaMap, nil
 }
 
 // GetResourceSchemaAssociation 查询资源与自定义插件的关联记录

@@ -30,12 +30,14 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
+	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
@@ -118,6 +120,114 @@ func (l Labels) Value() (driver.Value, error) {
 	return json.Marshal(l)
 }
 
+// buildCommonDbQuery 获取通用查询
+// 该查询会根据网关 ID 进行过滤，确保只能查询当前网关下的资源
+func buildCommonDbQuery(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+) *gorm.DB {
+	return database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
+		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
+}
+
+// BatchDeleteResourceByIDs 事务批量删除资源
+func BatchDeleteResourceByIDs(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) error {
+	params := map[string]interface{}{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}
+	// pluginMetadata特殊处理
+	if resourceType == constant.PluginMetadata {
+		params["name"] = ids
+	} else {
+		params["id"] = ids
+	}
+	fieldAttr := field.Attrs(params)
+	switch resourceType {
+	case constant.Route:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Route.WithContext(ctx).Where(fieldAttr).Delete(&model.Route{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Route.WithContext(ctx).Where(fieldAttr).Delete(&model.Route{})
+		return err
+	case constant.Upstream:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Upstream.WithContext(ctx).Where(fieldAttr).Delete(&model.Upstream{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Upstream.WithContext(ctx).Where(fieldAttr).Delete(&model.Upstream{})
+		return err
+	case constant.PluginConfig:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.PluginConfig.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginConfig{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginConfig{})
+		return err
+	case constant.GlobalRule:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.GlobalRule.WithContext(ctx).Where(fieldAttr).Delete(&model.GlobalRule{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Where(fieldAttr).Delete(&model.GlobalRule{})
+		return err
+	case constant.PluginMetadata:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
+		return err
+	case constant.StreamRoute:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.StreamRoute.WithContext(ctx).Where(fieldAttr).Delete(&model.StreamRoute{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Where(fieldAttr).Delete(&model.StreamRoute{})
+		return err
+	case constant.Service:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Service.WithContext(ctx).Where(fieldAttr).Delete(&model.Service{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Service.WithContext(ctx).Where(fieldAttr).Delete(&model.Service{})
+		return err
+	case constant.Proto:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Proto.WithContext(ctx).Where(fieldAttr).Delete(&model.Proto{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Proto.WithContext(ctx).Where(fieldAttr).Delete(&model.Proto{})
+		return err
+	case constant.SSL:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.SSL.WithContext(ctx).Where(fieldAttr).Delete(&model.SSL{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).SSL.WithContext(ctx).Where(fieldAttr).Delete(&model.SSL{})
+		return err
+	case constant.Consumer:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Consumer.WithContext(ctx).Where(fieldAttr).Delete(&model.Consumer{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Consumer.WithContext(ctx).Where(fieldAttr).Delete(&model.Consumer{})
+		return err
+	case constant.ConsumerGroup:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.ConsumerGroup.WithContext(ctx).Where(fieldAttr).Delete(&model.ConsumerGroup{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Where(fieldAttr).Delete(&model.ConsumerGroup{})
+		return err
+	}
+	return nil
+}
+
 // BatchUpdateResourceStatusWithAuditLog 批量更新资源状态并添加审计日志
 func BatchUpdateResourceStatusWithAuditLog(
 	ctx context.Context,
@@ -163,10 +273,10 @@ func BatchUpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
+	query := buildCommonDbQuery(ctx, resourceType)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
 	if len(ids) <= constant.DBConditionIDMaxLength {
-		return database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
+		return query.Where("id IN (?)", ids).Updates(map[string]interface{}{
 			"status": status,
 		}).Error
 	}
@@ -177,10 +287,9 @@ func BatchUpdateResourceStatus(
 		if end > len(ids) {
 			end = len(ids)
 		}
-
 		batchIDs := ids[i:end]
-		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
+		query = buildCommonDbQuery(ctx, resourceType)
+		err := query.Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
 			"status": status,
 		}).Error
 		if err != nil {
@@ -196,8 +305,8 @@ func UpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
-	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Updates(map[string]interface{}{
+	query := buildCommonDbQuery(ctx, resourceType)
+	return query.Where("id = ?", id).Updates(map[string]interface{}{
 		"status":  status,
 		"updater": ginx.GetUserIDFromContext(ctx),
 	}).Error
@@ -211,58 +320,40 @@ func UpdateResourceStatusWithAuditLog(
 	return WrapUpdateResourceStatusByIDAddAuditLog(ctx, resourceType, id, status, UpdateResourceStatus)
 }
 
-// BatchGetResources 批量获取资源
+// BatchGetResources 批量获取资源（修复分批次条件叠加问题）
 func BatchGetResources(
 	ctx context.Context,
-	resourceType constant.APISIXResource, ids []string,
+	resourceType constant.APISIXResource,
+	ids []string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
+	query := buildCommonDbQuery(ctx, resourceType)
 
-	// 如果没有指定 IDs，返回所有资源
+	// 空IDs直接返回
 	if len(ids) == 0 {
-		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-		gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-		if gatewayInfo != nil {
-			query = query.Where("gateway_id = ?", gatewayInfo.ID)
-		}
 		err := query.Find(&res).Error
 		return res, err
 	}
 
-	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	// 直接查询短列表
 	if len(ids) <= constant.DBConditionIDMaxLength {
-		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-		gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-		if gatewayInfo != nil {
-			query = query.Where("gateway_id = ?", gatewayInfo.ID)
-		}
-		query = query.Where("id IN (?)", ids)
-		err := query.Find(&res).Error
+		err := query.Where("id IN (?)", ids).Find(&res).Error
 		return res, err
 	}
 
-	// 分批处理大量 IDs
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	// 正确分批次逻辑：每个批次使用新的查询实例
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
 		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}
-
 		batchIDs := ids[i:end]
+		// 关键点：每个批次创建新查询，避免条件叠加
+		batchQuery := buildCommonDbQuery(ctx, resourceType)
 		var batchRes []*model.ResourceCommonModel
-
-		query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-		if gatewayInfo != nil {
-			query = query.Where("gateway_id = ?", gatewayInfo.ID)
-		}
-		query = query.Where("id IN (?)", batchIDs)
-
-		err := query.Find(&batchRes).Error
-		if err != nil {
+		if err := batchQuery.Where("id IN (?)", batchIDs).Find(&batchRes).Error; err != nil {
 			return nil, err
 		}
-
 		res = append(res, batchRes...)
 	}
 
@@ -275,12 +366,7 @@ func GetResourcesLabels(
 	resourceType constant.APISIXResource,
 ) (map[string]string, error) {
 	var labelsList []Labels
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	if gatewayInfo != nil {
-		query = query.Where("gateway_id = ?", gatewayInfo.ID)
-	}
-	err := query.Select("JSON_EXTRACT(config, '$.labels') as labels").
+	err := buildCommonDbQuery(ctx, resourceType).Select("JSON_EXTRACT(config, '$.labels') as labels").
 		Scan(&labelsList).Error
 	// 去重
 	labelsMap := make(map[string]string)
@@ -336,8 +422,8 @@ func GetResourceByID(
 	resourceType constant.APISIXResource, id string,
 ) (model.ResourceCommonModel, error) {
 	var res model.ResourceCommonModel
-	err := database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Take(&res).Error
+	query := buildCommonDbQuery(ctx, resourceType)
+	err := query.Where("id = ?", id).Take(&res).Error
 	return res, err
 }
 
@@ -348,11 +434,10 @@ func GetResourceByIDs(
 	ids []string,
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
-
+	query := buildCommonDbQuery(ctx, resourceType)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
-		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", ids).Find(&res).Error
+		err := query.Where("id IN ?", ids).Find(&res).Error
 		return res, err
 	}
 
@@ -365,9 +450,9 @@ func GetResourceByIDs(
 
 		batchIDs := ids[i:end]
 		var batchRes []model.ResourceCommonModel
-
-		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", batchIDs).Find(&batchRes).Error
+		query = buildCommonDbQuery(ctx, resourceType)
+		err := query.Where("id IN ?", batchIDs).
+			Find(&batchRes).Error
 		if err != nil {
 			return nil, err
 		}
@@ -384,24 +469,33 @@ func DeleteResourceByIDs(
 	resourceType constant.APISIXResource,
 	ids []string,
 ) error {
-	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接删除
-	if len(ids) <= constant.DBConditionIDMaxLength {
-		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", ids).Delete(resourceModelMap[resourceType]).Error
-		return err
+	// 空 IDs 快速返回
+	if len(ids) == 0 {
+		return nil
 	}
 
-	// 分批处理大量 IDs
+	// 单批次直接删除（优化小数据集性能）
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		return BatchDeleteResourceByIDs(
+			ctx,
+			resourceType,
+			ids,
+		)
+	}
+
+	// 分批次删除（避免条件叠加）
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
 		end := i + constant.DBConditionIDMaxLength
 		if end > len(ids) {
 			end = len(ids)
 		}
-
 		batchIDs := ids[i:end]
-		err := database.Client().WithContext(ctx).Table(
-			resourceTableMap[resourceType]).Where("id IN ?", batchIDs).Delete(resourceModelMap[resourceType]).Error
-		if err != nil {
+		// 关键点：每个批次创建新查询
+		if err := BatchDeleteResourceByIDs(
+			ctx,
+			resourceType,
+			batchIDs,
+		); err != nil {
 			return err
 		}
 	}
@@ -415,11 +509,10 @@ func GetSchemaByIDs(
 	ids []string,
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
-
+	query := buildCommonDbQuery(ctx, constant.PluginConfig)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
-		err := database.Client().WithContext(ctx).Table(
-			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error
+		err := query.Where("auto_id IN ?", ids).Find(&res).Error
 		return res, err
 	}
 
@@ -433,8 +526,8 @@ func GetSchemaByIDs(
 		batchIDs := ids[i:end]
 		var batchRes []model.GatewayCustomPluginSchema
 
-		err := database.Client().WithContext(ctx).Table(
-			model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", batchIDs).Find(&batchRes).Error
+		err := query.Where(
+			"auto_id IN ?", batchIDs).Find(&batchRes).Error
 		if err != nil {
 			return nil, err
 		}
@@ -453,7 +546,7 @@ func QueryResource(
 	name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(params)
+	query := buildCommonDbQuery(ctx, resourceType).Where(params)
 	if name != "" {
 		query = query.Where(model.GetResourceNameKey(resourceType)+" LIKE ?", "%"+name+"%")
 	}
@@ -486,7 +579,7 @@ func DuplicatedResourceName(
 	name string,
 ) bool {
 	var res []*model.ResourceCommonModel
-	d := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
+	d := buildCommonDbQuery(ctx, resourceType).Where(
 		getQueryNameParams(ctx, resourceType, []string{name}))
 	if id != "" {
 		d = d.Not("id = ?", id)
@@ -509,10 +602,6 @@ func getQueryNameParams(
 ) map[string]interface{} {
 	params := map[string]interface{}{}
 	params[model.GetResourceNameKey(resourceType)] = name
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	if gatewayInfo != nil {
-		params["gateway_id"] = gatewayInfo.ID
-	}
 	return params
 }
 
@@ -524,7 +613,7 @@ func BatchCheckNameDuplication(
 ) (bool, error) {
 	var res []*model.ResourceCommonModel
 	params := getQueryNameParams(ctx, resourceType, names)
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(params)
+	query := buildCommonDbQuery(ctx, resourceType).Where(params)
 	err := query.Find(&res).Error
 	if err != nil {
 		return false, err
@@ -562,10 +651,8 @@ func UpdateResource(
 		return fmt.Errorf("unsupported resource type: %v", resourceType)
 	}
 	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
-
 	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resource.ToResourceModel(resourceType)))
-	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Updates(newResourceModel).Error
+	return buildCommonDbQuery(ctx, resourceType).Where("id = ?", id).Updates(newResourceModel).Error
 }
 
 // GetResourceUpdateStatus 获取资源更新状态
@@ -627,6 +714,7 @@ func ValidateResource(
 	ctx context.Context,
 	resources map[constant.APISIXResource][]*model.GatewaySyncData,
 	allResourceIDMap map[string]struct{},
+	allPluginSchemaMap map[string]interface{},
 ) error {
 	// Extract gateway information from context
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
@@ -645,10 +733,8 @@ func ValidateResource(
 				logging.Errorf("schema validate failed, err: %v", err)
 				return err
 			}
-			// 配置校验
-			customizePluginSchemaMap := GetCustomizePluginSchemaMap(ctx, gatewayInfo.ID)
 			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
-				resourceType, "main."+string(resourceType), customizePluginSchemaMap, constant.DATABASE)
+				resourceType, "main."+string(resourceType), allPluginSchemaMap, constant.DATABASE)
 			if err != nil {
 				return err
 			}
@@ -664,26 +750,29 @@ func ValidateResource(
 				return err
 			}
 			if resourceAssociateIDInfo.ServiceID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.ServiceID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.Service, resourceAssociateIDInfo.ServiceID)]; !ok {
 					return fmt.Errorf("associated service [id:%s] not found",
 						resourceAssociateIDInfo.ServiceID)
 				}
 			}
 			if resourceAssociateIDInfo.UpstreamID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.UpstreamID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.Upstream, resourceAssociateIDInfo.UpstreamID)]; !ok {
 					return fmt.Errorf("associated upstream [id:%s] not found",
 						resourceAssociateIDInfo.UpstreamID)
 				}
 
 				if resourceAssociateIDInfo.PluginConfigID != "" {
-					if _, ok := allResourceIDMap[resourceAssociateIDInfo.PluginConfigID]; !ok {
+					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+						constant.PluginConfig, resourceAssociateIDInfo.PluginConfigID)]; !ok {
 						return fmt.Errorf("associated plugin_config [id:%s] not found",
 							resourceAssociateIDInfo.PluginConfigID)
 					}
 				}
-
 				if resourceAssociateIDInfo.GroupID != "" {
-					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GroupID]; !ok {
+					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+						constant.ConsumerGroup, resourceAssociateIDInfo.GroupID)]; !ok {
 						return fmt.Errorf("associated consumer_group [id:%s] not found",
 							resourceAssociateIDInfo.GroupID)
 					}

@@ -221,9 +221,10 @@ func ConsumerGet(c *gin.Context) {
 	output := serializer.ConsumerOutputInfo{
 		GatewayID: consumer.GatewayID,
 		ConsumerInfo: serializer.ConsumerInfo{
-			ID:     consumer.ID,
-			Name:   consumer.Username,
-			Config: json.RawMessage(consumer.Config),
+			ID:      consumer.ID,
+			Name:    consumer.Username,
+			GroupID: consumer.GroupID,
+			Config:  json.RawMessage(consumer.Config),
 		},
 		CreatedAt: consumer.CreatedAt.Unix(),
 		UpdatedAt: consumer.UpdatedAt.Unix(),

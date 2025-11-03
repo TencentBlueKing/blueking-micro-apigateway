@@ -1,0 +1,53 @@
+{
+  "route": [
+    {
+      "resource_type": "route",
+      "resource_id": "bk.r.eyZvoiAAM7",
+      "name": "delete",
+      "config": {
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "enable_websocket": false,
+        "uris": [
+          "/delete"
+        ],
+        "labels": {
+          "1": "2"
+        },
+        "desc": "222",
+        "id": "bk.r.eyZvoiAAM7",
+        "name": "delete",
+        "plugins": {
+          "loggly": {
+            "customer_token": "updated_customer_token",
+            "tags": [
+              "apisix",
+              "loggly"
+            ]
+          }
+        },
+        "upstream": {
+          "scheme": "http",
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "pass_host": "pass",
+          "type": "roundrobin"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "skip_rules": {
+      "route": [
+        "plugins.loggly.customer_token"
+      ]
+    }
+  }
+}

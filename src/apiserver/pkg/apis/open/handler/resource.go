@@ -362,18 +362,19 @@ func ResourceImport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	var resourceInfoTypeMap map[constant.APISIXResource][]common.ResourceInfo
-	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
+	var resourceImport serializer.ResourceImportRequest
+	if err := filex.ReadFileToObject(fileHeader, &resourceImport); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handlerResourceIndexResult, err := common.HandlerResourceIndexMap(c.Request.Context(), resourceInfoTypeMap)
+	handlerResourceIndexResult, err := common.HandlerResourceIndexMap(c.Request.Context(),
+		resourceImport.Data)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	uploadInfo, err := common.ClassifyImportResourceInfo(
-		resourceInfoTypeMap,
+		resourceImport.Data,
 		handlerResourceIndexResult.ExistsResourceIdList,
 		handlerResourceIndexResult.AddedSchemaMap,
 	)
@@ -382,7 +383,7 @@ func ResourceImport(c *gin.Context) {
 		return
 	}
 	handlerResult, err := common.HandleUploadResources(c.Request.Context(),
-		uploadInfo, handlerResourceIndexResult.AllSchemaMap)
+		uploadInfo, handlerResourceIndexResult.AllSchemaMap, resourceImport.Metadata.SkipRules)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

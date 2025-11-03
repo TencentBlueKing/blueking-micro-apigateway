@@ -397,7 +397,7 @@ func ResourceUpload(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	var resourceInfoTypeMap map[constant.APISIXResource][]common.ResourceInfo
+	var resourceInfoTypeMap map[constant.APISIXResource][]*common.ResourceInfo
 	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -467,7 +467,8 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handleResult, err := common.HandleUploadResources(c.Request.Context(), &resourcesImport, allSchemaMap)
+	handleResult, err := common.HandleUploadResources(c.Request.Context(), &resourcesImport, allSchemaMap,
+		map[constant.APISIXResource][]string{})
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -487,7 +488,7 @@ func ResourceImport(c *gin.Context) {
 	ginx.SuccessNoContentResponse(c)
 }
 
-func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.APISIXResource][]common.ResourceInfo,
+func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.APISIXResource][]*common.ResourceInfo,
 	allSchemaMap map[string]interface{},
 ) (map[string]*model.GatewayCustomPluginSchema, error) {
 	schemaMap := make(map[string]*model.GatewayCustomPluginSchema)

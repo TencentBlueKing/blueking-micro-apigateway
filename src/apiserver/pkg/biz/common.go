@@ -435,6 +435,10 @@ func GetResourceByIDs(
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
 	query := buildCommonDbQuery(ctx, resourceType)
+	if len(ids) == 0 {
+		err := query.Find(&res).Error
+		return res, err
+	}
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := query.Where("id IN ?", ids).Find(&res).Error

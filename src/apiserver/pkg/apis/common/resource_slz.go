@@ -267,10 +267,12 @@ func handleResources(
 			oldResource, ok := allResourceMap[imp.GetResourceKey()]
 			if len(skipRules[resourceType]) > 0 && ok {
 				for _, skipRule := range skipRules[resourceType] {
-					ignoreConfig := gjson.GetBytes(oldResource.Config, skipRule).Raw
-					imp.Config, err = sjson.SetBytes(imp.Config, skipRule, json.RawMessage(ignoreConfig))
-					if err != nil {
-						return nil, fmt.Errorf("set config failed, err: %v", err)
+					result := gjson.GetBytes(oldResource.Config, skipRule)
+					if result.Exists() {
+						imp.Config, err = sjson.SetBytes(imp.Config, skipRule, json.RawMessage(result.Raw))
+						if err != nil {
+							return nil, fmt.Errorf("set config failed, err: %v", err)
+						}
 					}
 				}
 			}

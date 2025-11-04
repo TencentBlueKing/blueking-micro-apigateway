@@ -220,6 +220,8 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 			upstream.Name = syncData.GetName()
 			upstream.Config = syncData.Config
 			upstream.Status = constant.ResourceStatusSuccess
+			// 更新关联关系数据
+			upstream.SSLID = syncData.GetSSLID()
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
 			afterResources = append(afterResources, &model.ResourceCommonModel{
 				ID:     upstream.ID,
@@ -239,7 +241,12 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 			return err
 		}
 		for _, upstream := range upstreams {
-			_, err := buildUpstreamQueryWithTx(ctx, tx).Updates(upstream)
+			_, err := buildUpstreamQueryWithTx(ctx, tx).Select(
+				repo.Upstream.Name,
+				repo.Upstream.Config,
+				repo.Upstream.Status,
+				repo.Upstream.SSLID,
+			).Updates(upstream)
 			if err != nil {
 				return err
 			}

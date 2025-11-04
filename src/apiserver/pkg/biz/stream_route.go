@@ -221,6 +221,9 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 			sr.Name = syncData.GetName()
 			sr.Config = syncData.Config
 			sr.Status = constant.ResourceStatusSuccess
+			// 更新关联关系数据
+			sr.ServiceID = syncData.GetServiceID()
+			sr.UpstreamID = syncData.GetUpstreamID()
 			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
 			afterResources = append(afterResources, &model.ResourceCommonModel{
 				ID:     sr.ID,
@@ -240,7 +243,13 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 			return err
 		}
 		for _, sr := range streamRoutes {
-			_, err := buildStreamRouteQueryWithTx(ctx, tx).Updates(sr)
+			_, err := buildStreamRouteQueryWithTx(ctx, tx).Select(
+				repo.StreamRoute.Name,
+				repo.StreamRoute.ServiceID,
+				repo.StreamRoute.UpstreamID,
+				repo.StreamRoute.Config,
+				repo.StreamRoute.Status,
+			).Updates(sr)
 			if err != nil {
 				return err
 			}

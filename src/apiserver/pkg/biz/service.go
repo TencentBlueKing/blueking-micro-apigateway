@@ -251,7 +251,12 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 			return err
 		}
 		for _, service := range services {
-			_, err := buildServiceQueryWithTx(ctx, tx).Updates(service)
+			_, err := buildServiceQueryWithTx(ctx, tx).Select(
+				repo.Service.Name,
+				repo.Service.UpstreamID,
+				repo.Service.Config,
+				repo.Service.Status,
+			).Updates(service)
 			if err != nil {
 				return err
 			}

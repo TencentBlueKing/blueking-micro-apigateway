@@ -273,7 +273,14 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 			return err
 		}
 		for _, route := range routes {
-			_, err := buildRouteQueryWithTx(ctx, tx).Updates(route)
+			_, err := buildRouteQueryWithTx(ctx, tx).Select(
+				repo.Route.Name,
+				repo.Route.PluginConfigID,
+				repo.Route.ServiceID,
+				repo.Route.UpstreamID,
+				repo.Route.Config,
+				repo.Route.Status,
+			).Updates(route)
 			if err != nil {
 				return err
 			}

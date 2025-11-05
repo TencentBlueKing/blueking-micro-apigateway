@@ -232,7 +232,12 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 			return err
 		}
 		for _, consumer := range consumers {
-			_, err := buildConsumerQueryWithTx(ctx, tx).Updates(consumer)
+			_, err := buildConsumerQueryWithTx(ctx, tx).Select(
+				repo.Consumer.Username,
+				repo.Consumer.GroupID,
+				repo.Consumer.Status,
+				repo.Consumer.Config,
+			).Updates(consumer)
 			if err != nil {
 				return err
 			}

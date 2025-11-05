@@ -177,5 +177,5 @@ func (w *ResourceImportRequest) UnmarshalJSON(data []byte) error {
 
 type Metadata struct {
 	// 跳过规则，用于设置针对某些资源不进行修改设置
-	SkipRules map[constant.APISIXResource][]string `json:"skip_rules"`
+	IgnoreFields map[constant.APISIXResource][]string `json:"ignore_fields"`
 }

@@ -44,7 +44,7 @@
     }
   ],
   "metadata": {
-    "skip_rules": {
+    "ignore_fields": {
       "route": [
         "plugins.loggly.customer_token"
       ]

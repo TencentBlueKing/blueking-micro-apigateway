@@ -383,7 +383,7 @@ func ResourceImport(c *gin.Context) {
 		return
 	}
 	handlerResult, err := common.HandleUploadResources(c.Request.Context(),
-		uploadInfo, handlerResourceIndexResult.AllSchemaMap, resourceImport.Metadata.SkipRules)
+		uploadInfo, handlerResourceIndexResult.AllSchemaMap, resourceImport.Metadata.IgnoreFields)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

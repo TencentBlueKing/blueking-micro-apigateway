@@ -1,0 +1,28 @@
+meta {
+  name: import_update_gateway_resources
+  type: http
+  seq: 36
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/-/import/
+  body: multipartForm
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+
+
+
+
+body:multipart-form {
+  resource_file: @file(/apps/openapi/data/test_import_update_file.json)
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.update.route.length: eq 1
+  res.body.data.update.route[0].config.plugins.loggly.customer_token: eq your_customer_token
+}

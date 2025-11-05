@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -53,8 +54,8 @@ func (r ResourceInfo) GetResourceKey() string {
 
 // ResourceUploadInfo ...
 type ResourceUploadInfo struct {
-	Add    map[constant.APISIXResource][]ResourceInfo `json:"add,omitempty"`
-	Update map[constant.APISIXResource][]ResourceInfo `json:"update,omitempty"`
+	Add    map[constant.APISIXResource][]*ResourceInfo `json:"add,omitempty"`
+	Update map[constant.APISIXResource][]*ResourceInfo `json:"update,omitempty"`
 }
 
 // HandlerResourceResult ...
@@ -75,13 +76,13 @@ type HandlerResourceIndexResult struct {
 
 // ClassifyImportResourceInfo 分类合并导入资源信息
 func ClassifyImportResourceInfo(
-	importDataList map[constant.APISIXResource][]ResourceInfo,
+	importDataList map[constant.APISIXResource][]*ResourceInfo,
 	existsResourceIdList map[string]struct{},
 	addPluginSchemaMap map[string]*model.GatewayCustomPluginSchema,
 ) (*ResourceUploadInfo, error) {
 	uploadOutput := &ResourceUploadInfo{
-		Add:    make(map[constant.APISIXResource][]ResourceInfo),
-		Update: make(map[constant.APISIXResource][]ResourceInfo),
+		Add:    make(map[constant.APISIXResource][]*ResourceInfo),
+		Update: make(map[constant.APISIXResource][]*ResourceInfo),
 	}
 	for resourceType, impList := range importDataList {
 		for _, imp := range impList {
@@ -113,14 +114,15 @@ func HandleUploadResources(
 	ctx context.Context,
 	resourcesImport *ResourceUploadInfo,
 	allSchemaMap map[string]interface{},
+	ignoreFields map[constant.APISIXResource][]string,
 ) (*HandlerResourceResult, error) {
 	// 分类聚合
 	allResourceIdMap := make(map[string]struct{})
-	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap)
+	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
-	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap)
+	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +141,7 @@ func HandleUploadResources(
 }
 
 // HandlerCustomerPluginSchemaImport is a function that handles the import of customer plugin schemas.
-func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []ResourceInfo) (
+func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []*ResourceInfo) (
 	allSchemaMap map[string]interface{}, addedSchemaMap,
 	updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
 ) {
@@ -178,7 +180,7 @@ func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []Res
 }
 
 // HandlerResourceIndexMap is a function that handles the indexing of resources.
-func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[constant.APISIXResource][]ResourceInfo) (
+func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[constant.APISIXResource][]*ResourceInfo) (
 	*HandlerResourceIndexResult, error,
 ) {
 	existsResourceIdList := make(map[string]struct{})
@@ -238,8 +240,9 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 
 func handleResources(
 	ctx context.Context,
-	resourcesImport map[constant.APISIXResource][]ResourceInfo,
+	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
 	allResourceIdMap map[string]struct{},
+	ignoreFields map[constant.APISIXResource][]string,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
 	for resourceType, resourceInfoList := range resourcesImport {
@@ -250,10 +253,28 @@ func handleResources(
 		if err != nil {
 			return nil, fmt.Errorf("get exist resources failed, err: %v", err)
 		}
+		allResourceMap := make(map[string]model.ResourceCommonModel)
+		for _, resource := range allResourceList {
+			allResourceMap[resource.GetResourceKey(resourceType)] = resource
+			allResourceIdMap[resource.GetResourceKey(resourceType)] = struct{}{}
+		}
 		for _, imp := range resourceInfoList {
 			// 如果id为空，直接报错
 			if imp.ResourceID == "" {
 				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
+			}
+			// 如果已经存在，则需要判断是否有跳过规则
+			oldResource, ok := allResourceMap[imp.GetResourceKey()]
+			if len(ignoreFields[resourceType]) > 0 && ok {
+				for _, skipRule := range ignoreFields[resourceType] {
+					result := gjson.GetBytes(oldResource.Config, skipRule)
+					if result.Exists() {
+						imp.Config, err = sjson.SetBytes(imp.Config, skipRule, json.RawMessage(result.Raw))
+						if err != nil {
+							return nil, fmt.Errorf("set config failed, err: %v", err)
+						}
+					}
+				}
 			}
 			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
 			resourceImp := &model.GatewaySyncData{
@@ -267,9 +288,6 @@ func handleResources(
 				continue
 			}
 			resourceTypeMap[resourceType] = append(resourceTypeMap[resourceType], resourceImp)
-		}
-		for _, resource := range allResourceList {
-			allResourceIdMap[resource.GetResourceKey(resourceType)] = struct{}{}
 		}
 	}
 	return resourceTypeMap, nil

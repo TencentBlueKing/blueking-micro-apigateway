@@ -114,15 +114,15 @@ func HandleUploadResources(
 	ctx context.Context,
 	resourcesImport *ResourceUploadInfo,
 	allSchemaMap map[string]interface{},
-	skipRules map[constant.APISIXResource][]string,
+	ignoreFields map[constant.APISIXResource][]string,
 ) (*HandlerResourceResult, error) {
 	// 分类聚合
 	allResourceIdMap := make(map[string]struct{})
-	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap, skipRules)
+	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
-	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap, skipRules)
+	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func handleResources(
 	ctx context.Context,
 	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
 	allResourceIdMap map[string]struct{},
-	skipRules map[constant.APISIXResource][]string,
+	ignoreFields map[constant.APISIXResource][]string,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
 	for resourceType, resourceInfoList := range resourcesImport {
@@ -265,8 +265,8 @@ func handleResources(
 			}
 			// 如果已经存在，则需要判断是否有跳过规则
 			oldResource, ok := allResourceMap[imp.GetResourceKey()]
-			if len(skipRules[resourceType]) > 0 && ok {
-				for _, skipRule := range skipRules[resourceType] {
+			if len(ignoreFields[resourceType]) > 0 && ok {
+				for _, skipRule := range ignoreFields[resourceType] {
 					result := gjson.GetBytes(oldResource.Config, skipRule)
 					if result.Exists() {
 						imp.Config, err = sjson.SetBytes(imp.Config, skipRule, json.RawMessage(result.Raw))

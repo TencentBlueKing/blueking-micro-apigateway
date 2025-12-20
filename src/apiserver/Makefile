@@ -51,6 +51,7 @@ integration-test:
 # generate swagger api doc with swag
 .PHONY: doc
 doc:
+	GOBIN=$(LOCALBIN) go install github.com/swaggo/swag/v2/cmd/swag@latest
 	$(SWAG) fmt
 	$(SWAG) init --parseDependency --parseDepth 3
 

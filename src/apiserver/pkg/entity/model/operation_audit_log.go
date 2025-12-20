@@ -57,9 +57,9 @@ func (OperationAuditLog) TableName() string {
 }
 
 // 定义一个通用的回调
-func auditCallback(db *gorm.DB, gatewayID int, resourceID string, operator string,
+func auditCallback(db *gorm.DB, gatewayID int, resourceID, operator string,
 	status constant.ResourceStatus, operationType constant.OperationType, resourceType constant.APISIXResource,
-	dataBefore datatypes.JSON, dataAfter datatypes.JSON,
+	dataBefore, dataAfter datatypes.JSON,
 ) error {
 	var dataBeforeList []BatchOperationData
 	var dataAfterList []BatchOperationData

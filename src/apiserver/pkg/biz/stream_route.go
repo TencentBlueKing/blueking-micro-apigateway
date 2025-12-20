@@ -32,14 +32,14 @@ import (
 
 // buildStreamRouteQuery 获取 StreamRoute 查询对象
 func buildStreamRouteQuery(ctx context.Context) repo.IStreamRouteDo {
-	return repo.StreamRoute.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.StreamRoute.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildStreamRouteQueryWithTx 获取 StreamRoute 查询对象
 func buildStreamRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IStreamRouteDo {
-	return tx.WithContext(ctx).StreamRoute.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).StreamRoute.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -71,7 +71,7 @@ func GetStreamRouteOrderExprList(orderBy string) []field.Expr {
 // ListPagedStreamRoutes 分页查询 StreamRoute
 func ListPagedStreamRoutes(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -159,7 +159,7 @@ func GetStreamRoute(ctx context.Context, id string) (*model.StreamRoute, error) 
 }
 
 // QueryStreamRoutes 搜索 StreamRoute
-func QueryStreamRoutes(ctx context.Context, param map[string]interface{}) ([]*model.StreamRoute, error) {
+func QueryStreamRoutes(ctx context.Context, param map[string]any) ([]*model.StreamRoute, error) {
 	return buildStreamRouteQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -191,7 +191,7 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{
+	streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

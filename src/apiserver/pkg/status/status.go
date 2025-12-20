@@ -144,8 +144,9 @@ func (s *ResourceStatusOp) NextStatus(
 // ignoreSpecialOp 判断是否需要忽略特殊操作
 func (s *ResourceStatusOp) ignoreSpecialOp(operationType constant.OperationType) bool {
 	// fms不支持同状态之间的转换
-	if operationType == constant.OperationTypeUpdate && (s.resourceInfo.Status == constant.ResourceStatusCreateDraft ||
-		s.resourceInfo.Status == constant.ResourceStatusUpdateDraft) {
+	if operationType == constant.OperationTypeUpdate &&
+		(s.resourceInfo.Status == constant.ResourceStatusCreateDraft ||
+			s.resourceInfo.Status == constant.ResourceStatusUpdateDraft) {
 		return true
 	}
 	return false

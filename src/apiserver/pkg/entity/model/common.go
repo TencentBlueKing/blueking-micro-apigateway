@@ -96,7 +96,7 @@ func (r ResourceCommonModel) GetName(resourceType constant.APISIXResource) strin
 }
 
 // ToResourceModel 转换为具体资源
-func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResource) interface{} {
+func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResource) any {
 	switch resourceType {
 	case constant.Route:
 		return Route{

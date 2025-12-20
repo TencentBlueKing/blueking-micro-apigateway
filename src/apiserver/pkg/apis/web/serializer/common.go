@@ -59,8 +59,11 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	if resourceIdentification == "" {
 		// 兼容第一次创建没有id的情况以及rawConfig没有name的情况
 		resourceIdentification = getResourceNameByResourceType(resourceType, fl)
-		rawConfig, _ = sjson.SetBytes(rawConfig, model.GetResourceNameKey(constant.APISIXResource(resourceType)),
-			resourceIdentification)
+		rawConfig, _ = sjson.SetBytes(
+			rawConfig,
+			model.GetResourceNameKey(constant.APISIXResource(resourceType)),
+			resourceIdentification,
+		)
 	}
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	// 基础schema校验
@@ -135,7 +138,7 @@ func CheckLabel(label string) (base.LabelMap, error) {
 }
 
 // PaginateResults 处理分页
-func PaginateResults(total int, offset int, limit int) (int, int) {
+func PaginateResults(total, offset, limit int) (int, int) {
 	if offset >= total {
 		return 0, 0
 	}

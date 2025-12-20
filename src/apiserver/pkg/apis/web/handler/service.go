@@ -42,8 +42,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	serializer.ServiceInfo	true	"service 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.ServiceInfo	true	"service
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/ [post]
 func ServiceCreate(c *gin.Context) {
@@ -81,8 +83,7 @@ func ServiceCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"service ID"
+//	@Param		gateway_id	path	int						true	"网关ID"	@Param	id	path	string	true	"service ID"
 //	@Param		request		body	serializer.ServiceInfo	true	"service更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [put]
@@ -152,7 +153,7 @@ func ServiceList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

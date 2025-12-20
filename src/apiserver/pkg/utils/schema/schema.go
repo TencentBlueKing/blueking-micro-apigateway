@@ -76,12 +76,12 @@ var tapisixPluginSchemaVersionMap = map[constant.APISIXVersion]gjson.Result{
 }
 
 // GetResourceSchema 获取资源的schema
-func GetResourceSchema(version constant.APISIXVersion, name string) interface{} {
+func GetResourceSchema(version constant.APISIXVersion, name string) any {
 	return schemaVersionMap[version].Get("main." + name).Value()
 }
 
 // GetMetadataPluginSchema 获取 metadata 插件类型的 schema
-func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interface{} {
+func GetMetadataPluginSchema(version constant.APISIXVersion, path string) any {
 	// 查找 apisix 插件
 	ret := schemaVersionMap[version].Get(path).Value()
 	if ret != nil {
@@ -104,8 +104,8 @@ func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interf
 }
 
 // GetPluginSchema 获取插件的schema
-func GetPluginSchema(version constant.APISIXVersion, name string, schemaType string) interface{} {
-	var ret interface{}
+func GetPluginSchema(version constant.APISIXVersion, name, schemaType string) any {
+	var ret any
 	if schemaType == "consumer" || schemaType == "consumer_schema" {
 		// 需匹配常规插件和 consumer 插件，当未查询到时，继续匹配后面常规插件
 		ret = schemaVersionMap[version].Get("plugins." + name + ".consumer_schema").Value()

@@ -42,8 +42,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.upstream
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	serializer.UpstreamInfo	true	"upstream 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.UpstreamInfo	true	"upstream
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams/ [post]
 func UpstreamCreate(c *gin.Context) {
@@ -82,8 +84,7 @@ func UpstreamCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.upstream
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"upstream ID"
+//	@Param		gateway_id	path	int						true	"网关ID"	@Param	id	path	string	true	"upstream ID"
 //	@Param		request		body	serializer.UpstreamInfo	true	"upstream更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams/{id}/ [put]
@@ -149,7 +150,7 @@ func UpstreamList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

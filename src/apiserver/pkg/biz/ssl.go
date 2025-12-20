@@ -35,14 +35,14 @@ import (
 
 // buildSSLQuery 获取 SSL 查询对象
 func buildSSLQuery(ctx context.Context) repo.ISSLDo {
-	return repo.SSL.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.SSL.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildSSLQueryWithTx 获取 SSL 查询对象（带事务）
 func buildSSLQueryWithTx(ctx context.Context, tx *repo.Query) repo.ISSLDo {
-	return tx.SSL.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return tx.SSL.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -74,7 +74,7 @@ func GetSSLOrderExprList(orderBy string) []field.Expr {
 // ListPagedSSL 分页查询ssl
 func ListPagedSSL(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -167,7 +167,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	ssls, err := QuerySSL(ctx, map[string]interface{}{
+	ssls, err := QuerySSL(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -227,7 +227,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 }
 
 // QuerySSL 搜索 SSL
-func QuerySSL(ctx context.Context, param map[string]interface{}) ([]*model.SSL, error) {
+func QuerySSL(ctx context.Context, param map[string]any) ([]*model.SSL, error) {
 	return buildSSLQuery(ctx).Where(field.Attrs(param)).Find()
 }
 

@@ -72,7 +72,13 @@ func generateTestCert() (caPEM, certPEM, keyPEM string) {
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
-	certBytes, _ := x509.CreateCertificate(rand.Reader, &certTemplate, &caTemplate, &certPrivKey.PublicKey, caPrivKey)
+	certBytes, _ := x509.CreateCertificate(
+		rand.Reader,
+		&certTemplate,
+		&caTemplate,
+		&certPrivKey.PublicKey,
+		caPrivKey,
+	)
 	certPEM = string(pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,

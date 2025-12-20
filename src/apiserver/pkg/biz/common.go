@@ -63,7 +63,7 @@ var resourceTableMap = map[constant.APISIXResource]string{
 	constant.StreamRoute:    model.StreamRoute{}.TableName(),
 }
 
-var resourceModelSliceMap = map[constant.APISIXResource]interface{}{
+var resourceModelSliceMap = map[constant.APISIXResource]any{
 	constant.Route:          &[]model.Route{},
 	constant.Upstream:       &[]model.Upstream{},
 	constant.Consumer:       &[]model.Consumer{},
@@ -77,7 +77,7 @@ var resourceModelSliceMap = map[constant.APISIXResource]interface{}{
 	constant.StreamRoute:    &[]model.StreamRoute{},
 }
 
-var resourceModelMap = map[constant.APISIXResource]interface{}{
+var resourceModelMap = map[constant.APISIXResource]any{
 	constant.Route:          &model.Route{},
 	constant.Upstream:       &model.Upstream{},
 	constant.Consumer:       &model.Consumer{},
@@ -95,7 +95,7 @@ var resourceModelMap = map[constant.APISIXResource]interface{}{
 type Labels map[string]string
 
 // Scan 实现从数据库到结构体的转换
-func (l *Labels) Scan(value interface{}) error {
+func (l *Labels) Scan(value any) error {
 	if value == nil {
 		*l = nil
 		return nil
@@ -136,7 +136,7 @@ func BatchDeleteResourceByIDs(
 	resourceType constant.APISIXResource,
 	ids []string,
 ) error {
-	params := map[string]interface{}{
+	params := map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}
 	// pluginMetadata特殊处理
@@ -180,7 +180,15 @@ func BatchDeleteResourceByIDs(
 			_, err := repo.PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
 			return err
 		}
-		_, err := ginx.GetTx(ctx).PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
+		_, err := ginx.GetTx(
+			ctx,
+		).PluginMetadata.WithContext(
+			ctx,
+		).Where(
+			fieldAttr,
+		).Delete(
+			&model.PluginMetadata{},
+		)
 		return err
 	case constant.StreamRoute:
 		if ginx.GetTx(ctx) == nil {
@@ -276,7 +284,7 @@ func BatchUpdateResourceStatus(
 	query := buildCommonDbQuery(ctx, resourceType)
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
 	if len(ids) <= constant.DBConditionIDMaxLength {
-		return query.Where("id IN (?)", ids).Updates(map[string]interface{}{
+		return query.Where("id IN (?)", ids).Updates(map[string]any{
 			"status": status,
 		}).Error
 	}
@@ -289,7 +297,7 @@ func BatchUpdateResourceStatus(
 		}
 		batchIDs := ids[i:end]
 		query = buildCommonDbQuery(ctx, resourceType)
-		err := query.Where("id IN (?)", batchIDs).Updates(map[string]interface{}{
+		err := query.Where("id IN (?)", batchIDs).Updates(map[string]any{
 			"status": status,
 		}).Error
 		if err != nil {
@@ -306,7 +314,7 @@ func UpdateResourceStatus(
 	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
 	query := buildCommonDbQuery(ctx, resourceType)
-	return query.Where("id = ?", id).Updates(map[string]interface{}{
+	return query.Where("id = ?", id).Updates(map[string]any{
 		"status":  status,
 		"updater": ginx.GetUserIDFromContext(ctx),
 	}).Error
@@ -546,7 +554,7 @@ func GetSchemaByIDs(
 func QueryResource(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
-	params map[string]interface{},
+	params map[string]any,
 	name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
@@ -603,8 +611,8 @@ func getQueryNameParams(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
 	name []string,
-) map[string]interface{} {
-	params := map[string]interface{}{}
+) map[string]any {
+	params := map[string]any{}
 	params[model.GetResourceNameKey(resourceType)] = name
 	return params
 }
@@ -718,7 +726,7 @@ func ValidateResource(
 	ctx context.Context,
 	resources map[constant.APISIXResource][]*model.GatewaySyncData,
 	allResourceIDMap map[string]struct{},
-	allPluginSchemaMap map[string]interface{},
+	allPluginSchemaMap map[string]any,
 ) error {
 	// Extract gateway information from context
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
@@ -790,13 +798,16 @@ func ValidateResource(
 }
 
 // FormatResourceIDNameList 格式化资源ID和名称列表
-func FormatResourceIDNameList(resources interface{}, resourceType constant.APISIXResource) []string {
+func FormatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
 	switch resourceType {
 	case constant.Route:
 		routes := resources.([]*model.Route)
 		routeDetails := make([]string, 0, len(routes))
 		for _, route := range routes {
-			routeDetails = append(routeDetails, fmt.Sprintf("%s(%s)", route.ID, route.GetName(resourceType)))
+			routeDetails = append(
+				routeDetails,
+				fmt.Sprintf("%s(%s)", route.ID, route.GetName(resourceType)),
+			)
 		}
 		return routeDetails
 	case constant.Upstream:
@@ -823,7 +834,10 @@ func FormatResourceIDNameList(resources interface{}, resourceType constant.APISI
 		services := resources.([]*model.Service)
 		serviceDetails := make([]string, 0, len(services))
 		for _, service := range services {
-			serviceDetails = append(serviceDetails, fmt.Sprintf("%s(%s)", service.ID, service.GetName(resourceType)))
+			serviceDetails = append(
+				serviceDetails,
+				fmt.Sprintf("%s(%s)", service.ID, service.GetName(resourceType)),
+			)
 		}
 		return serviceDetails
 	case constant.StreamRoute:

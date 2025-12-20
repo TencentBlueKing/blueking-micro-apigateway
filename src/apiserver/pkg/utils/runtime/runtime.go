@@ -29,10 +29,10 @@ import (
 )
 
 // PanicHandlers ...
-var PanicHandlers = []func(interface{}){handlePanic}
+var PanicHandlers = []func(any){handlePanic}
 
 // HandlePanic handle panic
-func HandlePanic(additionalHandlers ...func(interface{})) {
+func HandlePanic(additionalHandlers ...func(any)) {
 	if err := recover(); err != nil {
 		for _, fn := range PanicHandlers {
 			fn(err)
@@ -44,7 +44,7 @@ func HandlePanic(additionalHandlers ...func(interface{})) {
 	}
 }
 
-func handlePanic(r interface{}) {
+func handlePanic(r any) {
 	if r == http.ErrAbortHandler {
 		return
 	}

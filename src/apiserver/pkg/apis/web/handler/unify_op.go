@@ -350,7 +350,7 @@ func handExportEtcdResources(
 	}
 	var schemaInfoList []serializer.ResourceInfo
 	for name, schema := range schemaMap {
-		schemaInfo := map[string]interface{}{
+		schemaInfo := map[string]any{
 			"name":    name,
 			"schema":  schema.Schema,
 			"example": schema.Example,
@@ -489,7 +489,7 @@ func ResourceImport(c *gin.Context) {
 }
 
 func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.APISIXResource][]*common.ResourceInfo,
-	allSchemaMap map[string]interface{},
+	allSchemaMap map[string]any,
 ) (map[string]*model.GatewayCustomPluginSchema, error) {
 	schemaMap := make(map[string]*model.GatewayCustomPluginSchema)
 	for _, resourceList := range resources {
@@ -507,7 +507,7 @@ func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.API
 					OperationType: constant.OperationImport,
 				}
 				schemaMap[resource.Name] = schemaModel
-				var schemaInfo map[string]interface{}
+				var schemaInfo map[string]any
 				err := json.Unmarshal(schemaModel.Schema, &schemaInfo)
 				if err != nil {
 					return nil, err

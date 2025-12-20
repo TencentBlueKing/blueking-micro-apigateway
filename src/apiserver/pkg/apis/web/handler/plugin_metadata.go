@@ -82,8 +82,7 @@ func PluginMetadataCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.plugin_metadata
-//	@Param		gateway_id	path	int								true	"网关ID"
-//	@Param		id			path	string							true	"plugin_metadata ID"
+//	@Param		gateway_id	path	int								true	"网关ID"	@Param	id	path	string	true	"plugin_metadata ID"
 //	@Param		request		body	serializer.PluginMetadataInfo	true	"plugin_metadata更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas/{id}/ [put]
@@ -146,7 +145,7 @@ func PluginMetadataList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

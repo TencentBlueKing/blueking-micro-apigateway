@@ -85,13 +85,13 @@ var VersionDocUrlMap = map[constant.APISIXVersion]string{
 
 // Plugin ...
 type Plugin struct {
-	Name            string                 `json:"name"`
-	Type            string                 `json:"type"`
-	ProxyType       string                 `json:"proxy_type"` // only for stream plugin
-	Example         map[string]interface{} `json:"example"`
-	MetadataExample map[string]interface{} `json:"metadata_example,omitempty"`
-	ConsumerExample map[string]interface{} `json:"consumer_example,omitempty"`
-	DocUrl          string                 `json:"doc_url"`
+	Name            string         `json:"name"`
+	Type            string         `json:"type"`
+	ProxyType       string         `json:"proxy_type"` // only for stream plugin
+	Example         map[string]any `json:"example"`
+	MetadataExample map[string]any `json:"metadata_example,omitempty"`
+	ConsumerExample map[string]any `json:"consumer_example,omitempty"`
+	DocUrl          string         `json:"doc_url"`
 }
 
 // StreamRoutePluginMap ...

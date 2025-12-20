@@ -35,14 +35,14 @@ import (
 
 // buildGlobalRuleQuery 获取 GlobalRule 查询对象
 func buildGlobalRuleQuery(ctx context.Context) repo.IGlobalRuleDo {
-	return repo.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildGlobalRuleQueryWithTx 获取 GlobalRule 查询对象(带事务)
 func buildGlobalRuleQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGlobalRuleDo {
-	return tx.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return tx.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -74,7 +74,7 @@ func GetGlobalRuleOrderExprList(orderBy string) []field.Expr {
 // ListPagedGlobalRules 分页查询 GlobalRule 列表
 func ListPagedGlobalRules(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	status []string,
 	name string,
 	updater string,
@@ -128,7 +128,7 @@ func GetGlobalRule(ctx context.Context, id string) (*model.GlobalRule, error) {
 }
 
 // QueryGlobalRules 搜索 GlobalRule
-func QueryGlobalRules(ctx context.Context, param map[string]interface{}) ([]*model.GlobalRule, error) {
+func QueryGlobalRules(ctx context.Context, param map[string]any) ([]*model.GlobalRule, error) {
 	return buildGlobalRuleQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -160,7 +160,7 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	globalRules, err := QueryGlobalRules(ctx, map[string]interface{}{
+	globalRules, err := QueryGlobalRules(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

@@ -81,8 +81,7 @@ func PluginConfigCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.plugin_config
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"plugin_conf ID"
+//	@Param		gateway_id	path	int							true	"网关ID"	@Param	id	path	string	true	"plugin_conf ID"
 //	@Param		request		body	serializer.PluginConfigInfo	true	"plugin_conf更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs/{id}/ [put]
@@ -150,7 +149,7 @@ func PluginConfigList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

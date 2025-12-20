@@ -70,7 +70,7 @@ type HandlerResourceIndexResult struct {
 	AllResourceIdList    map[string]struct{}
 	AddedSchemaMap       map[string]*model.GatewayCustomPluginSchema
 	UpdatedSchemaMap     map[string]*model.GatewayCustomPluginSchema
-	AllSchemaMap         map[string]interface{}
+	AllSchemaMap         map[string]any
 	ResourceTypeMap      map[constant.APISIXResource][]*model.GatewaySyncData
 }
 
@@ -89,7 +89,10 @@ func ClassifyImportResourceInfo(
 			if resourceType == constant.Schema {
 				if _, ok := addPluginSchemaMap[imp.Name]; ok {
 					imp.Status = constant.UploadStatusAdd
-					uploadOutput.Add[constant.Schema] = append(uploadOutput.Add[constant.Schema], imp)
+					uploadOutput.Add[constant.Schema] = append(
+						uploadOutput.Add[constant.Schema],
+						imp,
+					)
 				} else {
 					imp.Status = constant.UploadStatusUpdate
 					uploadOutput.Update[constant.Schema] = append(uploadOutput.Update[constant.Schema], imp)
@@ -113,7 +116,7 @@ func ClassifyImportResourceInfo(
 func HandleUploadResources(
 	ctx context.Context,
 	resourcesImport *ResourceUploadInfo,
-	allSchemaMap map[string]interface{},
+	allSchemaMap map[string]any,
 	ignoreFields map[constant.APISIXResource][]string,
 ) (*HandlerResourceResult, error) {
 	// 分类聚合
@@ -142,7 +145,7 @@ func HandleUploadResources(
 
 // HandlerCustomerPluginSchemaImport is a function that handles the import of customer plugin schemas.
 func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []*ResourceInfo) (
-	allSchemaMap map[string]interface{}, addedSchemaMap,
+	allSchemaMap map[string]any, addedSchemaMap,
 	updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
 ) {
 	// Get the existing plugin schema map from the business logic layer
@@ -172,7 +175,7 @@ func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []*Re
 			updatedSchemaMap[schemaInfo.Name] = schemaModel
 		}
 		schemaRaw, _ := json.Marshal(schemaModel.Schema)
-		var schemaMap map[string]interface{}
+		var schemaMap map[string]any
 		_ = json.Unmarshal(schemaRaw, &schemaMap)
 		existsPluginSchemaMap[schemaInfo.Name] = schemaMap
 	}
@@ -187,7 +190,7 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 	allResourceIdList := make(map[string]struct{})
 	var addedSchemaMap map[string]*model.GatewayCustomPluginSchema
 	var updatedSchemaMap map[string]*model.GatewayCustomPluginSchema
-	var allSchemaMap map[string]interface{}
+	var allSchemaMap map[string]any
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
 	var err error
 	for resourceType, resourceInfoList := range resourceInfoTypeMap {
@@ -222,7 +225,10 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 			}
 			allResourceIdList[res.GetResourceKey()] = struct{}{}
 			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
-				resourceTypeMap[resourceInfo.ResourceType] = append(resourceTypeMap[resourceInfo.ResourceType], res)
+				resourceTypeMap[resourceInfo.ResourceType] = append(
+					resourceTypeMap[resourceInfo.ResourceType],
+					res,
+				)
 				continue
 			}
 			resourceTypeMap[resourceInfo.ResourceType] = []*model.GatewaySyncData{res}
@@ -269,7 +275,11 @@ func handleResources(
 				for _, skipRule := range ignoreFields[resourceType] {
 					result := gjson.GetBytes(oldResource.Config, skipRule)
 					if result.Exists() {
-						imp.Config, err = sjson.SetBytes(imp.Config, skipRule, json.RawMessage(result.Raw))
+						imp.Config, err = sjson.SetBytes(
+							imp.Config,
+							skipRule,
+							json.RawMessage(result.Raw),
+						)
 						if err != nil {
 							return nil, fmt.Errorf("set config failed, err: %v", err)
 						}

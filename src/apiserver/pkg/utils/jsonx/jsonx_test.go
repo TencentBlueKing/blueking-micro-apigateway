@@ -111,7 +111,7 @@ func TestPatchJson_ErrorCases(t *testing.T) {
 }
 
 func TestMergePatch(t *testing.T) {
-	obj := map[string]interface{}{
+	obj := map[string]any{
 		"key1": "value1",
 		"key2": "value2",
 	}

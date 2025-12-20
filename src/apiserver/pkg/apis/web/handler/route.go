@@ -85,8 +85,7 @@ func RouteCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.route
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"路由ID"
+//	@Param		gateway_id	path	int						true	"网关ID"	@Param	id	path	string	true	"路由ID"
 //	@Param		request		body	serializer.RouteInfo	true	"route更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/routes/{id}/ [put]
@@ -158,7 +157,7 @@ func RouteList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

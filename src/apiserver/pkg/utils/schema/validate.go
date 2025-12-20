@@ -49,7 +49,7 @@ var allowedOps = map[string]bool{
 }
 
 // FuncGetCustomSchema ...
-type FuncGetCustomSchema func(ctx context.Context, name string) map[string]interface{}
+type FuncGetCustomSchema func(ctx context.Context, name string) map[string]any
 
 // APISIXValidateError ...
 type APISIXValidateError struct {
@@ -67,7 +67,7 @@ type APISIXJsonSchemaValidator struct {
 	schemaDef                string
 	version                  constant.APISIXVersion
 	resourceType             constant.APISIXResource
-	customizePluginSchemaMap map[string]interface{}
+	customizePluginSchemaMap map[string]any
 }
 
 // NewResourceSchema 获取资源 schema
@@ -98,7 +98,7 @@ func NewResourceSchema(
 			log.Warnf("schema validate failed: schema json decode failed, path: %s, %v", jsonPath, err)
 			return "", nil, fmt.Errorf("schema 验证失败: schema json decode 失败, 路径: %s, %v", jsonPath, err)
 		}
-		schemaMap, ok := schemaObj.(map[string]interface{})
+		schemaMap, ok := schemaObj.(map[string]any)
 		if !ok {
 			return "", nil, fmt.Errorf("schema 验证失败: schema 不是有效的对象类型, 路径: %s", jsonPath)
 		}
@@ -115,7 +115,7 @@ func NewResourceSchema(
 
 // NewAPISIXJsonSchemaValidator 创建 APISIXJsonSchemaValidator
 func NewAPISIXJsonSchemaValidator(version constant.APISIXVersion,
-	resourceType constant.APISIXResource, jsonPath string, customizePluginSchemaMap map[string]interface{},
+	resourceType constant.APISIXResource, jsonPath string, customizePluginSchemaMap map[string]any,
 	dataType constant.DataType,
 ) (Validator, error) {
 	schemaDef, schema, err := NewResourceSchema(version, resourceType, jsonPath, dataType)
@@ -131,7 +131,7 @@ func NewAPISIXJsonSchemaValidator(version constant.APISIXVersion,
 	}, nil
 }
 
-func getPlugins(reqBody interface{}) (map[string]interface{}, string) {
+func getPlugins(reqBody any) (map[string]any, string) {
 	switch bodyType := reqBody.(type) {
 	case *entity.Route:
 		log.Infof("type of reqBody: %#v", bodyType)
@@ -157,7 +157,7 @@ func getPlugins(reqBody interface{}) (map[string]interface{}, string) {
 	case *entity.PluginMetaData:
 		log.Infof("type of reqBody: %#v", bodyType)
 		name := cast.ToString(bodyType.PluginMetadataConf["id"])
-		return map[string]interface{}{name: map[string]interface{}(bodyType.PluginMetadataConf)}, "metadata_schema"
+		return map[string]any{name: map[string]any(bodyType.PluginMetadataConf)}, "metadata_schema"
 	}
 	return nil, ""
 }
@@ -265,7 +265,7 @@ func checkRemoteAddr(remoteAddrs []string) error {
 }
 
 // validateVarItem 校验单个 var 条目
-func validateVarItem(item []interface{}) error {
+func validateVarItem(item []any) error {
 	length := len(item)
 	// 检查数组长度
 	if length != 3 && length != 4 {
@@ -303,23 +303,23 @@ func validateVarItem(item []interface{}) error {
 }
 
 // checkVars 校验 vars
-func checkVars(vars []interface{}) error {
+func checkVars(vars []any) error {
 	if len(vars) == 0 {
 		return nil
 	}
 	for i, item := range vars {
 		// 检查是否为数组
-		if _, ok := item.([]interface{}); !ok {
+		if _, ok := item.([]any); !ok {
 			return errors.New(" vars数组的值对象必须也是列表")
 		}
-		if err := validateVarItem(item.([]interface{})); err != nil {
+		if err := validateVarItem(item.([]any)); err != nil {
 			return fmt.Errorf("第 %d 项错误: %v", i+1, err)
 		}
 	}
 	return nil
 }
 
-func (v *APISIXJsonSchemaValidator) checkConf(reqBody interface{}) error {
+func (v *APISIXJsonSchemaValidator) checkConf(reqBody any) error {
 	switch bodyType := reqBody.(type) {
 	case *entity.Route:
 		route := reqBody.(*entity.Route)
@@ -390,7 +390,7 @@ func (v *APISIXJsonSchemaValidator) Validate(rawConfig json.RawMessage) error { 
 	}
 
 	// custom check
-	var obj interface{}
+	var obj any
 	switch v.resourceType {
 	case constant.Route:
 		obj = &entity.Route{}
@@ -435,21 +435,29 @@ func (v *APISIXJsonSchemaValidator) Validate(rawConfig json.RawMessage) error { 
 	}
 
 	for pluginName, pluginConf := range plugins {
-		var schemaMap map[string]interface{}
+		var schemaMap map[string]any
 		schemaValue := GetPluginSchema(v.version, pluginName, schemaType)
 		// 查询自定义插件
 		if schemaValue == nil && v.customizePluginSchemaMap != nil {
 			schemaValue = v.customizePluginSchemaMap[pluginName]
 		}
 		if schemaValue == nil {
-			log.Errorf("schema validate failed: schema not found,  %s, %s", "plugins."+pluginName, schemaType)
+			log.Errorf(
+				"schema validate failed: schema not found,  %s, %s",
+				"plugins."+pluginName,
+				schemaType,
+			)
 			return fmt.Errorf("资源:%s schema 验证失败: 未找到 schema, 路径: %s",
 				resourceIdentification, "plugins."+pluginName)
 		}
-		schemaMap = schemaValue.(map[string]interface{})
+		schemaMap = schemaValue.(map[string]any)
 		schemaByte, err := json.Marshal(schemaMap)
 		if err != nil {
-			log.Warnf("schema validate failed: schema json encode failed, path: %s, %v", "plugins."+pluginName, err)
+			log.Warnf(
+				"schema validate failed: schema json encode failed, path: %s, %v",
+				"plugins."+pluginName,
+				err,
+			)
 			return fmt.Errorf(
 				"资源: %s schema 验证失败: schema json encode 失败, 路径: %s, %v",
 				resourceIdentification, "plugins."+pluginName,
@@ -465,7 +473,7 @@ func (v *APISIXJsonSchemaValidator) Validate(rawConfig json.RawMessage) error { 
 		}
 
 		// check property disable, if is bool, remove from json schema checking
-		conf := pluginConf.(map[string]interface{})
+		conf := pluginConf.(map[string]any)
 		var exchange bool
 		disable, ok := conf["disable"]
 		if ok {

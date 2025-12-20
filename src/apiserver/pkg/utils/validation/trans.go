@@ -78,7 +78,7 @@ func InitTrans(locale string) (err error) {
 }
 
 // registerTranslator 为自定义字段添加翻译功能
-func registerTranslator(tag string, msg string) validator.RegisterTranslationsFunc {
+func registerTranslator(tag, msg string) validator.RegisterTranslationsFunc {
 	return func(trans ut.Translator) error {
 		if err := trans.Add(tag, msg, false); err != nil {
 			return err

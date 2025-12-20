@@ -82,8 +82,7 @@ func StreamRouteCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.stream_route
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"stream_route ID"
+//	@Param		gateway_id	path	int							true	"网关ID"	@Param	id	path	string	true	"stream_route ID"
 //	@Param		request		body	serializer.StreamRouteInfo	true	"stream_route 更新参数"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes/{id}/ [put]
@@ -231,7 +230,7 @@ func StreamRouteList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

@@ -1,6 +1,3 @@
-
-
-
 ifdef VERSION
     VERSION=${VERSION}
 else
@@ -17,15 +14,15 @@ LDFLAGS="-X github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/v
 .PHONY: init
 init:
 	## 安装 golangci-lint 二进制
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) v2.1.6
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) v2.7.2
 	## 安装 gofumpt 二进制
-	GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@v0.6.0
+	GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
 	## 安装 goimports-reviser 二进制
 	GOBIN=$(LOCALBIN) go install github.com/incu6us/goimports-reviser/v3@latest
 	## 安装 swag 二进制
-	GOBIN=$(LOCALBIN) go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc3.0.20241024073205-ef38f5457f71
+	GOBIN=$(LOCALBIN) go install github.com/swaggo/swag/v2/cmd/swag@latest
 	## 安装 golines 二进制
-	GOBIN=$(LOCALBIN) go install github.com/segmentio/golines@v0.12.2
+	GOBIN=$(LOCALBIN) go install github.com/segmentio/golines@latest
 
 # go mod tidy
 .PHONY: tidy
@@ -54,7 +51,6 @@ integration-test:
 # generate swagger api doc with swag
 .PHONY: doc
 doc:
-	GOBIN=$(LOCALBIN) go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc3.0.20241024073205-ef38f5457f71
 	$(SWAG) fmt
 	$(SWAG) init --parseDependency --parseDepth 3
 
@@ -65,9 +61,7 @@ docker-build:
 
 .PHONY: fmt
 fmt:
-	$(GOLINES) ./ -m 119 -w --base-formatter gofmt --no-reformat-tags
-	$(GOFUMPT) -l -w .
-	$(GOIMPORTS) -rm-unused -set-alias -format ./...
+	$(GOLINTER) fmt
 
 .PHONY: vet
 vet:

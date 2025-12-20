@@ -120,8 +120,10 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		// validate config schema
 		configs := gjson.ParseBytes(reqBody).Array()
 		for _, config := range configs {
-			schemaValidator, err := schema.NewAPISIXSchemaValidator(ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
-				"main."+resourceType.String())
+			schemaValidator, err := schema.NewAPISIXSchemaValidator(
+				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+				"main."+resourceType.String(),
+			)
 			if err != nil {
 				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
 				c.Abort()
@@ -141,17 +143,28 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
-				resourceType, "main."+string(resourceType), customizePluginSchemaMap, constant.DATABASE)
+			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
+				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+				resourceType,
+				"main."+string(resourceType),
+				customizePluginSchemaMap,
+				constant.DATABASE,
+			)
 			if err != nil {
-				ginx.BadRequestErrorJSONResponse(c, fmt.Errorf("resource config:%s validate failed, err: %v",
-					configRaw, err))
+				ginx.BadRequestErrorJSONResponse(
+					c,
+					fmt.Errorf("resource config:%s validate failed, err: %v",
+						configRaw, err),
+				)
 				c.Abort()
 				return
 			}
 			if err = jsonConfigValidator.Validate(json.RawMessage(configRaw)); err != nil { // 校验json schema
-				ginx.BadRequestErrorJSONResponse(c, fmt.Errorf("resource config:%s validate failed, err: %v",
-					configRaw, err))
+				ginx.BadRequestErrorJSONResponse(
+					c,
+					fmt.Errorf("resource config:%s validate failed, err: %v",
+						configRaw, err),
+				)
 				c.Abort()
 			}
 

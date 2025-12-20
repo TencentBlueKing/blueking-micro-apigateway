@@ -121,7 +121,14 @@ func loadMysqlConfigFromEnv() (*MysqlConfig, error) {
 		return nil, errors.Wrapf(err, "invalid GCS_MYSQL_PORT: %s", port)
 	}
 
-	return &MysqlConfig{Host: host, Port: mysqlPort, Name: name, User: user, Password: passwd, Charset: charset}, nil
+	return &MysqlConfig{
+		Host:     host,
+		Port:     mysqlPort,
+		Name:     name,
+		User:     user,
+		Password: passwd,
+		Charset:  charset,
+	}, nil
 }
 
 // 从环境变量读取服务配置

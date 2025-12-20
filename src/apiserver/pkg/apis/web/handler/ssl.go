@@ -42,8 +42,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int							true	"网关 ID"
-//	@Param		request		body	serializer.SSLCheckRequest	true	"ssl check请求参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.SSLCheckRequest	true	"ssl
+//
+// check请求参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/check [post]
 func SSLCheck(c *gin.Context) {
@@ -70,8 +72,10 @@ func SSLCheck(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int					true	"网关 ID"
-//	@Param		request		body	serializer.SSLInfo	true	"ssl create请求参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.SSLInfo	true	"ssl
+//
+// create请求参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/ [post]
 func SSLCreate(c *gin.Context) {
@@ -124,8 +128,7 @@ func SSLCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int					true	"网关ID"
-//	@Param		id			path	string				true	"SSL ID"
+//	@Param		gateway_id	path	int					true	"网关ID"	@Param	id	path	string	true	"SSL ID"
 //	@Param		request		body	serializer.SSLInfo	true	"SSL更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [put]
@@ -206,7 +209,7 @@ func SSLList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID

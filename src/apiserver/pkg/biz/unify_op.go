@@ -130,7 +130,7 @@ func AddSyncedResources( //nolint:gocyclo
 ) (map[constant.APISIXResource]int, error) {
 	// 同步资源统计
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
-	queryParam := map[string]interface{}{
+	queryParam := map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}
 	if len(idList) != 0 {
@@ -402,7 +402,7 @@ func GetSyncItemsAssociatedResources(
 		}
 	}
 	if len(associatedIDs) > 0 {
-		associatedItems, err := QuerySyncedItems(ctx, map[string]interface{}{
+		associatedItems, err := QuerySyncedItems(ctx, map[string]any{
 			"id": associatedIDs,
 		})
 		if err != nil {
@@ -503,7 +503,7 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	resourceList := s.kvToResource(ctx, kvList)
 
 	// 获取已同步资源
-	items, err := QuerySyncedItems(ctx, map[string]interface{}{})
+	items, err := QuerySyncedItems(ctx, map[string]any{})
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +531,15 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 		// 更新同步时间
 		g := tx.Gateway
 		s.gatewayInfo.LastSyncedAt = time.Now()
-		_, err = g.WithContext(ctx).Where(g.ID.Eq(s.gatewayInfo.ID)).Select(g.LastSyncedAt).Updates(s.gatewayInfo)
+		_, err = g.WithContext(
+			ctx,
+		).Where(
+			g.ID.Eq(s.gatewayInfo.ID),
+		).Select(
+			g.LastSyncedAt,
+		).Updates(
+			s.gatewayInfo,
+		)
 		if err != nil {
 			return err
 		}
@@ -704,7 +712,7 @@ func (s *UnifyOp) kvToResource(
 		// 反向查找ID
 		metadatas, err := QueryPluginMetadatas(
 			ctx,
-			map[string]interface{}{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
+			map[string]any{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
 		)
 		if err != nil {
 			logging.Errorf("SearchPluginMetadata error: %s", err.Error())
@@ -725,7 +733,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 global rule name
 	if len(globalRuleIDs) > 0 {
-		globalRules, err := QueryGlobalRules(ctx, map[string]interface{}{
+		globalRules, err := QueryGlobalRules(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         globalRuleIDs,
 		})
@@ -742,7 +750,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 PluginConfig name
 	if len(pluginConfigIDs) > 0 {
-		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]interface{}{
+		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         pluginConfigIDs,
 		})
@@ -759,7 +767,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 ConsumerGroup id，name
 	if len(consumerGroupIDs) > 0 {
-		consumerGroups, err := QueryConsumerGroups(ctx, map[string]interface{}{
+		consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         consumerGroupIDs,
 		})
@@ -777,7 +785,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 Proto name
 	if len(protoIDs) > 0 {
-		protos, err := QueryProtos(ctx, map[string]interface{}{
+		protos, err := QueryProtos(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         protoIDs,
 		})
@@ -794,7 +802,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 StreamRoute name，labels
 	if len(streamRouteIDs) > 0 {
-		streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{
+		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
 			"id": streamRouteIDs,
 		})
 		if err != nil {
@@ -819,7 +827,7 @@ func SyncedResourceToAPISIXResource(
 	resourceType constant.APISIXResource,
 	syncedResources []*model.GatewaySyncData,
 	status constant.ResourceStatus,
-) interface{} {
+) any {
 	switch resourceType {
 	case constant.Route:
 		return syncedResourceToAPISIXRoute(syncedResources, status)
@@ -1088,7 +1096,7 @@ func DiffResources(
 	var result []dto.ResourceChangeInfo
 	for _, rT := range constant.ResourceTypeList {
 		var resourceName string
-		param := map[string]interface{}{
+		param := map[string]any{
 			"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 			"status": []constant.ResourceStatus{
 				constant.ResourceStatusCreateDraft,
@@ -1155,14 +1163,23 @@ func DiffResources(
 				resourceTypeDiffResult.UpdateCount++
 				resourceChangeDetail.PublishFrom = constant.OperationTypeUpdate
 			}
-			resourceTypeDiffResult.ChangeDetail = append(resourceTypeDiffResult.ChangeDetail, resourceChangeDetail)
+			resourceTypeDiffResult.ChangeDetail = append(
+				resourceTypeDiffResult.ChangeDetail,
+				resourceChangeDetail,
+			)
 			// 处理关联资源
 			serviceID := resourceInfo.GetServiceID()
 			if serviceID != "" {
-				diffResourceTypeMap[constant.Service] = append(diffResourceTypeMap[constant.Service], serviceID)
+				diffResourceTypeMap[constant.Service] = append(
+					diffResourceTypeMap[constant.Service],
+					serviceID,
+				)
 			}
 			if upstreamID := resourceInfo.GetUpstreamID(); upstreamID != "" {
-				diffResourceTypeMap[constant.Upstream] = append(diffResourceTypeMap[constant.Upstream], upstreamID)
+				diffResourceTypeMap[constant.Upstream] = append(
+					diffResourceTypeMap[constant.Upstream],
+					upstreamID,
+				)
 			}
 			if pluginConfigID := resourceInfo.GetPluginConfigID(); pluginConfigID != "" {
 				diffResourceTypeMap[constant.PluginConfig] = append(

@@ -50,7 +50,7 @@ func OperationAuditLogList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{
+	queryParam := map[string]any{
 		"gateway_id": c.Param("gateway_id"),
 	}
 	if req.OperationType != "" {
@@ -159,7 +159,7 @@ func getOperationAuditLogResourceIDNames(
 func getOperationAuditLogResults(
 	ctx context.Context,
 	req serializer.OperationAuditLogListRequest,
-	queryParam map[string]interface{},
+	queryParam map[string]any,
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
@@ -211,7 +211,7 @@ func getOperationAuditLogResults(
 func getOperationAuditLogResultsByName(
 	ctx context.Context,
 	req serializer.OperationAuditLogListRequest,
-	queryParam map[string]interface{},
+	queryParam map[string]any,
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {

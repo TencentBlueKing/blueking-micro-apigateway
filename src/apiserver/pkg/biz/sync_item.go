@@ -57,7 +57,11 @@ func (s *Syncer) Run() {
 					return nil
 				}
 				// 先删除后插入
-				_, err := tx.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(resourceList[0].GatewayID)).
+				_, err := tx.GatewaySyncData.WithContext(
+					ctx,
+				).Where(
+					u.GatewayID.Eq(resourceList[0].GatewayID),
+				).
 					Delete()
 				if err != nil {
 					return err
@@ -65,7 +69,11 @@ func (s *Syncer) Run() {
 				return tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourceList, 500)
 			})
 			if err != nil {
-				logging.Errorf("sync gateway:%d resource error: %s", resourceList[0].GatewayID, err.Error())
+				logging.Errorf(
+					"sync gateway:%d resource error: %s",
+					resourceList[0].GatewayID,
+					err.Error(),
+				)
 			}
 		}
 	}
@@ -73,7 +81,7 @@ func (s *Syncer) Run() {
 
 // buildSyncedItemQuery 获取查询同步资源列表的 query
 func buildSyncedItemQuery(ctx context.Context) repo.IGatewaySyncDataDo {
-	return repo.GatewaySyncData.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.GatewaySyncData.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -81,7 +89,7 @@ func buildSyncedItemQuery(ctx context.Context) repo.IGatewaySyncDataDo {
 // ListPagedSyncedItems 分页查询同步资源列表
 func ListPagedSyncedItems(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	page PageParam,
 ) ([]*model.GatewaySyncData, int64, error) {
 	u := repo.GatewaySyncData
@@ -92,7 +100,7 @@ func ListPagedSyncedItems(
 }
 
 // QuerySyncedItems 查询同步资源
-func QuerySyncedItems(ctx context.Context, param map[string]interface{}) ([]*model.GatewaySyncData, error) {
+func QuerySyncedItems(ctx context.Context, param map[string]any) ([]*model.GatewaySyncData, error) {
 	return buildSyncedItemQuery(ctx).Where(field.Attrs(param)).Find()
 }
 

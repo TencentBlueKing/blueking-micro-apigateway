@@ -79,8 +79,7 @@ func ProtoCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"proto ID"
+//	@Param		gateway_id	path	int						true	"网关ID"	@Param	id	path	string	true	"proto ID"
 //	@Param		request		body	serializer.ProtoInfo	true	"proto 更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [put]
@@ -218,7 +217,7 @@ func ProtoList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

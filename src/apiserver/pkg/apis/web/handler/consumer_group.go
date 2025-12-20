@@ -81,8 +81,7 @@ func ConsumerGroupCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.consumer_group
-//	@Param		gateway_id	path	int								true	"网关ID"
-//	@Param		id			path	string							true	"consumer_group ID"
+//	@Param		gateway_id	path	int								true	"网关ID"	@Param	id	path	string	true	"consumer_group ID"
 //	@Param		request		body	serializer.ConsumerGroupInfo	true	"consumer_group更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [put]
@@ -150,7 +149,7 @@ func ConsumerGroupList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

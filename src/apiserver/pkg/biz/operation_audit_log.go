@@ -234,7 +234,7 @@ func WrapBatchRevertResourceAddAuditLog(ctx context.Context, resourceType consta
 // ListOperationAuditLogs 查询操作审计列表
 func ListOperationAuditLogs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	resourceID string,
 	operator string,
 	timeStart int,
@@ -260,7 +260,7 @@ func ListOperationAuditLogs(
 // ListPagedOperationAuditLogs 分页查询 操作审计列表
 func ListPagedOperationAuditLogs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	resourceID string,
 	operator string,
 	timeStart int,

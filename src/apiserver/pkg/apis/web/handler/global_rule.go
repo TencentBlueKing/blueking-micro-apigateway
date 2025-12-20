@@ -79,8 +79,7 @@ func GlobalRuleCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.global_rule
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"global_rule ID"
+//	@Param		gateway_id	path	int							true	"网关ID"	@Param	id	path	string	true	"global_rule ID"
 //	@Param		request		body	serializer.GlobalRuleInfo	true	"global_rule更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [put]
@@ -143,7 +142,7 @@ func GlobalRuleList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

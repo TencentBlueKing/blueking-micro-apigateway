@@ -32,14 +32,14 @@ import (
 
 // buildConsumerGroupQuery 获取 ConsumerGroup 查询对象
 func buildConsumerGroupQuery(ctx context.Context) repo.IConsumerGroupDo {
-	return repo.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildConsumerGroupQueryWithTx 获取 ConsumerGroup 查询对象
 func buildConsumerGroupQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerGroupDo {
-	return tx.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return tx.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -71,7 +71,7 @@ func GetConsumerGroupOrderExprList(orderBy string) []field.Expr {
 // ListPagedConsumerGroups 分页查询 ConsumerGroup 列表
 func ListPagedConsumerGroups(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -136,7 +136,7 @@ func GetConsumerGroup(ctx context.Context, id string) (*model.ConsumerGroup, err
 }
 
 // QueryConsumerGroups 搜索 ConsumerGroup
-func QueryConsumerGroups(ctx context.Context, param map[string]interface{}) ([]*model.ConsumerGroup, error) {
+func QueryConsumerGroups(ctx context.Context, param map[string]any) ([]*model.ConsumerGroup, error) {
 	return buildConsumerGroupQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -181,7 +181,7 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	consumerGroups, err := QueryConsumerGroups(ctx, map[string]interface{}{
+	consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

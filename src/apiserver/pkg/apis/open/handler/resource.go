@@ -59,7 +59,10 @@ func ResourceBatchCreate(c *gin.Context) {
 	var names []string
 	for _, resource := range req {
 		if _, ok := nameMap[resource.Name]; ok {
-			ginx.BadRequestErrorJSONResponse(c, fmt.Errorf("resource name: %s is not unique", resource.Name))
+			ginx.BadRequestErrorJSONResponse(
+				c,
+				fmt.Errorf("resource name: %s is not unique", resource.Name),
+			)
 			return
 		}
 		nameMap[resource.Name] = struct{}{}
@@ -86,8 +89,11 @@ func ResourceBatchCreate(c *gin.Context) {
 	var res []serializer.ResourceCreateResponse
 	for _, resource := range resources {
 		res = append(res, serializer.ResourceCreateResponse{
-			ID:   resource.ID,
-			Name: gjson.GetBytes(resource.Config, model.GetResourceNameKey(ginx.GetResourceType(c))).String(),
+			ID: resource.ID,
+			Name: gjson.GetBytes(
+				resource.Config,
+				model.GetResourceNameKey(ginx.GetResourceType(c)),
+			).String(),
 		})
 	}
 	ginx.SuccessJSONResponse(c, res)

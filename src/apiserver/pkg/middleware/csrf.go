@@ -29,14 +29,14 @@ import (
 )
 
 // CSRF 中间件用于防止跨站请求伪造
-func CSRF(appID string, secret string) gin.HandlerFunc {
+func CSRF(appID, secret string) gin.HandlerFunc {
 	return adapter.Wrap(
 		csrf.Protect([]byte(secret), csrf.Secure(false), csrf.Path("/"), csrf.CookieName(appID+"-csrf")),
 	)
 }
 
 // CSRFToken 中间件用于在 cookie 中设置 csrf token
-func CSRFToken(appID string, domain string) gin.HandlerFunc {
+func CSRFToken(appID, domain string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.SetSameSite(http.SameSiteLaxMode)
 		// 参数依次为：cookie 名称，值，有效期（0 表示会话 cookie）

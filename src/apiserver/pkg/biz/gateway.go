@@ -113,7 +113,7 @@ func ExistsGatewayName(ctx context.Context, name string, id int) bool {
 }
 
 // GetGatewayEtcdConfigList 查询 etcd_config 比对结果的网关列表
-func GetGatewayEtcdConfigList(ctx context.Context, key string, val string) ([]*model.Gateway, error) {
+func GetGatewayEtcdConfigList(ctx context.Context, key, val string) ([]*model.Gateway, error) {
 	return repo.Gateway.WithContext(ctx).Where(
 		gen.Cond(datatypes.JSONQuery("etcd_config").Equals(val, key))...,
 	).Find()
@@ -134,7 +134,7 @@ func ListGatewayResourceLabels(
 	var keys []string
 	labelMap := make(map[string][]string)
 	for _, resource := range resourceList {
-		var labels map[string]interface{}
+		var labels map[string]any
 		err := json.Unmarshal([]byte(gjson.ParseBytes(resource.Config).Get("labels").String()), &labels)
 		if err != nil {
 			continue
@@ -164,7 +164,16 @@ func DeleteGateway(ctx context.Context, gateway *model.Gateway) error {
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
 		// 删除网关下所有资源
 		for _, v := range gatewayResourceModelNameList {
-			err := database.Client().WithContext(ctx).Table(v).Where("gateway_id = ?", gateway.ID).Delete(v).Error
+			err := database.Client().WithContext(
+				ctx,
+			).Table(
+				v,
+			).Where(
+				"gateway_id = ?",
+				gateway.ID,
+			).Delete(
+				v,
+			).Error
 			if err != nil {
 				return err
 			}

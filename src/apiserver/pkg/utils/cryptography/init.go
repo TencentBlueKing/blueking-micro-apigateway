@@ -25,7 +25,7 @@ import (
 var commonCrypto *AESGcm
 
 // Init ...
-func Init(encryptKey string, nonce string) (err error) {
+func Init(encryptKey, nonce string) (err error) {
 	commonCrypto, err = NewAESGcm([]byte(encryptKey), []byte(nonce))
 	if err != nil {
 		return fmt.Errorf("cryptos[id=app_secret_key] key error: %w", err)

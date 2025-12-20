@@ -33,7 +33,7 @@ import (
 
 // buildSchemaQuery 获取 GatewayCustomPluginSchema 查询对象
 func buildSchemaQuery(ctx context.Context) repo.IGatewayCustomPluginSchemaDo {
-	return repo.GatewayCustomPluginSchema.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.GatewayCustomPluginSchema.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -41,7 +41,7 @@ func buildSchemaQuery(ctx context.Context) repo.IGatewayCustomPluginSchemaDo {
 // buildSchemaQueryWithTx 获取 GatewayCustomPluginSchema 查询对象(带事务)
 func buildSchemaQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGatewayCustomPluginSchemaDo {
 	// Create query with context and filter by gateway_id from context
-	return tx.WithContext(ctx).GatewayCustomPluginSchema.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).GatewayCustomPluginSchema.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID, // Get gateway ID from context and use as filter
 	}))
 }
@@ -218,8 +218,8 @@ func GetCustomizePluginExampleList(ctx context.Context, gatewayID int) ([]*schem
 	}
 	// Iterate through each schema
 	for _, s := range schemaList {
-		var plugin schema.Plugin              // Create a new plugin instance
-		var exampleMap map[string]interface{} // Map to store unmarshaled example data
+		var plugin schema.Plugin      // Create a new plugin instance
+		var exampleMap map[string]any // Map to store unmarshaled example data
 		// Unmarshal the example JSON data into the map
 		err := json.Unmarshal(s.Example, &exampleMap)
 		if err != nil {
@@ -237,7 +237,7 @@ func GetCustomizePluginExampleList(ctx context.Context, gatewayID int) ([]*schem
 }
 
 // GetCustomizePluginSchemaMap 查询自定义插件 schema map
-func GetCustomizePluginSchemaMap(ctx context.Context) (map[string]interface{}, error) {
+func GetCustomizePluginSchemaMap(ctx context.Context) (map[string]any, error) {
 	schemaList, err := ListSchema(ctx)
 	if err != nil {
 		return nil, err
@@ -250,10 +250,10 @@ func GetCustomizePluginSchemaMap(ctx context.Context) (map[string]interface{}, e
 }
 
 // GetCustomizePluginNameToSchemaMap 查询自定义插件映射关系
-func GetCustomizePluginNameToSchemaMap(schemaList []*model.GatewayCustomPluginSchema) (map[string]interface{}, error) {
-	pluginSchemaMap := map[string]interface{}{}
+func GetCustomizePluginNameToSchemaMap(schemaList []*model.GatewayCustomPluginSchema) (map[string]any, error) {
+	pluginSchemaMap := map[string]any{}
 	for _, s := range schemaList {
-		var schemaInfo map[string]interface{}
+		var schemaInfo map[string]any
 		err := json.Unmarshal(s.Schema, &schemaInfo)
 		if err != nil {
 			return nil, err

@@ -1,5 +1,5 @@
 # -------------- builder container --------------
-FROM golang:1.24.4 as builder
+FROM golang:1.25.5 as builder
 
 WORKDIR /app
 

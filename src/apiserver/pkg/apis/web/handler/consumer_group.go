@@ -98,6 +98,12 @@ func ConsumerGroupUpdate(c *gin.Context) {
 		return
 	}
 
+	// if config not changed, return success directly
+	if !biz.IsResourceConfigChanged(c.Request.Context(), constant.ConsumerGroup, pathParam.ID, req.Config) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.ConsumerGroup, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)

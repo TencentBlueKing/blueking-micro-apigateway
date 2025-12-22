@@ -94,6 +94,13 @@ func ProtoUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
+
+	// if config not changed, return success directly
+	if !biz.IsResourceConfigChanged(c.Request.Context(), constant.Proto, pathParam.ID, req.Config) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Proto, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)

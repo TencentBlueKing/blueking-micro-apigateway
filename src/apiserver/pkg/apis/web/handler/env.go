@@ -35,9 +35,11 @@ import (
 //	@Router		/api/v1/web/env-vars/ [get]
 func EnvVars(c *gin.Context) {
 	vars := serializer.EnvVarsResponse{
+		Edition: config.G.Edition,
 		Links: serializer.LinkInfo{
-			BKGuideLink:    config.G.Biz.Links.BKGuideLink,
-			BKFeedBackLink: config.G.Biz.Links.BKFeedBackLink,
+			BKGuideLink:      config.G.Biz.Links.BKGuideLink,
+			BKFeedBackLink:   config.G.Biz.Links.BKFeedBackLink,
+			BKApigatewayLink: config.G.Biz.Links.BKApigatewayLink,
 		},
 	}
 	ginx.SuccessJSONResponse(c, vars)

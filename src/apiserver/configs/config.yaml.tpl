@@ -1,4 +1,8 @@
 # 更多配置字段说明：pkg/config/types.go
+
+# 版本，可选项：ee、te
+edition: ee
+
 # 蓝鲸平台相关配置
 platform:
   # 蓝鲸应用 ID
@@ -28,7 +32,7 @@ platform:
     mysql:
       host: localhost
       port: 3306
-      name: gin-demo
+      name: bk-micro-apigateway
       user: root
       password: <masked>
       charset: utf8mb4
@@ -36,8 +40,8 @@ platform:
     rabbitMQ:
       host: localhost
       port: 5672
-      user: gin-demo
-      vhost: gin-demo
+      user: bk-micro-apigateway
+      vhost: bk-micro-apigateway
       password: <masked>
     # Redis 服务
     redis:
@@ -86,6 +90,30 @@ service:
   # 文档，静态文件，模板的基础目录
   docFileBaseDir: docs
   staticFileBaseDir: static
+  appCode: "demo"
+  appSecret: "123"
+  userTokenKey: "bk_token"
+  csrfCookieDomain: ""
+  sessionCookieAge: 24h
+  standalone: false
+  demoMode: false
   tmplFileBaseDir: templates
 # 业务相关配置
-biz: {}
+biz:
+  links:
+    bkGuideLink: http://example.com/guide
+    bkFeedBackLink: http://example.com/feedback
+    bkApigatewayLink: http://apigw.example.com
+
+mysqlconfig:
+  host: localhost
+  port: 3306
+  name: bk-micro-apigateway
+  user: root
+  password: <masked>
+  charset: utf8mb4
+
+crypto:
+  nonce: k2dbCGetyusW
+  key: jxi18GX5w2qgHwfZCFpn07q8FScXJOd3
+

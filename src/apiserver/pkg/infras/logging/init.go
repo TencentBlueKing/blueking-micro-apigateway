@@ -74,7 +74,12 @@ func newLogger(opts *Options) (*slog.Logger, error) {
 		return nil, err
 	}
 
-	sentryLevel, err := toSlogLevel(opts.SentryReportLevel)
+	// 如果 SentryReportLevel 为空，默认使用 error 级别
+	sentryReportLevel := opts.SentryReportLevel
+	if sentryReportLevel == "" {
+		sentryReportLevel = "error"
+	}
+	sentryLevel, err := toSlogLevel(sentryReportLevel)
 	if err != nil {
 		return nil, err
 	}

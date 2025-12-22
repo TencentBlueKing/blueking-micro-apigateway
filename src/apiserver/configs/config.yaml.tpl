@@ -90,9 +90,20 @@ service:
   # 文档，静态文件，模板的基础目录
   docFileBaseDir: docs
   staticFileBaseDir: static
+  appCode: "demo"
+  appSecret: "123"
+  userTokenKey: "bk_token"
+  csrfCookieDomain: ""
+  sessionCookieAge: 24h
+  standalone: false
+  demoMode: false
   tmplFileBaseDir: templates
 # 业务相关配置
-biz: {}
+biz:
+  links:
+    bkGuideLink: http://example.com/guide
+    bkFeedBackLink: http://example.com/feedback
+    bkApigatewayLink: http://apigw.example.com
 
 mysqlconfig:
   host: localhost

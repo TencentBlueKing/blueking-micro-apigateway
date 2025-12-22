@@ -89,6 +89,7 @@ func loadConfigFromEnv() (*Config, error) {
 		return nil, err
 	}
 	return &Config{
+		Edition:         envx.Get("EDITION", "ee"),
 		Service:         serviceCfg,
 		Biz:             bizCfg,
 		Tracing:         loadTraceFromEnv(),
@@ -268,8 +269,9 @@ func loadBizConfigFromEnv() (BizConfig, error) {
 		OpenApiTokenWhitelist: tokenMap,
 		DemoProtectResources:  demoProtectResourceMap,
 		Links: LinkConfig{
-			BKFeedBackLink: envx.Get("BK_FEED_BACK_LINK", ""),
-			BKGuideLink:    envx.Get("BK_GUIDE_LINK", ""),
+			BKFeedBackLink:   envx.Get("BK_FEED_BACK_LINK", ""),
+			BKGuideLink:      envx.Get("BK_GUIDE_LINK", ""),
+			BKApigatewayLink: envx.Get("BK_APIGATEWAY_LINK", ""),
 		},
 	}, nil
 }

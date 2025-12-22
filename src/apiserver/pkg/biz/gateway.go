@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -77,7 +77,7 @@ func UpdateGateway(ctx context.Context, gateway model.Gateway) error {
 	return err
 }
 
-// SaveGateway save网关
+// SaveGateway save 网关
 func SaveGateway(ctx context.Context, gateway *model.Gateway) error {
 	u := repo.Gateway
 	return u.WithContext(ctx).Save(gateway)
@@ -89,7 +89,7 @@ func GetGateway(ctx context.Context, id int) (*model.Gateway, error) {
 	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
 }
 
-// GetGatewayByName 根据name查询网关详情
+// GetGatewayByName 根据 name 查询网关详情
 func GetGatewayByName(ctx context.Context, name string) (*model.Gateway, error) {
 	u := repo.Gateway
 	return u.WithContext(ctx).Where(u.Name.Eq(name)).First()

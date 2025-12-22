@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -57,7 +57,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	resourceType := fl.Param()
 	resourceIdentification := schema.GetResourceIdentification(rawConfig)
 	if resourceIdentification == "" {
-		// 兼容第一次创建没有id的情况以及rawConfig没有name的情况
+		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
 		resourceIdentification = getResourceNameByResourceType(resourceType, fl)
 		rawConfig, _ = sjson.SetBytes(
 			rawConfig,
@@ -66,7 +66,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		)
 	}
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	// 基础schema校验
+	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(), "main."+resourceType)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %v",
@@ -74,7 +74,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		logging.Errorf("new schema validator failed, err: %v", err)
 		return false
 	}
-	// metadata校验需要带上插件name
+	// metadata 校验需要带上插件 name
 	if resourceType == constant.PluginMetadata.String() {
 		rawConfig, _ = sjson.SetBytes(rawConfig, "id", fl.Parent().FieldByName("Name").String())
 	}
@@ -106,7 +106,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		logging.Errorf("new schema config validator failed, err: %v", err)
 		return false
 	}
-	if err = jsonConfigValidator.Validate(rawConfig); err != nil { // 校验json schema
+	if err = jsonConfigValidator.Validate(rawConfig); err != nil { // 校验 json schema
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
 		logging.Errorf("json schema validate failed, err: %v", err)
 		return false

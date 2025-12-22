@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -79,7 +79,7 @@ func ProtoCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path	int						true	"网关ID"	@Param	id	path	string	true	"proto ID"
+//	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"proto ID"
 //	@Param		request		body	serializer.ProtoInfo	true	"proto 更新参数"
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [put]

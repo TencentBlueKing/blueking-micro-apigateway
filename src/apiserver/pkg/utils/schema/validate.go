@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -87,7 +87,7 @@ func NewResourceSchema(
 		schema, err := gojsonschema.NewSchema(gojsonschema.NewStringLoader(schemaDef))
 		if err != nil {
 			log.Warnf("new schema failed: %v", err)
-			return "", nil, fmt.Errorf("实例化 schema 失败: %w", err)
+			return "", nil, fmt.Errorf("实例化 schema 失败：%w", err)
 		}
 		return schemaDef, schema, nil
 	} else if dataType == constant.ETCD {
@@ -106,7 +106,7 @@ func NewResourceSchema(
 		schema, err := gojsonschema.NewSchema(gojsonschema.NewGoLoader(schemaMap))
 		if err != nil {
 			log.Warnf("new schema failed: %v", err)
-			return "", nil, fmt.Errorf("实例化 schema 失败: %w", err)
+			return "", nil, fmt.Errorf("实例化 schema 失败：%w", err)
 		}
 		return schemaDef, schema, nil
 	}
@@ -176,14 +176,14 @@ func (v *APISIXJsonSchemaValidator) cHashKeySchemaCheck(upstream *entity.Upstrea
 	if upstream.HashOn == "vars" {
 		schemaDef = schemaVersionMap[v.version].Get("main.upstream_hash_vars_schema").String()
 		if schemaDef == "" {
-			return fmt.Errorf("schema 验证失败: 未找到 schema, 路径: main.upstream_hash_vars_schema")
+			return fmt.Errorf("schema 验证失败：未找到 schema, 路径：main.upstream_hash_vars_schema")
 		}
 	}
 
 	if upstream.HashOn == "header" || upstream.HashOn == "cookie" {
 		schemaDef = schemaVersionMap[v.version].Get("main.upstream_hash_header_schema").String()
 		if schemaDef == "" {
-			return fmt.Errorf("schema 验证失败: 未找到 schema, 路径: main.upstream_hash_header_schema")
+			return fmt.Errorf("schema 验证失败：未找到 schema, 路径：main.upstream_hash_header_schema")
 		}
 	}
 
@@ -215,12 +215,12 @@ func (v *APISIXJsonSchemaValidator) checkUpstream(upstream *entity.UpstreamDef) 
 		if !ok {
 			return fmt.Errorf("当 `pass_host` 为 `node` 时, upstreams 节点不支持值 %v", nodes)
 		} else if len(nodes) != 1 {
-			return fmt.Errorf("当 `pass_host` 为 `node` 时, 目前仅支持 `node` 模式下的单节点")
+			return fmt.Errorf("当 `pass_host` 为 `node` 时，目前仅支持 `node` 模式下的单节点")
 		}
 	}
 
 	if upstream.PassHost == "rewrite" && upstream.UpstreamHost == "" {
-		return fmt.Errorf("`当 `pass_host` 为 `rewrite` 时, `upstream_host` 不可为空")
+		return fmt.Errorf("`当 `pass_host` 为 `rewrite` 时，`upstream_host` 不可为空")
 	}
 
 	// check upstream ssl
@@ -258,7 +258,7 @@ func (v *APISIXJsonSchemaValidator) checkUpstream(upstream *entity.UpstreamDef) 
 func checkRemoteAddr(remoteAddrs []string) error {
 	for _, remoteAddr := range remoteAddrs {
 		if remoteAddr == "" {
-			return fmt.Errorf("schema 验证失败: 无效字段 remote_addrs")
+			return fmt.Errorf("schema 验证失败：无效字段 remote_addrs")
 		}
 	}
 	return nil
@@ -285,7 +285,7 @@ func validateVarItem(item []any) error {
 		if op, ok := item[2].(string); !ok || !allowedOps[op] {
 			return errors.New("非法的操作符")
 		}
-		// 检查第四位是否存在(值校验可扩展)
+		// 检查第四位是否存在 (值校验可扩展)
 		if item[3] == nil {
 			return errors.New("匹配值不能为空")
 		}
@@ -310,7 +310,7 @@ func checkVars(vars []any) error {
 	for i, item := range vars {
 		// 检查是否为数组
 		if _, ok := item.([]any); !ok {
-			return errors.New(" vars数组的值对象必须也是列表")
+			return errors.New(" vars 数组的值对象必须也是列表")
 		}
 		if err := validateVarItem(item.([]any)); err != nil {
 			return fmt.Errorf("第 %d 项错误: %v", i+1, err)
@@ -359,7 +359,7 @@ func (v *APISIXJsonSchemaValidator) checkConf(reqBody any) error {
 	// case *entity.Consumer:
 	//	consumer := reqBody.(*entity.Consumer)
 	//	//if consumer.GroupID == "" && len(consumer.Plugins) == 0 {
-	//	//	return fmt.Errorf("schema 验证失败: 插件为空")
+	//	//	return fmt.Errorf("schema 验证失败：插件为空")
 	//	//}
 	case *entity.SSL:
 		_, err := sslx.ParseCert(bodyType.Cert, bodyType.Key)
@@ -524,7 +524,7 @@ func NewAPISIXSchemaValidator(version constant.APISIXVersion, jsonPath string) (
 	s, err := gojsonschema.NewSchema(gojsonschema.NewStringLoader(schemaDef))
 	if err != nil {
 		log.Warnf("new schema failed: %v", err)
-		return nil, fmt.Errorf("实例化 schema 失败: %w", err)
+		return nil, fmt.Errorf("实例化 schema 失败：%w", err)
 	}
 	return &APISIXSchemaValidator{
 		schema:  s,
@@ -538,7 +538,7 @@ func (v *APISIXSchemaValidator) Validate(obj json.RawMessage) error {
 	ret, err := v.schema.Validate(gojsonschema.NewBytesLoader(obj))
 	if err != nil {
 		log.Warnf("resource: %s schema validate failed: %v", resourceIdentification, err)
-		return fmt.Errorf("schema 验证失败: %w", err)
+		return fmt.Errorf("schema 验证失败：%w", err)
 	}
 
 	if !ret.Valid() {

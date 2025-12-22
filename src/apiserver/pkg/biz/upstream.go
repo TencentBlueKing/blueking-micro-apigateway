@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -68,7 +68,7 @@ func GetUpstreamOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedUpstreams 分页查询upstream列表
+// ListPagedUpstreams 分页查询 upstream 列表
 func ListPagedUpstreams(
 	ctx context.Context,
 	param map[string]any,

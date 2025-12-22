@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -43,7 +43,7 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string									true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string									true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string									true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath					true	"资源类型"
 //	@Param		request			body		serializer.ResourceBatchCreateRequest	true	"资源创建参数"
@@ -106,7 +106,7 @@ func ResourceBatchCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string								true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string								true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string								true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath				true	"资源类型"
 //	@Param		request			query		serializer.ResourceBatchGetRequest	true	"资源查询参数"
@@ -141,7 +141,7 @@ func ResourceBatchGet(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string									true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string									true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string									true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath					true	"资源类型"
 //	@Param		request			body	serializer.ResourceBatchDeleteRequest	true	"批量删除资源参数"
@@ -186,7 +186,7 @@ func ResourceBatchDelete(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string					true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath	true	"资源类型"
 //	@Param		id				path		string					true	"资源 ID"
@@ -218,7 +218,7 @@ func ResourceGet(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string					true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath	true	"资源类型"
 //	@Param		id				path		string					true	"资源 ID"
@@ -249,7 +249,7 @@ func ResourceGetStatus(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string								true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath				true	"资源类型"
 //	@Param		id				path	string								true	"资源 ID"
@@ -297,7 +297,7 @@ func ResourceUpdate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string					true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath	true	"资源类型"
 //	@Param		id				path	string					true	"资源 ID"
@@ -329,7 +329,7 @@ func ResourceDelete(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string								true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath				true	"资源类型"
 //	@Param		request			body	serializer.ResourcePublishRequest	true	"资源删除参数"
@@ -356,10 +356,10 @@ func ResourcePublish(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string	true	"网关名称"
 //	@Accept		multipart/form-data
-//	@Param		resource_file	formData	file	true	"资源配置文件(json)"
+//	@Param		resource_file	formData	file	true	"资源配置文件 (json)"
 //	@Success	200				{object}	common.ResourceUploadInfo
 //	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/import/ [post]
 func ResourceImport(c *gin.Context) {

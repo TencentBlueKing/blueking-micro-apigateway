@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -42,7 +42,7 @@ import (
 )
 
 var noneValidateSchemaHandlerMap = map[string]bool{
-	// 发布接口不需要进行schema校验
+	// 发布接口不需要进行 schema 校验
 	"handler.ResourcePublish": false,
 }
 
@@ -93,7 +93,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			}
 		}
 
-		// 删除操作和查询操作不需要校验schema
+		// 删除操作和查询操作不需要校验 schema
 		if method == http.MethodDelete || method == http.MethodGet {
 			c.Next()
 			return
@@ -109,7 +109,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		// other filter need it
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 
-		// 针对某些资源进行schema校验
+		// 针对某些资源进行 schema 校验
 		fullHandlerName := c.HandlerName()
 		lastSlashIndex := strings.LastIndex(fullHandlerName, "/")
 		handlerName := fullHandlerName[lastSlashIndex+1:]
@@ -159,7 +159,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			if err = jsonConfigValidator.Validate(json.RawMessage(configRaw)); err != nil { // 校验json schema
+			if err = jsonConfigValidator.Validate(json.RawMessage(configRaw)); err != nil { // 校验 json schema
 				ginx.BadRequestErrorJSONResponse(
 					c,
 					fmt.Errorf("resource config:%s validate failed, err: %v",

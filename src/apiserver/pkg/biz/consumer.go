@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -37,7 +37,7 @@ func buildConsumerQuery(ctx context.Context) repo.IConsumerDo {
 	}))
 }
 
-// buildConsumerQueryWithTx 获取 Consumer 查询对象(带事务)
+// buildConsumerQueryWithTx 获取 Consumer 查询对象 (带事务)
 func buildConsumerQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerDo {
 	return tx.Consumer.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,

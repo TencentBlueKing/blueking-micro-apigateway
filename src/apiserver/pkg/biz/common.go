@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -107,7 +107,7 @@ func (l *Labels) Scan(value any) error {
 	case string:
 		data = []byte(v)
 	default:
-		return fmt.Errorf("不支持的数据库类型: %T", v)
+		return fmt.Errorf("不支持的数据库类型：%T", v)
 	}
 	return json.Unmarshal(data, l)
 }
@@ -139,7 +139,7 @@ func BatchDeleteResourceByIDs(
 	params := map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}
-	// pluginMetadata特殊处理
+	// pluginMetadata 特殊处理
 	if resourceType == constant.PluginMetadata {
 		params["name"] = ids
 	} else {
@@ -337,7 +337,7 @@ func BatchGetResources(
 	var res []*model.ResourceCommonModel
 	query := buildCommonDbQuery(ctx, resourceType)
 
-	// 空IDs直接返回
+	// 空 IDs 直接返回
 	if len(ids) == 0 {
 		err := query.Find(&res).Error
 		return res, err
@@ -398,7 +398,7 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 	var deleteIDs []string
 	var updateIDs []string
 	for _, resource := range resourceList {
-		// 新增待发布和success才能删除
+		// 新增待发布和 success 才能删除
 		switch resource.Status {
 		case constant.ResourceStatusCreateDraft:
 			deleteIDs = append(deleteIDs, resource.ID)
@@ -424,7 +424,7 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 	return nil
 }
 
-// GetResourceByID 根据id获取资源
+// GetResourceByID 根据 id 获取资源
 func GetResourceByID(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string,
@@ -656,7 +656,9 @@ func BatchCreateResources(
 // UpdateResource 更新单个资源
 func UpdateResource(
 	ctx context.Context,
-	resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
+	resourceType constant.APISIXResource,
+	id string,
+	resource *model.ResourceCommonModel,
 ) error {
 	resourceModel, exists := resourceModelMap[resourceType]
 	if !exists {
@@ -670,7 +672,8 @@ func UpdateResource(
 // GetResourceUpdateStatus 获取资源更新状态
 func GetResourceUpdateStatus(
 	ctx context.Context,
-	resourceType constant.APISIXResource, id string,
+	resourceType constant.APISIXResource,
+	id string,
 ) (constant.ResourceStatus, error) {
 	resource, err := GetResourceByID(ctx, resourceType, id)
 	if err != nil {
@@ -750,7 +753,7 @@ func ValidateResource(
 			if err != nil {
 				return err
 			}
-			if err = jsonConfigValidator.Validate(json.RawMessage(r.Config)); err != nil { // 校验json schema
+			if err = jsonConfigValidator.Validate(json.RawMessage(r.Config)); err != nil { // 校验 json schema
 				return fmt.Errorf("resource config:%s validate failed, err: %v",
 					r.Config, err)
 			}
@@ -797,7 +800,7 @@ func ValidateResource(
 	return nil
 }
 
-// FormatResourceIDNameList 格式化资源ID和名称列表
+// FormatResourceIDNameList 格式化资源 ID 和名称列表
 func FormatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
 	switch resourceType {
 	case constant.Route:

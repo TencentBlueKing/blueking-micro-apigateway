@@ -39,7 +39,7 @@ func TestTLS(t *testing.T) {
 }
 
 func generateTestCert() (caPEM, certPEM, keyPEM string) {
-	// 生成CA证书
+	// 生成 CA 证书
 	caPrivKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	caTemplate := x509.Certificate{
 		SerialNumber: big.NewInt(1),

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -35,7 +35,7 @@ func Get(key, fallback string) string {
 	return fallback
 }
 
-// GetBoolean 读取bool类型环境变量，支持默认值
+// GetBoolean 读取 bool 类型环境变量，支持默认值
 func GetBoolean(key string, fallback bool) bool {
 	if value, ok := os.LookupEnv(key); ok {
 		return cast.ToBool(value)
@@ -43,7 +43,7 @@ func GetBoolean(key string, fallback bool) bool {
 	return fallback
 }
 
-// GetFloat64 读取float64类型环境变量，支持默认值
+// GetFloat64 读取 float64 类型环境变量，支持默认值
 func GetFloat64(key string, fallback float64) float64 {
 	if value, ok := os.LookupEnv(key); ok {
 		return cast.ToFloat64(value)

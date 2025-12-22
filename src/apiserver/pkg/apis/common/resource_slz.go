@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -37,15 +37,15 @@ import (
 // ResourceInfo ...
 type ResourceInfo struct {
 	ResourceType constant.APISIXResource `json:"resource_type,omitempty"`               // 资源类型
-	ResourceID   string                  `json:"resource_id,omitempty"`                 // 资源ID
+	ResourceID   string                  `json:"resource_id,omitempty"`                 // 资源 ID
 	Name         string                  `json:"name,omitempty"`                        // 资源名称
 	Config       json.RawMessage         `json:"config,omitempty" swaggertype:"object"` // 资源配置
-	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
+	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态 (add/update)
 }
 
-// GetResourceKey 获取资源key
+// GetResourceKey 获取资源 key
 func (r ResourceInfo) GetResourceKey() string {
-	// 插件元数据需要特殊处理,因为插件元素数没有真正id
+	// 插件元数据需要特殊处理，因为插件元素数没有真正 id
 	if r.ResourceType == constant.PluginMetadata {
 		return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.Name)
 	}
@@ -212,7 +212,7 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 			allResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
 		}
 		for _, resourceInfo := range resourceInfoList {
-			// id如果为空，直接报错
+			// id 如果为空，直接报错
 			if resourceInfo.ResourceID == "" {
 				return nil, fmt.Errorf("%s: resource id is empty: %s",
 					resourceInfo.ResourceType,
@@ -265,7 +265,7 @@ func handleResources(
 			allResourceIdMap[resource.GetResourceKey(resourceType)] = struct{}{}
 		}
 		for _, imp := range resourceInfoList {
-			// 如果id为空，直接报错
+			// 如果 id 为空，直接报错
 			if imp.ResourceID == "" {
 				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
 			}

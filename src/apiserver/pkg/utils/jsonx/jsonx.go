@@ -28,7 +28,7 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// IsJSONEmpty 判断json是否为空
+// IsJSONEmpty 判断 json 是否为空
 func IsJSONEmpty(raw json.RawMessage) bool {
 	// 尝试解析为一个空接口
 	var data any
@@ -109,7 +109,7 @@ func RemoveEmptyObjectsAndArrays(jsonStr string) (string, error) {
 		// 遍历对象的每个键值对
 		for key, value := range result.Map() {
 			if key == "plugins" {
-				// 跳过plugins字段，该字段比较特殊，需要保留
+				// 跳过 plugins 字段，该字段比较特殊，需要保留
 				continue
 			}
 			if value.IsObject() || value.IsArray() {

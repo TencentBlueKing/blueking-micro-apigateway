@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -38,7 +38,7 @@ type StreamRoute struct {
 	ServiceID string `gorm:"column:service_id;type:varchar(255)"`
 	// 关联 upstream_id 唯一标识
 	UpstreamID          string                 `gorm:"column:upstream_id;type:varchar(255)"`
-	ResourceCommonModel                        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	ResourceCommonModel                        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
 	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 

@@ -207,7 +207,7 @@ type PluginMetaData struct {
 	PluginMetadataConf
 }
 
-// UnmarshalJSON 解析PluginMetadataConf
+// UnmarshalJSON 解析 PluginMetadataConf
 func (c *PluginMetadataConf) UnmarshalJSON(dAtA []byte) error {
 	temp := make(map[string]any)
 	if err := json.Unmarshal(dAtA, &temp); err != nil {
@@ -217,7 +217,7 @@ func (c *PluginMetadataConf) UnmarshalJSON(dAtA []byte) error {
 	return nil
 }
 
-// MarshalJSON 将PluginMetadataConf转换为json
+// MarshalJSON 将 PluginMetadataConf 转换为 json
 func (c *PluginMetadataConf) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any(*c))
 }

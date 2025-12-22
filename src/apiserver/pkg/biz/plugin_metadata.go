@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -195,7 +195,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 			})
 			continue
 		} else {
-			return errors.New("未找到插件元数据 id 的同步数据:" + pluginMetadata.ID)
+			return errors.New("未找到插件元数据 id 的同步数据：" + pluginMetadata.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {

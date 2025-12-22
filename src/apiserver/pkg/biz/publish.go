@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -161,7 +161,7 @@ func PublishRoutes(ctx context.Context, routeIDs []string) error {
 	routes, err := QueryRoutes(ctx, map[string]any{"id": routeIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "routes query err: %s", err.Error())
-		return fmt.Errorf("路由查询错误: %w", err)
+		return fmt.Errorf("路由查询错误：%w", err)
 	}
 	if len(routes) == 0 {
 		logging.ErrorFWithContext(ctx, "no routes found for the specified routeIDs %v", routeIDs)
@@ -196,7 +196,7 @@ func PublishServices(ctx context.Context, serviceIDs []string) error {
 	services, err := QueryServices(ctx, map[string]any{"id": serviceIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "services query err: %s", err.Error())
-		return fmt.Errorf("服务查询错误: %w", err)
+		return fmt.Errorf("服务查询错误：%w", err)
 	}
 	if len(services) == 0 {
 		logging.ErrorFWithContext(ctx, "no services found for the specified serviceIDs %v", serviceIDs)
@@ -231,7 +231,7 @@ func PublishUpstreams(ctx context.Context, upstreamIDs []string) error {
 	upstreams, err := QueryUpstreams(ctx, map[string]any{"id": upstreamIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "upstreams query err: %s", err.Error())
-		return fmt.Errorf("上游查询错误: %w", err)
+		return fmt.Errorf("上游查询错误：%w", err)
 	}
 	if len(upstreams) == 0 {
 		logging.ErrorFWithContext(ctx, "no upstreams found for the specified upstreamIDs %v", upstreamIDs)
@@ -266,7 +266,7 @@ func PublishPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 	pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{"id": pluginConfigIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "pluginConfigs query err: %s", err.Error())
-		return fmt.Errorf("插件组查询错误: %w", err)
+		return fmt.Errorf("插件组查询错误：%w", err)
 	}
 	if len(pluginConfigs) == 0 {
 		logging.ErrorFWithContext(
@@ -305,7 +305,7 @@ func PublishConsumers(ctx context.Context, consumerIDs []string) error {
 	consumers, err := QueryConsumers(ctx, map[string]any{"id": consumerIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "consumers query err: %s", err.Error())
-		return fmt.Errorf("消费者查询错误: %w", err)
+		return fmt.Errorf("消费者查询错误：%w", err)
 	}
 	if len(consumers) == 0 {
 		logging.ErrorFWithContext(ctx, "no consumers found for the specified consumerIDs %v", consumerIDs)
@@ -340,7 +340,7 @@ func PublishConsumerGroups(ctx context.Context, consumerGroupIDs []string) error
 	consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{"id": consumerGroupIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "consumerGroups query err: %s", err.Error())
-		return fmt.Errorf("消费者组查询错误: %w", err)
+		return fmt.Errorf("消费者组查询错误：%w", err)
 	}
 	if len(consumerGroups) == 0 {
 		logging.ErrorFWithContext(
@@ -379,7 +379,7 @@ func PublishGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 	globalRules, err := QueryGlobalRules(ctx, map[string]any{"id": globalRuleIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "globalRules query err: %s", err.Error())
-		return fmt.Errorf("全局规则查询错误: %w", err)
+		return fmt.Errorf("全局规则查询错误：%w", err)
 	}
 	if len(globalRules) == 0 {
 		logging.ErrorFWithContext(ctx, "no globalRules found for the specified globalRuleIDs %v", globalRuleIDs)
@@ -414,7 +414,7 @@ func PublishPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) err
 	pluginMetadatas, err := QueryPluginMetadatas(ctx, map[string]any{"id": pluginMetadataIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "pluginMetadatas query err: %s", err.Error())
-		return fmt.Errorf("插件元数据查询错误: %w", err)
+		return fmt.Errorf("插件元数据查询错误：%w", err)
 	}
 	if len(pluginMetadatas) == 0 {
 		logging.ErrorFWithContext(ctx,
@@ -450,7 +450,7 @@ func PublishProtos(ctx context.Context, protoIDs []string) error {
 	protos, err := QueryProtos(ctx, map[string]any{"id": protoIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "protos query err: %s", err.Error())
-		return fmt.Errorf("protos 查询错误: %w", err)
+		return fmt.Errorf("protos 查询错误：%w", err)
 	}
 	if len(protos) == 0 {
 		logging.ErrorFWithContext(
@@ -489,7 +489,7 @@ func PublishSSLs(ctx context.Context, sslIDs []string) error {
 	ssls, err := QuerySSL(ctx, map[string]any{"id": sslIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "ssls query err: %s", err.Error())
-		return fmt.Errorf("ssls 查询错误: %w", err)
+		return fmt.Errorf("ssls 查询错误：%w", err)
 	}
 	if len(ssls) == 0 {
 		logging.ErrorFWithContext(ctx, "no ssls found for the specified sslIDs %v", sslIDs)
@@ -524,7 +524,7 @@ func PublishStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 	streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{"id": streamRouteIDs})
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "streamRoutes query err: %s", err.Error())
-		return fmt.Errorf("streamRoutes 查询错误: %w", err)
+		return fmt.Errorf("streamRoutes 查询错误：%w", err)
 	}
 	if len(streamRoutes) == 0 {
 		logging.ErrorFWithContext(
@@ -591,7 +591,7 @@ func batchDeleteEtcdResource(ctx context.Context, resourceType constant.APISIXRe
 	err = pub.BatchDelete(ctx, ops)
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "etcd deletes associated data err: %s", err.Error())
-		return fmt.Errorf("etcd 删除关联数据错误: %w", err)
+		return fmt.Errorf("etcd 删除关联数据错误：%w", err)
 	}
 	return nil
 }
@@ -859,7 +859,7 @@ func putRoutes(ctx context.Context, routeIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.Route, routeIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "routes status change err: %s", err.Error())
-		return fmt.Errorf("路由发布错误: %w", err)
+		return fmt.Errorf("路由发布错误：%w", err)
 	}
 	return nil
 }
@@ -912,7 +912,7 @@ func putServices(ctx context.Context, serviceIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.Service, serviceIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "services status change err: %s", err.Error())
-		return fmt.Errorf("服务发布错误: %w", err)
+		return fmt.Errorf("服务发布错误：%w", err)
 	}
 	return nil
 }
@@ -962,7 +962,7 @@ func putUpstreams(ctx context.Context, upstreamIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.Upstream, upstreamIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "upstreams status change err: %s", err.Error())
-		return fmt.Errorf("上游发布错误: %w", err)
+		return fmt.Errorf("上游发布错误：%w", err)
 	}
 	return nil
 }
@@ -1012,7 +1012,7 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.PluginConfig, pluginConfigIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "pluginConfigs status change err: %s", err.Error())
-		return fmt.Errorf("插件组发布错误: %w", err)
+		return fmt.Errorf("插件组发布错误：%w", err)
 	}
 	return nil
 }
@@ -1058,7 +1058,7 @@ func putPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.PluginMetadata, pluginMetadataIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "pluginMetadatas status change err: %s", err.Error())
-		return fmt.Errorf("插件元数据发布错误: %w", err)
+		return fmt.Errorf("插件元数据发布错误：%w", err)
 	}
 	return nil
 }
@@ -1113,7 +1113,7 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.Consumer, consumerIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "consumers status change err: %s", err.Error())
-		return fmt.Errorf("消费者发布错误: %w", err)
+		return fmt.Errorf("消费者发布错误：%w", err)
 	}
 	return nil
 }
@@ -1163,7 +1163,7 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.ConsumerGroup, consumerGroupIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "consumerGroups status change err: %s", err.Error())
-		return fmt.Errorf("消费者组发布错误: %w", err)
+		return fmt.Errorf("消费者组发布错误：%w", err)
 	}
 	return nil
 }
@@ -1187,7 +1187,7 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
-		// 需要去除name
+		// 需要去除 name
 		globalRule.Config, _ = sjson.DeleteBytes(globalRule.Config, "name")
 		if err != nil {
 			return err
@@ -1208,7 +1208,7 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.GlobalRule, globalRuleIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "globalRules status change err: %s", err.Error())
-		return fmt.Errorf("全局规则发布错误: %w", err)
+		return fmt.Errorf("全局规则发布错误：%w", err)
 	}
 	return nil
 }
@@ -1257,7 +1257,7 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.Proto, protoIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "Protos status change err: %s", err.Error())
-		return fmt.Errorf("protos 发布错误: %w", err)
+		return fmt.Errorf("protos 发布错误：%w", err)
 	}
 	return nil
 }
@@ -1281,7 +1281,7 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
-		// 需要去除name/validity_start/validity_end
+		// 需要去除 name/validity_start/validity_end
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "name")
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_start")
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_end")
@@ -1304,7 +1304,7 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.SSL, sslIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "ssls status change err: %s", err.Error())
-		return fmt.Errorf("ssls 发布错误: %w", err)
+		return fmt.Errorf("ssls 发布错误：%w", err)
 	}
 	return nil
 }
@@ -1374,7 +1374,7 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 	if err = BatchUpdateResourceStatus(
 		ctx, constant.StreamRoute, streamRouteIDs, constant.ResourceStatusSuccess); err != nil {
 		logging.ErrorFWithContext(ctx, "streamRoutes status change err: %s", err.Error())
-		return fmt.Errorf("streamRoutes 发布错误: %w", err)
+		return fmt.Errorf("streamRoutes 发布错误：%w", err)
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -320,7 +320,7 @@ func EtcdExport(c *gin.Context) {
 	ginx.SuccessFileResponse(c, "text/plain", fileData, fileName)
 }
 
-// handExportEtcdResources 处理导出etcd资源
+// handExportEtcdResources 处理导出 etcd 资源
 func handExportEtcdResources(
 	ctx context.Context,
 	resources []*model.GatewaySyncData,
@@ -376,7 +376,7 @@ func handExportEtcdResources(
 //	@Produce	json
 //	@Tags		webapi.unify_op
 //	@Accept		multipart/form-data
-//	@Param		resource_file	formData	file						true	"资源配置文件(json)"
+//	@Param		resource_file	formData	file						true	"资源配置文件 (json)"
 //	@Param		gateway_id		path		int							true	"网关 ID"
 //	@Success	200				{object}	common.ResourceUploadInfo	"导入资源列表"
 //	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/upload/ [post]

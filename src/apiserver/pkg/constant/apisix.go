@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -55,7 +55,7 @@ func (r APISIXResource) String() string {
 	return string(r)
 }
 
-// RelationIDFiled 获取关联ID字段
+// RelationIDFiled 获取关联 ID 字段
 func (r APISIXResource) RelationIDFiled() string {
 	return RelationIDFiledMap[r]
 }

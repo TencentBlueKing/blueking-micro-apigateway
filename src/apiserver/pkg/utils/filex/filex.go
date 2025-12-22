@@ -28,7 +28,7 @@ import (
 )
 
 // ReadFileToObject 读取文件内容到对象中
-func ReadFileToObject(fileHeader *multipart.FileHeader, obj interface{}) error {
+func ReadFileToObject(fileHeader *multipart.FileHeader, obj any) error {
 	file, err := fileHeader.Open()
 	if err != nil {
 		return errors.Wrap(err, "open file failed")

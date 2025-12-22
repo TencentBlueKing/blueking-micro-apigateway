@@ -213,7 +213,13 @@ func TestNewAPISIXJsonSchemaValidator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewAPISIXJsonSchemaValidator(tt.version, tt.resource, tt.jsonPath, nil, constant.DATABASE)
+			_, err := NewAPISIXJsonSchemaValidator(
+				tt.version,
+				tt.resource,
+				tt.jsonPath,
+				nil,
+				constant.DATABASE,
+			)
 			if tt.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -1037,7 +1043,13 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 	for _, version := range APISIXVersionList {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				validator, err := NewAPISIXJsonSchemaValidator(version, tt.resource, tt.jsonPath, nil, tt.dataType)
+				validator, err := NewAPISIXJsonSchemaValidator(
+					version,
+					tt.resource,
+					tt.jsonPath,
+					nil,
+					tt.dataType,
+				)
 				assert.NoError(t, err)
 
 				err = validator.Validate(json.RawMessage(tt.config))
@@ -1054,12 +1066,12 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 func TestValidateVarItem(t *testing.T) {
 	tests := []struct {
 		name       string
-		item       []interface{}
+		item       []any
 		shouldFail bool
 	}{
 		{
 			name: "Valid Triple",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"==",
 				"123",
@@ -1068,7 +1080,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Valid Quadruple",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"!",
 				"==",
@@ -1078,7 +1090,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid Length",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"==",
 			},
@@ -1086,7 +1098,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid First Element",
-			item: []interface{}{
+			item: []any{
 				123,
 				"==",
 				"123",
@@ -1095,7 +1107,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid Quadruple Second Element",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"invalid",
 				"==",
@@ -1105,7 +1117,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid Operator",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"invalid_op",
 				"123",
@@ -1114,7 +1126,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Empty Value",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"==",
 				nil,
@@ -1138,18 +1150,18 @@ func TestValidateVarItem(t *testing.T) {
 func TestCheckVars(t *testing.T) {
 	tests := []struct {
 		name       string
-		vars       []interface{}
+		vars       []any
 		shouldFail bool
 	}{
 		{
 			name: "Valid Vars",
-			vars: []interface{}{
-				[]interface{}{
+			vars: []any{
+				[]any{
 					"arg_id",
 					"==",
 					"123",
 				},
-				[]interface{}{
+				[]any{
 					"http_x_header",
 					"!",
 					"~~",
@@ -1160,20 +1172,20 @@ func TestCheckVars(t *testing.T) {
 		},
 		{
 			name:       "Empty Vars",
-			vars:       []interface{}{},
+			vars:       []any{},
 			shouldFail: false,
 		},
 		{
 			name: "Invalid Item Type",
-			vars: []interface{}{
+			vars: []any{
 				"invalid_item",
 			},
 			shouldFail: true,
 		},
 		{
 			name: "Invalid Var Item",
-			vars: []interface{}{
-				[]interface{}{
+			vars: []any{
+				[]any{
 					"arg_id",
 					"invalid_op",
 					"123",

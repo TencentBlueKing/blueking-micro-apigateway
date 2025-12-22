@@ -49,7 +49,7 @@ func GetLocalIpV4() string {
 			}
 			for _, addr := range addrs {
 				if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-					// 判断是否存在IPV4 IP 如果没有过滤
+					// 判断是否存在 IPV4 IP 如果没有过滤
 					if ipnet.IP.To4() != nil {
 						return ipnet.IP.String()
 					}

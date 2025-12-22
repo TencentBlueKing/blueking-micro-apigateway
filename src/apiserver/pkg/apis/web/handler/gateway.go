@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -191,7 +191,7 @@ func GatewayList(c *gin.Context) {
 		if !gateway.HasPermission(ginx.GetUserID(c)) {
 			continue
 		}
-		// 设置gateway
+		// 设置 gateway
 		ctx := ginx.SetGatewayInfoToContext(c.Request.Context(), gateway)
 		routeCount, err := biz.GetRouteCount(ctx, gateway.ID)
 		if err != nil {

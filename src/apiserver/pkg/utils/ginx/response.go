@@ -42,15 +42,15 @@ const (
 
 // SuccessResponse ...
 type SuccessResponse struct {
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 }
 
 // Error ...
 type Error struct {
-	Code    string      `json:"code"`
-	Message string      `json:"message"`
-	System  string      `json:"system"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	System  string `json:"system"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // ErrorResponse  ...
@@ -59,7 +59,7 @@ type ErrorResponse struct {
 }
 
 // SuccessJSONResponse ...
-func SuccessJSONResponse(c *gin.Context, data interface{}) {
+func SuccessJSONResponse(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Data: data,
 	})
@@ -85,7 +85,7 @@ func SuccessFileResponse(c *gin.Context, contentType string, fileData []byte, fi
 }
 
 // BaseErrorJSONResponse ...
-func BaseErrorJSONResponse(c *gin.Context, errorCode string, message string, statusCode int) {
+func BaseErrorJSONResponse(c *gin.Context, errorCode, message string, statusCode int) {
 	// BaseJSONResponse(c, statusCode, code, message, gin.H{})
 	c.JSON(statusCode, ErrorResponse{Error: Error{
 		Code:    errorCode,
@@ -100,7 +100,7 @@ func BaseErrorJSONResponseWithData(
 	errorCode string,
 	message string,
 	statusCode int,
-	data interface{},
+	data any,
 ) {
 	// BaseJSONResponse(c, statusCode, code, message, gin.H{})
 	c.JSON(statusCode, ErrorResponse{Error: Error{
@@ -124,7 +124,12 @@ func NewErrorJSONResponse(
 		}
 		validateErr, ok := err.(validator.ValidationErrors)
 		if ok {
-			BaseErrorJSONResponse(c, BadRequestError, validation.TranslateToString(validateErr), http.StatusBadRequest)
+			BaseErrorJSONResponse(
+				c,
+				BadRequestError,
+				validation.TranslateToString(validateErr),
+				http.StatusBadRequest,
+			)
 			return
 		}
 		BaseErrorJSONResponse(c, errorCode, err.Error(), statusCode)
@@ -150,7 +155,12 @@ func SystemErrorJSONResponse(c *gin.Context, err error) {
 	}
 	validateErr, ok := err.(validator.ValidationErrors)
 	if ok {
-		BaseErrorJSONResponse(c, BadRequestError, validation.TranslateToString(validateErr), http.StatusBadRequest)
+		BaseErrorJSONResponse(
+			c,
+			BadRequestError,
+			validation.TranslateToString(validateErr),
+			http.StatusBadRequest,
+		)
 		return
 	}
 	message := fmt.Sprintf("system error[request_id=%s]: %s", GetRequestID(c), err.Error())

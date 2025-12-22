@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -32,14 +32,14 @@ import (
 
 // buildUpstreamQuery 获取 upstream 查询
 func buildUpstreamQuery(ctx context.Context) repo.IUpstreamDo {
-	return repo.Upstream.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.Upstream.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildUpstreamQueryWithTx  获取 upstream 查询 with tx
 func buildUpstreamQueryWithTx(ctx context.Context, tx *repo.Query) repo.IUpstreamDo {
-	return tx.WithContext(ctx).Upstream.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).Upstream.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -68,10 +68,10 @@ func GetUpstreamOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedUpstreams 分页查询upstream列表
+// ListPagedUpstreams 分页查询 upstream 列表
 func ListPagedUpstreams(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -140,7 +140,7 @@ func GetUpstream(ctx context.Context, id string) (*model.Upstream, error) {
 // QueryUpstreams retrieves upstream configurations based on the provided parameters
 // It takes a context and a map of parameters as input
 // Returns a slice of Upstream models and an error if any
-func QueryUpstreams(ctx context.Context, param map[string]interface{}) ([]*model.Upstream, error) {
+func QueryUpstreams(ctx context.Context, param map[string]any) ([]*model.Upstream, error) {
 	// Execute the query with the given context and filter by the provided parameters
 	// field.Attrs() is used to build the WHERE clause conditions from the parameter map
 	return buildUpstreamQuery(ctx).Where(field.Attrs(param)).Find()
@@ -190,7 +190,7 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	upstreams, err := QueryUpstreams(ctx, map[string]interface{}{
+	upstreams, err := QueryUpstreams(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

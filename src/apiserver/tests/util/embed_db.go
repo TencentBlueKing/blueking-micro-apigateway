@@ -68,7 +68,7 @@ func InitEmbedDb() {
 			}
 		})
 
-		models := []interface{}{
+		models := []any{
 			model.Gateway{},
 			model.Route{},
 			model.Service{},

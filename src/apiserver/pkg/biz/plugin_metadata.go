@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -32,13 +32,13 @@ import (
 
 // buildPluginMetadataQuery 获取 PluginMetadata 查询对象
 func buildPluginMetadataQuery(ctx context.Context) repo.IPluginMetadataDo {
-	return repo.PluginMetadata.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.PluginMetadata.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 func buildPluginMetadataQueryWithTx(ctx context.Context, tx *repo.Query) repo.IPluginMetadataDo {
-	return tx.WithContext(ctx).PluginMetadata.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).PluginMetadata.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -70,7 +70,7 @@ func GetPluginMetadataOrderExprList(orderBy string) []field.Expr {
 // ListPagedPluginMetadatas 分页查询 PluginMetadata 列表
 func ListPagedPluginMetadatas(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	status []string,
 	name string,
 	updater string,
@@ -124,7 +124,7 @@ func GetPluginMetadata(ctx context.Context, id string) (*model.PluginMetadata, e
 }
 
 // QueryPluginMetadatas 搜索 PluginMetadata
-func QueryPluginMetadatas(ctx context.Context, param map[string]interface{}) ([]*model.PluginMetadata, error) {
+func QueryPluginMetadatas(ctx context.Context, param map[string]any) ([]*model.PluginMetadata, error) {
 	return buildPluginMetadataQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -157,7 +157,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	pluginMetadatas, err := QueryPluginMetadatas(ctx, map[string]interface{}{
+	pluginMetadatas, err := QueryPluginMetadatas(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -195,7 +195,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 			})
 			continue
 		} else {
-			return errors.New("未找到插件元数据 id 的同步数据:" + pluginMetadata.ID)
+			return errors.New("未找到插件元数据 id 的同步数据：" + pluginMetadata.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {

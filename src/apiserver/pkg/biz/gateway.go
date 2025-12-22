@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -77,7 +77,7 @@ func UpdateGateway(ctx context.Context, gateway model.Gateway) error {
 	return err
 }
 
-// SaveGateway save网关
+// SaveGateway save 网关
 func SaveGateway(ctx context.Context, gateway *model.Gateway) error {
 	u := repo.Gateway
 	return u.WithContext(ctx).Save(gateway)
@@ -89,7 +89,7 @@ func GetGateway(ctx context.Context, id int) (*model.Gateway, error) {
 	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
 }
 
-// GetGatewayByName 根据name查询网关详情
+// GetGatewayByName 根据 name 查询网关详情
 func GetGatewayByName(ctx context.Context, name string) (*model.Gateway, error) {
 	u := repo.Gateway
 	return u.WithContext(ctx).Where(u.Name.Eq(name)).First()
@@ -113,7 +113,7 @@ func ExistsGatewayName(ctx context.Context, name string, id int) bool {
 }
 
 // GetGatewayEtcdConfigList 查询 etcd_config 比对结果的网关列表
-func GetGatewayEtcdConfigList(ctx context.Context, key string, val string) ([]*model.Gateway, error) {
+func GetGatewayEtcdConfigList(ctx context.Context, key, val string) ([]*model.Gateway, error) {
 	return repo.Gateway.WithContext(ctx).Where(
 		gen.Cond(datatypes.JSONQuery("etcd_config").Equals(val, key))...,
 	).Find()
@@ -134,7 +134,7 @@ func ListGatewayResourceLabels(
 	var keys []string
 	labelMap := make(map[string][]string)
 	for _, resource := range resourceList {
-		var labels map[string]interface{}
+		var labels map[string]any
 		err := json.Unmarshal([]byte(gjson.ParseBytes(resource.Config).Get("labels").String()), &labels)
 		if err != nil {
 			continue
@@ -164,7 +164,16 @@ func DeleteGateway(ctx context.Context, gateway *model.Gateway) error {
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
 		// 删除网关下所有资源
 		for _, v := range gatewayResourceModelNameList {
-			err := database.Client().WithContext(ctx).Table(v).Where("gateway_id = ?", gateway.ID).Delete(v).Error
+			err := database.Client().WithContext(
+				ctx,
+			).Table(
+				v,
+			).Where(
+				"gateway_id = ?",
+				gateway.ID,
+			).Delete(
+				v,
+			).Error
 			if err != nil {
 				return err
 			}

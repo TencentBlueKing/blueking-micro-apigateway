@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -43,8 +43,7 @@ import (
 //	@Summary	获取插件 schema
 //	@Produce	json
 //	@Tags		webapi.system
-//	@Param		gateway_id	path		int						true	"网关 id"
-//	@Param		name		path		string					true	"插件名称"
+//	@Param		gateway_id	path		int						true	"网关 id"	@Param	name	path	string	true	"插件名称"
 //	@Param		schema_type	query		string					false	"schema 类型：metadata/consumer/不传就获取完整 schema"
 //	@Success	200			{object}	map[string]interface{}	"schema"
 //	@Router		/api/v1/web/gateways/{gateway_id}/schemas/plugins/{name}/ [get]
@@ -99,8 +98,10 @@ func ResourceSchemaGet(c *gin.Context) {
 //	@Summary	创建自定义插件 schema
 //	@Produce	json
 //	@Tags		webapi.system
-//	@Param		gateway_id	path	int						true	"网关 id"
-//	@Param		request		body	serializer.SchemaInfo	true	"schema 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 id"	@Param	request	body	serializer.SchemaInfo	true	"schema
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/schemas/ [post]
 func SchemaCreate(c *gin.Context) {
@@ -137,8 +138,7 @@ func SchemaCreate(c *gin.Context) {
 //	@Summary	更新自定义插件 schema
 //	@Produce	json
 //	@Tags		webapi.system
-//	@Param		gateway_id	path	int						true	"网关 id"
-//	@Param		auto_id	path	int							true	"插件 id"
+//	@Param		gateway_id	path	int						true	"网关 id"	@Param	auto_id	path	int	true	"插件 id"
 //	@Param		request		body	serializer.SchemaInfo	true	"schema 更新参数"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/schemas/{auto_id}/ [put]
@@ -162,7 +162,10 @@ func SchemaUpdate(c *gin.Context) {
 	if len(resourceSchemas) != 0 {
 		var resourceList []string
 		for _, s := range resourceSchemas {
-			resourceList = append(resourceList, fmt.Sprintf("%s: %s", s.ResourceType.String(), s.ResourceID))
+			resourceList = append(
+				resourceList,
+				fmt.Sprintf("%s: %s", s.ResourceType.String(), s.ResourceID),
+			)
 		}
 		ginx.BadRequestErrorJSONResponse(c,
 			fmt.Errorf("name: %s 该插件已被 [ %s ] 资源引用, 不可更新", req.Name, strings.Join(resourceList, ", ")),
@@ -259,10 +262,18 @@ func SchemaDelete(c *gin.Context) {
 	if len(resourceSchemas) != 0 {
 		var resourceList []string
 		for _, s := range resourceSchemas {
-			resourceList = append(resourceList, fmt.Sprintf("%s: %s", s.ResourceType.String(), s.ResourceID))
+			resourceList = append(
+				resourceList,
+				fmt.Sprintf("%s: %s", s.ResourceType.String(), s.ResourceID),
+			)
 		}
-		ginx.BadRequestErrorJSONResponse(c,
-			fmt.Errorf("name: %s 该插件已被 [ %s ] 资源引用, 不可删除", schemaInfo.Name, strings.Join(resourceList, ", ")),
+		ginx.BadRequestErrorJSONResponse(
+			c,
+			fmt.Errorf(
+				"name: %s 该插件已被 [ %s ] 资源引用, 不可删除",
+				schemaInfo.Name,
+				strings.Join(resourceList, ", "),
+			),
 		)
 		return
 	}

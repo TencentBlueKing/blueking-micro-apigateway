@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -44,7 +44,7 @@ type FuncBatchUpdateResourceStatus func(ctx context.Context,
 // FuncDeleteResourceByID ...
 type FuncDeleteResourceByID func(ctx context.Context, ids []string) error
 
-// AddBatchAuditLog ... 添加批量审计日志,适用于批量操作只改变状态的情况
+// AddBatchAuditLog ... 添加批量审计日志，适用于批量操作只改变状态的情况
 func AddBatchAuditLog(ctx context.Context, operationType constant.OperationType, resourceType constant.APISIXResource,
 	resources []*model.ResourceCommonModel,
 	resourceIDStatusAfterMap map[string]constant.ResourceStatus,
@@ -234,7 +234,7 @@ func WrapBatchRevertResourceAddAuditLog(ctx context.Context, resourceType consta
 // ListOperationAuditLogs 查询操作审计列表
 func ListOperationAuditLogs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	resourceID string,
 	operator string,
 	timeStart int,
@@ -260,7 +260,7 @@ func ListOperationAuditLogs(
 // ListPagedOperationAuditLogs 分页查询 操作审计列表
 func ListPagedOperationAuditLogs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	resourceID string,
 	operator string,
 	timeStart int,

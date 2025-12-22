@@ -32,14 +32,14 @@ import (
 
 // buildServiceQuery 获取 Service 查询对象
 func buildServiceQuery(ctx context.Context) repo.IServiceDo {
-	return repo.Service.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.Service.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildServiceQueryWithTx 获取 Service 查询对象（带事务）
 func buildServiceQueryWithTx(ctx context.Context, tx *repo.Query) repo.IServiceDo {
-	return tx.WithContext(ctx).Service.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).Service.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -71,7 +71,7 @@ func GetServiceOrderExprList(orderBy string) []field.Expr {
 // ListPagedServices 分页查询网 service 列表
 func ListPagedServices(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -147,7 +147,7 @@ func GetService(ctx context.Context, id string) (*model.Service, error) {
 }
 
 // QueryServices 搜索 service
-func QueryServices(ctx context.Context, param map[string]interface{}) ([]*model.Service, error) {
+func QueryServices(ctx context.Context, param map[string]any) ([]*model.Service, error) {
 	return buildServiceQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -200,7 +200,7 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	services, err := QueryServices(ctx, map[string]interface{}{
+	services, err := QueryServices(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

@@ -33,7 +33,7 @@ type ResourceOperation struct {
 	Type   constant.APISIXResource
 }
 
-// GetKey 获取key
+// GetKey 获取 key
 func (r *ResourceOperation) GetKey() string {
 	return constant.ResourceTypePrefixMap[r.Type] + "/" + r.Key
 }

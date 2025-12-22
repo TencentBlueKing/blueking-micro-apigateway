@@ -40,7 +40,7 @@ func Enum(c *gin.Context) {
 	for _, resType := range constant.ResourceTypeOrder {
 		resourceTypeOrderedMap.Set(resType.String(), constant.ResourceTypeMap[resType])
 	}
-	constants := map[string]interface{}{
+	constants := map[string]any{
 		"gateway_mode":           constant.GatewayModeMap,
 		"resource_status":        constant.ResourceStatusMap,
 		"synced_resource_status": constant.SyncedResourceStatusMap,

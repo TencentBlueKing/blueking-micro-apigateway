@@ -32,14 +32,14 @@ import (
 
 // buildProtoQuery 获取 Proto 查询对象
 func buildProtoQuery(ctx context.Context) repo.IProtoDo {
-	return repo.Proto.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.Proto.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildProtoQueryWithTx 获取 Proto 查询对象
 func buildProtoQueryWithTx(ctx context.Context, tx *repo.Query) repo.IProtoDo {
-	return tx.WithContext(ctx).Proto.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).Proto.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -71,7 +71,7 @@ func GetProtoOrderExprList(orderBy string) []field.Expr {
 // ListPagedProtos 分页查询 Proto
 func ListPagedProtos(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	status []string,
 	name string,
 	updater string,
@@ -131,7 +131,7 @@ func GetProto(ctx context.Context, id string) (*model.Proto, error) {
 }
 
 // QueryProtos 搜索 Proto
-func QueryProtos(ctx context.Context, param map[string]interface{}) ([]*model.Proto, error) {
+func QueryProtos(ctx context.Context, param map[string]any) ([]*model.Proto, error) {
 	return buildProtoQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -159,7 +159,7 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	protos, err := QueryProtos(ctx, map[string]interface{}{
+	protos, err := QueryProtos(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -40,25 +40,25 @@ type ResourceChangeDetail struct {
 	Name         string                  `json:"name"`
 	BeforeStatus constant.ResourceStatus `json:"before_status"`
 	AfterStatus  constant.ResourceStatus `json:"after_status"`
-	PublishFrom  constant.OperationType  `json:"operation_type"` // 发布变更来源操作： add/delete/update
+	PublishFrom  constant.OperationType  `json:"operation_type"` // 发布变更来源操作：add/delete/update
 	UpdatedAt    int64                   `json:"updated_at"`
 }
 
 // ResourceDiffDetailResponse ...
 type ResourceDiffDetailResponse struct {
 	EditorConfig json.RawMessage `json:"editor_config" swaggertype:"object"` // 编辑区配置
-	EtcdConfig   json.RawMessage `json:"etcd_config" swaggertype:"object"`   // etcd生效配置
+	EtcdConfig   json.RawMessage `json:"etcd_config" swaggertype:"object"`   // etcd 生效配置
 }
 
-// ResourceAssociateID 资源关联ID
+// ResourceAssociateID 资源关联 ID
 type ResourceAssociateID struct {
-	ServiceID      string `json:"service_id" validate:"serviceID"`            // 服务ID
-	UpstreamID     string `json:"upstream_id" validate:"upstreamID"`          // 上游服务地址ID
-	PluginConfigID string `json:"plugin_config_id" validate:"pluginConfigID"` // 插件配置groupID
+	ServiceID      string `json:"service_id" validate:"serviceID"`            // 服务 ID
+	UpstreamID     string `json:"upstream_id" validate:"upstreamID"`          // 上游服务地址 ID
+	PluginConfigID string `json:"plugin_config_id" validate:"pluginConfigID"` // 插件配置 groupID
 	GroupID        string `json:"group_id" validate:"groupID"`
 }
 
-// GetResourceKey 获取资源key
+// GetResourceKey 获取资源 key
 func (r ResourceAssociateID) GetResourceKey(resourceType constant.APISIXResource, id string) string {
 	return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, id)
 }

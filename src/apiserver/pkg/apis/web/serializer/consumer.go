@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -31,10 +31,10 @@ import (
 
 // ConsumerInfo Consumer 基本信息
 type ConsumerInfo struct {
-	ID      string          `json:"-"`                                                            // 资源apisix资源id
-	Name    string          `json:"name" binding:"required" validate:"consumerName"`              // Consumer名称
+	ID      string          `json:"-"`                                                            // 资源 apisix 资源 id
+	Name    string          `json:"name" binding:"required" validate:"consumerName"`              // Consumer 名称
 	GroupID string          `json:"group_id" validate:"groupID"`                                  // ConsumerGroupID
-	Config  json.RawMessage `json:"config" validate:"apisixConfig=consumer" swaggertype:"object"` // 配置数据(json格式)
+	Config  json.RawMessage `json:"config" validate:"apisixConfig=consumer" swaggertype:"object"` // 配置数据 (json 格式)
 }
 
 // ConsumerListRequest Consumer 列表请求参数
@@ -57,7 +57,7 @@ type ConsumerListResponse []ConsumerOutputInfo
 type ConsumerOutputInfo struct {
 	AutoID    int    `json:"auto_id"`
 	ID        string `json:"id"`
-	GatewayID int    `json:"gateway_id"` // 网关ID
+	GatewayID int    `json:"gateway_id"` // 网关 ID
 	ConsumerInfo
 	CreatedAt int64                   `json:"created_at"`
 	UpdatedAt int64                   `json:"updated_at"`
@@ -71,8 +71,8 @@ type ConsumerDropDownListResponse []ConsumerDropDownOutputInfo
 
 // ConsumerDropDownOutputInfo Consumer 下拉列表
 type ConsumerDropDownOutputInfo struct {
-	AutoID int    `json:"auto_id"` // 自增ID
-	ID     string `json:"id"`      // 资源apisix资源id
+	AutoID int    `json:"auto_id"` // 自增 ID
+	ID     string `json:"id"`      // 资源 apisix 资源 id
 	Name   string `json:"name"`    // 路由名称
 	Desc   string `json:"desc"`    // 路由描述
 }

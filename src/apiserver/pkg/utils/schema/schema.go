@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -75,13 +75,13 @@ var tapisixPluginSchemaVersionMap = map[constant.APISIXVersion]gjson.Result{
 	constant.APISIXVersion313: gjson.ParseBytes(rawTAPISIXPluginSchemaV313),
 }
 
-// GetResourceSchema 获取资源的schema
-func GetResourceSchema(version constant.APISIXVersion, name string) interface{} {
+// GetResourceSchema 获取资源的 schema
+func GetResourceSchema(version constant.APISIXVersion, name string) any {
 	return schemaVersionMap[version].Get("main." + name).Value()
 }
 
 // GetMetadataPluginSchema 获取 metadata 插件类型的 schema
-func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interface{} {
+func GetMetadataPluginSchema(version constant.APISIXVersion, path string) any {
 	// 查找 apisix 插件
 	ret := schemaVersionMap[version].Get(path).Value()
 	if ret != nil {
@@ -103,9 +103,9 @@ func GetMetadataPluginSchema(version constant.APISIXVersion, path string) interf
 	return ret
 }
 
-// GetPluginSchema 获取插件的schema
-func GetPluginSchema(version constant.APISIXVersion, name string, schemaType string) interface{} {
-	var ret interface{}
+// GetPluginSchema 获取插件的 schema
+func GetPluginSchema(version constant.APISIXVersion, name, schemaType string) any {
+	var ret any
 	if schemaType == "consumer" || schemaType == "consumer_schema" {
 		// 需匹配常规插件和 consumer 插件，当未查询到时，继续匹配后面常规插件
 		ret = schemaVersionMap[version].Get("plugins." + name + ".consumer_schema").Value()
@@ -125,7 +125,7 @@ func GetPluginSchema(version constant.APISIXVersion, name string, schemaType str
 	if ret != nil {
 		return ret
 	}
-	// 如果apisix插件不存在，再去bk-apisix插件中查找
+	// 如果 apisix 插件不存在，再去 bk-apisix 插件中查找
 	bkAPISIXPluginSchemaVersion, ok := bkAPISIXPluginSchemaVersionMap[version]
 	if ok {
 		ret = bkAPISIXPluginSchemaVersion.Get("plugins." + name + ".schema").Value()
@@ -133,7 +133,7 @@ func GetPluginSchema(version constant.APISIXVersion, name string, schemaType str
 	if ret != nil {
 		return ret
 	}
-	// 如果bk-apisix插件也不存在，再去tapisix插件中查找
+	// 如果 bk-apisix 插件也不存在，再去 tapisix 插件中查找
 	tapisixPluginSchemaVersion, ok := tapisixPluginSchemaVersionMap[version]
 	if ok {
 		ret = tapisixPluginSchemaVersion.Get("plugins." + name + ".schema").Value()

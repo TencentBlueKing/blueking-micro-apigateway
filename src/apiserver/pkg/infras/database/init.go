@@ -63,7 +63,7 @@ func Client() *gorm.DB {
 	return db
 }
 
-// SetClient 设置数据库客户端(only for test)
+// SetClient 设置数据库客户端 (only for test)
 func SetClient(client *gorm.DB) {
 	db = client
 }

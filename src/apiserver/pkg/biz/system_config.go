@@ -123,7 +123,7 @@ func GetSystemConfig(ctx context.Context, key string) (json.RawMessage, error) {
 }
 
 // GetSystemConfigWithEntity 获取系统配置
-func GetSystemConfigWithEntity(ctx context.Context, key string, entityModel interface{}) error {
+func GetSystemConfigWithEntity(ctx context.Context, key string, entityModel any) error {
 	s := repo.SystemConfig
 	keyConfig, err := s.WithContext(ctx).Where(s.Key.Eq(key)).First()
 	if err != nil {

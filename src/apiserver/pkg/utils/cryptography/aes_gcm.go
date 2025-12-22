@@ -47,7 +47,7 @@ type AESGcm struct {
 }
 
 // NewAESGcm ...
-func NewAESGcm(key []byte, nonce []byte) (aesGcm *AESGcm, err error) {
+func NewAESGcm(key, nonce []byte) (aesGcm *AESGcm, err error) {
 	// check key and nonce length
 	if len(key) != ValidAES128KeySize && len(key) != ValidAES256KeySize {
 		return nil, errors.New("invalid key, should be 16 or 32 bytes")
@@ -60,12 +60,12 @@ func NewAESGcm(key []byte, nonce []byte) (aesGcm *AESGcm, err error) {
 	// create AEAD
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return
+		return aesGcm, err
 	}
 
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
-		return
+		return aesGcm, err
 	}
 
 	return &AESGcm{
@@ -100,13 +100,13 @@ func (a *AESGcm) DecryptFromBase64(encryptedTextB64 string) (plaintext string, e
 	var encryptedText []byte
 	encryptedText, err = base64.StdEncoding.DecodeString(encryptedTextB64)
 	if err != nil {
-		return
+		return plaintext, err
 	}
 
 	var plaintextBytes []byte
 	plaintextBytes, err = a.Decrypt(encryptedText)
 	if err != nil {
-		return
+		return plaintext, err
 	}
 
 	return string(plaintextBytes), err

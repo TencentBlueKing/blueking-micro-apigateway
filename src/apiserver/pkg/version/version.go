@@ -57,7 +57,7 @@ func GetVersion() string {
 	)
 }
 
-// GetVersionLog 获取ChangeLog
+// GetVersionLog 获取 ChangeLog
 func GetVersionLog() ([]VersionInfo, error) {
 	text := strings.TrimSpace(strings.Replace(string(changeLogContent), "# ChangeLog", "", 1))
 	mdFileDatePattern := regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)

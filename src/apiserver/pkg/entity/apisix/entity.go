@@ -22,7 +22,7 @@ import "encoding/json"
 
 // BaseInfo ...
 type BaseInfo struct {
-	ID         interface{}       `json:"id"`
+	ID         any               `json:"id"`
 	CreateTime int64             `json:"create_time,omitempty"`
 	UpdateTime int64             `json:"update_time,omitempty"`
 	Name       string            `json:"name,omitempty"`
@@ -35,27 +35,27 @@ type Status uint8
 // Route ...
 type Route struct {
 	BaseInfo
-	URI             string                 `json:"uri,omitempty"`
-	Uris            []string               `json:"uris,omitempty"`
-	Desc            string                 `json:"desc,omitempty"`
-	Priority        int                    `json:"priority,omitempty"`
-	Methods         []string               `json:"methods,omitempty"`
-	Host            string                 `json:"host,omitempty"`
-	Hosts           []string               `json:"hosts,omitempty"`
-	RemoteAddr      string                 `json:"remote_addr,omitempty"`
-	RemoteAddrs     []string               `json:"remote_addrs,omitempty"`
-	Vars            []interface{}          `json:"vars,omitempty"`
-	FilterFunc      string                 `json:"filter_func,omitempty"`
-	Script          interface{}            `json:"script,omitempty"`
-	ScriptID        interface{}            `json:"script_id,omitempty"`
-	Plugins         map[string]interface{} `json:"plugins,omitempty"`
-	PluginConfigID  interface{}            `json:"plugin_config_id,omitempty"`
-	Upstream        *UpstreamDef           `json:"upstream,omitempty"`
-	ServiceID       interface{}            `json:"service_id,omitempty"`
-	UpstreamID      interface{}            `json:"upstream_id,omitempty"`
-	ServiceProtocol string                 `json:"service_protocol,omitempty"`
-	EnableWebsocket bool                   `json:"enable_websocket,omitempty"`
-	Status          Status                 `json:"status"`
+	URI             string         `json:"uri,omitempty"`
+	Uris            []string       `json:"uris,omitempty"`
+	Desc            string         `json:"desc,omitempty"`
+	Priority        int            `json:"priority,omitempty"`
+	Methods         []string       `json:"methods,omitempty"`
+	Host            string         `json:"host,omitempty"`
+	Hosts           []string       `json:"hosts,omitempty"`
+	RemoteAddr      string         `json:"remote_addr,omitempty"`
+	RemoteAddrs     []string       `json:"remote_addrs,omitempty"`
+	Vars            []any          `json:"vars,omitempty"`
+	FilterFunc      string         `json:"filter_func,omitempty"`
+	Script          any            `json:"script,omitempty"`
+	ScriptID        any            `json:"script_id,omitempty"`
+	Plugins         map[string]any `json:"plugins,omitempty"`
+	PluginConfigID  any            `json:"plugin_config_id,omitempty"`
+	Upstream        *UpstreamDef   `json:"upstream,omitempty"`
+	ServiceID       any            `json:"service_id,omitempty"`
+	UpstreamID      any            `json:"upstream_id,omitempty"`
+	ServiceProtocol string         `json:"service_protocol,omitempty"`
+	EnableWebsocket bool           `json:"enable_websocket,omitempty"`
+	Status          Status         `json:"status"`
 }
 
 // TimeoutValue ...
@@ -70,11 +70,11 @@ type (
 
 // Node ...
 type Node struct {
-	Host     string      `json:"host,omitempty"`
-	Port     int         `json:"port,omitempty"`
-	Weight   int         `json:"weight"`
-	Metadata interface{} `json:"metadata,omitempty"`
-	Priority int         `json:"priority,omitempty"`
+	Host     string `json:"host,omitempty"`
+	Port     int    `json:"port,omitempty"`
+	Weight   int    `json:"weight"`
+	Metadata any    `json:"metadata,omitempty"`
+	Priority int    `json:"priority,omitempty"`
 }
 
 // Healthy ...
@@ -137,16 +137,16 @@ type UpstreamKeepalivePool struct {
 // UpstreamDef ...
 type UpstreamDef struct {
 	BaseInfo
-	Nodes         interface{}            `json:"nodes,omitempty"`
+	Nodes         any                    `json:"nodes,omitempty"`
 	Retries       *int                   `json:"retries,omitempty"`
 	Timeout       *Timeout               `json:"timeout,omitempty"`
 	Type          string                 `json:"type,omitempty"`
-	Checks        interface{}            `json:"checks,omitempty"`
+	Checks        any                    `json:"checks,omitempty"`
 	HashOn        string                 `json:"hash_on,omitempty"`
 	Key           string                 `json:"key,omitempty"`
 	Scheme        string                 `json:"scheme,omitempty"`
 	DiscoveryType string                 `json:"discovery_type,omitempty"`
-	DiscoveryArgs map[string]interface{} `json:"discovery_args,omitempty"`
+	DiscoveryArgs map[string]any         `json:"discovery_args,omitempty"`
 	PassHost      string                 `json:"pass_host,omitempty"`
 	UpstreamHost  string                 `json:"upstream_host,omitempty"`
 	Desc          string                 `json:"desc,omitempty"`
@@ -163,53 +163,53 @@ type Upstream struct {
 
 // Consumer ...
 type Consumer struct {
-	Username   string                 `json:"username"`
-	Desc       string                 `json:"desc,omitempty"`
-	Plugins    map[string]interface{} `json:"plugins,omitempty"`
-	Labels     map[string]string      `json:"labels,omitempty"`
-	CreateTime int64                  `json:"create_time,omitempty"`
-	UpdateTime int64                  `json:"update_time,omitempty"`
-	GroupID    string                 `json:"group_id,omitempty"`
+	Username   string            `json:"username"`
+	Desc       string            `json:"desc,omitempty"`
+	Plugins    map[string]any    `json:"plugins,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	CreateTime int64             `json:"create_time,omitempty"`
+	UpdateTime int64             `json:"update_time,omitempty"`
+	GroupID    string            `json:"group_id,omitempty"`
 }
 
 // ConsumerGroup ...
 type ConsumerGroup struct {
-	Desc       string                 `json:"desc,omitempty"`
-	Plugins    map[string]interface{} `json:"plugins,omitempty"`
-	Labels     map[string]string      `json:"labels,omitempty"`
-	CreateTime int64                  `json:"create_time,omitempty"`
-	UpdateTime int64                  `json:"update_time,omitempty"`
+	Desc       string            `json:"desc,omitempty"`
+	Plugins    map[string]any    `json:"plugins,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	CreateTime int64             `json:"create_time,omitempty"`
+	UpdateTime int64             `json:"update_time,omitempty"`
 }
 
 // Service ...
 type Service struct {
 	BaseInfo
-	Desc            string                 `json:"desc,omitempty"`
-	Upstream        *UpstreamDef           `json:"upstream,omitempty"`
-	UpstreamID      interface{}            `json:"upstream_id,omitempty"`
-	Plugins         map[string]interface{} `json:"plugins,omitempty"`
-	Script          string                 `json:"script,omitempty"`
-	EnableWebsocket bool                   `json:"enable_websocket,omitempty"`
-	Hosts           []string               `json:"hosts,omitempty"`
+	Desc            string         `json:"desc,omitempty"`
+	Upstream        *UpstreamDef   `json:"upstream,omitempty"`
+	UpstreamID      any            `json:"upstream_id,omitempty"`
+	Plugins         map[string]any `json:"plugins,omitempty"`
+	Script          string         `json:"script,omitempty"`
+	EnableWebsocket bool           `json:"enable_websocket,omitempty"`
+	Hosts           []string       `json:"hosts,omitempty"`
 }
 
 // GlobalRule ...
 type GlobalRule struct {
 	BaseInfo
-	Plugins map[string]interface{} `json:"plugins"`
+	Plugins map[string]any `json:"plugins"`
 }
 
 // PluginMetadataConf ...
-type PluginMetadataConf map[string]interface{}
+type PluginMetadataConf map[string]any
 
 // PluginMetaData ...
 type PluginMetaData struct {
 	PluginMetadataConf
 }
 
-// UnmarshalJSON 解析PluginMetadataConf
+// UnmarshalJSON 解析 PluginMetadataConf
 func (c *PluginMetadataConf) UnmarshalJSON(dAtA []byte) error {
-	temp := make(map[string]interface{})
+	temp := make(map[string]any)
 	if err := json.Unmarshal(dAtA, &temp); err != nil {
 		return err
 	}
@@ -217,9 +217,9 @@ func (c *PluginMetadataConf) UnmarshalJSON(dAtA []byte) error {
 	return nil
 }
 
-// MarshalJSON 将PluginMetadataConf转换为json
+// MarshalJSON 将 PluginMetadataConf 转换为 json
 func (c *PluginMetadataConf) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}(*c))
+	return json.Marshal(map[string]any(*c))
 }
 
 // ServerInfo ...
@@ -236,8 +236,8 @@ type ServerInfo struct {
 // PluginConfig ...
 type PluginConfig struct {
 	BaseInfo
-	Desc    string                 `json:"desc,omitempty"`
-	Plugins map[string]interface{} `json:"plugins"`
+	Desc    string         `json:"desc,omitempty"`
+	Plugins map[string]any `json:"plugins"`
 }
 
 // SSLClient ...
@@ -275,22 +275,22 @@ type Proto struct {
 
 // StreamRouteProtocol ...
 type StreamRouteProtocol struct {
-	Name string                 `json:"name,omitempty"`
-	Conf map[string]interface{} `json:"conf,omitempty"`
+	Name string         `json:"name,omitempty"`
+	Conf map[string]any `json:"conf,omitempty"`
 }
 
 // StreamRoute ...
 type StreamRoute struct {
 	BaseInfo
-	Desc       string                 `json:"desc,omitempty"`
-	RemoteAddr string                 `json:"remote_addr,omitempty"`
-	ServerAddr string                 `json:"server_addr,omitempty"`
-	ServerPort int                    `json:"server_port,omitempty"`
-	SNI        string                 `json:"sni,omitempty"`
-	UpstreamID interface{}            `json:"upstream_id,omitempty"`
-	Upstream   *UpstreamDef           `json:"upstream,omitempty"`
-	ServiceID  interface{}            `json:"service_id,omitempty"`
-	Plugins    map[string]interface{} `json:"plugins,omitempty"`
-	Protocol   *StreamRouteProtocol   `json:"protocol,omitempty"`
-	Labels     map[string]string      `json:"labels,omitempty"`
+	Desc       string               `json:"desc,omitempty"`
+	RemoteAddr string               `json:"remote_addr,omitempty"`
+	ServerAddr string               `json:"server_addr,omitempty"`
+	ServerPort int                  `json:"server_port,omitempty"`
+	SNI        string               `json:"sni,omitempty"`
+	UpstreamID any                  `json:"upstream_id,omitempty"`
+	Upstream   *UpstreamDef         `json:"upstream,omitempty"`
+	ServiceID  any                  `json:"service_id,omitempty"`
+	Plugins    map[string]any       `json:"plugins,omitempty"`
+	Protocol   *StreamRouteProtocol `json:"protocol,omitempty"`
+	Labels     map[string]string    `json:"labels,omitempty"`
 }

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -50,7 +50,7 @@ func OperationAuditLogList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{
+	queryParam := map[string]any{
 		"gateway_id": c.Param("gateway_id"),
 	}
 	if req.OperationType != "" {
@@ -120,7 +120,7 @@ func getOperationAuditLogResourceIDNames(
 			resourceIDs...,
 		)
 	}
-	// 根据资源类型+资源 IDs 获取对应资源名称
+	// 根据资源类型 + 资源 IDs 获取对应资源名称
 	resourceIDNameMap := map[string]string{}
 	for resourceType, resourceIDs := range auditLogResourceTypeIDMap {
 		switch resourceType {
@@ -159,7 +159,7 @@ func getOperationAuditLogResourceIDNames(
 func getOperationAuditLogResults(
 	ctx context.Context,
 	req serializer.OperationAuditLogListRequest,
-	queryParam map[string]interface{},
+	queryParam map[string]any,
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
@@ -211,7 +211,7 @@ func getOperationAuditLogResults(
 func getOperationAuditLogResultsByName(
 	ctx context.Context,
 	req serializer.OperationAuditLogListRequest,
-	queryParam map[string]interface{},
+	queryParam map[string]any,
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {

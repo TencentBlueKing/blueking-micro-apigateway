@@ -130,7 +130,9 @@ func SetGatewayInfoToContext(c context.Context, gatewayInfo *model.Gateway) cont
 
 // SetResourceType ...
 func SetResourceType(c *gin.Context, resourceType constant.APISIXResource) {
-	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), constant.ResourceTypeKey, resourceType))
+	c.Request = c.Request.WithContext(
+		context.WithValue(c.Request.Context(), constant.ResourceTypeKey, resourceType),
+	)
 }
 
 // GetResourceType ...

@@ -81,7 +81,7 @@ func ProtoCreate(c *gin.Context) {
 //	@Tags		webapi.proto
 //	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"proto ID"
 //	@Param		request		body	serializer.ProtoInfo	true	"proto 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [put]
 func ProtoUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -115,6 +115,7 @@ func ProtoUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ProtoGet ...

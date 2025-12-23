@@ -83,7 +83,7 @@ func PluginConfigCreate(c *gin.Context) {
 //	@Tags		webapi.plugin_config
 //	@Param		gateway_id	path	int							true	"网关 ID"	@Param	id	path	string	true	"plugin_conf ID"
 //	@Param		request		body	serializer.PluginConfigInfo	true	"plugin_conf 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs/{id}/ [put]
 func PluginConfigUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -121,6 +121,7 @@ func PluginConfigUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // PluginConfigList ...

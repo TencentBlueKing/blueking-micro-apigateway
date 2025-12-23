@@ -83,7 +83,7 @@ func ConsumerGroupCreate(c *gin.Context) {
 //	@Tags		webapi.consumer_group
 //	@Param		gateway_id	path	int								true	"网关 ID"	@Param	id	path	string	true	"consumer_group ID"
 //	@Param		request		body	serializer.ConsumerGroupInfo	true	"consumer_group 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [put]
 func ConsumerGroupUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -121,6 +121,7 @@ func ConsumerGroupUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ConsumerGroupList ...

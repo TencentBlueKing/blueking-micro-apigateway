@@ -86,7 +86,7 @@ func UpstreamCreate(c *gin.Context) {
 //	@Tags		webapi.upstream
 //	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"upstream ID"
 //	@Param		request		body	serializer.UpstreamInfo	true	"upstream 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams/{id}/ [put]
 func UpstreamUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam

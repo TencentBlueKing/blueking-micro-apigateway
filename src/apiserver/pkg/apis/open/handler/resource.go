@@ -254,7 +254,7 @@ func ResourceGetStatus(c *gin.Context) {
 //	@Param		resource_type	path	constant.ResourcePath				true	"资源类型"
 //	@Param		id				path	string								true	"资源 ID"
 //	@Param		request			body	serializer.ResourceUpdateRequest	true	"资源更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/open/gateways/{gateway_name}/resources/{resource_type}/{id}/ [put]
 func ResourceUpdate(c *gin.Context) {
 	var pathParam serializer.ResourcePathParam

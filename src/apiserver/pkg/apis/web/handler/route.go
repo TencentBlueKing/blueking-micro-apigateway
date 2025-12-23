@@ -87,7 +87,7 @@ func RouteCreate(c *gin.Context) {
 //	@Tags		webapi.route
 //	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"路由 ID"
 //	@Param		request		body	serializer.RouteInfo	true	"route 更新参数"
-//	@Success	201
+//	@Success	200
 //	@Router		/api/v1/web/gateways/{gateway_id}/routes/{id}/ [put]
 func RouteUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam

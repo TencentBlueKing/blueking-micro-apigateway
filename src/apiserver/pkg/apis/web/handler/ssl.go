@@ -130,7 +130,7 @@ func SSLCreate(c *gin.Context) {
 //	@Tags		webapi.ssl
 //	@Param		gateway_id	path	int					true	"网关 ID"	@Param	id	path	string	true	"SSL ID"
 //	@Param		request		body	serializer.SSLInfo	true	"SSL 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [put]
 func SSLUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam

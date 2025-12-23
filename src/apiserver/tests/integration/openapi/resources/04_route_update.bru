@@ -30,7 +30,7 @@ body {
         "PUT",
         "GET"
       ],
-      "enable_websocket": true,
+      "enable_websocket": false,
       "upstream": {
         "type": "roundrobin",
         "nodes": {
@@ -42,5 +42,5 @@ body {
 }
 
 assert {
-  res.status: eq 200
+  res.status: eq 204
 }

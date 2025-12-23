@@ -441,7 +441,7 @@ func IsResourceConfigChanged(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
 	id string,
-	inputConfig json.RawMessage,
+	inputConfigJson json.RawMessage,
 ) bool {
 	resource, err := GetResourceByID(ctx, resourceType, id)
 	if err != nil {
@@ -449,7 +449,6 @@ func IsResourceConfigChanged(
 		return true
 	}
 	currentConfigJson := json.RawMessage(resource.Config)
-	inputConfigJson := inputConfig
 
 	// reference: GetResourceConfigDiffDetail
 	// For PluginMetadata, remove the "name" field before comparison

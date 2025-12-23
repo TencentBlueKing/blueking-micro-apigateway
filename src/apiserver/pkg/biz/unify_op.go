@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -73,7 +72,7 @@ type UnifyOp struct {
 func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
 	gateways, err := ListGateways(ctx, 0)
 	if err != nil {
-		log.Fatal(err)
+		logging.Errorf("list gateways error: %s", err.Error())
 		return
 	}
 	for _, gateway := range gateways {
@@ -227,32 +226,32 @@ func insertSyncedResourcesModel(
 				return err
 			}
 		case constant.Service:
-			err := BatchCreateServices(ctx, resourceList.([]*model.Service))
+			err = BatchCreateServices(ctx, resourceList.([]*model.Service))
 			if err != nil {
 				return err
 			}
 		case constant.Upstream:
-			err := BatchCreateUpstreams(ctx, resourceList.([]*model.Upstream))
+			err = BatchCreateUpstreams(ctx, resourceList.([]*model.Upstream))
 			if err != nil {
 				return err
 			}
 		case constant.PluginConfig:
-			err := BatchCreatePluginConfigs(ctx, resourceList.([]*model.PluginConfig))
+			err = BatchCreatePluginConfigs(ctx, resourceList.([]*model.PluginConfig))
 			if err != nil {
 				return err
 			}
 		case constant.PluginMetadata:
-			err := batchCreatePluginMetadatas(ctx, resourceList.([]*model.PluginMetadata))
+			err = batchCreatePluginMetadatas(ctx, resourceList.([]*model.PluginMetadata))
 			if err != nil {
 				return err
 			}
 		case constant.Consumer:
-			err := BatchCreateConsumers(ctx, resourceList.([]*model.Consumer))
+			err = BatchCreateConsumers(ctx, resourceList.([]*model.Consumer))
 			if err != nil {
 				return err
 			}
 		case constant.ConsumerGroup:
-			err := BatchCreateConsumerGroups(ctx, resourceList.([]*model.ConsumerGroup))
+			err = BatchCreateConsumerGroups(ctx, resourceList.([]*model.ConsumerGroup))
 			if err != nil {
 				return err
 			}
@@ -267,12 +266,12 @@ func insertSyncedResourcesModel(
 				return err
 			}
 		case constant.Proto:
-			err := BatchCreateProtos(ctx, resourceList.([]*model.Proto))
+			err = BatchCreateProtos(ctx, resourceList.([]*model.Proto))
 			if err != nil {
 				return err
 			}
 		case constant.StreamRoute:
-			err := BatchCreateStreamRoutes(ctx, resourceList.([]*model.StreamRoute))
+			err = BatchCreateStreamRoutes(ctx, resourceList.([]*model.StreamRoute))
 			if err != nil {
 				return err
 			}
@@ -425,7 +424,8 @@ func SyncResources(
 	if !strings.HasPrefix(gatewayInfo.EtcdConfig.Prefix, "/") {
 		prefix = fmt.Sprintf("%s/", prefix)
 	}
-	if resourceType == "" {
+	// 如果资源类型为空，则同步所有资源
+	if resourceType != "" {
 		prefix = fmt.Sprintf("%s/%s", prefix, constant.ResourceTypePrefixMap[resourceType])
 	}
 	syncer, err := NewUnifyOp(gatewayInfo, false)

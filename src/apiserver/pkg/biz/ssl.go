@@ -215,8 +215,8 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 		if err != nil {
 			return err
 		}
-		for _, sls := range ssls {
-			_, err := buildSSLQueryWithTx(ctx, tx).Updates(sls)
+		for _, ssl := range ssls {
+			_, err := buildSSLQueryWithTx(ctx, tx).Updates(ssl)
 			if err != nil {
 				return err
 			}

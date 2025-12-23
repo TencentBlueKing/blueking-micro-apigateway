@@ -118,7 +118,7 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	ginx.SuccessNoContentResponse(c)
+	ginx.SuccessCreateResponse(c)
 }
 
 // SSLUpdate ...
@@ -181,6 +181,7 @@ func SSLUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // SSLList ...

@@ -134,7 +134,7 @@ func GatewayGet(c *gin.Context) {
 func GatewayUpdate(c *gin.Context) {
 	var req common.GatewayInputInfo
 	if err := validation.BindAndValidate(c, &req); err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
+		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	if req.EtcdPassword == "" {

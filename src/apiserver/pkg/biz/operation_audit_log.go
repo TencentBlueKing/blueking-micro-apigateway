@@ -148,7 +148,7 @@ func WrapBatchUpdateResourceStatusAddAuditLog(ctx context.Context, resourceType 
 	if err != nil {
 		return err
 	}
-	return fn(ctx, resourceType, resourceIDs, status)
+	return nil
 }
 
 // AddDeleteResourceByIDAuditLog ... 删除资源时添加审计日志

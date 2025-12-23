@@ -83,7 +83,7 @@ func ValidateConsumerName(ctx context.Context, fl validator.FieldLevel) bool {
 	if consumerName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.Consumer,
 		fl.Parent().FieldByName("ID").String(),

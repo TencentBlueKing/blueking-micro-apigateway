@@ -303,7 +303,7 @@ func GatewayCheckName(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	if !biz.ExistsGatewayName(c.Request.Context(), req.Name, req.ID) {
+	if biz.ExistsGatewayName(c.Request.Context(), req.Name, req.ID) {
 		output := serializer.CheckGatewayNameResponse{
 			Status: "error",
 		}
@@ -334,6 +334,7 @@ func EtcdTestConnection(c *gin.Context) {
 		gateway, err := biz.GetGateway(c.Request.Context(), req.GatewayID)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
+			return
 		}
 		// 如果输入密码为脱敏信息，则替换为已保存的密码进行连通性测试
 		if req.EtcdSchemaType == constant.HTTP {

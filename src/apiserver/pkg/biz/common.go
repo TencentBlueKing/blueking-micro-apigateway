@@ -599,12 +599,12 @@ func DuplicatedResourceName(
 	err := d.Find(&res).Error
 	if err != nil {
 		logging.Errorf("query resource name: %s error: %s", name, err.Error())
-		return false
-	}
-	if len(res) == 0 {
 		return true
 	}
-	return false
+	if len(res) == 0 {
+		return false
+	}
+	return true
 }
 
 func getQueryNameParams(

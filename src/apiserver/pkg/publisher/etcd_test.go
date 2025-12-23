@@ -255,7 +255,7 @@ var _ = Describe("EtcdPublisher", func() {
 			It("Test Update: ok", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "/key").Return("value", nil)
-				mockEtcdStore.EXPECT().Update(gomock.Any(), "key", "value").Return(nil)
+				mockEtcdStore.EXPECT().Update(gomock.Any(), "/key", "value").Return(nil)
 
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,
@@ -334,7 +334,7 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "/key").Return("value", nil)
 				mockEtcdStore.EXPECT().Update(
 					gomock.Any(),
-					"key",
+					"/key",
 					"value",
 				).Return(
 					errors.New("update error"),

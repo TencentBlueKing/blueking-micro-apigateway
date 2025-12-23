@@ -193,7 +193,7 @@ func ValidateGatewayName(ctx context.Context, fl validator.FieldLevel) bool {
 	if gatewayInfo != nil {
 		gatewayID = gatewayInfo.ID
 	}
-	return biz.ExistsGatewayName(ctx, gatewayName, gatewayID)
+	return !biz.ExistsGatewayName(ctx, gatewayName, gatewayID)
 }
 
 // CheckEtcdConnAndAPISIXInstance 检查 etcd 连接和 apisix 实例

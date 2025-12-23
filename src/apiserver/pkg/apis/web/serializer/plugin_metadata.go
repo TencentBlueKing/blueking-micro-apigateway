@@ -80,7 +80,7 @@ func ValidatePluginMetadataName(ctx context.Context, fl validator.FieldLevel) bo
 	if pluginMetadataName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.PluginMetadata,
 		fl.Parent().FieldByName("ID").String(),

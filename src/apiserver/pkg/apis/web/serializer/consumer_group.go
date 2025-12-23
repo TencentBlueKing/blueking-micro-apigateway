@@ -90,7 +90,7 @@ func ValidateConsumerGroupName(ctx context.Context, fl validator.FieldLevel) boo
 	if consumerGroupName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.ConsumerGroup,
 		fl.Parent().FieldByName("ID").String(),

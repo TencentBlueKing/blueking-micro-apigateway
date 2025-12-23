@@ -117,7 +117,7 @@ func ValidationSSLName(ctx context.Context, fl validator.FieldLevel) bool {
 	if routeName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.SSL,
 		fl.Parent().FieldByName("ID").String(),

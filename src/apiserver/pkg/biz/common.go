@@ -40,6 +40,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
@@ -433,6 +434,44 @@ func GetResourceByID(
 	query := buildCommonDbQuery(ctx, resourceType)
 	err := query.Where("id = ?", id).Take(&res).Error
 	return res, err
+}
+
+// IsResourceConfigChanged 判断资源配置是否发生变化
+func IsResourceConfigChanged(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+	inputConfigJson json.RawMessage,
+) bool {
+	resource, err := GetResourceByID(ctx, resourceType, id)
+	if err != nil {
+		// if failed to get resource, treat as config changed
+		return true
+	}
+	currentConfigJson := json.RawMessage(resource.Config)
+
+	// reference: GetResourceConfigDiffDetail
+	// For PluginMetadata, remove the "name" field before comparison
+	if resourceType == constant.PluginMetadata {
+		currentConfigJson = []byte(jsonx.RemoveJsonKey(string(currentConfigJson), []string{"name"}))
+		inputConfigJson = []byte(jsonx.RemoveJsonKey(string(inputConfigJson), []string{"name"}))
+	}
+
+	// Parse both JSONs and compare their structures
+	// This properly handles JSON objects with different key orders
+	var currentConfigParsed, inputConfigParsed any
+	if err := json.Unmarshal(currentConfigJson, &currentConfigParsed); err != nil {
+		// if failed to unmarshal current config, treat as config changed
+		return true
+	}
+	if err := json.Unmarshal(inputConfigJson, &inputConfigParsed); err != nil {
+		// if failed to unmarshal input config, treat as config changed
+		return true
+	}
+
+	// Use reflect.DeepEqual to compare the parsed JSON structures
+	// This correctly handles JSON objects regardless of key order
+	return !reflect.DeepEqual(currentConfigParsed, inputConfigParsed)
 }
 
 // GetResourceByIDs 根据 ids 获取资源

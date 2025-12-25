@@ -89,7 +89,7 @@ const viewerConfig = ref<{ resource: IPluginConfigDto | null, source: string, vi
 });
 
 const getOptions = async () => {
-  const response = await getPluginConfigs({ query: { limit: 1000, offset: 0 } });
+  const response = await getPluginConfigs({ query: { limit: 100, offset: 0 } });
   const results = response?.results || [];
   pluginConfigOptions.value.push(...results.map((pluginConfig: IPluginConfigDto) => {
     let desc = '';

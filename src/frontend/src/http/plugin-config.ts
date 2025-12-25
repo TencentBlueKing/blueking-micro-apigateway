@@ -58,3 +58,12 @@ export const deletePluginConfig = ({ gatewayId, id }: {
   id: string
 }) => fetch.delete(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/plugin_configs/${id}/`);
 
+export const getPluginConfigDropdowns = ({ gatewayId }: {
+  gatewayId?: number
+} = {}): Promise<{
+  auto_id: number
+  desc: string
+  id: string
+  name: string
+}[]> => fetch.get(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/plugin_configs-dropdown/`);
+

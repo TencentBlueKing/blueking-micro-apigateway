@@ -161,13 +161,13 @@
 
 <script lang="ts" setup>
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
-import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { Form, InfoBox, Message } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { IStreamRoute, IStreamRouteConfig } from '@/types/stream-route';
-import { IUpstream, IUpstreamConfig } from '@/types/upstream';
-import { getUpstreams } from '@/http/upstream';
+import { IUpstreamConfig } from '@/types/upstream';
+import { getUpstream } from '@/http/upstream';
 import { getStreamRoute, postStreamRoute, putStreamRoute } from '@/http/stream-route';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import Ajv from 'ajv';
@@ -249,8 +249,6 @@ const rules = {
   ],
 };
 
-const upstreamList = ref<IUpstream[]>([]);
-
 const enabledPluginList = ref<ILocalPlugin[]>([]);
 
 const isPluginConfigManageSliderVisible = ref(false);
@@ -268,8 +266,6 @@ watch(() => route.params.id, async (id: string | null) => {
       plugins: remotePlugins,
       ...restConfig
     } = config;
-
-    await getDependencies();
 
     routeConfig.value = { ...routeConfig.value, ...restConfig };
 
@@ -516,11 +512,6 @@ const handleCancelClick = () => {
   router.back();
 };
 
-const getUpstreamList = async () => {
-  const response = await getUpstreams({ query: { offset: 0, limit: 100 } });
-  upstreamList.value = response.results || [];
-};
-
 // 绑定服务联动选择上游服务
 const handleServiceChange = () => {
   // 选择了不绑定服务，则上游不允许为“不选择”, 选择了绑定的服务，则上游自动改为不选择
@@ -530,28 +521,16 @@ const handleServiceChange = () => {
   }
 };
 
-const handleUpstreamSelect = () => {
+const handleUpstreamSelect = async () => {
   if (!formModel.value.upstream_id || ['__config__', '__none__'].includes(formModel.value.upstream_id)) {
     upstream.value = createDefaultUpstream();
     return;
   }
 
-  const curUpstream = upstreamList.value.find(upstream => upstream.id === formModel.value.upstream_id) ?? {};
-  if (curUpstream) {
-    upstream.value = cloneDeep(curUpstream.config);
-  }
+  const _upstream = await getUpstream({ id: formModel.value.upstream_id });
+  const { config } = _upstream;
+  upstream.value = config;
 };
-
-const getDependencies = async () => {
-  await getUpstreamList();
-};
-
-onMounted(() => {
-  if (isEditMode.value) {
-    return;
-  }
-  getDependencies();
-});
 
 </script>
 

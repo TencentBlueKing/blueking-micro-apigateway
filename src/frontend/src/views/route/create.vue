@@ -221,7 +221,7 @@
 import { IRoute, IRouteConfig } from '@/types/route';
 import { HTTP_METHODS_MAP } from '@/enum';
 import UpstreamForm, { type IFlags } from '@/components/form/form-upstream.vue';
-import { IUpstream, IUpstreamConfig } from '@/types/upstream';
+import { IUpstreamConfig } from '@/types/upstream';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import FormUris from '@/components/form/form-uris.vue';
@@ -231,9 +231,9 @@ import addFormats from 'ajv-formats';
 import ROUTE_JSON from '@/assets/schemas/route.json';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { getRoute, postRoute, putRoute } from '@/http/route';
-import { getUpstreams } from '@/http/upstream';
+import { getUpstream } from '@/http/upstream';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
 import SelectUpstream from '@/components/select/select-upstream.vue';
 import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
@@ -329,8 +329,6 @@ const rules = {
   // ],
 };
 
-const upstreamList = ref<IUpstream[]>([]);
-
 const enabledPluginList = ref<ILocalPlugin[]>([]);
 
 const isPluginConfigManageSliderVisible = ref(false);
@@ -351,8 +349,6 @@ watch(() => route.params.id, async (id: unknown) => {
       plugins: remotePlugins,
       ...restConfig
     } = config;
-
-    await getDependencies();
 
     routeConfig.value = { ...routeConfig.value, ...restConfig };
 
@@ -613,32 +609,16 @@ const handleCancelClick = () => {
   router.back();
 };
 
-const getUpstreamList = async () => {
-  const response = await getUpstreams({ query: { offset: 0, limit: 100 } });
-  upstreamList.value = response.results || [];
-};
-
-const handleUpstreamSelect = () => {
+const handleUpstreamSelect = async () => {
   if (!formModel.value.upstream_id || formModel.value.upstream_id === '__config__' || formModel.value.upstream_id === '__none__') {
     upstream.value = createDefaultUpstream();
     return;
   }
 
-  const _upstream = upstreamList.value.find(upstream => upstream.id === formModel.value.upstream_id);
+  const _upstream = await getUpstream({ id: formModel.value.upstream_id });
   const { config } = _upstream;
-  upstream.value = cloneDeep(config);
+  upstream.value = config;
 };
-
-const getDependencies = async () => {
-  await getUpstreamList();
-};
-
-onMounted(async () => {
-  if (isEditMode.value) {
-    return;
-  }
-  await getDependencies();
-});
 
 </script>
 

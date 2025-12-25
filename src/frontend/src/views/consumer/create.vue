@@ -80,8 +80,6 @@ import { IConsumer, IConsumerConfig } from '@/types/consumer';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { computed, onBeforeMount, ref, useTemplateRef, watch } from 'vue';
-import { getConsumerGroups } from '@/http/consumer-group';
-import { IConsumerGroup } from '@/types/consumer-group';
 import { getConsumer, postConsumer, putConsumer } from '@/http/consumer';
 import SelectConsumerGroup from '@/components/select/select-consumer-group.vue';
 import Ajv from 'ajv';
@@ -126,7 +124,6 @@ const consumer = ref<IConsumerConfig>({
 
 const enabledPluginList = ref<ILocalPlugin[]>([]);
 const schema = ref<Record<string, any>>({});
-const consumerGroupOptions = ref([]);
 const isPluginConfigManageSliderVisible = ref(false);
 
 const formRef = useTemplateRef<InstanceType<typeof Form>>('form-ref');
@@ -258,21 +255,8 @@ const handleCancelClick = () => {
   router.back();
 };
 
-const getConsumerGroupOptions = async () => {
-  const response = await getConsumerGroups();
-  consumerGroupOptions.value = (response.results as IConsumerGroup[] || []).map(group => ({
-    id: group.id,
-    name: group.name,
-  }));
-};
-
 onBeforeMount(async () => {
-  const [schemaResponse] = await Promise.all([
-    getResourceSchema({ type: 'consumer' }),
-    getConsumerGroupOptions(),
-  ]);
-
-  schema.value = schemaResponse;
+  schema.value = await getResourceSchema({ type: 'consumer' });
 });
 
 </script>

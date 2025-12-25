@@ -166,6 +166,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 						configRaw, err),
 				)
 				c.Abort()
+				return
 			}
 
 			// 校验关联数据是否存在

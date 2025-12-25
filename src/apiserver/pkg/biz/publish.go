@@ -497,12 +497,12 @@ func PublishSSLs(ctx context.Context, sslIDs []string) error {
 	}
 	var deleteSSLIDs []string
 	var addSSLIDs []string
-	for _, sls := range ssls {
-		if sls.Status == constant.ResourceStatusDeleteDraft {
-			deleteSSLIDs = append(deleteSSLIDs, sls.ID)
+	for _, ssl := range ssls {
+		if ssl.Status == constant.ResourceStatusDeleteDraft {
+			deleteSSLIDs = append(deleteSSLIDs, ssl.ID)
 			continue
 		}
-		addSSLIDs = append(addSSLIDs, sls.ID)
+		addSSLIDs = append(addSSLIDs, ssl.ID)
 	}
 	if len(deleteSSLIDs) > 0 {
 		err = deleteSSLs(ctx, deleteSSLIDs)

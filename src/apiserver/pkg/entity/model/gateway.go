@@ -156,7 +156,11 @@ func (g *Gateway) CopyAndMaskPassword() Gateway {
 	}
 	if gateway.EtcdConfig.GetSchemaType() == constant.HTTP {
 		pwd := gateway.EtcdConfig.Password
-		gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
+		if len(pwd) >= 6 {
+			gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
+		} else {
+			gateway.EtcdConfig.Password = fmt.Sprintf("%s****", pwd[:3])
+		}
 	}
 	return gateway
 }

@@ -90,7 +90,7 @@ func ValidatePluginConfigName(ctx context.Context, fl validator.FieldLevel) bool
 	if pluginConfigName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.PluginConfig,
 		fl.Parent().FieldByName("ID").String(),

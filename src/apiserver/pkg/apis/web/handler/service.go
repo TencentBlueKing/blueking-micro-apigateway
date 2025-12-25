@@ -85,7 +85,7 @@ func ServiceCreate(c *gin.Context) {
 //	@Tags		webapi.service
 //	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"service ID"
 //	@Param		request		body	serializer.ServiceInfo	true	"service 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [put]
 func ServiceUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam

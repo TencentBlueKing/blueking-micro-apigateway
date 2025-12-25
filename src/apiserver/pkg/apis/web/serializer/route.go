@@ -89,7 +89,7 @@ func ValidationRouteName(ctx context.Context, fl validator.FieldLevel) bool {
 	if routeName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.Route,
 		fl.Parent().FieldByName("ID").String(),

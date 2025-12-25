@@ -129,12 +129,12 @@ func GatewayGet(c *gin.Context) {
 //	@Param		gateway_name	path	string					true	"网关名称"
 //	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的 token"
 //	@Param		request			body	common.GatewayInputInfo	true	"网关更新参数"
-//	@Success	201
+//	@Success	200
 //	@Router		/api/v1/open/gateways/{gateway_name}/ [put]
 func GatewayUpdate(c *gin.Context) {
 	var req common.GatewayInputInfo
 	if err := validation.BindAndValidate(c, &req); err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
+		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	if req.EtcdPassword == "" {

@@ -638,12 +638,12 @@ func DuplicatedResourceName(
 	err := d.Find(&res).Error
 	if err != nil {
 		logging.Errorf("query resource name: %s error: %s", name, err.Error())
-		return false
-	}
-	if len(res) == 0 {
 		return true
 	}
-	return false
+	if len(res) == 0 {
+		return false
+	}
+	return true
 }
 
 func getQueryNameParams(
@@ -816,25 +816,22 @@ func ValidateResource(
 					return fmt.Errorf("associated upstream [id:%s] not found",
 						resourceAssociateIDInfo.UpstreamID)
 				}
-
-				if resourceAssociateIDInfo.PluginConfigID != "" {
-					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
-						constant.PluginConfig, resourceAssociateIDInfo.PluginConfigID)]; !ok {
-						return fmt.Errorf("associated plugin_config [id:%s] not found",
-							resourceAssociateIDInfo.PluginConfigID)
-					}
+			}
+			if resourceAssociateIDInfo.PluginConfigID != "" {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.PluginConfig, resourceAssociateIDInfo.PluginConfigID)]; !ok {
+					return fmt.Errorf("associated plugin_config [id:%s] not found",
+						resourceAssociateIDInfo.PluginConfigID)
 				}
-				if resourceAssociateIDInfo.GroupID != "" {
-					if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
-						constant.ConsumerGroup, resourceAssociateIDInfo.GroupID)]; !ok {
-						return fmt.Errorf("associated consumer_group [id:%s] not found",
-							resourceAssociateIDInfo.GroupID)
-					}
+			}
+			if resourceAssociateIDInfo.GroupID != "" {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.ConsumerGroup, resourceAssociateIDInfo.GroupID)]; !ok {
+					return fmt.Errorf("associated consumer_group [id:%s] not found",
+						resourceAssociateIDInfo.GroupID)
 				}
 			}
 		}
-
-		return nil
 	}
 	return nil
 }

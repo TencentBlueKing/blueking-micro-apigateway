@@ -113,7 +113,6 @@ func (p *PluginMetadata) HandleConfig() (err error) {
 		}
 	}
 	// 去除空字段
-	// 去除空字段
 	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(p.Config))
 	if err == nil {
 		p.Config = []byte(config)

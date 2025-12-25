@@ -86,7 +86,7 @@ func ConsumerCreate(c *gin.Context) {
 //	@Tags		webapi.consumer
 //	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"consumerID"
 //	@Param		request		body	serializer.ConsumerInfo	true	"consumer 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers/{id}/ [put]
 func ConsumerUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam

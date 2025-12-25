@@ -254,7 +254,7 @@ func ResourceGetStatus(c *gin.Context) {
 //	@Param		resource_type	path	constant.ResourcePath				true	"资源类型"
 //	@Param		id				path	string								true	"资源 ID"
 //	@Param		request			body	serializer.ResourceUpdateRequest	true	"资源更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/open/gateways/{gateway_name}/resources/{resource_type}/{id}/ [put]
 func ResourceUpdate(c *gin.Context) {
 	var pathParam serializer.ResourcePathParam
@@ -268,7 +268,7 @@ func ResourceUpdate(c *gin.Context) {
 		return
 	}
 	duplicated := biz.DuplicatedResourceName(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, req.Name)
-	if !duplicated {
+	if duplicated {
 		ginx.BadRequestErrorJSONResponse(c, errors.New(
 			fmt.Sprintf("name: %s is duplicated with existing %s", req.Name, ginx.GetResourceType(c)),
 		))
@@ -288,6 +288,7 @@ func ResourceUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ResourceDelete ...

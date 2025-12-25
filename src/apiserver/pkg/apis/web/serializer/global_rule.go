@@ -119,7 +119,7 @@ func ValidateGlobalRuleName(ctx context.Context, fl validator.FieldLevel) bool {
 	if globalRuleName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.GlobalRule,
 		fl.Parent().FieldByName("ID").String(),

@@ -81,7 +81,7 @@ func GlobalRuleCreate(c *gin.Context) {
 //	@Tags		webapi.global_rule
 //	@Param		gateway_id	path	int							true	"网关 ID"	@Param	id	path	string	true	"global_rule ID"
 //	@Param		request		body	serializer.GlobalRuleInfo	true	"global_rule 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [put]
 func GlobalRuleUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -125,6 +125,7 @@ func GlobalRuleUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // GlobalRuleList ...

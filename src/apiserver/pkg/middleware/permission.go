@@ -45,7 +45,7 @@ func Permission() gin.HandlerFunc {
 			}
 			if len(users) != 0 && !goutil.Contains(users, user) {
 				ginx.ForbiddenJSONResponse(c,
-					fmt.Errorf("user %s is not allowed to access the site. Please concat "+
+					fmt.Errorf("user %s is not allowed to access the site. Please contact "+
 						"the administrator to grant permission", user))
 				c.Abort()
 				return

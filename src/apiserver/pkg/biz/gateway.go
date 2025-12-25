@@ -31,6 +31,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
@@ -104,12 +105,13 @@ func ExistsGatewayName(ctx context.Context, name string, id int) bool {
 	}
 	gateways, err := u.WithContext(ctx).Where(conditions...).Find()
 	if err != nil {
-		return false
-	}
-	if len(gateways) == 0 {
+		logging.Errorf("query gateway name: %s error: %s", name, err.Error())
 		return true
 	}
-	return false
+	if len(gateways) == 0 {
+		return false
+	}
+	return true
 }
 
 // GetGatewayEtcdConfigList 查询 etcd_config 比对结果的网关列表

@@ -80,7 +80,7 @@ func ValidateProtoName(ctx context.Context, fl validator.FieldLevel) bool {
 	if ProtoName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.Proto,
 		fl.Parent().FieldByName("ID").String(),

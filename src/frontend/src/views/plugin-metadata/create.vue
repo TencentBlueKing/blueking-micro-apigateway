@@ -83,7 +83,6 @@ import { getMetadataPlugins, getMetadataPluginSchema } from '@/http/plugins';
 import { IPlugin } from '@/types/plugin';
 import { useElementSize } from '@vueuse/core';
 
-const ajv = new Ajv();
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -153,6 +152,7 @@ const handleSubmit = async () => {
     ]);
 
     // 校验 schema
+    const ajv = new Ajv();
     const schemaValidate = ajv.compile(schema.value);
 
     const config = {

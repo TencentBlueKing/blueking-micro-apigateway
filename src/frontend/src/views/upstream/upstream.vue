@@ -67,6 +67,12 @@ const isResourceViewerShow = ref(false);
 const searchParams = ref<ISearchParam[]>([]);
 const tableRef = ref();
 
+const toggleResourceViewerSlider = ({ resource }: { resource: IUpstream }) => {
+  upstream.value = resource;
+  source.value = JSON.stringify(resource.config);
+  isResourceViewerShow.value = true;
+};
+
 watch(() => route.query.id, async () => {
   if (route.query.id) {
     const id = route.query.id as string;
@@ -79,12 +85,6 @@ watch(() => route.query.id, async () => {
     }];
   }
 }, { immediate: true });
-
-function toggleResourceViewerSlider({ resource }: { resource: IUpstream }) {
-  upstream.value = resource;
-  source.value = JSON.stringify(resource.config);
-  isResourceViewerShow.value = true;
-}
 
 const handleUpdated = async () => {
   tableRef.value!.getList();

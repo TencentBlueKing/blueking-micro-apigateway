@@ -468,6 +468,9 @@ const handleSubmit = async () => {
 
       if (!['__none__'].includes(formModel.value.service_id)) {
         data.service_id = formModel.value.service_id;
+        if (formModel.value.service_id) {
+          data.config.service_id = formModel.value.service_id;
+        }
       }
 
       // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id

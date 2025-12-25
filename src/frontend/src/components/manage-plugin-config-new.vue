@@ -180,9 +180,6 @@ const emit = defineEmits<{
   'removed': [name: string],
 }>();
 
-const ajv = new Ajv();
-addFormats(ajv);
-
 interface ILocalPlugin {
   doc_url?: string
   example?: string
@@ -356,6 +353,8 @@ const isDisabled = (pluginName: string) => {
 const handleEditConfirm = (plugin: ILocalPlugin) => {
   try {
     // 校验 schema
+    const ajv = new Ajv();
+    addFormats(ajv);
     const schemaValidate = ajv.compile(schema.value);
     if (schemaValidate(JSON.parse(plugin.config))) {
       const targetPlugin = enabledPluginList.value.find(item => item.name === plugin.name);

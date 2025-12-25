@@ -234,8 +234,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { getRoute, postRoute, putRoute } from '@/http/route';
 import { getUpstreams } from '@/http/upstream';
-import { getPluginConfigs } from '@/http/plugin-config';
-import { IPluginConfigDto } from '@/types/plugin-config';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
 import SelectUpstream from '@/components/select/select-upstream.vue';
 import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
@@ -332,8 +330,6 @@ const rules = {
 };
 
 const upstreamList = ref<IUpstream[]>([]);
-
-const pluginConfigList = ref<IPluginConfigDto[]>([]);
 
 const enabledPluginList = ref<ILocalPlugin[]>([]);
 
@@ -629,16 +625,8 @@ const handleUpstreamSelect = () => {
   upstream.value = cloneDeep(config);
 };
 
-const getPluginConfigList = async () => {
-  const response = await getPluginConfigs();
-  pluginConfigList.value = response.results as IPluginConfigDto[] || [];
-};
-
 const getDependencies = async () => {
-  await Promise.all([
-    getUpstreamList(),
-    getPluginConfigList(),
-  ]);
+  await getUpstreamList();
 };
 
 onMounted(async () => {

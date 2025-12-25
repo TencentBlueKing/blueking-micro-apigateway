@@ -97,6 +97,7 @@ const locales: ILocales = {
   '已选 {count} 条，': ['Selected {count} items, '],
   'stream 路由': ['Stream Route'],
   '自定义插件': ['Schema'],
+  '共享网关': ['API Gateway'],
 };
 
 export default locales;

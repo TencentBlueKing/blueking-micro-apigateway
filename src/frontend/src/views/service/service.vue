@@ -151,6 +151,12 @@ const extraSearchOptions = computed(() => [
   },
 ]);
 
+const toggleResourceViewerSlider = ({ resource }: { resource: IService }) => {
+  service.value = resource;
+  source.value = JSON.stringify(resource.config);
+  isResourceViewerShow.value = true;
+};
+
 watch(() => route.query.id, async () => {
   if (route.query.id) {
     const id = route.query.id as string;
@@ -178,13 +184,6 @@ function getFilterOptions({
 })  {
   return new FilterOptionClass({ key, value, options, extra })?.filterOptions;
 };
-
-const toggleResourceViewerSlider = ({ resource }: { resource: IService }) => {
-  service.value = resource;
-  source.value = JSON.stringify(resource.config);
-  isResourceViewerShow.value = true;
-};
-
 
 const getUpstreamSelectOptions = async () => {
   const response = await getUpstreamDropdowns();

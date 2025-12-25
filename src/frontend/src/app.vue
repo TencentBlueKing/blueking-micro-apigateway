@@ -81,6 +81,13 @@
                   <a v-else :href="item.url" target="_blank">{{ item.name }}</a>
                 </div>
               </template>
+              <!-- 内部上云版的共享网关外链 -->
+              <div
+                v-if="envStore.edition === 'te'"
+                class="header-nav-item"
+              >
+                <a :href="envStore.links.bk_apigateway_link" target="_blank">{{ t('共享网关') }}</a>
+              </div>
             </div>
             <div class="header-aside-wrap">
               <!--              <language-toggle></language-toggle>-->
@@ -291,7 +298,7 @@ const handleToHome = () => {
 };
 
 common.setEnums();
-envStore.setLinks();
+envStore.setVars();
 </script>
 
 <style lang="scss">

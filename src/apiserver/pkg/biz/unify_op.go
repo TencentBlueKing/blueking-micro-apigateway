@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -73,7 +72,7 @@ type UnifyOp struct {
 func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
 	gateways, err := ListGateways(ctx, 0)
 	if err != nil {
-		log.Fatal(err)
+		logging.Errorf("list gateways error: %s", err.Error())
 		return
 	}
 	for _, gateway := range gateways {
@@ -88,8 +87,10 @@ func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
 	}
 }
 
-// RemoveDuplicatedResource 去重重复资源：id重复或者name重复
-func RemoveDuplicatedResource(ctx context.Context, resourceType constant.APISIXResource,
+// RemoveDuplicatedResource 去重重复资源：id 重复或者 name 重复
+func RemoveDuplicatedResource(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
 	resources []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	var syncedResources []*model.GatewaySyncData
@@ -107,7 +108,7 @@ func RemoveDuplicatedResource(ctx context.Context, resourceType constant.APISIXR
 	for _, r := range resources {
 		if id, ok := resourceNameMap[r.GetName()]; ok {
 			// 排除已经添加的资源
-			// 如果name存在,且id不一致，则说明存在冲突
+			// 如果 name 存在，且 id 不一致，则说明存在冲突
 			if id != r.ID {
 				return syncedResources,
 					fmt.Errorf("existed %s [id:%s name:%s]conflict", r.Type, id, r.GetName())
@@ -130,7 +131,7 @@ func AddSyncedResources( //nolint:gocyclo
 ) (map[constant.APISIXResource]int, error) {
 	// 同步资源统计
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
-	queryParam := map[string]interface{}{
+	queryParam := map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}
 	if len(idList) != 0 {
@@ -225,32 +226,32 @@ func insertSyncedResourcesModel(
 				return err
 			}
 		case constant.Service:
-			err := BatchCreateServices(ctx, resourceList.([]*model.Service))
+			err = BatchCreateServices(ctx, resourceList.([]*model.Service))
 			if err != nil {
 				return err
 			}
 		case constant.Upstream:
-			err := BatchCreateUpstreams(ctx, resourceList.([]*model.Upstream))
+			err = BatchCreateUpstreams(ctx, resourceList.([]*model.Upstream))
 			if err != nil {
 				return err
 			}
 		case constant.PluginConfig:
-			err := BatchCreatePluginConfigs(ctx, resourceList.([]*model.PluginConfig))
+			err = BatchCreatePluginConfigs(ctx, resourceList.([]*model.PluginConfig))
 			if err != nil {
 				return err
 			}
 		case constant.PluginMetadata:
-			err := batchCreatePluginMetadatas(ctx, resourceList.([]*model.PluginMetadata))
+			err = batchCreatePluginMetadatas(ctx, resourceList.([]*model.PluginMetadata))
 			if err != nil {
 				return err
 			}
 		case constant.Consumer:
-			err := BatchCreateConsumers(ctx, resourceList.([]*model.Consumer))
+			err = BatchCreateConsumers(ctx, resourceList.([]*model.Consumer))
 			if err != nil {
 				return err
 			}
 		case constant.ConsumerGroup:
-			err := BatchCreateConsumerGroups(ctx, resourceList.([]*model.ConsumerGroup))
+			err = BatchCreateConsumerGroups(ctx, resourceList.([]*model.ConsumerGroup))
 			if err != nil {
 				return err
 			}
@@ -265,12 +266,12 @@ func insertSyncedResourcesModel(
 				return err
 			}
 		case constant.Proto:
-			err := BatchCreateProtos(ctx, resourceList.([]*model.Proto))
+			err = BatchCreateProtos(ctx, resourceList.([]*model.Proto))
 			if err != nil {
 				return err
 			}
 		case constant.StreamRoute:
-			err := BatchCreateStreamRoutes(ctx, resourceList.([]*model.StreamRoute))
+			err = BatchCreateStreamRoutes(ctx, resourceList.([]*model.StreamRoute))
 			if err != nil {
 				return err
 			}
@@ -320,7 +321,7 @@ func UploadResources(
 		if err != nil {
 			return err
 		}
-		// 处理自定义插件schema,直接更新
+		// 处理自定义插件 schema，直接更新
 		var updateSchemaNames []string
 		updateSchemaMap := make(map[string]*model.GatewayCustomPluginSchema)
 		for _, schema := range updatedSchemas {
@@ -368,7 +369,7 @@ func GetSyncItemsAssociatedResources(
 	ctx context.Context,
 	items []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
-	idMap := make(map[string]bool) // type:id 不同类型资源的id可能重复
+	idMap := make(map[string]bool) // type:id 不同类型资源的 id 可能重复
 	for _, item := range items {
 		idMap[item.GetResourceKey()] = true
 	}
@@ -402,7 +403,7 @@ func GetSyncItemsAssociatedResources(
 		}
 	}
 	if len(associatedIDs) > 0 {
-		associatedItems, err := QuerySyncedItems(ctx, map[string]interface{}{
+		associatedItems, err := QuerySyncedItems(ctx, map[string]any{
 			"id": associatedIDs,
 		})
 		if err != nil {
@@ -423,7 +424,8 @@ func SyncResources(
 	if !strings.HasPrefix(gatewayInfo.EtcdConfig.Prefix, "/") {
 		prefix = fmt.Sprintf("%s/", prefix)
 	}
-	if resourceType == "" {
+	// 如果资源类型为空，则同步所有资源
+	if resourceType != "" {
 		prefix = fmt.Sprintf("%s/%s", prefix, constant.ResourceTypePrefixMap[resourceType])
 	}
 	syncer, err := NewUnifyOp(gatewayInfo, false)
@@ -474,7 +476,7 @@ func (s *UnifyOp) SyncerRun(ctx context.Context, resourceChan chan []*model.Gate
 	ticker := time.NewTicker(config.G.Biz.SyncInterval +
 		time.Second*time.Duration(rand.Intn(maxDelay-minDelay+1)+minDelay))
 	for range ticker.C {
-		// prefix可能会更新,再查一次
+		// prefix 可能会更新，再查一次
 		gatewayInfo, err := GetGateway(ctx, s.gatewayInfo.ID)
 		if err != nil {
 			logging.Errorf("get gateway error: %s", err.Error())
@@ -503,7 +505,7 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	resourceList := s.kvToResource(ctx, kvList)
 
 	// 获取已同步资源
-	items, err := QuerySyncedItems(ctx, map[string]interface{}{})
+	items, err := QuerySyncedItems(ctx, map[string]any{})
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +533,15 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 		// 更新同步时间
 		g := tx.Gateway
 		s.gatewayInfo.LastSyncedAt = time.Now()
-		_, err = g.WithContext(ctx).Where(g.ID.Eq(s.gatewayInfo.ID)).Select(g.LastSyncedAt).Updates(s.gatewayInfo)
+		_, err = g.WithContext(
+			ctx,
+		).Where(
+			g.ID.Eq(s.gatewayInfo.ID),
+		).Select(
+			g.LastSyncedAt,
+		).Updates(
+			s.gatewayInfo,
+		)
 		if err != nil {
 			return err
 		}
@@ -642,7 +652,7 @@ func (s *UnifyOp) kvToResource(
 		resourceKeyWithoutPrefix := strings.ReplaceAll(kv.Key, s.gatewayInfo.EtcdConfig.Prefix, "")
 		resourceKeyList := strings.Split(resourceKeyWithoutPrefix, "/")
 		if len(resourceKeyList) != 3 {
-			// key不合法
+			// key 不合法
 			logging.Errorf("key is not validate: %s", kv.Key)
 			continue
 		}
@@ -666,7 +676,7 @@ func (s *UnifyOp) kvToResource(
 		if resourceType != constant.PluginMetadata && resourceInfo.GetName() == "" {
 			resourceInfo.SetName(fmt.Sprintf("%s_%s", resourceTypeValue, id))
 		} else if resourceType == constant.PluginMetadata {
-			// 插件元数据的名称就是取id
+			// 插件元数据的名称就是取 id
 			resourceInfo.SetName(id)
 		}
 		resources = append(resources, resourceInfo)
@@ -701,10 +711,10 @@ func (s *UnifyOp) kvToResource(
 		}
 	}
 	if len(metadataNames) > 0 {
-		// 反向查找ID
+		// 反向查找 ID
 		metadatas, err := QueryPluginMetadatas(
 			ctx,
-			map[string]interface{}{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
+			map[string]any{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
 		)
 		if err != nil {
 			logging.Errorf("SearchPluginMetadata error: %s", err.Error())
@@ -725,7 +735,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 global rule name
 	if len(globalRuleIDs) > 0 {
-		globalRules, err := QueryGlobalRules(ctx, map[string]interface{}{
+		globalRules, err := QueryGlobalRules(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         globalRuleIDs,
 		})
@@ -742,7 +752,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 PluginConfig name
 	if len(pluginConfigIDs) > 0 {
-		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]interface{}{
+		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         pluginConfigIDs,
 		})
@@ -759,7 +769,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 ConsumerGroup id，name
 	if len(consumerGroupIDs) > 0 {
-		consumerGroups, err := QueryConsumerGroups(ctx, map[string]interface{}{
+		consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         consumerGroupIDs,
 		})
@@ -777,7 +787,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 Proto name
 	if len(protoIDs) > 0 {
-		protos, err := QueryProtos(ctx, map[string]interface{}{
+		protos, err := QueryProtos(ctx, map[string]any{
 			"gateway_id": s.gatewayInfo.ID,
 			"id":         protoIDs,
 		})
@@ -794,7 +804,7 @@ func (s *UnifyOp) kvToResource(
 
 	// 处理 StreamRoute name，labels
 	if len(streamRouteIDs) > 0 {
-		streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{
+		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
 			"id": streamRouteIDs,
 		})
 		if err != nil {
@@ -819,7 +829,7 @@ func SyncedResourceToAPISIXResource(
 	resourceType constant.APISIXResource,
 	syncedResources []*model.GatewaySyncData,
 	status constant.ResourceStatus,
-) interface{} {
+) any {
 	switch resourceType {
 	case constant.Route:
 		return syncedResourceToAPISIXRoute(syncedResources, status)
@@ -1088,7 +1098,7 @@ func DiffResources(
 	var result []dto.ResourceChangeInfo
 	for _, rT := range constant.ResourceTypeList {
 		var resourceName string
-		param := map[string]interface{}{
+		param := map[string]any{
 			"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 			"status": []constant.ResourceStatus{
 				constant.ResourceStatusCreateDraft,
@@ -1155,14 +1165,23 @@ func DiffResources(
 				resourceTypeDiffResult.UpdateCount++
 				resourceChangeDetail.PublishFrom = constant.OperationTypeUpdate
 			}
-			resourceTypeDiffResult.ChangeDetail = append(resourceTypeDiffResult.ChangeDetail, resourceChangeDetail)
+			resourceTypeDiffResult.ChangeDetail = append(
+				resourceTypeDiffResult.ChangeDetail,
+				resourceChangeDetail,
+			)
 			// 处理关联资源
 			serviceID := resourceInfo.GetServiceID()
 			if serviceID != "" {
-				diffResourceTypeMap[constant.Service] = append(diffResourceTypeMap[constant.Service], serviceID)
+				diffResourceTypeMap[constant.Service] = append(
+					diffResourceTypeMap[constant.Service],
+					serviceID,
+				)
 			}
 			if upstreamID := resourceInfo.GetUpstreamID(); upstreamID != "" {
-				diffResourceTypeMap[constant.Upstream] = append(diffResourceTypeMap[constant.Upstream], upstreamID)
+				diffResourceTypeMap[constant.Upstream] = append(
+					diffResourceTypeMap[constant.Upstream],
+					upstreamID,
+				)
 			}
 			if pluginConfigID := resourceInfo.GetPluginConfigID(); pluginConfigID != "" {
 				diffResourceTypeMap[constant.PluginConfig] = append(
@@ -1182,10 +1201,12 @@ func DiffResources(
 }
 
 // GetResourceConfigDiffDetail 获取资源差异详情
-func GetResourceConfigDiffDetail(ctx context.Context, resourceType constant.APISIXResource, id string) (
-	*dto.ResourceDiffDetailResponse, error,
-) {
-	// todo: 同步资源可能存在延时，基于什么样的策略选择从mysql拿还是从etcd拿
+func GetResourceConfigDiffDetail(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+) (*dto.ResourceDiffDetailResponse, error) {
+	// todo: 同步资源可能存在延时，基于什么样的策略选择从 mysql 拿还是从 etcd 拿
 	// 获取同步资源配置
 	syncedResourceConfig := json.RawMessage("{}")
 	syncedResource, err := GetSyncedItemByID(ctx, id)

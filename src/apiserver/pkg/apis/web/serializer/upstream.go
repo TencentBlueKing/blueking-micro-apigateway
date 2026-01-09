@@ -91,7 +91,7 @@ func ValidateUpstreamName(ctx context.Context, fl validator.FieldLevel) bool {
 	if upstreamName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.Upstream,
 		fl.Parent().FieldByName("ID").String(),

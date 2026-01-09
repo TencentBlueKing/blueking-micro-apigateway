@@ -21,7 +21,7 @@ package validation
 import validator "github.com/go-playground/validator/v10"
 
 type bizStructValidator struct {
-	slz            interface{}
+	slz            any
 	validateFunCtx validator.StructLevelFuncCtx
 	tagTrans       map[string]string
 }
@@ -29,7 +29,7 @@ type bizStructValidator struct {
 var bizStructValidators []bizStructValidator
 
 // AddBizStructValidator 新增业务 SLZ 验证器
-func AddBizStructValidator(slz interface{}, validatorFunCtx validator.StructLevelFuncCtx, tagTrans map[string]string) {
+func AddBizStructValidator(slz any, validatorFunCtx validator.StructLevelFuncCtx, tagTrans map[string]string) {
 	structValidator := bizStructValidator{
 		validateFunCtx: validatorFunCtx,
 		slz:            slz,

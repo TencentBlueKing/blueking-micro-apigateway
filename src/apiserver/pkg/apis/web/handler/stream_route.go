@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -82,8 +82,7 @@ func StreamRouteCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.stream_route
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"stream_route ID"
+//	@Param		gateway_id	path	int							true	"网关 ID"	@Param	id	path	string	true	"stream_route ID"
 //	@Param		request		body	serializer.StreamRouteInfo	true	"stream_route 更新参数"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes/{id}/ [put]
@@ -98,6 +97,13 @@ func StreamRouteUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
+
+	// if config not changed, return success directly
+	if !biz.IsResourceConfigChanged(c.Request.Context(), constant.StreamRoute, pathParam.ID, req.Config) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.StreamRoute, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -231,7 +237,7 @@ func StreamRouteList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -85,13 +85,13 @@ var VersionDocUrlMap = map[constant.APISIXVersion]string{
 
 // Plugin ...
 type Plugin struct {
-	Name            string                 `json:"name"`
-	Type            string                 `json:"type"`
-	ProxyType       string                 `json:"proxy_type"` // only for stream plugin
-	Example         map[string]interface{} `json:"example"`
-	MetadataExample map[string]interface{} `json:"metadata_example,omitempty"`
-	ConsumerExample map[string]interface{} `json:"consumer_example,omitempty"`
-	DocUrl          string                 `json:"doc_url"`
+	Name            string         `json:"name"`
+	Type            string         `json:"type"`
+	ProxyType       string         `json:"proxy_type"` // only for stream plugin
+	Example         map[string]any `json:"example"`
+	MetadataExample map[string]any `json:"metadata_example,omitempty"`
+	ConsumerExample map[string]any `json:"consumer_example,omitempty"`
+	DocUrl          string         `json:"doc_url"`
 }
 
 // StreamRoutePluginMap ...
@@ -110,7 +110,7 @@ func GetPlugins(apisixType string, version constant.APISIXVersion) ([]*Plugin, e
 	if err != nil {
 		return nil, err
 	}
-	// 如果是apisix类型，直接返回
+	// 如果是 apisix 类型，直接返回
 	if apisixType == constant.APISIXTypeAPISIX {
 		return plugins, nil
 	}
@@ -124,12 +124,12 @@ func GetPlugins(apisixType string, version constant.APISIXVersion) ([]*Plugin, e
 		plugins = append(plugins, tapisixPlugins...)
 	}
 
-	// 如果是tapisix类型，直接返回 apisix插件+tapisix插件
+	// 如果是 tapisix 类型，直接返回 apisix 插件+tapisix 插件
 	if apisixType == constant.APISIXTypeTAPISIX {
 		return plugins, nil
 	}
 
-	// 如果是蓝鲸类型，直接返回 apisix插件+tapisix插件+bk插件
+	// 如果是蓝鲸类型，直接返回 apisix 插件+tapisix 插件+bk 插件
 	if bkAPISIXPluginInfo, ok := versionBkAPISIXPluginMap[version]; ok {
 		var bkPlugins []*Plugin
 		err = json.Unmarshal(bkAPISIXPluginInfo, &bkPlugins)

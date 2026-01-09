@@ -37,6 +37,7 @@ export interface IRouteConfig extends IBaseResourceConfig {
   timeout?: ITimeout;
   upstream?: IUpstreamConfig;
   upstream_id?: string;
+  service_id?: string;
   uri?: string;
   uris?: string[];
   vars?: string[][];

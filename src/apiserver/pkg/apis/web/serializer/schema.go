@@ -95,7 +95,7 @@ func ValidationSchemaName(ctx context.Context, fl validator.FieldLevel) bool {
 }
 
 // CheckPluginSchemaAndExample 检查 schema 和 example 配置
-func CheckPluginSchemaAndExample(schema json.RawMessage, example json.RawMessage) error {
+func CheckPluginSchemaAndExample(schema, example json.RawMessage) error {
 	schemaRaw, _ := schema.MarshalJSON()
 	exampleRaw, _ := example.MarshalJSON()
 	if schema == nil || jsonx.IsJSONEmpty(schemaRaw) {

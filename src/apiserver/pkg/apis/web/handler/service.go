@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -42,8 +42,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	serializer.ServiceInfo	true	"service 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.ServiceInfo	true	"service
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/ [post]
 func ServiceCreate(c *gin.Context) {
@@ -81,10 +83,9 @@ func ServiceCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"service ID"
-//	@Param		request		body	serializer.ServiceInfo	true	"service更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"service ID"
+//	@Param		request		body	serializer.ServiceInfo	true	"service 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [put]
 func ServiceUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -96,6 +97,12 @@ func ServiceUpdate(c *gin.Context) {
 	req := serializer.ServiceInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if config not changed, return success directly
+	if !biz.IsResourceConfigChanged(c.Request.Context(), constant.Service, pathParam.ID, req.Config) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -152,7 +159,7 @@ func ServiceList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

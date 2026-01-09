@@ -8323,7 +8323,6 @@
               "description": "regex uri",
               "type": "string"
             },
-            "maxItems": 2,
             "minItems": 2,
             "type": "array"
           },

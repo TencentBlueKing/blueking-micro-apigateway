@@ -35,14 +35,14 @@ import (
 
 // buildRouteQuery 获取 Route 查询对象
 func buildRouteQuery(ctx context.Context) repo.IRouteDo {
-	return repo.Route.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.Route.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildRouteQueryWithTx 获取 Route 查询对象，包含事务
 func buildRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IRouteDo {
-	return tx.WithContext(ctx).Route.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).Route.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -74,7 +74,7 @@ func GetRouteOrderExprList(orderBy string) []field.Expr {
 // ListPagedRoutes 分页查询网关路由列表
 func ListPagedRoutes(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -181,7 +181,7 @@ func GetRoute(ctx context.Context, id string) (*model.Route, error) {
 }
 
 // QueryRoutes 搜索路由
-func QueryRoutes(ctx context.Context, param map[string]interface{}) ([]*model.Route, error) {
+func QueryRoutes(ctx context.Context, param map[string]any) ([]*model.Route, error) {
 	return buildRouteQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -220,7 +220,7 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	routes, err := QueryRoutes(ctx, map[string]interface{}{
+	routes, err := QueryRoutes(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

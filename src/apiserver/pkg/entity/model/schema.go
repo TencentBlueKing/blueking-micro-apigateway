@@ -130,10 +130,10 @@ func (g *GatewayCustomPluginSchema) AddAuditLog(tx *gorm.DB, operation constant.
 func ResourceSchemaCallback(tx *gorm.DB, gatewayID int,
 	resourceID string, resourceType constant.APISIXResource, resourceConfig datatypes.JSON,
 ) error {
-	var plugins map[string]interface{}
+	var plugins map[string]any
 	if resourceType == constant.PluginMetadata {
 		pluginName := gjson.GetBytes(resourceConfig, "name").String()
-		plugins = map[string]interface{}{
+		plugins = map[string]any{
 			pluginName: resourceConfig,
 		}
 	} else {

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -31,9 +31,9 @@ import (
 
 // ConsumerGroupInfo   ConsumerGroup 基本信息
 type ConsumerGroupInfo struct {
-	ID     string          `json:"-"`                                                                   // 资源apisix资源id
-	Name   string          `json:"name" binding:"required" validate:"consumerGroupName"`                // ConsumerGroup名称
-	Config json.RawMessage `json:"config" validate:"apisixConfig=consumer_group"  swaggertype:"object"` // 配置数据(json格式)
+	ID     string          `json:"-"`                                                                   // 资源 apisix 资源 id
+	Name   string          `json:"name" binding:"required" validate:"consumerGroupName"`                // ConsumerGroup 名称
+	Config json.RawMessage `json:"config" validate:"apisixConfig=consumer_group"  swaggertype:"object"` // 配置数据 (json 格式)
 }
 
 // ConsumerGroupListRequest ConsumerGroup 表
@@ -55,7 +55,7 @@ type ConsumerGroupListResponse []ConsumerGroupOutputInfo
 type ConsumerGroupOutputInfo struct {
 	AutoID    int    `json:"auto_id"`
 	ID        string `json:"id"`
-	GatewayID int    `json:"gateway_id"` // 网关ID
+	GatewayID int    `json:"gateway_id"` // 网关 ID
 	ConsumerGroupInfo
 	CreatedAt int64                   `json:"created_at"`
 	UpdatedAt int64                   `json:"updated_at"`
@@ -69,8 +69,8 @@ type ConsumerGroupDropDownListResponse []ConsumerGroupDropDownOutputInfo
 
 // ConsumerGroupDropDownOutputInfo ConsumerGroup 下拉列表
 type ConsumerGroupDropDownOutputInfo struct {
-	AutoID int    `json:"auto_id"` // 自增ID
-	ID     string `json:"id"`      // 资源apisix资源id
+	AutoID int    `json:"auto_id"` // 自增 ID
+	ID     string `json:"id"`      // 资源 apisix 资源 id
 	Name   string `json:"name"`    // 路由名称
 	Desc   string `json:"desc"`    // 路由描述
 }
@@ -90,7 +90,7 @@ func ValidateConsumerGroupName(ctx context.Context, fl validator.FieldLevel) boo
 	if consumerGroupName == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.ConsumerGroup,
 		fl.Parent().FieldByName("ID").String(),

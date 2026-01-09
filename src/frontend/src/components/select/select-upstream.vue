@@ -93,7 +93,7 @@ const viewerConfig = ref<{ resource: IUpstream | null, source: string, visible: 
 const pagination = ref({
   current: 0,
   offset: 0,
-  limit: 20,
+  limit: 100,
   loading: false,
   lastLoaded: false,
 });

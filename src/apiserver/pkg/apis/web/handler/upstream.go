@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -42,8 +42,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.upstream
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	serializer.UpstreamInfo	true	"upstream 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.UpstreamInfo	true	"upstream
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams/ [post]
 func UpstreamCreate(c *gin.Context) {
@@ -82,10 +84,9 @@ func UpstreamCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.upstream
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"upstream ID"
-//	@Param		request		body	serializer.UpstreamInfo	true	"upstream更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"upstream ID"
+//	@Param		request		body	serializer.UpstreamInfo	true	"upstream 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams/{id}/ [put]
 func UpstreamUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -98,6 +99,13 @@ func UpstreamUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
+
+	// if config not changed, return success directly
+	if !biz.IsResourceConfigChanged(c.Request.Context(), constant.Upstream, pathParam.ID, req.Config) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Upstream, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -149,7 +157,7 @@ func UpstreamList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}

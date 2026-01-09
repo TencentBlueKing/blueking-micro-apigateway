@@ -217,9 +217,13 @@ var _ = Describe("EtcdV3Storage", func() {
 		Context("Close", func() {
 			It("Close: ok", func() {
 				client := &clientv3.Client{}
-				patches := gomonkey.ApplyMethod(reflect.TypeOf(client), "Close", func(*clientv3.Client) error {
-					return nil
-				})
+				patches := gomonkey.ApplyMethod(
+					reflect.TypeOf(client),
+					"Close",
+					func(*clientv3.Client) error {
+						return nil
+					},
+				)
 				defer patches.Reset()
 
 				etcd := &EtcdV3Storage{client: client}

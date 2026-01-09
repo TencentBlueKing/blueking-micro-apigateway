@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -36,7 +36,7 @@ type OperationAuditLog struct {
 	CreatedAt     time.Time              `gorm:"column:created_at" json:"created_at"`
 	OperationType constant.OperationType `gorm:"column:operation_type;type:varchar(64);not null" json:"operation_type"`
 	Operator      string                 `gorm:"column:operator;type:varchar(50)" json:"operator"`
-	// 资源id，多个用逗号分隔
+	// 资源 id，多个用逗号分隔
 	ResourceIDs string `gorm:"column:resource_ids;type:text" json:"resource_ids"`
 	// route/service/upstream
 	ResourceType constant.APISIXResource `gorm:"column:resource_type"`
@@ -44,7 +44,7 @@ type OperationAuditLog struct {
 	DataAfter    datatypes.JSON          `gorm:"type:json" json:"data_after"`
 }
 
-// BatchOperationData 批量操data格式
+// BatchOperationData 批量操 data 格式
 type BatchOperationData struct {
 	ID     string                  `json:"id"`
 	Status constant.ResourceStatus `json:"status"`
@@ -57,9 +57,14 @@ func (OperationAuditLog) TableName() string {
 }
 
 // 定义一个通用的回调
-func auditCallback(db *gorm.DB, gatewayID int, resourceID string, operator string,
-	status constant.ResourceStatus, operationType constant.OperationType, resourceType constant.APISIXResource,
-	dataBefore datatypes.JSON, dataAfter datatypes.JSON,
+func auditCallback(
+	db *gorm.DB,
+	gatewayID int,
+	resourceID, operator string,
+	status constant.ResourceStatus,
+	operationType constant.OperationType,
+	resourceType constant.APISIXResource,
+	dataBefore, dataAfter datatypes.JSON,
 ) error {
 	var dataBeforeList []BatchOperationData
 	var dataAfterList []BatchOperationData

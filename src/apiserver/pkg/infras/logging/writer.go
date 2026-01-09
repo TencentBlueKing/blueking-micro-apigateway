@@ -61,7 +61,10 @@ func newRotateFileWriter(cfg map[string]string) (w io.Writer, err error) {
 	maxSize := 100
 	if cfg["maxsize"] != "" {
 		if maxSize, err = strconv.Atoi(cfg["maxsize"]); err != nil {
-			return nil, fmt.Errorf("the writer config - maxsize(%s) wrong, must be an integer", cfg["maxsize"])
+			return nil, fmt.Errorf(
+				"the writer config - maxsize(%s) wrong, must be an integer",
+				cfg["maxsize"],
+			)
 		}
 	}
 
@@ -69,7 +72,10 @@ func newRotateFileWriter(cfg map[string]string) (w io.Writer, err error) {
 	maxBackups := 5
 	if cfg["maxbackups"] != "" {
 		if maxBackups, err = strconv.Atoi(cfg["maxbackups"]); err != nil {
-			return nil, fmt.Errorf("the writer config - maxbackups(%s) wrong, must be an integer", cfg["maxbackups"])
+			return nil, fmt.Errorf(
+				"the writer config - maxbackups(%s) wrong, must be an integer",
+				cfg["maxbackups"],
+			)
 		}
 	}
 
@@ -77,7 +83,10 @@ func newRotateFileWriter(cfg map[string]string) (w io.Writer, err error) {
 	maxAge := 0
 	if cfg["maxage"] != "" {
 		if maxAge, err = strconv.Atoi(cfg["maxage"]); err != nil {
-			return nil, fmt.Errorf("the writer config - maxage(%s) wrong, must be an integer", cfg["maxage"])
+			return nil, fmt.Errorf(
+				"the writer config - maxage(%s) wrong, must be an integer",
+				cfg["maxage"],
+			)
 		}
 	}
 

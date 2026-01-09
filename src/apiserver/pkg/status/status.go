@@ -109,7 +109,7 @@ func NewResourceStatusOp(resourceInfo model.ResourceCommonModel) *ResourceStatus
 
 // CanDo 判断是否可以进行操作
 func (s *ResourceStatusOp) CanDo(ctx context.Context, operationType constant.OperationType) error {
-	// demo站点进行特殊处理，部分资源不允许进行任何操作
+	// demo 站点进行特殊处理，部分资源不允许进行任何操作
 	if config.IsDemoMode() {
 		if config.G.Biz.DemoProtectResources[s.resourceInfo.ID] {
 			return errors.New(config.G.Service.DemoModeWarnMsg)
@@ -143,9 +143,10 @@ func (s *ResourceStatusOp) NextStatus(
 
 // ignoreSpecialOp 判断是否需要忽略特殊操作
 func (s *ResourceStatusOp) ignoreSpecialOp(operationType constant.OperationType) bool {
-	// fms不支持同状态之间的转换
-	if operationType == constant.OperationTypeUpdate && (s.resourceInfo.Status == constant.ResourceStatusCreateDraft ||
-		s.resourceInfo.Status == constant.ResourceStatusUpdateDraft) {
+	// fms 不支持同状态之间的转换
+	if operationType == constant.OperationTypeUpdate &&
+		(s.resourceInfo.Status == constant.ResourceStatusCreateDraft ||
+			s.resourceInfo.Status == constant.ResourceStatusUpdateDraft) {
 		return true
 	}
 	return false

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -32,14 +32,14 @@ import (
 
 // buildConsumerQuery 获取 Consumer 查询对象
 func buildConsumerQuery(ctx context.Context) repo.IConsumerDo {
-	return repo.Consumer.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.Consumer.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
-// buildConsumerQueryWithTx 获取 Consumer 查询对象(带事务)
+// buildConsumerQueryWithTx 获取 Consumer 查询对象 (带事务)
 func buildConsumerQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerDo {
-	return tx.Consumer.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return tx.Consumer.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -71,7 +71,7 @@ func GetConsumerOrderExprList(orderBy string) []field.Expr {
 // ListPagedConsumers 分页查询 Consumer 列表
 func ListPagedConsumers(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -147,7 +147,7 @@ func GetConsumer(ctx context.Context, id string) (*model.Consumer, error) {
 }
 
 // QueryConsumers 搜索 consumer
-func QueryConsumers(ctx context.Context, param map[string]interface{}) ([]*model.Consumer, error) {
+func QueryConsumers(ctx context.Context, param map[string]any) ([]*model.Consumer, error) {
 	u := repo.Consumer
 	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
 }
@@ -181,7 +181,7 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	consumers, err := QueryConsumers(ctx, map[string]interface{}{
+	consumers, err := QueryConsumers(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

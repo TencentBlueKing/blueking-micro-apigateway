@@ -2,7 +2,7 @@
 
 ## 常用命令
 
-```shell 
+```shell
 make doc # 生成 Swagger API 文档。此命令依赖于 swaggo 工具。
 make test # 执行测试
 make lint # 执行代码检查
@@ -40,17 +40,17 @@ make docker-build # 构建 Docker 镜像
 ├── main.go               # 项目的主入口文件
 └── pkg                   # 存放项目包（模块）的目录
     ├── account           # user 相关
-    │   ├── account.go    
-    │   ├── bk_ticket.go 
-    │   ├── bk_token.go   
-    │   ├── mocks.go     
-    │   └── types.go     
+    │   ├── account.go
+    │   ├── bk_ticket.go
+    │   ├── bk_token.go
+    │   ├── mocks.go
+    │   └── types.go
     ├── apis              # API 相关代码
     │   ├── basic         # 基础 API 实现
     │   └── web           # Web API 实现
     ├── biz               # 业务逻辑相关代码
     │   ├── common.go     # 通用业务逻辑
-    │   ├── consumer.go   
+    │   ├── consumer.go
     ├── config            # 配置管理相关代码
     │   ├── config.go     # 配置加载和管理
     │   ├── loader.go     # 配置加载器
@@ -88,4 +88,5 @@ make docker-build # 构建 Docker 镜像
     └── version           # 版本相关代码
         └── version.go    # 版本信息定义
 ```
+
 > 调用链路： handler-> biz -> repo -> infra(database)

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -42,7 +42,7 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.gateway
-//	@Param		X-BK-API-TOKEN	header		string					false	"独立部署时token必须要传"
+//	@Param		X-BK-API-TOKEN	header		string					false	"独立部署时 token 必须要传"
 //	@Param		request			body		common.GatewayInputInfo	true	"网关创建参数"
 //	@Success	200				{object}	serializer.GatewayCreateResponse
 //	@Router		/api/v1/open/gateways/ [post]
@@ -112,7 +112,7 @@ func GatewayCreate(c *gin.Context) {
 //	@Produce	json
 //	@Tags		openapi.gateway
 //	@Param		gateway_name	path		string	true	"网关名"
-//	@Param		X-BK-API-TOKEN	header		string	true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string	true	"创建网关返回的 token"
 //	@Success	200				{object}	common.GatewayOutputInfo
 //	@Router		/api/v1/open/gateways/{gateway_name}/ [get]
 func GatewayGet(c *gin.Context) {
@@ -127,14 +127,14 @@ func GatewayGet(c *gin.Context) {
 //	@Produce	json
 //	@Tags		openapi.gateway
 //	@Param		gateway_name	path	string					true	"网关名称"
-//	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的 token"
 //	@Param		request			body	common.GatewayInputInfo	true	"网关更新参数"
-//	@Success	201
+//	@Success	200
 //	@Router		/api/v1/open/gateways/{gateway_name}/ [put]
 func GatewayUpdate(c *gin.Context) {
 	var req common.GatewayInputInfo
 	if err := validation.BindAndValidate(c, &req); err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
+		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	if req.EtcdPassword == "" {
@@ -195,7 +195,7 @@ func GatewayUpdate(c *gin.Context) {
 //	@Produce	json
 //	@Tags		openapi.gateway
 //	@Param		gateway_name	path	string	true	"网关名称"
-//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的 token"
 //	@Success	204
 //	@Router		/api/v1/open/gateways/{gateway_name}/ [delete]
 func GatewayDelete(c *gin.Context) {
@@ -214,7 +214,7 @@ func GatewayDelete(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.gateway
-//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string	true	"网关名称"
 //	@Success	201
 //	@Router		/api/v1/open/gateways/{gateway_name}/publish/ [post]

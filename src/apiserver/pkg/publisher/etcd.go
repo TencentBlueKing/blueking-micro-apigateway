@@ -119,7 +119,7 @@ func (s *EtcdPublisher) Update(ctx context.Context, resource ResourceOperation, 
 		}
 	}
 
-	if err := s.etcdStore.Update(ctx, resource.Key, string(resource.Config)); err != nil {
+	if err := s.etcdStore.Update(ctx, resource.GetKey(), string(resource.Config)); err != nil {
 		return err
 	}
 
@@ -226,6 +226,7 @@ func GetCustomizePluginSchemaMap(ctx context.Context, gatewayID int) map[string]
 	u := repo.GatewayCustomPluginSchema
 	schemaList, err := repo.GatewayCustomPluginSchema.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Find()
 	if err != nil {
+		log.Errorf("get customize plugin schema map of gateway %d failed: %s", gatewayID, err)
 		return nil
 	}
 	pluginSchemaMap := map[string]any{}
@@ -233,6 +234,12 @@ func GetCustomizePluginSchemaMap(ctx context.Context, gatewayID int) map[string]
 		var schemaInfo map[string]any
 		err = json.Unmarshal(s.Schema, &schemaInfo)
 		if err != nil {
+			log.Errorf(
+				"unmarshal customize plugin schema %s of gateway %d failed: %s",
+				s.Name,
+				gatewayID,
+				err,
+			)
 			return nil
 		}
 		pluginSchemaMap[s.Name] = schemaInfo

@@ -79,6 +79,12 @@ const source = ref('');
 const isResourceViewerShow = ref(false);
 const searchParams = ref<ISearchParam[]>([]);
 
+const toggleResourceViewerSlider = ({ resource }: { resource: ISSL }) => {
+  ssl.value = resource;
+  source.value = JSON.stringify(resource.config);
+  isResourceViewerShow.value = true;
+};
+
 watch(() => route.query.id, async () => {
   if (route.query.id) {
     const id = route.query.id as string;
@@ -91,11 +97,5 @@ watch(() => route.query.id, async () => {
     }];
   }
 }, { immediate: true });
-
-const toggleResourceViewerSlider = ({ resource }: { resource: ISSL }) => {
-  ssl.value = resource;
-  source.value = JSON.stringify(resource.config);
-  isResourceViewerShow.value = true;
-};
 
 </script>

@@ -32,14 +32,14 @@ import (
 
 // buildPluginConfigQuery 获取 PluginConfig 查询对象
 func buildPluginConfigQuery(ctx context.Context) repo.IPluginConfigDo {
-	return repo.PluginConfig.WithContext(ctx).Where(field.Attrs(map[string]interface{}{
+	return repo.PluginConfig.WithContext(ctx).Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
 
 // buildPluginConfigQueryWithTx 获取 tx 的 PluginConfig 查询对象
 func buildPluginConfigQueryWithTx(ctx context.Context, tx *repo.Query) repo.IPluginConfigDo {
-	return tx.WithContext(ctx).PluginConfig.Where(field.Attrs(map[string]interface{}{
+	return tx.WithContext(ctx).PluginConfig.Where(field.Attrs(map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
 	}))
 }
@@ -71,7 +71,7 @@ func GetPluginConfigOrderExprList(orderBy string) []field.Expr {
 // ListPagedPluginConfigs 分页查询 pluginConfig 表
 func ListPagedPluginConfigs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -136,7 +136,7 @@ func GetPluginConfig(ctx context.Context, id string) (*model.PluginConfig, error
 }
 
 // QueryPluginConfigs  搜索插件配置
-func QueryPluginConfigs(ctx context.Context, param map[string]interface{}) ([]*model.PluginConfig, error) {
+func QueryPluginConfigs(ctx context.Context, param map[string]any) ([]*model.PluginConfig, error) {
 	return buildPluginConfigQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
@@ -185,7 +185,7 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	pluginConfigs, err := QueryPluginConfigs(ctx, map[string]interface{}{
+	pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,

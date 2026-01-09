@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -42,19 +42,19 @@ import (
 // GatewayInputInfo  网关基本信息
 type GatewayInputInfo struct {
 	Name string `json:"name" binding:"required" validate:"gatewayName"` // 网关名称
-	// 网关control模式：1-direct 2-indirect
+	// 网关 control 模式：1-direct 2-indirect
 	Mode uint8 `json:"mode" binding:"required,gatewayMode" enums:"1,2"`
 	// 网关维护者
 	Maintainers base.MaintainerList `json:"maintainers"`
 	// 网关描述
 	Description string `json:"description"`
-	// apisix版本
+	// apisix 版本
 	APISIXVersion string `json:"apisix_version" binding:"required,apisixVersion"`
-	// apisix类型: apisix、tapisix、bk-apisix
+	// apisix 类型：apisix、tapisix、bk-apisix
 	APISIXType string `json:"apisix_type" binding:"required,apisixType" enums:"apisix,tapisix,bk-apisix"`
 
 	ReadOnly bool `json:"read_only"` // 是否只读
-	// etcd配置
+	// etcd 配置
 	EtcdConfig
 }
 
@@ -62,7 +62,7 @@ type GatewayInputInfo struct {
 type GatewayOutputInfo struct {
 	ID   int    `json:"id"`
 	Name string `json:"name" binding:"required"` // 网关名称
-	// 网关control模式：1-direct 2-indirect
+	// 网关 control 模式：1-direct 2-indirect
 	Mode        uint8    `json:"mode" binding:"required,gatewayMode" enums:"1,2"`
 	ReadOnly    bool     `json:"read_only"`   // 是否只读
 	Maintainers []string `json:"maintainers"` // 网关维护者
@@ -77,40 +77,40 @@ type GatewayOutputInfo struct {
 
 // APISIX ...
 type APISIX struct {
-	Version string `json:"version"` // apisix版本
-	Type    string `json:"type"`    // apisix类型: apisix、tapisix、bk-apisix
+	Version string `json:"version"` // apisix 版本
+	Type    string `json:"type"`    // apisix 类型：apisix、tapisix、bk-apisix
 }
 
 // Etcd : 列表输出使用
 type Etcd struct {
-	InstanceID string            `json:"instance_id"` // 实例ID
-	EndPoints  base.EndpointList `json:"endpoints"`   // etcd集群地址
-	Prefix     string            `json:"prefix"`      // etcd前缀
+	InstanceID string            `json:"instance_id"` // 实例 ID
+	EndPoints  base.EndpointList `json:"endpoints"`   // etcd 集群地址
+	Prefix     string            `json:"prefix"`      // etcd 前缀
 }
 
-// EtcdInfo etcd查看详情配置
+// EtcdInfo etcd 查看详情配置
 type EtcdInfo struct {
-	InstanceID string            `json:"instance_id"` // 实例ID
-	EndPoints  base.EndpointList `json:"endpoints"`   // etcd集群地址
-	// etcd连接类型:http/https
+	InstanceID string            `json:"instance_id"` // 实例 ID
+	EndPoints  base.EndpointList `json:"endpoints"`   // etcd 集群地址
+	// etcd 连接类型:http/https
 	SchemaType string `json:"schema_type" binding:"required,etcdSchemaType" enums:"http,https"`
-	Prefix     string `json:"prefix"`    // etcd前缀
-	Username   string `json:"username"`  // etcd用户名
-	Password   string `json:"password"`  // etcd密码
-	CaCert     string `json:"ca_cert"`   // etcd ca证书
-	CertCert   string `json:"cert_cert"` // etcd cert证书
+	Prefix     string `json:"prefix"`    // etcd 前缀
+	Username   string `json:"username"`  // etcd 用户名
+	Password   string `json:"password"`  // etcd 密码
+	CaCert     string `json:"ca_cert"`   // etcd ca 证书
+	CertCert   string `json:"cert_cert"` // etcd cert 证书
 	CertKey    string `json:"cert_key"`  // etcd cert key
 }
 
-// EtcdConfig etcd配置(创建、更新)
+// EtcdConfig etcd 配置 (创建、更新)
 type EtcdConfig struct {
-	EtcdEndPoints base.EndpointList `json:"etcd_endpoints" binding:"required,etcdEndPoints"` // etcd集群地址
-	// etcd连接类型:http/https
+	EtcdEndPoints base.EndpointList `json:"etcd_endpoints" binding:"required,etcdEndPoints"` // etcd 集群地址
+	// etcd 连接类型:http/https
 	EtcdSchemaType string `json:"etcd_schema_type" binding:"required,etcdSchemaType" enums:"http,https"`
-	EtcdPrefix     string `json:"etcd_prefix" binding:"required"`             // etcd前缀
-	EtcdUsername   string `json:"etcd_username" binding:"omitempty,required"` // etcd用户名
-	EtcdPassword   string `json:"etcd_password" binding:"omitempty,required"` // etcd密码
-	EtcdCACert     string `json:"etcd_ca_cert,omitempty"`                     // etcd ca证书
+	EtcdPrefix     string `json:"etcd_prefix" binding:"required"`             // etcd 前缀
+	EtcdUsername   string `json:"etcd_username" binding:"omitempty,required"` // etcd 用户名
+	EtcdPassword   string `json:"etcd_password" binding:"omitempty,required"` // etcd 密码
+	EtcdCACert     string `json:"etcd_ca_cert,omitempty"`                     // etcd ca 证书
 	EtcdCertCert   string `json:"etcd_cert_cert,omitempty"`                   // etcd cert
 	EtcdCertKey    string `json:"etcd_cert_key,omitempty"`                    // etcd cert key
 }
@@ -122,7 +122,7 @@ func CheckGatewayMode(fl validator.FieldLevel) bool {
 	return ok
 }
 
-// CheckAPISIXType 校验apisix类型
+// CheckAPISIXType 校验 apisix 类型
 func CheckAPISIXType(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
 	_, ok := constant.APISIXTypeMap[value]
@@ -140,26 +140,26 @@ func CheckEtcdEndPoints(fl validator.FieldLevel) bool {
 	return true
 }
 
-// CheckEtcdSchemaType 校验etcd连接类型
+// CheckEtcdSchemaType 校验 etcd 连接类型
 func CheckEtcdSchemaType(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
 	_, ok := constant.SchemaTypeMap[value]
 	return ok
 }
 
-// CheckAPISIXVersion 校验apisix版本
+// CheckAPISIXVersion 校验 apisix 版本
 func CheckAPISIXVersion(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
 	ver, err := version.ToXVersion(value)
 	if err != nil {
 		return false
 	}
-	// todo:  string类型下沉到SupportAPISIXVersionMap
+	// todo:  string 类型下沉到 SupportAPISIXVersionMap
 	_, ok := constant.SupportAPISIXVersionMap[string(ver)]
 	return ok
 }
 
-// EtcdConfigCheckValidation etcd配置校验
+// EtcdConfigCheckValidation etcd 配置校验
 func EtcdConfigCheckValidation(ctx context.Context, sl validator.StructLevel) {
 	// 如果是更新操作，跳过
 	if ginx.GetGatewayInfoFromContext(ctx) != nil && ginx.GetGatewayInfoFromContext(ctx).ID != 0 {
@@ -193,10 +193,10 @@ func ValidateGatewayName(ctx context.Context, fl validator.FieldLevel) bool {
 	if gatewayInfo != nil {
 		gatewayID = gatewayInfo.ID
 	}
-	return biz.ExistsGatewayName(ctx, gatewayName, gatewayID)
+	return !biz.ExistsGatewayName(ctx, gatewayName, gatewayID)
 }
 
-// CheckEtcdConnAndAPISIXInstance 检查etcd连接和apisix实例
+// CheckEtcdConnAndAPISIXInstance 检查 etcd 连接和 apisix 实例
 func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string, string, error) {
 	etcdStoreConfig := base.EtcdConfig{
 		Endpoint: etcdConf.EtcdEndPoints.EndpointJoin(),
@@ -208,7 +208,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 		CertKey:  etcdConf.EtcdCertKey,
 	}
 
-	// 检查etcd连接
+	// 检查 etcd 连接
 	etcdStore, err := storage.NewEtcdStorage(etcdStoreConfig)
 	if err != nil {
 		return "", "", err
@@ -226,7 +226,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 		instanceID = resData.Get("id").String()
 		apisixVersion = resData.Get("version").String()
 	}
-	// 校验实例id是否存在
+	// 校验实例 id 是否存在
 	if instanceID != "" {
 		gateways, err := biz.GetGatewayEtcdConfigList(ctx, "instance_id", instanceID)
 		if err != nil {
@@ -240,7 +240,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 		}
 	}
 
-	// 校验 prefix相同的网关
+	// 校验 prefix 相同的网关
 	gateways, err := biz.GetGatewayEtcdConfigList(ctx, "prefix", etcdStoreConfig.Prefix)
 	if err != nil {
 		return "", "", err

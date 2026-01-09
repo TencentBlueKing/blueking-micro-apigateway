@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -89,6 +89,7 @@ func loadConfigFromEnv() (*Config, error) {
 		return nil, err
 	}
 	return &Config{
+		Edition:         envx.Get("EDITION", "ee"),
 		Service:         serviceCfg,
 		Biz:             bizCfg,
 		Tracing:         loadTraceFromEnv(),
@@ -121,7 +122,14 @@ func loadMysqlConfigFromEnv() (*MysqlConfig, error) {
 		return nil, errors.Wrapf(err, "invalid GCS_MYSQL_PORT: %s", port)
 	}
 
-	return &MysqlConfig{Host: host, Port: mysqlPort, Name: name, User: user, Password: passwd, Charset: charset}, nil
+	return &MysqlConfig{
+		Host:     host,
+		Port:     mysqlPort,
+		Name:     name,
+		User:     user,
+		Password: passwd,
+		Charset:  charset,
+	}, nil
 }
 
 // 从环境变量读取服务配置
@@ -181,7 +189,7 @@ func loadServiceConfigFromEnv() (ServiceConfig, error) {
 		SessionCookieAge: envx.GetDuration("SESSION_COOKIE_AGE", "24h"),
 		Standalone:       envx.GetBoolean("STANDALONE", false),
 		DemoMode:         envx.GetBoolean("DEMO_MODE", false),
-		DemoModeWarnMsg:  envx.Get("DEMO_MODE_WARN_MSG", "demo模式下不允许进行该操作"),
+		DemoModeWarnMsg:  envx.Get("DEMO_MODE_WARN_MSG", "demo 模式下不允许进行该操作"),
 	}, nil
 }
 
@@ -194,14 +202,14 @@ func loadBkPlatUrlFromEnv() BkPlatUrlConfig {
 	}
 }
 
-// 从环境变量读取sentry地址 TODO： 部署文档补充相关配置/说明
+// 从环境变量读取 sentry 地址 TODO：部署文档补充相关配置/说明
 func loadSentryFromEnv() Sentry {
 	return Sentry{
 		DSN: envx.Get("SENTRY_DSN", ""),
 	}
 }
 
-// 从环境变量读取trace地址 TODO： 部署文档补充相关配置/说明
+// 从环境变量读取 trace 地址 TODO：部署文档补充相关配置/说明
 func loadTraceFromEnv() Tracing {
 	return Tracing{
 		Enable:       envx.GetBoolean("TRACING_ENABLE", false),
@@ -261,13 +269,14 @@ func loadBizConfigFromEnv() (BizConfig, error) {
 		OpenApiTokenWhitelist: tokenMap,
 		DemoProtectResources:  demoProtectResourceMap,
 		Links: LinkConfig{
-			BKFeedBackLink: envx.Get("BK_FEED_BACK_LINK", ""),
-			BKGuideLink:    envx.Get("BK_GUIDE_LINK", ""),
+			BKFeedBackLink:   envx.Get("BK_FEED_BACK_LINK", ""),
+			BKGuideLink:      envx.Get("BK_GUIDE_LINK", ""),
+			BKApigatewayLink: envx.Get("BK_APIGATEWAY_LINK", ""),
 		},
 	}, nil
 }
 
-// 加载co
+// 加载 co
 func loadCryptoFromEnv() (Crypto, error) {
 	return Crypto{
 		Nonce: envx.Get("CRYPTO_NONCE", ""),

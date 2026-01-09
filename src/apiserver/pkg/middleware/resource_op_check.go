@@ -76,7 +76,7 @@ func ResourceOperationCheck() gin.HandlerFunc {
 					resources, err := biz.QueryResource(
 						c.Request.Context(),
 						relationResourceType,
-						map[string]interface{}{
+						map[string]any{
 							resourceType.RelationIDFiled(): resourceId,
 						},
 						"",
@@ -87,8 +87,14 @@ func ResourceOperationCheck() gin.HandlerFunc {
 						return
 					}
 					if len(resources) > 0 {
-						ginx.BadRequestErrorJSONResponse(c,
-							fmt.Errorf("该资源不能删除，被: %s %s 引用", relationResourceType, resources[0].ID))
+						ginx.BadRequestErrorJSONResponse(
+							c,
+							fmt.Errorf(
+								"该资源不能删除，被: %s %s 引用",
+								relationResourceType,
+								resources[0].ID,
+							),
+						)
 						c.Abort()
 						return
 					}

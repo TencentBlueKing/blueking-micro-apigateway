@@ -83,7 +83,7 @@ func TestReadFileToObject_OpenFileError(t *testing.T) {
 		Filename: "invalid.txt",
 		Header:   nil, // Header 为空将导致 Open 方法失败
 	}
-	var obj interface{}
+	var obj any
 	err := ReadFileToObject(invalidFileHeader, &obj)
 	if err == nil || !strings.Contains(err.Error(), "open file failed") {
 		t.Errorf("预期错误包含 'open file failed'，实际错误: %v", err)

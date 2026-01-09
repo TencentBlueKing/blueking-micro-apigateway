@@ -508,30 +508,6 @@ const rules = {
   key: [
     {
       validator: (value: string) => {
-        if (upstream.value.hash_on === 'header') {
-          if (!value.startsWith('http_')) {
-            return false;
-          }
-        }
-        return true;
-      },
-      message: t('必须以 http_ 开头'),
-      trigger: 'change',
-    },
-    {
-      validator: (value: string) => {
-        if (upstream.value.hash_on === 'cookie') {
-          if (!value.startsWith('cookie_')) {
-            return false;
-          }
-        }
-        return true;
-      },
-      message: t('必须以 cookie_ 开头'),
-      trigger: 'change',
-    },
-    {
-      validator: (value: string) => {
         if (upstream.value.hash_on === 'vars') {
           if (value.startsWith('arg_')) {
             return /arg_[0-9a-zA-z_-]+/.test(value);
@@ -604,16 +580,8 @@ const handleTypeChange = (value: string) => {
   }
 };
 
-const handleHashOnChange = (value: string) => {
-  if (value === 'consumer') {
-    upstream.value.key = '';
-  }
-  if (value === 'header') {
-    upstream.value.key = 'http_';
-  }
-  if (value === 'cookie') {
-    upstream.value.key = 'cookie_';
-  }
+const handleHashOnChange = () => {
+  upstream.value.key = '';
 };
 
 const handleHashOnKeyClick = (key: string) => {

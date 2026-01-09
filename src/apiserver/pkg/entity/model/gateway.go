@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -47,16 +47,16 @@ type Gateway struct {
 	Maintainers   pq.StringArray `gorm:"column:maintainers;type:text"`                     // 网关负责人
 	Desc          string         `gorm:"column:desc;type:text"`                            // 网关描述
 	APISIXType    string         `gorm:"column:apisix_type;type:varchar(255)"`             // apisix/bk-apisix/tapisix
-	APISIXVersion string         `gorm:"column:apisix_version;type:varchar(255)"`          // apisix实例版本
-	EtcdConfig    EtcdConfig     `gorm:"column:etcd_config;type:json"`                     // etcd组件配置，JSON存储
-	Token         string         `gorm:"column:token;type:varchar(255)"`                   // 网关token
+	APISIXVersion string         `gorm:"column:apisix_version;type:varchar(255)"`          // apisix 实例版本
+	EtcdConfig    EtcdConfig     `gorm:"column:etcd_config;type:json"`                     // etcd 组件配置，JSON 存储
+	Token         string         `gorm:"column:token;type:varchar(255)"`                   // 网关 token
 	ReadOnly      bool           `gorm:"column:read_only;type:tinyint"`                    // 是否只读
 	LastSyncedAt  time.Time      `json:"last_synced_at" gorm:"type:datetime;default:null"` // 上次同步时间
 	auditSnapshot datatypes.JSON `gorm:"-"`                                                // 用于审计日志传递网关信息，不持久化到数据库
 	BaseModel
 }
 
-// EtcdConfig etcd配置
+// EtcdConfig etcd 配置
 type EtcdConfig struct {
 	InstanceID string `json:"instance_id,omitempty"`
 	base.EtcdConfig
@@ -91,7 +91,7 @@ func (g Gateway) GetAPISIXVersionX() constant.APISIXVersion {
 
 // HasPermission 是否有权限
 func (g *Gateway) HasPermission(userID string) bool {
-	// demo模式有所有网关的权限
+	// demo 模式有所有网关的权限
 	if config.IsDemoMode() {
 		return true
 	}
@@ -156,7 +156,11 @@ func (g *Gateway) CopyAndMaskPassword() Gateway {
 	}
 	if gateway.EtcdConfig.GetSchemaType() == constant.HTTP {
 		pwd := gateway.EtcdConfig.Password
-		gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
+		if len(pwd) >= 6 {
+			gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
+		} else {
+			gateway.EtcdConfig.Password = fmt.Sprintf("%s****", pwd[:3])
+		}
 	}
 	return gateway
 }
@@ -207,7 +211,7 @@ func (g *Gateway) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (er
 	)
 }
 
-// HandleEtcdConfig 处理etcd配置
+// HandleEtcdConfig 处理 etcd 配置
 func (g *Gateway) HandleEtcdConfig(read bool) (err error) {
 	g.EtcdConfig.Password, err = getSecret(g.EtcdConfig.Password, read)
 	if err != nil {

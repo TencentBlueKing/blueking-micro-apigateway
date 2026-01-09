@@ -209,3 +209,206 @@ func TestCSRF_CookieName(t *testing.T) {
 	}
 	assert.True(t, found, "CSRF cookie should have the correct name with appID prefix")
 }
+
+// TestCSRF_PlaintextHTTPRequest 测试 PlaintextHTTPRequest 的使用
+func TestCSRF_PlaintextHTTPRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret))
+	router.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// 测试 POST 请求在非 HTTPS 环境下的行为
+	// 由于使用了 PlaintextHTTPRequest，应该跳过 Referer 检查
+	req, _ := http.NewRequest(http.MethodPost, "/test", strings.NewReader("data=test"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// 不设置 Referer 头，在 v1.7.3 之前这会导致失败，但现在应该通过
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// 应该返回 403，因为没有 CSRF token，但不是因为 Referer 检查失败
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// TestCSRF_PlaintextHTTPRequestWithToken 测试带有有效 token 的 PlaintextHTTPRequest
+func TestCSRF_PlaintextHTTPRequestWithToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret))
+	router.Use(CSRFToken(appID, ""))
+	router.GET("/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+	router.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// 创建测试服务器
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// 创建带 cookie jar 的客户端
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// 首先获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/token")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, tokenResp.StatusCode)
+	defer tokenResp.Body.Close()
+
+	// 解析 token
+	var tokenResponse map[string]string
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	assert.NoError(t, err)
+	csrfTokenValue := tokenResponse["token"]
+	assert.NotEmpty(t, csrfTokenValue)
+
+	// 发送 POST 请求，不设置 Referer 头但包含有效的 CSRF token
+	postReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/test", strings.NewReader("data=test"))
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postReq.Header.Set("X-CSRF-Token", csrfTokenValue)
+	// 故意不设置 Referer 头来测试 PlaintextHTTPRequest 的效果
+
+	postResp, err := client.Do(postReq)
+	assert.NoError(t, err)
+	defer postResp.Body.Close()
+
+	// 应该成功，因为 PlaintextHTTPRequest 跳过了 Referer 检查
+	assert.Equal(t, http.StatusOK, postResp.StatusCode)
+}
+
+// TestCSRF_ContextKeyPresence 测试 PlaintextHTTPRequest 是否正确设置了上下文键
+func TestCSRF_ContextKeyPresence(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	var contextChecked bool
+	router := gin.New()
+	router.Use(CSRF(appID, secret))
+	router.GET("/test", func(c *gin.Context) {
+		// 检查请求上下文中是否设置了 PlaintextHTTPContextKey
+		if c.Request.Context().Value(csrf.PlaintextHTTPContextKey) != nil {
+			contextChecked = true
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, contextChecked, "PlaintextHTTPContextKey should be set in request context")
+}
+
+// TestCSRF_MiddlewareStructure 测试中间件的结构和调用顺序
+func TestCSRF_MiddlewareStructure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	var middlewareOrder []string
+	router := gin.New()
+	
+	// 添加一个前置中间件来记录调用顺序
+	router.Use(func(c *gin.Context) {
+		middlewareOrder = append(middlewareOrder, "before-csrf")
+		c.Next()
+	})
+	
+	router.Use(CSRF(appID, secret))
+	
+	// 添加一个后置中间件
+	router.Use(func(c *gin.Context) {
+		middlewareOrder = append(middlewareOrder, "after-csrf")
+		c.Next()
+	})
+	
+	router.GET("/test", func(c *gin.Context) {
+		middlewareOrder = append(middlewareOrder, "handler")
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	expectedOrder := []string{"before-csrf", "after-csrf", "handler"}
+	assert.Equal(t, expectedOrder, middlewareOrder, "Middleware should be called in correct order")
+}
+
+// TestCSRF_ErrorHandling 测试 CSRF 错误处理
+func TestCSRF_ErrorHandling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret))
+	router.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// 测试各种无效的 CSRF token 情况
+	testCases := []struct {
+		name        string
+		tokenHeader string
+		tokenForm   string
+		expectCode  int
+	}{
+		{
+			name:       "no token",
+			expectCode: http.StatusForbidden,
+		},
+		{
+			name:        "invalid token in header",
+			tokenHeader: "invalid-token",
+			expectCode:  http.StatusForbidden,
+		},
+		{
+			name:      "invalid token in form",
+			tokenForm: "invalid-token",
+			expectCode: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var body strings.Builder
+			body.WriteString("data=test")
+			if tc.tokenForm != "" {
+				body.WriteString("&gorilla.csrf.Token=" + tc.tokenForm)
+			}
+
+			req, _ := http.NewRequest(http.MethodPost, "/test", strings.NewReader(body.String()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			
+			if tc.tokenHeader != "" {
+				req.Header.Set("X-CSRF-Token", tc.tokenHeader)
+			}
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.expectCode, w.Code, "Expected status code for %s", tc.name)
+		})
+	}
+}

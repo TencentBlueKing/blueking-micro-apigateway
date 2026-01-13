@@ -260,6 +260,15 @@
     }
   },
   {
+    "name": "batch-requests",
+    "type": "general",
+    "hidden": true,
+    "example": {},
+    "metadata_example": {
+      "max_body_size": 1048576
+    }
+  },
+  {
     "name": "body-transformer",
     "type": "transformation",
     "example": {
@@ -388,6 +397,16 @@
     }
   },
   {
+    "name": "dubbo-proxy",
+    "type": "other protocols",
+    "hidden": true,
+    "example": {
+      "service_name": "your_service_name",
+      "service_version": "1.0.0",
+      "method": "your_method"
+    }
+  },
+  {
     "name": "echo",
     "type": "general",
     "hidden": true,
@@ -415,6 +434,25 @@
       "field": {
         "index": "your_index"
       }
+    }
+  },
+  {
+    "name": "error-log-logger",
+    "type": "observability",
+    "hidden": true,
+    "example": {
+      "batch_max_size": 1000,
+      "buffer_duration": 60,
+      "inactive_timeout": 5,
+      "max_retry_count": 0,
+      "retry_delay": 1
+    },
+    "metadata_example": {
+      "tcp": {
+        "host": "127.0.0.1",
+        "port": 1999
+      },
+      "inactive_timeout": 1
     }
   },
   {
@@ -735,6 +773,12 @@
     }
   },
   {
+    "name": "log-rotate",
+    "type": "observability",
+    "hidden": true,
+    "example": {}
+  },
+  {
     "name": "loggly",
     "type": "observability",
     "example": {
@@ -788,6 +832,15 @@
     }
   },
   {
+    "name": "mqtt-proxy",
+    "proxy_type": "stream",
+    "type": "other protocols",
+    "example": {
+      "protocol_level": 4,
+      "protocol_name": "MQTT"
+    }
+  },
+  {
     "name": "multi-auth",
     "type": "authentication",
     "example": {
@@ -800,6 +853,12 @@
         }
       ]
     }
+  },
+  {
+    "name": "node-status",
+    "type": "observability",
+    "hidden": true,
+    "example": {}
   },
   {
     "name": "opa",
@@ -826,6 +885,15 @@
       "client_id": "your_client_id",
       "client_secret": "your_client_secret",
       "discovery": "https://your-oidc-server.com/.well-known/openid-configuration"
+    }
+  },
+  {
+    "name": "opentelemetry",
+    "type": "observability",
+    "example": {
+      "sampler": {
+        "name": "always_on"
+      }
     }
   },
   {
@@ -994,6 +1062,14 @@
         "func2"
       ],
       "phase": "access"
+    }
+  },
+  {
+    "name": "skywalking",
+    "type": "observability",
+    "example": {
+      "sample_ratio": 0.5,
+      "endpoint_addr": "http://127.0.0.1:12800"
     }
   },
   {

@@ -1,5 +1,172 @@
 [
   {
+    "name": "ai",
+    "type": "general",
+    "example": {}
+  },
+  {
+    "name": "ai-aws-content-moderation",
+    "type": "AI",
+    "example": {
+      "comprehend": {
+        "access_key_id": "ACCESS_KEY_ID",
+        "secret_access_key": "SECRET_ACCESS_KEY",
+        "region": "us-east-1"
+      },
+      "moderation_categories": {
+        "PROFANITY": 0.5
+      }
+    }
+  },
+  {
+    "name": "ai-prompt-decorator",
+    "type": "AI",
+    "example": {
+      "prepend": [
+        {
+          "role": "system",
+          "content": "I have exams tomorrow so explain conceptually and briefly"
+        }
+      ],
+      "append": [
+        {
+          "role": "system",
+          "content": "End the response with an analogy."
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai-prompt-guard",
+    "type": "AI",
+    "example": {
+      "match_all_roles": true,
+      "allow_patterns": [
+        "goodword"
+      ],
+      "deny_patterns": [
+        "badword"
+      ]
+    }
+  },
+  {
+    "name": "ai-prompt-template",
+    "type": "AI",
+    "example": {
+      "templates": [
+        {
+          "name": "level of detail",
+          "template": {
+            "model": "gpt-4",
+            "messages": [
+              {
+                "role": "user",
+                "content": "Explain about {{ topic }} in {{ level }}."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai-proxy",
+    "type": "AI",
+    "example": {
+      "provider": "openai",
+      "auth": {
+        "header": {
+          "Authorization": "Bearer OPENAI_API_KEY"
+        }
+      },
+      "options": {
+        "model": "gpt-4"
+      }
+    }
+  },
+  {
+    "name": "ai-proxy-multi",
+    "type": "AI",
+    "example": {
+      "instances": [
+        {
+          "name": "openai-instance",
+          "provider": "openai",
+          "weight": 8,
+          "auth": {
+            "header": {
+              "Authorization": "Bearer OPENAI_API_KEY"
+            }
+          },
+          "options": {
+            "model": "gpt-4"
+          }
+        },
+        {
+          "name": "deepseek-instance",
+          "provider": "deepseek",
+          "weight": 2,
+          "auth": {
+            "header": {
+              "Authorization": "Bearer OPENAI_API_KEY"
+            }
+          },
+          "options": {
+            "model": "deepseek-chat"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "ai-rag",
+    "type": "AI",
+    "example": {
+      "embeddings_provider": {
+        "azure_openai": {
+          "endpoint": "AZ_EMBEDDINGS_ENDPOINT",
+          "api_key": "AZ_OPENAI_API_KEY"
+        }
+      },
+      "vector_search_provider": {
+        "azure_ai_search": {
+          "endpoint": "AZ_AI_SEARCH_ENDPOINT",
+          "api_key": "AZ_AI_SEARCH_KEY"
+        }
+      }
+    }
+  },
+  {
+    "name": "ai-rate-limiting",
+    "type": "AI",
+    "example": {
+      "limit": 300,
+      "time_window": 30,
+      "limit_strategy": "prompt_tokens"
+    }
+  },
+  {
+    "name": "ai-request-rewrite",
+    "type": "AI",
+    "example": {
+      "prompt": "test",
+      "provider": "openai-compatible",
+      "auth": {
+        "header": {
+          "Authorization": "Bearer <some-token>"
+        }
+      },
+      "options": {
+        "model": "qwen-plus",
+        "max_tokens": 1024,
+        "temperature": 1
+      },
+      "override": {
+        "endpoint": "https://example.com"
+      }
+    }
+  },
+  {
     "name": "api-breaker",
     "type": "traffic",
     "example": {
@@ -18,6 +185,16 @@
         "failures": 3
       },
       "max_breaker_sec": 300
+    }
+  },
+  {
+    "name": "attach-consumer-label",
+    "type": "security",
+    "example": {
+      "headers": {
+        "X-Consumer-Username": "$consumer_name",
+        "X-Consumer-ID": "$consumer_name"
+      }
     }
   },
   {
@@ -83,12 +260,35 @@
     }
   },
   {
-    "name": "batch-requests",
-    "type": "general",
-    "hidden": true,
-    "example": {},
-    "metadata_example": {
-      "max_body_size": 1048576
+    "name": "body-transformer",
+    "type": "transformation",
+    "example": {
+      "request": {
+        "template": "{\"transformed_data\": \"{{data}}\"}",
+        "input_format": "json"
+      },
+      "response": {
+        "template": "{\"result\": \"{{response}}\"}",
+        "input_format": "json"
+      }
+    }
+  },
+  {
+    "name": "cas-auth",
+    "type": "authentication",
+    "example": {
+      "idp_uri": "https://cas.example.com",
+      "cas_callback_uri": "/api/cas/callback",
+      "logout_uri": "https://cas.example.com/logout"
+    }
+  },
+  {
+    "name": "chaitin-waf",
+    "type": "security",
+    "example": {
+      "mode": "monitor",
+      "append_waf_resp_header": true,
+      "append_waf_debug_header": false
     }
   },
   {
@@ -177,13 +377,14 @@
     }
   },
   {
-    "name": "dubbo-proxy",
-    "type": "other protocols",
-    "hidden": true,
+    "name": "degraphql",
+    "type": "transformation",
     "example": {
-      "service_name": "your_service_name",
-      "service_version": "1.0.0",
-      "method": "your_method"
+      "query": "query GetUser($id: ID!) { user(id: $id) { name email } }",
+      "operation_name": "GetUser",
+      "variables": {
+        "id": "123"
+      }
     }
   },
   {
@@ -200,23 +401,27 @@
     }
   },
   {
-    "name": "error-log-logger",
+    "name": "elasticsearch-logger",
     "type": "observability",
-    "hidden": true,
     "example": {
-      "batch_max_size": 1000,
-      "buffer_duration": 60,
-      "inactive_timeout": 5,
-      "max_retry_count": 0,
-      "retry_delay": 1
+      "endpoint_addr": "http://elasticsearch:9200",
+      "field": {
+        "index": "logs",
+        "type": "_doc"
+      }
     },
     "metadata_example": {
-      "tcp": {
-        "host": "127.0.0.1",
-        "port": 1999
-      },
-      "inactive_timeout": 1
+      "endpoint_addr": "http://elasticsearch:9200",
+      "field": {
+        "index": "your_index"
+      }
     }
+  },
+  {
+    "name": "example-plugin",
+    "type": "general",
+    "hidden": true,
+    "example": {}
   },
   {
     "name": "ext-plugin-post-req",
@@ -359,6 +564,17 @@
     }
   },
   {
+    "name": "http-dubbo",
+    "type": "other protocols",
+    "example": {
+      "service_name": "com.example.UserService",
+      "service_version": "1.0.0",
+      "method": "getUserInfo",
+      "params_type_desc": "Ljava/lang/String;",
+      "serialized": false
+    }
+  },
+  {
     "name": "http-logger",
     "type": "observability",
     "example": {
@@ -376,6 +592,11 @@
     }
   },
   {
+    "name": "inspect",
+    "type": "observability",
+    "example": {}
+  },
+  {
     "name": "ip-restriction",
     "type": "security",
     "example": {
@@ -383,6 +604,15 @@
         "192.168.1.1/24"
       ],
       "message": "Access denied"
+    }
+  },
+  {
+    "name": "jwe-decrypt",
+    "type": "security",
+    "example": {
+      "header": "Authorization",
+      "forward_header": "X-Decrypted-Token",
+      "strict": true
     }
   },
   {
@@ -433,6 +663,35 @@
     },
     "consumer_example": {
       "key": "auth-one"
+    }
+  },
+  {
+    "name": "lago",
+    "type": "observability",
+    "example": {
+      "endpoint_addrs": [
+        "http://127.0.0.1:3000"
+      ],
+      "endpoint_uri": "/test",
+      "token": "token",
+      "event_transaction_id": "tid",
+      "event_subscription_id": "sid",
+      "event_code": "code",
+      "event_properties": {
+        "key": "value"
+      },
+      "ssl_verify": true,
+      "timeout": 3000,
+      "keepalive": true,
+      "keepalive_timeout": 60000,
+      "keepalive_pool": 5
+    },
+    "metadata_example": {
+      "log_format": {
+        "host": "$host",
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr"
+      }
     }
   },
   {
@@ -490,10 +749,34 @@
     }
   },
   {
-    "name": "log-rotate",
+    "name": "loki-logger",
     "type": "observability",
-    "hidden": true,
-    "example": {}
+    "example": {
+      "endpoint_addrs": [
+        "http://127.0.0.1:8199"
+      ],
+      "tenant_id": "tenant_1",
+      "batch_max_size": 1
+    },
+    "metadata_example": {
+      "log_format": {
+        "host": "$host",
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr"
+      }
+    }
+  },
+  {
+    "name": "mcp-bridge",
+    "type": "observability",
+    "example": {
+      "base_uri": "/mcp",
+      "command": "npx",
+      "args": [
+        "-y",
+        "test"
+      ]
+    }
   },
   {
     "name": "mocking",
@@ -505,10 +788,18 @@
     }
   },
   {
-    "name": "node-status",
-    "type": "observability",
-    "hidden": true,
-    "example": {}
+    "name": "multi-auth",
+    "type": "authentication",
+    "example": {
+      "auth_plugins": [
+        {
+          "key-auth": {}
+        },
+        {
+          "jwt-auth": {}
+        }
+      ]
+    }
   },
   {
     "name": "opa",
@@ -519,21 +810,22 @@
     }
   },
   {
+    "name": "openfunction",
+    "type": "serverless",
+    "example": {
+      "function_uri": "https://your-function-app.azurewebsites.net/api/your-function",
+      "authorization": {
+        "service_token": "your_api_key"
+      }
+    }
+  },
+  {
     "name": "openid-connect",
     "type": "authentication",
     "example": {
       "client_id": "your_client_id",
       "client_secret": "your_client_secret",
       "discovery": "https://your-oidc-server.com/.well-known/openid-configuration"
-    }
-  },
-  {
-    "name": "opentelemetry",
-    "type": "observability",
-    "example": {
-      "sampler": {
-        "name": "always_on"
-      }
     }
   },
   {
@@ -705,14 +997,6 @@
     }
   },
   {
-    "name": "skywalking",
-    "type": "observability",
-    "example": {
-      "sample_ratio": 0.5,
-      "endpoint_addr": "http://127.0.0.1:12800"
-    }
-  },
-  {
     "name": "skywalking-logger",
     "type": "observability",
     "example": {
@@ -766,6 +1050,23 @@
       "host": "tcp-logger.example.com",
       "port": 12345,
       "tls": false
+    }
+  },
+  {
+    "name": "tencent-cloud-cls",
+    "type": "observability",
+    "example": {
+      "cls_host": "cls.tencentcloudapi.com",
+      "cls_topic": "your_topic",
+      "secret_id": "your_secret_id",
+      "secret_key": "your_secret_key"
+    },
+    "metadata_example": {
+      "log_format": {
+        "host": "$host",
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr"
+      }
     }
   },
   {
@@ -903,277 +1204,6 @@
       "endpoint": "http://zipkin.example.com/api/v2/spans",
       "sample_ratio": 0.1,
       "service_name": "APISIX"
-    }
-  },
-  {
-    "name": "mcp-bridge",
-    "type": "observability",
-    "example": {
-      "base_uri": "/mcp",
-      "command": "npx",
-      "args": ["-y", "test"]
-    }
-  },
-  {
-    "name": "lago",
-    "type": "observability",
-    "example": {
-      "endpoint_addrs": [
-        "http://127.0.0.1:3000"
-      ],
-      "endpoint_uri": "/test",
-      "token": "token",
-      "event_transaction_id": "tid",
-      "event_subscription_id": "sid",
-      "event_code": "code",
-      "event_properties": {
-        "key": "value"
-      },
-      "ssl_verify": true,
-      "timeout": 3000,
-      "keepalive": true,
-      "keepalive_timeout": 60000,
-      "keepalive_pool": 5
-    },
-    "metadata_example": {
-      "log_format": {
-        "host": "$host",
-        "@timestamp": "$time_iso8601",
-        "client_ip": "$remote_addr"
-      }
-    }
-  },
-  {
-    "name": "loki-logger",
-    "type": "observability",
-    "example": {
-      "endpoint_addrs": [
-        "http://127.0.0.1:8199"
-      ],
-      "tenant_id": "tenant_1",
-      "batch_max_size": 1
-    },
-    "metadata_example": {
-      "log_format": {
-        "host": "$host",
-        "@timestamp": "$time_iso8601",
-        "client_ip": "$remote_addr"
-      }
-    }
-  },
-  {
-    "name": "mqtt-proxy",
-    "proxy_type": "stream",
-    "type": "other protocols",
-    "example": {
-      "protocol_level": 4,
-      "protocol_name": "MQTT"
-    }
-  },
-  {
-    "name": "elasticsearch-logger",
-    "type": "observability",
-    "example": {
-      "endpoint_addr": "http://elasticsearch:9200",
-      "field": {
-        "index": "logs",
-        "type": "_doc"
-      }
-    },
-    "metadata_example": {
-      "endpoint_addr": "http://elasticsearch:9200",
-      "field": {
-        "index": "your_index"
-      }
-    }
-  },
-  {
-    "name": "openfunction",
-    "type": "serverless",
-    "example": {
-      "function_uri": "https://your-function-app.azurewebsites.net/api/your-function",
-      "authorization": {
-        "service_token": "your_api_key"
-      }
-    }
-  },
-  {
-    "name": "tencent-cloud-cls",
-    "type": "observability",
-    "example": {
-      "cls_host": "cls.tencentcloudapi.com",
-      "cls_topic": "your_topic",
-      "secret_id": "your_secret_id",
-      "secret_key": "your_secret_key"
-    },
-    "metadata_example": {
-      "log_format": {
-        "host": "$host",
-        "@timestamp": "$time_iso8601",
-        "client_ip": "$remote_addr"
-      }
-    }
-  },
-  {
-    "name": "ai-proxy",
-    "type": "AI",
-    "example": {
-      "provider": "openai",
-      "auth": {
-        "header": {
-          "Authorization": "Bearer OPENAI_API_KEY"
-        }
-      },
-      "options":{
-        "model": "gpt-4"
-      }
-    }
-  },
-  {
-    "name": "ai-proxy-multi",
-    "type": "AI",
-    "example": {
-      "instances": [
-        {
-          "name": "openai-instance",
-          "provider": "openai",
-          "weight": 8,
-          "auth": {
-            "header": {
-              "Authorization": "Bearer OPENAI_API_KEY"
-            }
-          },
-          "options": {
-            "model": "gpt-4"
-          }
-        },
-        {
-          "name": "deepseek-instance",
-          "provider": "deepseek",
-          "weight": 2,
-          "auth": {
-            "header": {
-              "Authorization": "Bearer OPENAI_API_KEY"
-            }
-          },
-          "options": {
-            "model": "deepseek-chat"
-          }
-        }
-      ]
-    }
-  },
-  {
-    "name": "ai-rate-limiting",
-    "type": "AI",
-    "example": {
-      "limit": 300,
-      "time_window": 30,
-      "limit_strategy": "prompt_tokens"
-    }
-  },
-  {
-    "name": "ai-prompt-guard",
-    "type": "AI",
-    "example": {
-      "match_all_roles": true,
-      "allow_patterns": [
-        "goodword"
-      ],
-      "deny_patterns": [
-        "badword"
-      ]
-    }
-  },
-  {
-    "name": "ai-aws-content-moderation",
-    "type": "AI",
-    "example": {
-      "comprehend": {
-        "access_key_id": "ACCESS_KEY_ID",
-        "secret_access_key": "SECRET_ACCESS_KEY",
-        "region": "us-east-1"
-      },
-      "moderation_categories": {
-        "PROFANITY": 0.5
-      }
-    }
-  },
-  {
-    "name": "ai-prompt-decorator",
-    "type": "AI",
-    "example": {
-      "prepend":[
-        {
-          "role": "system",
-          "content": "I have exams tomorrow so explain conceptually and briefly"
-        }
-      ],
-      "append":[
-        {
-          "role": "system",
-          "content": "End the response with an analogy."
-        }
-      ]
-    }
-  },
-  {
-    "name": "ai-prompt-template",
-    "type": "AI",
-    "example": {
-      "templates": [
-        {
-          "name": "level of detail",
-          "template": {
-            "model": "gpt-4",
-            "messages": [
-              {
-                "role": "user",
-                "content": "Explain about {{ topic }} in {{ level }}."
-              }
-            ]
-          }
-        }
-      ]
-    }
-  },
-  {
-    "name": "ai-rag",
-    "type": "AI",
-    "example": {
-      "embeddings_provider": {
-        "azure_openai": {
-          "endpoint": "AZ_EMBEDDINGS_ENDPOINT",
-          "api_key": "AZ_OPENAI_API_KEY"
-        }
-      },
-      "vector_search_provider": {
-        "azure_ai_search": {
-          "endpoint": "AZ_AI_SEARCH_ENDPOINT",
-          "api_key": "AZ_AI_SEARCH_KEY"
-        }
-      }
-    }
-  },
-  {
-    "name": "ai-request-rewrite",
-    "type": "AI",
-    "example": {
-      "prompt": "test",
-      "provider": "openai-compatible",
-      "auth": {
-        "header": {
-          "Authorization": "Bearer <some-token>"
-        }
-      },
-      "options": {
-        "model": "qwen-plus",
-        "max_tokens": 1024,
-        "temperature": 1
-      },
-      "override": {
-        "endpoint": "https://example.com"
-      }
     }
   }
 ]

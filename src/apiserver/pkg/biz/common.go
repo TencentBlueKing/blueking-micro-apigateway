@@ -474,6 +474,155 @@ func IsResourceConfigChanged(
 	return !reflect.DeepEqual(currentConfigParsed, inputConfigParsed)
 }
 
+// IsResourceChanged 判断资源是否发生变化（包括配置和其他字段）
+// This function checks both the config field and resource-specific extra fields
+func IsResourceChanged(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+	inputConfigJson json.RawMessage,
+	extraFields map[string]any,
+) bool {
+	// First check if config has changed
+	if IsResourceConfigChanged(ctx, resourceType, id, inputConfigJson) {
+		return true
+	}
+
+	// Then check resource-specific extra fields
+	switch resourceType {
+	case constant.Route:
+		route, err := GetRoute(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && route.Name != name {
+			return true
+		}
+		if serviceID, ok := extraFields["service_id"].(string); ok && route.ServiceID != serviceID {
+			return true
+		}
+		if upstreamID, ok := extraFields["upstream_id"].(string); ok && route.UpstreamID != upstreamID {
+			return true
+		}
+		if pluginConfigID, ok := extraFields["plugin_config_id"].(string); ok && route.PluginConfigID != pluginConfigID {
+			return true
+		}
+
+	case constant.Consumer:
+		consumer, err := GetConsumer(ctx, id)
+		if err != nil {
+			return true
+		}
+		if username, ok := extraFields["username"].(string); ok && consumer.Username != username {
+			return true
+		}
+		if groupID, ok := extraFields["group_id"].(string); ok && consumer.GroupID != groupID {
+			return true
+		}
+
+	case constant.Service:
+		service, err := GetService(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && service.Name != name {
+			return true
+		}
+		if upstreamID, ok := extraFields["upstream_id"].(string); ok && service.UpstreamID != upstreamID {
+			return true
+		}
+
+	case constant.Upstream:
+		upstream, err := GetUpstream(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && upstream.Name != name {
+			return true
+		}
+		if sslID, ok := extraFields["ssl_id"].(string); ok && upstream.SSLID != sslID {
+			return true
+		}
+
+	case constant.StreamRoute:
+		streamRoute, err := GetStreamRoute(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && streamRoute.Name != name {
+			return true
+		}
+		if serviceID, ok := extraFields["service_id"].(string); ok && streamRoute.ServiceID != serviceID {
+			return true
+		}
+		if upstreamID, ok := extraFields["upstream_id"].(string); ok && streamRoute.UpstreamID != upstreamID {
+			return true
+		}
+
+	case constant.Proto, constant.ConsumerGroup, constant.PluginConfig, constant.GlobalRule, constant.PluginMetadata, constant.SSL:
+		// These resources only have Name field besides Config
+		// We need to get the specific resource to check the name
+		var currentName string
+		var err error
+
+		switch resourceType {
+		case constant.Proto:
+			proto, getErr := GetProto(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = proto.Name
+			err = getErr
+		case constant.ConsumerGroup:
+			consumerGroup, getErr := GetConsumerGroup(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = consumerGroup.Name
+			err = getErr
+		case constant.PluginConfig:
+			pluginConfig, getErr := GetPluginConfig(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = pluginConfig.Name
+			err = getErr
+		case constant.GlobalRule:
+			globalRule, getErr := GetGlobalRule(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = globalRule.Name
+			err = getErr
+		case constant.PluginMetadata:
+			pluginMetadata, getErr := GetPluginMetadata(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = pluginMetadata.Name
+			err = getErr
+		case constant.SSL:
+			ssl, getErr := GetSSL(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = ssl.Name
+			err = getErr
+		}
+
+		if err != nil {
+			return true
+		}
+
+		if name, ok := extraFields["name"].(string); ok && currentName != name {
+			return true
+		}
+	}
+
+	// No changes detected
+	return false
+}
+
 // GetResourceByIDs 根据 ids 获取资源
 func GetResourceByIDs(
 	ctx context.Context,

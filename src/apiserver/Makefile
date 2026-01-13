@@ -46,7 +46,7 @@ test: tidy
 
 
 integration-test:
-	cd tests/integration && docker-compose down && docker-compose up --abort-on-container-exit
+	cd tests/integration && docker compose down && docker compose up --abort-on-container-exit
 
 # generate swagger api doc with swag
 .PHONY: doc

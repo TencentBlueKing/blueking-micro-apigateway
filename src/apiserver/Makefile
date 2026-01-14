@@ -42,7 +42,7 @@ build: tidy doc
 # run unittest
 .PHONY: test
 test: tidy
-	go test ./... -gcflags="all=-N -l" -covermode=count -coverprofile .coverage.cov
+	go test ./... -covermode=atomic -coverprofile .coverage.cov
 
 
 integration-test:

@@ -476,6 +476,8 @@ func IsResourceConfigChanged(
 
 // IsResourceChanged 判断资源是否发生变化（包括配置和其他字段）
 // This function checks both the config field and resource-specific extra fields
+//
+//nolint:gocyclo
 func IsResourceChanged(
 	ctx context.Context,
 	resourceType constant.APISIXResource,

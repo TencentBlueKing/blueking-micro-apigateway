@@ -103,7 +103,7 @@ func ConsumerUpdate(c *gin.Context) {
 
 	// if resource not changed (config and extra fields), return success directly
 	if !biz.IsResourceChanged(c.Request.Context(), constant.Consumer, pathParam.ID, req.Config, map[string]any{
-		"username": req.Name,
+		"username": req.Name, // the key here is "username", not "name"(model.Consumer)
 		"group_id": req.GroupID,
 	}) {
 		ginx.SuccessNoContentResponse(c)

@@ -100,9 +100,15 @@ func PluginMetadataUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.PluginMetadata, pathParam.ID, req.Config, map[string]any{
-		"name": req.Name,
-	}) {
+	if !biz.IsResourceChanged(
+		c.Request.Context(),
+		constant.PluginMetadata,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name": req.Name,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}

@@ -504,7 +504,8 @@ func IsResourceChanged(
 		if upstreamID, ok := extraFields["upstream_id"].(string); ok && route.UpstreamID != upstreamID {
 			return true
 		}
-		if pluginConfigID, ok := extraFields["plugin_config_id"].(string); ok && route.PluginConfigID != pluginConfigID {
+		if pluginConfigID, ok := extraFields["plugin_config_id"].(string); ok &&
+			route.PluginConfigID != pluginConfigID {
 			return true
 		}
 
@@ -559,7 +560,12 @@ func IsResourceChanged(
 			return true
 		}
 
-	case constant.Proto, constant.ConsumerGroup, constant.PluginConfig, constant.GlobalRule, constant.PluginMetadata, constant.SSL:
+	case constant.Proto,
+		constant.ConsumerGroup,
+		constant.PluginConfig,
+		constant.GlobalRule,
+		constant.PluginMetadata,
+		constant.SSL:
 		// These resources only have Name field besides Config
 		// We need to get the specific resource to check the name
 		var currentName string
@@ -611,6 +617,7 @@ func IsResourceChanged(
 		}
 
 		if err != nil {
+			logging.Errorf("get resource by id: %s error: %s", id, err.Error())
 			return true
 		}
 

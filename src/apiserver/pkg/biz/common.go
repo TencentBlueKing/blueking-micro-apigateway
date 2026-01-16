@@ -571,7 +571,6 @@ func IsResourceChanged(
 		// These resources only have Name field besides Config
 		// We need to get the specific resource to check the name
 		var currentName string
-		var err error
 
 		switch resourceType {
 		case constant.Proto:
@@ -580,47 +579,36 @@ func IsResourceChanged(
 				return true
 			}
 			currentName = proto.Name
-			err = getErr
 		case constant.ConsumerGroup:
 			consumerGroup, getErr := GetConsumerGroup(ctx, id)
 			if getErr != nil {
 				return true
 			}
 			currentName = consumerGroup.Name
-			err = getErr
 		case constant.PluginConfig:
 			pluginConfig, getErr := GetPluginConfig(ctx, id)
 			if getErr != nil {
 				return true
 			}
 			currentName = pluginConfig.Name
-			err = getErr
 		case constant.GlobalRule:
 			globalRule, getErr := GetGlobalRule(ctx, id)
 			if getErr != nil {
 				return true
 			}
 			currentName = globalRule.Name
-			err = getErr
 		case constant.PluginMetadata:
 			pluginMetadata, getErr := GetPluginMetadata(ctx, id)
 			if getErr != nil {
 				return true
 			}
 			currentName = pluginMetadata.Name
-			err = getErr
 		case constant.SSL:
 			ssl, getErr := GetSSL(ctx, id)
 			if getErr != nil {
 				return true
 			}
 			currentName = ssl.Name
-			err = getErr
-		}
-
-		if err != nil {
-			logging.Errorf("get resource by id: %s error: %s", id, err.Error())
-			return true
 		}
 
 		if name, ok := extraFields["name"].(string); ok && currentName != name {

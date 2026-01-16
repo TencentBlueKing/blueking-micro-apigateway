@@ -6,9 +6,14 @@ WORKDIR /app
 ARG VERSION=latest
 ARG COMMIT=HEAD
 
-COPY . .
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
 
 RUN go env -w GO111MODULE=on
+RUN go mod download
+
+COPY . .
+
 RUN make build -e VERSION=${VERSION} -e GITCOMMIT=${COMMIT}
 
 # -------------- runner container --------------

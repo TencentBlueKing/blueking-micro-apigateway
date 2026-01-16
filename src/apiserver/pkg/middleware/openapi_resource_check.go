@@ -144,7 +144,26 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				}
 			}
 
-			if err = schemaValidator.Validate(json.RawMessage(configRaw)); err != nil {
+			// FIXME: maybe we should refactor this to `remove` the Name from the r.Config totally,
+			// FIXME: instead of hack in validation
+			// currently we support the `name` field in the config, just remove it before publish
+			// so here we hack to remove the `name` field from the config
+			// Version-aware field cleanup: only remove fields that are invalid for this APISIX version
+			// configRawForValidation := json.RawMessage(configRaw)
+			// make a copy of the configRaw for validation
+			configRawForValidationBytes := make([]byte, len(configRaw))
+			copy(configRawForValidationBytes, configRaw)
+			configRawForValidation := json.RawMessage(configRawForValidationBytes)
+
+			apisixVersion := ginx.GetGatewayInfo(c).GetAPISIXVersionX()
+			if constant.ShouldRemoveFieldBeforePublish(resourceType, "id", apisixVersion) {
+				configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "id")
+			}
+			if constant.ShouldRemoveFieldBeforePublish(resourceType, "name", apisixVersion) {
+				configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "name")
+			}
+
+			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
 				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
 				c.Abort()
@@ -167,13 +186,13 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			if err != nil {
 				ginx.BadRequestErrorJSONResponse(
 					c,
-					fmt.Errorf("resource config:%s validate failed, err: %v",
+					fmt.Errorf("NewAPISIXJsonSchemaValidator failed, resource config:%s validate failed, err: %v",
 						configRaw, err),
 				)
 				c.Abort()
 				return
 			}
-			if err = jsonConfigValidator.Validate(json.RawMessage(configRaw)); err != nil { // 校验 json schema
+			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
 				ginx.BadRequestErrorJSONResponse(
 					c,
 					fmt.Errorf("resource config:%s validate failed, err: %v",

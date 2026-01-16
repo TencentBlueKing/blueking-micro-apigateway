@@ -7669,7 +7669,7 @@
         "type": "object",
         "properties": {
           "anonymous_consumer": {
-            "minLength": "1",
+            "minLength": 1,
             "type": "string"
           },
           "_meta": {
@@ -7776,7 +7776,7 @@
       "version": 0.1,
       "schema": {
         "anonymous_consumer": {
-          "minLength": "1",
+          "minLength": 1,
           "type": "string"
         },
         "$comment": "this is a mark for our injected plugin schema",
@@ -7847,7 +7847,7 @@
       "schema": {
         "properties": {
           "anonymous_consumer": {
-            "minLength": "1",
+            "minLength": 1,
             "type": "string"
           },
           "header": {
@@ -8074,7 +8074,7 @@
       "schema": {
         "properties": {
           "anonymous_consumer": {
-            "minLength": "1",
+            "minLength": 1,
             "type": "string"
           },
           "header": {

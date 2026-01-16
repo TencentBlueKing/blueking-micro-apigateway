@@ -32,6 +32,8 @@ import (
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
 
+	"github.com/tidwall/sjson"
+
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -904,6 +906,28 @@ func ParseOrderByExprList(
 	return orderByExprs
 }
 
+// BuildConfigRawForValidation 构建配置用于验证
+// FIXME: maybe we should refactor this to `remove` the Name from the r.Config totally,
+// FIXME: instead of hack in validation
+func BuildConfigRawForValidation(
+	configRaw string,
+	resourceType constant.APISIXResource,
+	apisixVersion constant.APISIXVersion,
+) json.RawMessage {
+	configRawForValidationBytes := make([]byte, len(configRaw))
+	copy(configRawForValidationBytes, configRaw)
+	configRawForValidation := json.RawMessage(configRawForValidationBytes)
+
+	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id", apisixVersion) {
+		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "id")
+	}
+	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "name", apisixVersion) {
+		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "name")
+	}
+
+	return configRawForValidation
+}
+
 // ValidateResource 校验资源
 // ValidateResource validates resources based on schema and association checks
 // ctx: context containing request information
@@ -928,8 +952,14 @@ func ValidateResource(
 		}
 		// Validate each resource instance
 		for _, r := range resource {
+			configRawForValidation := BuildConfigRawForValidation(
+				string(r.Config),
+				resourceType,
+				gatewayInfo.GetAPISIXVersionX(),
+			)
+
 			// Validate resource against schema
-			if err = schemaValidator.Validate(json.RawMessage(r.Config)); err != nil {
+			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
 				return err
 			}
@@ -938,7 +968,7 @@ func ValidateResource(
 			if err != nil {
 				return err
 			}
-			if err = jsonConfigValidator.Validate(json.RawMessage(r.Config)); err != nil { // 校验 json schema
+			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
 				return fmt.Errorf("resource config:%s validate failed, err: %v",
 					r.Config, err)
 			}

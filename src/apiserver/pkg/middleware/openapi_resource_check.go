@@ -30,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -37,6 +38,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -130,7 +132,25 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			configRaw := config.Get("config").Raw
-			if err = schemaValidator.Validate(json.RawMessage(configRaw)); err != nil {
+
+			// Inject auto-generated ID before validation for resources that need it
+			// This handles the case where schema requires 'id' but users expect auto-generation
+			if constant.ResourceRequiresIDInSchema(resourceType) {
+				id := gjson.Get(configRaw, "id").String()
+				if id == "" {
+					// Temporarily inject ID for validation - will be regenerated in handler if
+					// needed
+					configRaw, _ = sjson.Set(configRaw, "id", idx.GenResourceID(resourceType))
+				}
+			}
+
+			configRawForValidation := biz.BuildConfigRawForValidation(
+				configRaw,
+				resourceType,
+				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+			)
+
+			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
 				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
 				c.Abort()
@@ -153,13 +173,16 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			if err != nil {
 				ginx.BadRequestErrorJSONResponse(
 					c,
-					fmt.Errorf("resource config:%s validate failed, err: %v",
-						configRaw, err),
+					fmt.Errorf(
+						"NewAPISIXJsonSchemaValidator failed, resource config:%s validate failed, err: %v",
+						configRaw,
+						err,
+					),
 				)
 				c.Abort()
 				return
 			}
-			if err = jsonConfigValidator.Validate(json.RawMessage(configRaw)); err != nil { // 校验 json schema
+			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
 				ginx.BadRequestErrorJSONResponse(
 					c,
 					fmt.Errorf("resource config:%s validate failed, err: %v",

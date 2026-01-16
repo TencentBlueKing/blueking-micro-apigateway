@@ -22,6 +22,7 @@ package status
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/looplab/fsm"
 
@@ -112,7 +113,8 @@ func (s *ResourceStatusOp) CanDo(ctx context.Context, operationType constant.Ope
 	// demo 站点进行特殊处理，部分资源不允许进行任何操作
 	if config.IsDemoMode() {
 		if config.G.Biz.DemoProtectResources[s.resourceInfo.ID] {
-			return errors.New(config.G.Service.DemoModeWarnMsg)
+			msg := fmt.Sprintf("%s。该资源处于被保护状态禁止修改，如需体验请新建对应资源后操作", config.G.Service.DemoModeWarnMsg)
+			return errors.New(msg)
 		}
 	}
 	// 如果网关是只读模式，则不允许进行任何操作

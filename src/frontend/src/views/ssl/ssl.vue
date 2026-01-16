@@ -72,6 +72,29 @@ const columns: PrimaryTableProps['columns'] = [
         .format('YYYY-MM-DD HH:mm:ss Z');
     },
   },
+  {
+    title: t('有效期'),
+    colKey: 'expiration_end',
+    ellipsis: true,
+    cell: (h, { row }: TableRowData) => {
+      const ts = row.config?.validity_end as number | undefined;
+      if (!ts) return '--';
+      const expiry = dayjs.unix(ts);
+      const now = dayjs();
+      const ms = expiry.valueOf() - now.valueOf();
+      const days = Math.ceil(ms / 86400000);
+      if (ms <= 0) {
+        return <span style={{ color: '#9e9e9e' }}>{t('已过期')}</span>;
+      }
+      if (days < 7) {
+        return <span style={{ color: '#f44336' }}>{days} {t('天')}</span>;
+      }
+      if (days < 30) {
+        return <span style={{ color: '#ff9800' }}>{days} {t('天')}</span>;
+      }
+      return <span>{days} {t('天')}</span>;
+    },
+  },
 ];
 
 const ssl = ref<ISSL>();

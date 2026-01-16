@@ -102,8 +102,13 @@ func RouteUpdate(c *gin.Context) {
 		return
 	}
 
-	// if config not changed, return success directly
-	if !biz.IsResourceConfigChanged(c.Request.Context(), constant.Route, pathParam.ID, req.Config) {
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.Route, pathParam.ID, req.Config, map[string]any{
+		"name":             req.Name,
+		"service_id":       req.ServiceID,
+		"upstream_id":      req.UpstreamID,
+		"plugin_config_id": req.PluginConfigID,
+	}) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}

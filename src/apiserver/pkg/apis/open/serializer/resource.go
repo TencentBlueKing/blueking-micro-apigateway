@@ -63,9 +63,7 @@ func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int,
 ) []*model.ResourceCommonModel {
 	var resources []*model.ResourceCommonModel
 	for _, r := range rs {
-		// Only inject name field for resources that support it in the schema
-		// to avoid validation errors with additionalProperties: false
-		if gjson.GetBytes(r.Config, "name").String() == "" && constant.ResourceSupportsNameField(resourceType) {
+		if gjson.GetBytes(r.Config, "name").String() == "" {
 			r.Config, _ = sjson.SetBytes(r.Config, model.GetResourceNameKey(resourceType), r.Name)
 		}
 		id := gjson.GetBytes(r.Config, "id").String()

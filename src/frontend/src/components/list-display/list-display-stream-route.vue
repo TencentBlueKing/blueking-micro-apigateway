@@ -87,7 +87,7 @@
     <ListContentArticle v-if="streamRoute.config.plugins && Object.keys(streamRoute.config.plugins).length">
       <template #title>{{ t('已启用插件') }}</template>
       <ListContentRow v-for="(config, configName) in streamRoute.config.plugins" :key="configName" :label="configName">
-        {{ config }}
+        <encode-json :config="config" />
       </ListContentRow>
     </ListContentArticle>
   </div>
@@ -102,6 +102,7 @@ import ListContentRow from '@/components/list-display/components/list-content-ro
 import ListContentArticle from '@/components/list-display/components/list-content-article.vue';
 import ListDisplayUpstream from '@/components/list-display/list-display-upstream.vue';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
+import EncodeJson from '@/components/list-display/components/encode-json.vue';
 
 interface IProps {
   resource: IStreamRoute

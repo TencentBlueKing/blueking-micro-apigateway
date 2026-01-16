@@ -46,7 +46,7 @@
       <list-content-row
         v-for="(config, configName) in consumer.config.plugins" :key="configName" :label="configName as string"
       >
-        {{ config }}
+        <encode-json :config="config" />
       </list-content-row>
     </list-content-article>
   </div>
@@ -60,6 +60,7 @@ import { IConsumer } from '@/types/consumer';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
 import { useRouter } from 'vue-router';
 import TagLabel from '@/components/tag-label.vue';
+import EncodeJson from '@/components/list-display/components/encode-json.vue';
 
 interface IProps {
   resource: IConsumer

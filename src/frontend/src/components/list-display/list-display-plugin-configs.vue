@@ -39,7 +39,7 @@
       <list-content-row
         v-for="(config, configName) in pluginConfigs.config.plugins" :key="configName" :label="configName as string"
       >
-        {{ config }}
+        <encode-json :config="config" />
       </list-content-row>
     </list-content-article>
   </div>
@@ -52,6 +52,7 @@ import ListContentArticle from '@/components/list-display/components/list-conten
 import { IPluginConfigDto } from '@/types/plugin-config';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
 import TagLabel from '@/components/tag-label.vue';
+import EncodeJson from '@/components/list-display/components/encode-json.vue';
 
 interface IProps {
   resource: IPluginConfigDto

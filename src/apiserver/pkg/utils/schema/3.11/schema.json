@@ -10460,7 +10460,10 @@
             ],
             "items": {
               "type": "string",
-              "pattern": "^(?!tag=)[ -~]*"
+              "pattern": "^[ -~]*$",
+              "not": {
+                "pattern": "^tag="
+              }
             },
             "minItems": 1
           },

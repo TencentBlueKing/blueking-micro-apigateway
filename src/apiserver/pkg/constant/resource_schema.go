@@ -93,13 +93,18 @@ func ResourceSupportsIDInConfig(resourceType APISIXResource) bool {
 	return resourceType != Consumer
 }
 
-// ShouldRemoveFieldBeforePublish determines if a field should be removed from config before publishing to APISIX.
+// ShouldRemoveFieldBeforeValidationOrPublish determines if a field should be removed from config before publishing to
+// APISIX.
 // This is used to clean up internal fields that shouldn't be sent to APISIX.
 //
 // Rules:
 // - "id" should be removed for consumer (uses username as key)
 // - "name" should be removed if not supported in the target APISIX version
-func ShouldRemoveFieldBeforePublish(resourceType APISIXResource, fieldName string, version APISIXVersion) bool {
+func ShouldRemoveFieldBeforeValidationOrPublish(
+	resourceType APISIXResource,
+	fieldName string,
+	version APISIXVersion,
+) bool {
 	switch fieldName {
 	case "id":
 		// Remove id only from consumer (which uses username as key)

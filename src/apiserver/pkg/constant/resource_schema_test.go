@@ -280,7 +280,11 @@ func TestShouldRemoveFieldBeforePublish(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := constant.ShouldRemoveFieldBeforePublish(tt.resourceType, tt.fieldName, tt.version)
+			result := constant.ShouldRemoveFieldBeforeValidationOrPublish(
+				tt.resourceType,
+				tt.fieldName,
+				tt.version,
+			)
 			assert.Equal(t, tt.expected, result, tt.reason)
 		})
 	}

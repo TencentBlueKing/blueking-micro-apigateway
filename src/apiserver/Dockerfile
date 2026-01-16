@@ -12,6 +12,10 @@ COPY go.mod go.sum ./
 RUN go env -w GO111MODULE=on
 RUN go mod download
 
+# Install build tools in a separate cached layer
+RUN mkdir -p /app/bin
+RUN GOBIN=/app/bin go install github.com/swaggo/swag/v2/cmd/swag@latest
+
 COPY . .
 
 RUN make build -e VERSION=${VERSION} -e GITCOMMIT=${COMMIT}

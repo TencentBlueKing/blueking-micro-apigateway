@@ -996,10 +996,10 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		pluginConfig.Config, err = jsonx.MergeJson(pluginConfig.Config, baseConfig)
 
 		// Version-aware field cleanup: only remove fields that are invalid for this APISIX version
-		if constant.ShouldRemoveFieldBeforePublish(constant.PluginConfig, "id", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.PluginConfig, "id", apisixVersion) {
 			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "id")
 		}
-		if constant.ShouldRemoveFieldBeforePublish(constant.PluginConfig, "name", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.PluginConfig, "name", apisixVersion) {
 			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "name")
 		}
 
@@ -1101,7 +1101,7 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 		consumer.Config, err = jsonx.MergeJson(consumer.Config, baseConfig)
 
 		// Version-aware field cleanup: consumer uses username as identifier, id should always be removed
-		if constant.ShouldRemoveFieldBeforePublish(constant.Consumer, "id", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Consumer, "id", apisixVersion) {
 			consumer.Config, _ = sjson.DeleteBytes(consumer.Config, "id")
 		}
 
@@ -1165,11 +1165,11 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 		consumerGroup.Config, err = jsonx.MergeJson(consumerGroup.Config, baseConfig)
 
 		// Version-aware field cleanup: consumer_group requires id in schema
-		if constant.ShouldRemoveFieldBeforePublish(constant.ConsumerGroup, "id", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.ConsumerGroup, "id", apisixVersion) {
 			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "id")
 		}
 		// name is only valid in 3.13+
-		if constant.ShouldRemoveFieldBeforePublish(constant.ConsumerGroup, "name", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.ConsumerGroup, "name", apisixVersion) {
 			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "name")
 		}
 
@@ -1223,7 +1223,7 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
 
 		// Version-aware field cleanup: global_rule never supports name in any version
-		if constant.ShouldRemoveFieldBeforePublish(constant.GlobalRule, "name", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.GlobalRule, "name", apisixVersion) {
 			globalRule.Config, _ = sjson.DeleteBytes(globalRule.Config, "name")
 		}
 
@@ -1280,7 +1280,7 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		pb.Config, err = jsonx.MergeJson(pb.Config, baseConfig)
 
 		// Version-aware field cleanup: proto name is only supported in 3.13+
-		if constant.ShouldRemoveFieldBeforePublish(constant.Proto, "name", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Proto, "name", apisixVersion) {
 			pb.Config, _ = sjson.DeleteBytes(pb.Config, "name")
 		}
 
@@ -1333,7 +1333,7 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
 
 		// Version-aware field cleanup: ssl never supports name in any version
-		if constant.ShouldRemoveFieldBeforePublish(constant.SSL, "name", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.SSL, "name", apisixVersion) {
 			ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "name")
 		}
 		// Remove internal fields that are not part of APISIX schema
@@ -1401,7 +1401,7 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 		sr.Config, err = jsonx.MergeJson(sr.Config, baseConfig)
 
 		// Version-aware field cleanup: stream_route name is only supported in 3.13+
-		if constant.ShouldRemoveFieldBeforePublish(constant.StreamRoute, "name", apisixVersion) {
+		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.StreamRoute, "name", apisixVersion) {
 			sr.Config, _ = sjson.DeleteBytes(sr.Config, "name")
 		}
 		// Remove internal fields that are not part of APISIX schema

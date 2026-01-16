@@ -30,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -37,6 +38,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -130,6 +132,18 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			configRaw := config.Get("config").Raw
+
+			// Inject auto-generated ID before validation for resources that need it
+			// This handles the case where schema requires 'id' but users expect auto-generation
+			if constant.ResourceRequiresIDInSchema(resourceType) {
+				id := gjson.Get(configRaw, "id").String()
+				if id == "" {
+					// Temporarily inject ID for validation - will be regenerated in handler if
+					// needed
+					configRaw, _ = sjson.Set(configRaw, "id", idx.GenResourceID(resourceType))
+				}
+			}
+
 			if err = schemaValidator.Validate(json.RawMessage(configRaw)); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
 				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))

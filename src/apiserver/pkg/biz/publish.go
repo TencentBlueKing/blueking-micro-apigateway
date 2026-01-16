@@ -981,6 +981,10 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		)
 		return fmt.Errorf("未找到指定的插件组资源 IDs %v", pluginConfigIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var pluginConfigOps []publisher.ResourceOperation
 	for _, pluginConfig := range pluginConfigs {
 		baseInfo := entity.BaseInfo{
@@ -990,8 +994,14 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		pluginConfig.Config, err = jsonx.MergeJson(pluginConfig.Config, baseConfig)
-		// 需要去除 name
-		pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "name")
+
+		// Version-aware field cleanup: only remove fields that are invalid for this APISIX version
+		if constant.ShouldRemoveFieldBeforePublish(constant.PluginConfig, "id", apisixVersion) {
+			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "id")
+		}
+		if constant.ShouldRemoveFieldBeforePublish(constant.PluginConfig, "name", apisixVersion) {
+			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "name")
+		}
 
 		if err != nil {
 			return err
@@ -1073,6 +1083,10 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 		logging.ErrorFWithContext(ctx, "no consumers found for the specified consumerIDs %v", consumerIDs)
 		return fmt.Errorf("未找到指定的消费者资源 IDs %v", consumerIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var consumerOps []publisher.ResourceOperation
 	var consumerGroupIDs []string
 	for _, consumer := range consumers {
@@ -1085,8 +1099,12 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		consumer.Config, err = jsonx.MergeJson(consumer.Config, baseConfig)
-		// 需要去除 name
-		consumer.Config, _ = sjson.DeleteBytes(consumer.Config, "id")
+
+		// Version-aware field cleanup: consumer uses username as identifier, id should always be removed
+		if constant.ShouldRemoveFieldBeforePublish(constant.Consumer, "id", apisixVersion) {
+			consumer.Config, _ = sjson.DeleteBytes(consumer.Config, "id")
+		}
+
 		if err != nil {
 			return err
 		}
@@ -1132,17 +1150,29 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 		)
 		return fmt.Errorf("未找到指定的消费者组资源 IDs %v", consumerGroupIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var consumerGroupOps []publisher.ResourceOperation
 	for _, consumerGroup := range consumerGroups {
 		baseInfo := entity.BaseInfo{
+			ID:         consumerGroup.ID,
 			CreateTime: consumerGroup.CreatedAt.Unix(),
 			UpdateTime: consumerGroup.UpdatedAt.Unix(),
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		consumerGroup.Config, err = jsonx.MergeJson(consumerGroup.Config, baseConfig)
-		// 需要去除 id，name
-		consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "id")
-		consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "name")
+
+		// Version-aware field cleanup: consumer_group requires id in schema
+		if constant.ShouldRemoveFieldBeforePublish(constant.ConsumerGroup, "id", apisixVersion) {
+			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "id")
+		}
+		// name is only valid in 3.13+
+		if constant.ShouldRemoveFieldBeforePublish(constant.ConsumerGroup, "name", apisixVersion) {
+			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "name")
+		}
+
 		if err != nil {
 			return err
 		}
@@ -1178,6 +1208,10 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 		logging.ErrorFWithContext(ctx, "no globalRules found for the specified globalRuleIDs %v", globalRuleIDs)
 		return fmt.Errorf("未找到指定的全局规则资源 IDs %v", globalRuleIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var globalRuleOps []publisher.ResourceOperation
 	for _, globalRule := range globalRules {
 		baseInfo := entity.BaseInfo{
@@ -1187,8 +1221,12 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
-		// 需要去除 name
-		globalRule.Config, _ = sjson.DeleteBytes(globalRule.Config, "name")
+
+		// Version-aware field cleanup: global_rule never supports name in any version
+		if constant.ShouldRemoveFieldBeforePublish(constant.GlobalRule, "name", apisixVersion) {
+			globalRule.Config, _ = sjson.DeleteBytes(globalRule.Config, "name")
+		}
+
 		if err != nil {
 			return err
 		}
@@ -1227,6 +1265,10 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		)
 		return fmt.Errorf("未找到指定的 protos 资源 IDs %v", protoIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var protoOps []publisher.ResourceOperation
 	for _, pb := range protos {
 		baseInfo := entity.BaseInfo{
@@ -1236,8 +1278,12 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		pb.Config, err = jsonx.MergeJson(pb.Config, baseConfig)
-		// 需要去除 name
-		pb.Config, _ = sjson.DeleteBytes(pb.Config, "name")
+
+		// Version-aware field cleanup: proto name is only supported in 3.13+
+		if constant.ShouldRemoveFieldBeforePublish(constant.Proto, "name", apisixVersion) {
+			pb.Config, _ = sjson.DeleteBytes(pb.Config, "name")
+		}
+
 		if err != nil {
 			return err
 		}
@@ -1272,6 +1318,10 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		logging.ErrorFWithContext(ctx, "no ssls found for the specified sslIDs %v", sslIDs)
 		return fmt.Errorf("未找到指定的 ssls 资源 IDs %v", sslIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var sslOps []publisher.ResourceOperation
 	for _, ssl := range ssls {
 		baseInfo := entity.BaseInfo{
@@ -1281,10 +1331,15 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
-		// 需要去除 name/validity_start/validity_end
-		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "name")
+
+		// Version-aware field cleanup: ssl never supports name in any version
+		if constant.ShouldRemoveFieldBeforePublish(constant.SSL, "name", apisixVersion) {
+			ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "name")
+		}
+		// Remove internal fields that are not part of APISIX schema
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_start")
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_end")
+
 		if err != nil {
 			return err
 		}
@@ -1323,6 +1378,10 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 		)
 		return fmt.Errorf("未找到指定的 streamRoutes 资源 IDs %v", streamRouteIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var upstreamIDs []string
 	var serviceIDs []string
 	var streamRouteOps []publisher.ResourceOperation
@@ -1340,9 +1399,14 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		sr.Config, err = jsonx.MergeJson(sr.Config, baseConfig)
-		// 需要去除 name，labels
-		sr.Config, _ = sjson.DeleteBytes(sr.Config, "name")
+
+		// Version-aware field cleanup: stream_route name is only supported in 3.13+
+		if constant.ShouldRemoveFieldBeforePublish(constant.StreamRoute, "name", apisixVersion) {
+			sr.Config, _ = sjson.DeleteBytes(sr.Config, "name")
+		}
+		// Remove internal fields that are not part of APISIX schema
 		sr.Config, _ = sjson.DeleteBytes(sr.Config, "labels")
+
 		if err != nil {
 			return err
 		}

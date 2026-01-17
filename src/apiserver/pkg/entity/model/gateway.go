@@ -117,14 +117,33 @@ func (g *Gateway) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := g.HandleEtcdConfig(false); err != nil {
 		return err
 	}
+	// 如果只更新 last_synced_at 字段(同步操作)，跳过审计快照
+	if isOnlyLastSyncedAtUpdate(tx) {
+		return nil
+	}
 	g.auditSnapshot, err = g.Snapshot(tx)
 	return err
 }
 
 // AfterUpdate 更新后钩子
 func (g *Gateway) AfterUpdate(tx *gorm.DB) (err error) {
+	// 如果只更新 last_synced_at 字段(同步操作)，跳过审计记录
+	if isOnlyLastSyncedAtUpdate(tx) {
+		return nil
+	}
 	// 添加审计
 	return g.AddAuditLog(tx, constant.OperationTypeUpdate)
+}
+
+// isOnlyLastSyncedAtUpdate 检查是否只更新了 last_synced_at 字段
+func isOnlyLastSyncedAtUpdate(tx *gorm.DB) bool {
+	// 检查是否指定了 Select 字段
+	selects := tx.Statement.Selects
+	if len(selects) == 0 {
+		return false
+	}
+	// 如果只选择了一个字段且是 last_synced_at，则认为是同步操作
+	return len(selects) == 1 && (selects[0] == "LastSyncedAt" || selects[0] == "last_synced_at")
 }
 
 // BeforeDelete 删除前钩子

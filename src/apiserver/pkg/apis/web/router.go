@@ -37,7 +37,10 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	group := router.Group(path)
 	// middleware: session
 	store := cookie.NewStore([]byte(config.G.Service.AppSecret))
-	store.Options(sessions.Options{MaxAge: int(config.G.Service.SessionCookieAge.Seconds())})
+	store.Options(sessions.Options{
+		Path:   "/",
+		MaxAge: int(config.G.Service.SessionCookieAge.Seconds()),
+	})
 	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
 
 	//  csrf

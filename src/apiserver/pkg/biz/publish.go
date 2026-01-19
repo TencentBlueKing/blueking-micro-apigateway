@@ -1278,15 +1278,15 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		pb.Config, err = jsonx.MergeJson(pb.Config, baseConfig)
+		if err != nil {
+			return err
+		}
 
 		// Version-aware field cleanup: proto name is only supported in 3.13+
 		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Proto, "name", apisixVersion) {
 			pb.Config, _ = sjson.DeleteBytes(pb.Config, "name")
 		}
 
-		if err != nil {
-			return err
-		}
 		protoOps = append(protoOps, publisher.ResourceOperation{
 			Key:    pb.ID,
 			Config: json.RawMessage(pb.Config),
@@ -1331,6 +1331,9 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		}
 		baseConfig, _ := json.Marshal(baseInfo)
 		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
+		if err != nil {
+			return err
+		}
 
 		// Version-aware field cleanup: ssl never supports name in any version
 		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.SSL, "name", apisixVersion) {
@@ -1340,9 +1343,6 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_start")
 		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_end")
 
-		if err != nil {
-			return err
-		}
 		sslOps = append(sslOps, publisher.ResourceOperation{
 			Key:    ssl.ID,
 			Config: json.RawMessage(ssl.Config),

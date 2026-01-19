@@ -44,3 +44,4 @@ v3logs
 apiserver
 
 .coverage.cov
+docs/docs.go

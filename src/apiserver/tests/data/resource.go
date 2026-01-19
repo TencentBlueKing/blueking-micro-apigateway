@@ -195,7 +195,8 @@ func Consumer1WithNoRelation(gateway *model.Gateway, status constant.ResourceSta
 			            "count": 2,
 			            "time_window": 60,
 			            "rejected_code": 503,
-			            "key": "remote_addr"
+			            "key": "remote_addr",
+			            "policy": "local"
 			        }
 			    }
 			}`),
@@ -218,7 +219,8 @@ func PluginConfig1WithNoRelation(gateway *model.Gateway, status constant.Resourc
 						"count": 100,
 						"time_window": 60,
 						"key": "remote_addr",
-						"rejected_code": 503
+						"rejected_code": 503,
+					"policy": "local"
 					}
 				}
 			}`),
@@ -297,7 +299,8 @@ func ConsumerGroup1WithNoRelation(gateway *model.Gateway, status constant.Resour
 					"limit-count": {
 						"count": 100,
 						"time_window": 60,
-						"key": "remote_addr"
+						"key": "remote_addr",
+					"policy": "local"
 					}
 				}
 			}`),

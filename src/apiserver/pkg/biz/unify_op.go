@@ -30,6 +30,7 @@ import (
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -551,16 +552,16 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 
 	u := repo.GatewaySyncData
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		// Execute updates using direct UPDATE statements
-		// We use WHERE auto_id = X since resourcesToUpdate contains records
-		// fetched from the database with auto_id already populated
-		for _, resource := range resourcesToUpdate {
-			_, err := tx.GatewaySyncData.WithContext(ctx).
-				Where(u.AutoID.Eq(resource.AutoID)).
-				Updates(map[string]any{
-					"config":       resource.Config,
-					"mod_revision": resource.ModRevision,
-				})
+		// Execute updates in batches using ON CONFLICT (upsert)
+		if len(resourcesToUpdate) > 0 {
+			err = tx.GatewaySyncData.WithContext(ctx).
+				Clauses(clause.OnConflict{
+					Columns: []clause.Column{{Name: "auto_id"}},
+					DoUpdates: clause.AssignmentColumns(
+						[]string{"config", "mod_revision", "updated_at"},
+					),
+				}).
+				CreateInBatches(resourcesToUpdate, 500)
 			if err != nil {
 				return err
 			}

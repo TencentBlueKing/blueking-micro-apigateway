@@ -49,7 +49,7 @@ const highlightJson = (value: string) => {
 .encode-json {
   height: 100%;
   background: #FAFBFD;
-  padding: 12px 28px;
+  padding: 8px 0px;
   pre {
     white-space: pre-wrap;
   }

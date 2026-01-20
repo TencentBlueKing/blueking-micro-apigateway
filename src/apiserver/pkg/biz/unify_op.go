@@ -523,9 +523,9 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 
 	// step1: 获取需要删除的资源
 	var resourcesToDelete []int // auto_id list
-	for _, dbResource := range databaseResourceMap {
+	for key, dbResource := range databaseResourceMap {
 		// If resource exists in DB but not in etcd, mark for deletion
-		if _, existsInEtcd := etcdResourceMap[dbResource.GetResourceKey()]; !existsInEtcd {
+		if _, existsInEtcd := etcdResourceMap[key]; !existsInEtcd {
 			resourcesToDelete = append(resourcesToDelete, dbResource.AutoID)
 		}
 	}
@@ -592,22 +592,20 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 			}
 		}
 
-		// if any resource is created, updated or deleted, update the sync time
-		if len(resourcesToUpdate) > 0 || len(resourcesToCreate) > 0 || len(resourcesToDelete) > 0 {
-			g := tx.Gateway
-			s.gatewayInfo.LastSyncedAt = time.Now()
-			_, err = g.WithContext(
-				ctx,
-			).Where(
-				g.ID.Eq(s.gatewayInfo.ID),
-			).Select(
-				g.LastSyncedAt,
-			).Updates(
-				s.gatewayInfo,
-			)
-			if err != nil {
-				return err
-			}
+		// always update the sync time
+		g := tx.Gateway
+		s.gatewayInfo.LastSyncedAt = time.Now()
+		_, err = g.WithContext(
+			ctx,
+		).Where(
+			g.ID.Eq(s.gatewayInfo.ID),
+		).Select(
+			g.LastSyncedAt,
+		).Updates(
+			s.gatewayInfo,
+		)
+		if err != nil {
+			return err
 		}
 
 		return nil

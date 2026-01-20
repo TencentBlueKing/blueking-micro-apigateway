@@ -30,6 +30,7 @@ import (
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -111,7 +112,7 @@ func RemoveDuplicatedResource(
 			// 如果 name 存在，且 id 不一致，则说明存在冲突
 			if id != r.ID {
 				return syncedResources,
-					fmt.Errorf("existed %s [id:%s name:%s]conflict", r.Type, id, r.GetName())
+					fmt.Errorf("existed %s [id:%s name:%s] conflict", r.Type, id, r.GetName())
 			}
 			continue
 		}
@@ -504,33 +505,94 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	}
 	resourceList := s.kvToResource(ctx, kvList)
 
+	// 获取 etcd 资源
+	etcdResourceMap := make(map[string]*model.GatewaySyncData)
+	for _, resource := range resourceList {
+		etcdResourceMap[resource.GetResourceKey()] = resource
+	}
+
 	// 获取已同步资源
-	items, err := QuerySyncedItems(ctx, map[string]any{})
+	syncedItems, err := QuerySyncedItems(ctx, map[string]any{})
 	if err != nil {
 		return nil, err
 	}
-	syncedResources := make(map[string]struct{})
-	for _, item := range items {
-		syncedResources[item.GetResourceKey()] = struct{}{}
+	databaseResourceMap := make(map[string]*model.GatewaySyncData)
+	for _, item := range syncedItems {
+		databaseResourceMap[item.GetResourceKey()] = item
 	}
 
-	// 统计最新同步的资源类型及数量
-	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
-	for _, resource := range resourceList {
-		// 过滤掉已同步的资源
-		if _, ok := syncedResources[resource.GetResourceKey()]; !ok {
-			syncedResourceTypeStats[resource.Type]++
+	// step1: 获取需要删除的资源
+	var resourcesToDelete []int // auto_id list
+	for key, dbResource := range databaseResourceMap {
+		// If resource exists in DB but not in etcd, mark for deletion
+		if _, existsInEtcd := etcdResourceMap[key]; !existsInEtcd {
+			resourcesToDelete = append(resourcesToDelete, dbResource.AutoID)
+		}
+	}
+
+	// step2: 获取需要创建/更新的资源
+	var resourcesToCreate []*model.GatewaySyncData
+	var resourcesToUpdate []*model.GatewaySyncData
+	for key, etcdResource := range etcdResourceMap {
+		if dbResource, exists := databaseResourceMap[key]; exists {
+			// Only update if the resource has actually changed in etcd
+			// ModRevision comparison is sufficient - etcd guarantees that if ModRevision
+			// hasn't changed, the value hasn't changed
+			if dbResource.ModRevision != etcdResource.ModRevision {
+				dbResource.Config = etcdResource.Config
+				dbResource.ModRevision = etcdResource.ModRevision
+				resourcesToUpdate = append(resourcesToUpdate, dbResource)
+			}
+			// else: skip update, resource hasn't changed in etcd
+		} else {
+			// Create new record
+			resourcesToCreate = append(resourcesToCreate, etcdResource)
 		}
 	}
 
 	u := repo.GatewaySyncData
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		// 先删除后插入
-		_, err := tx.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(s.gatewayInfo.ID)).Delete()
-		if err != nil {
-			return err
+		// Execute updates in batches using ON CONFLICT (upsert)
+		if len(resourcesToUpdate) > 0 {
+			err = tx.GatewaySyncData.WithContext(ctx).
+				Clauses(clause.OnConflict{
+					Columns: []clause.Column{{Name: "auto_id"}},
+					DoUpdates: clause.AssignmentColumns(
+						[]string{"config", "mod_revision", "updated_at"},
+					),
+				}).
+				CreateInBatches(resourcesToUpdate, 500)
+			if err != nil {
+				return err
+			}
 		}
-		// 更新同步时间
+
+		// Execute creates in batches
+		if len(resourcesToCreate) > 0 {
+			err = tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourcesToCreate, 500)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Execute deletes in batches
+		if len(resourcesToDelete) > 0 {
+			for i := 0; i < len(resourcesToDelete); i += 500 {
+				end := i + 500
+				if end > len(resourcesToDelete) {
+					end = len(resourcesToDelete)
+				}
+				batch := resourcesToDelete[i:end]
+				_, err = tx.GatewaySyncData.WithContext(ctx).
+					Where(u.AutoID.In(batch...)).
+					Delete()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		// always update the sync time
 		g := tx.Gateway
 		s.gatewayInfo.LastSyncedAt = time.Now()
 		_, err = g.WithContext(
@@ -545,13 +607,23 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 		if err != nil {
 			return err
 		}
-		return tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourceList, 500)
+
+		return nil
 	})
 	if err != nil {
 		logging.Errorf("sync gateway:%s resource error: %s", s.gatewayInfo.Name, err.Error())
 		return nil, err
 	}
 	logging.Infof("syncer[gateway:%s] end", s.gatewayInfo.Name)
+
+	// 统计最新同步的资源类型及数量
+	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
+	for _, resource := range resourceList {
+		// 过滤掉已同步的资源
+		if _, ok := databaseResourceMap[resource.GetResourceKey()]; !ok {
+			syncedResourceTypeStats[resource.Type]++
+		}
+	}
 	return syncedResourceTypeStats, nil
 }
 
@@ -1206,7 +1278,6 @@ func GetResourceConfigDiffDetail(
 	resourceType constant.APISIXResource,
 	id string,
 ) (*dto.ResourceDiffDetailResponse, error) {
-	// todo: 同步资源可能存在延时，基于什么样的策略选择从 mysql 拿还是从 etcd 拿
 	// 获取同步资源配置
 	syncedResourceConfig := json.RawMessage("{}")
 	syncedResource, err := GetSyncedItemByID(ctx, id)

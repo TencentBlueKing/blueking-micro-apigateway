@@ -325,21 +325,21 @@ func TestCSRF_MiddlewareStructure(t *testing.T) {
 
 	var middlewareOrder []string
 	router := gin.New()
-	
+
 	// 添加一个前置中间件来记录调用顺序
 	router.Use(func(c *gin.Context) {
 		middlewareOrder = append(middlewareOrder, "before-csrf")
 		c.Next()
 	})
-	
+
 	router.Use(CSRF(appID, secret))
-	
+
 	// 添加一个后置中间件
 	router.Use(func(c *gin.Context) {
 		middlewareOrder = append(middlewareOrder, "after-csrf")
 		c.Next()
 	})
-	
+
 	router.GET("/test", func(c *gin.Context) {
 		middlewareOrder = append(middlewareOrder, "handler")
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
@@ -384,8 +384,8 @@ func TestCSRF_ErrorHandling(t *testing.T) {
 			expectCode:  http.StatusForbidden,
 		},
 		{
-			name:      "invalid token in form",
-			tokenForm: "invalid-token",
+			name:       "invalid token in form",
+			tokenForm:  "invalid-token",
 			expectCode: http.StatusForbidden,
 		},
 	}
@@ -400,7 +400,7 @@ func TestCSRF_ErrorHandling(t *testing.T) {
 
 			req, _ := http.NewRequest(http.MethodPost, "/test", strings.NewReader(body.String()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			
+
 			if tc.tokenHeader != "" {
 				req.Header.Set("X-CSRF-Token", tc.tokenHeader)
 			}

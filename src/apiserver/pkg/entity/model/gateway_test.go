@@ -85,50 +85,100 @@ func TestGatewayAuditSkipForSyncOperation(t *testing.T) {
 	var createAuditLog model.OperationAuditLog
 	err = db.Where("gateway_id = ?", gateway.ID).First(&createAuditLog).Error
 	assert.NoError(t, err)
-	assert.Equal(t, constant.OperationTypeCreate, createAuditLog.OperationType, "First audit log should be CREATE operation")
+	assert.Equal(
+		t,
+		constant.OperationTypeCreate,
+		createAuditLog.OperationType,
+		"First audit log should be CREATE operation",
+	)
 
 	// Test Case 1: 更新 last_synced_at 字段（模拟同步操作）- 不应该创建审计记录
 	t.Run("Update only last_synced_at - should NOT create audit log", func(t *testing.T) {
 		// 使用 db.Model().Select().Updates() 更新（模拟实际的同步操作）
-		updateData := map[string]interface{}{
+		updateData := map[string]any{
 			"last_synced_at": time.Now(),
 		}
 
-		err := db.Model(&model.Gateway{}).Where("id = ?", gateway.ID).Select("last_synced_at").Updates(updateData).Error
+		err := db.Model(
+			&model.Gateway{},
+		).Where(
+			"id = ?",
+			gateway.ID,
+		).Select(
+			"last_synced_at",
+		).Updates(
+			updateData,
+		).Error
 		assert.NoError(t, err, "Failed to update last_synced_at")
 
 		// 验证审计记录数量没有增加（仍然是1条创建审计）
 		var auditCountAfterSync int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountAfterSync).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountAfterSync,
+		).Error
 		assert.NoError(t, err)
-		assert.Equal(t, initialAuditCount, auditCountAfterSync, "Audit log count should NOT increase after sync operation")
+		assert.Equal(
+			t,
+			initialAuditCount,
+			auditCountAfterSync,
+			"Audit log count should NOT increase after sync operation",
+		)
 	})
 
 	// Test Case 2: 更新其他字段（正常更新操作）- 应该创建审计记录
 	t.Run("Update name field - should create audit log", func(t *testing.T) {
 		// 记录更新前的审计数量
 		var auditCountBeforeUpdate int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountBeforeUpdate).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountBeforeUpdate,
+		).Error
 		assert.NoError(t, err)
 
 		// 更新网关名称
 		gateway.Name = "test-gateway-audit-updated"
-		err = db.Model(&gateway).Updates(map[string]interface{}{
+		err = db.Model(&gateway).Updates(map[string]any{
 			"name": gateway.Name,
 		}).Error
 		assert.NoError(t, err, "Failed to update gateway name")
 
 		// 验证审计记录数量增加了1条
 		var auditCountAfterUpdate int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountAfterUpdate).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountAfterUpdate,
+		).Error
 		assert.NoError(t, err)
-		assert.Equal(t, auditCountBeforeUpdate+1, auditCountAfterUpdate, "Audit log count should increase by 1 after normal update")
+		assert.Equal(
+			t,
+			auditCountBeforeUpdate+1,
+			auditCountAfterUpdate,
+			"Audit log count should increase by 1 after normal update",
+		)
 
 		// 验证最新的审计记录是更新操作
 		var latestAuditLog model.OperationAuditLog
 		err = db.Where("gateway_id = ?", gateway.ID).Order("created_at DESC").First(&latestAuditLog).Error
 		assert.NoError(t, err)
-		assert.Equal(t, constant.OperationTypeUpdate, latestAuditLog.OperationType, "Latest audit log should be UPDATE operation")
+		assert.Equal(
+			t,
+			constant.OperationTypeUpdate,
+			latestAuditLog.OperationType,
+			"Latest audit log should be UPDATE operation",
+		)
 		assert.Equal(t, "test-user", latestAuditLog.Operator, "Operator should be set correctly")
 	})
 
@@ -136,13 +186,20 @@ func TestGatewayAuditSkipForSyncOperation(t *testing.T) {
 	t.Run("Update both last_synced_at and name - should create audit log", func(t *testing.T) {
 		// 记录更新前的审计数量
 		var auditCountBeforeUpdate int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountBeforeUpdate).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountBeforeUpdate,
+		).Error
 		assert.NoError(t, err)
 
 		// 同时更新多个字段
 		gateway.Name = "test-gateway-audit-updated-again"
 		gateway.LastSyncedAt = time.Now()
-		err = db.Model(&gateway).Updates(map[string]interface{}{
+		err = db.Model(&gateway).Updates(map[string]any{
 			"name":           gateway.Name,
 			"last_synced_at": gateway.LastSyncedAt,
 		}).Error
@@ -150,16 +207,35 @@ func TestGatewayAuditSkipForSyncOperation(t *testing.T) {
 
 		// 验证审计记录数量增加了1条（因为不只是更新 last_synced_at）
 		var auditCountAfterUpdate int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountAfterUpdate).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountAfterUpdate,
+		).Error
 		assert.NoError(t, err)
-		assert.Equal(t, auditCountBeforeUpdate+1, auditCountAfterUpdate, "Audit log count should increase by 1 when updating multiple fields")
+		assert.Equal(
+			t,
+			auditCountBeforeUpdate+1,
+			auditCountAfterUpdate,
+			"Audit log count should increase by 1 when updating multiple fields",
+		)
 	})
 
 	// Test Case 4: 使用 Select 指定多个字段 - 应该创建审计记录
 	t.Run("Update with Select multiple fields - should create audit log", func(t *testing.T) {
 		// 记录更新前的审计数量
 		var auditCountBeforeUpdate int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountBeforeUpdate).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountBeforeUpdate,
+		).Error
 		assert.NoError(t, err)
 
 		// 先获取当前网关数据
@@ -177,9 +253,21 @@ func TestGatewayAuditSkipForSyncOperation(t *testing.T) {
 
 		// 验证审计记录数量增加了1条
 		var auditCountAfterUpdate int64
-		err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountAfterUpdate).Error
+		err = db.Model(
+			&model.OperationAuditLog{},
+		).Where(
+			"gateway_id = ?",
+			gateway.ID,
+		).Count(
+			&auditCountAfterUpdate,
+		).Error
 		assert.NoError(t, err)
-		assert.Equal(t, auditCountBeforeUpdate+1, auditCountAfterUpdate, "Audit log count should increase by 1 when selecting multiple fields")
+		assert.Equal(
+			t,
+			auditCountBeforeUpdate+1,
+			auditCountAfterUpdate,
+			"Audit log count should increase by 1 when selecting multiple fields",
+		)
 	})
 }
 
@@ -199,7 +287,14 @@ func TestGatewayAuditForDeleteOperation(t *testing.T) {
 
 	// 获取创建时的审计记录数量
 	var auditCountBeforeDelete int64
-	err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountBeforeDelete).Error
+	err = db.Model(
+		&model.OperationAuditLog{},
+	).Where(
+		"gateway_id = ?",
+		gateway.ID,
+	).Count(
+		&auditCountBeforeDelete,
+	).Error
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), auditCountBeforeDelete, "Should have 1 audit log after creation")
 
@@ -209,13 +304,30 @@ func TestGatewayAuditForDeleteOperation(t *testing.T) {
 
 	// 验证审计记录数量增加了1条
 	var auditCountAfterDelete int64
-	err = db.Model(&model.OperationAuditLog{}).Where("gateway_id = ?", gateway.ID).Count(&auditCountAfterDelete).Error
+	err = db.Model(
+		&model.OperationAuditLog{},
+	).Where(
+		"gateway_id = ?",
+		gateway.ID,
+	).Count(
+		&auditCountAfterDelete,
+	).Error
 	assert.NoError(t, err)
-	assert.Equal(t, auditCountBeforeDelete+1, auditCountAfterDelete, "Audit log count should increase by 1 after delete")
+	assert.Equal(
+		t,
+		auditCountBeforeDelete+1,
+		auditCountAfterDelete,
+		"Audit log count should increase by 1 after delete",
+	)
 
 	// 验证最新的审计记录是删除操作
 	var deleteAuditLog model.OperationAuditLog
 	err = db.Where("gateway_id = ?", gateway.ID).Order("created_at DESC").First(&deleteAuditLog).Error
 	assert.NoError(t, err)
-	assert.Equal(t, constant.OperationTypeDelete, deleteAuditLog.OperationType, "Latest audit log should be DELETE operation")
+	assert.Equal(
+		t,
+		constant.OperationTypeDelete,
+		deleteAuditLog.OperationType,
+		"Latest audit log should be DELETE operation",
+	)
 }

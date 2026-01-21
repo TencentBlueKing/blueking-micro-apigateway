@@ -42,6 +42,7 @@ tests {
   });
 
   test("错误信息应包含层级冲突提示", function() {
-    expect(res.body.message).to.include("层级冲突");
+    const errorMsg = res.body.message || res.body.error?.message || "";
+    expect(errorMsg).to.include("层级冲突");
   });
 }

@@ -1,0 +1,42 @@
+meta {
+  name: update_gateway_prefix_no_conflict_similar_name
+  type: http
+  seq: 23
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/test-update-conflict-gateway/
+}
+
+body {
+    {
+      "name": "test-update-conflict-gateway",
+      "description": "Update with similar but non-conflicting prefix",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/apisix-update-test",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("更新网关使用相似但不冲突的 prefix 应成功", function() {
+    // /apisix-update-test 和 /apisix 不是层级关系，不应冲突
+    // 它们只是名称相似（都以 /apisix 开头），但加上 "/" 后不会互相匹配
+    expect(res.status).to.equal(200);
+  });
+}

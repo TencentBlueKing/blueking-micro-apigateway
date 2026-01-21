@@ -1,0 +1,47 @@
+meta {
+  name: create_gateway_prefix_no_conflict_similar_name
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/
+}
+
+body {
+    {
+      "name": "test-similar-prefix",
+      "description": "Test Gateway with similar but non-conflicting prefix",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/apisix-test",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("同一 etcd 集群创建名称相似但非层级关系的 prefix 应成功", function() {
+    // 前置条件：已存在一个使用 /apisix 前缀的网关
+    // 尝试创建使用 /apisix-test 前缀的网关应该成功
+    // 因为 /apisix 和 /apisix-test 不是父子关系
+    expect(res.status).to.equal(200);
+  });
+
+  test("响应应包含网关 token", function() {
+    expect(res.body.data.token).to.be.a('string');
+  });
+}

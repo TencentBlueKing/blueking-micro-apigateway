@@ -289,16 +289,6 @@ func NormalizeEtcdPrefix(prefix string) string {
 	return prefix
 }
 
-// NormalizeEtcdPrefixForStorage 标准化 etcd prefix 用于存储（不带结尾 "/"）
-// 存储时使用不带结尾 "/" 的格式
-func NormalizeEtcdPrefixForStorage(prefix string) string {
-	if prefix == "" {
-		return ""
-	}
-	// 去除结尾的 "/"
-	return strings.TrimSuffix(prefix, "/")
-}
-
 // CheckEtcdPrefixConflict 检查两个 etcd prefix 是否存在层级冲突
 // 冲突情况：
 // 1. 两个 prefix 完全相同（标准化后）
@@ -306,12 +296,8 @@ func NormalizeEtcdPrefixForStorage(prefix string) string {
 // 注意：a-b 和 a-b-test 不算冲突，因为加上 "/" 后不会互相匹配
 func CheckEtcdPrefixConflict(prefix1, prefix2 string) bool {
 	// 标准化处理：确保以 "/" 结尾，便于比较层级关系
-	p1 := NormalizeEtcdPrefix(strings.TrimPrefix(prefix1, "/"))
-	p2 := NormalizeEtcdPrefix(strings.TrimPrefix(prefix2, "/"))
-
-	// 去除开头的 "/" 后再标准化
-	p1 = "/" + strings.TrimPrefix(p1, "/")
-	p2 = "/" + strings.TrimPrefix(p2, "/")
+	p1 := NormalizeEtcdPrefix(prefix1)
+	p2 := NormalizeEtcdPrefix(prefix2)
 
 	// 完全相同
 	if p1 == p2 {

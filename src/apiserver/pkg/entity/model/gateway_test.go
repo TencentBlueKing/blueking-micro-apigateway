@@ -43,20 +43,6 @@ var _ = Describe("Gateway", func() {
 		)
 	})
 
-	Describe("NormalizeEtcdPrefixForStorage", func() {
-		DescribeTable("应该正确标准化 prefix 用于存储",
-			func(input, expected string) {
-				result := model.NormalizeEtcdPrefixForStorage(input)
-				Expect(result).To(Equal(expected))
-			},
-			Entry("空字符串", "", ""),
-			Entry("无斜杠结尾", "a-b", "a-b"),
-			Entry("有斜杠结尾", "a-b/", "a-b"),
-			Entry("以斜杠开头", "/apisix", "/apisix"),
-			Entry("以斜杠开头且结尾", "/apisix/", "/apisix"),
-		)
-	})
-
 	Describe("CheckEtcdPrefixConflict", func() {
 		DescribeTable("应该正确检测 prefix 层级冲突",
 			func(prefix1, prefix2 string, shouldConflict bool) {

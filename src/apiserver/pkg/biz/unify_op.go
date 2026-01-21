@@ -651,18 +651,18 @@ func (s *UnifyOp) kvToResource(
 	var consumerGroupIDs []string
 	var protoIDs []string
 	var streamRouteIDs []string
-	// 使用标准化的 prefix 进行替换，确保正确处理前缀
-	normalizedPrefix := model.NormalizeEtcdPrefixForStorage(s.gatewayInfo.EtcdConfig.Prefix)
+	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
+	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
 	for _, kv := range kvList {
 		resourceKeyWithoutPrefix := strings.TrimPrefix(kv.Key, normalizedPrefix)
 		resourceKeyList := strings.Split(resourceKeyWithoutPrefix, "/")
-		if len(resourceKeyList) != 3 {
+		if len(resourceKeyList) != 2 {
 			// key 不合法
 			logging.Errorf("key is not validate: %s", kv.Key)
 			continue
 		}
-		resourceTypeValue := resourceKeyList[1]
-		id := resourceKeyList[2]
+		resourceTypeValue := resourceKeyList[0]
+		id := resourceKeyList[1]
 		resourceType := constant.ResourcePrefixTypeMap[resourceTypeValue]
 		if resourceType == "" {
 			logging.Errorf("key is not validate without resource type: %s", kv.Key)

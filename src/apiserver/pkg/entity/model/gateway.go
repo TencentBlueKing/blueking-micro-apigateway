@@ -258,3 +258,68 @@ func (g *Gateway) RemoveSensitive() {
 	g.EtcdConfig.Password = constant.SensitiveInfoFiledDisplay
 	g.Token = constant.SensitiveInfoFiledDisplay
 }
+
+// GetEtcdPrefixForList 获取用于 etcd list 操作的 prefix（带 "/" 结尾）
+// 确保前缀匹配时不会匹配到同名前缀的其他网关资源
+// 例如：prefix "a-b" 会变成 "a-b/"，避免匹配到 "a-b-test" 的资源
+func (g *Gateway) GetEtcdPrefixForList() string {
+	return NormalizeEtcdPrefix(g.EtcdConfig.Prefix)
+}
+
+// GetEtcdResourcePrefix 获取指定资源类型的 etcd prefix（用于 list 操作）
+func (g *Gateway) GetEtcdResourcePrefix(resourceType constant.APISIXResource) string {
+	basePrefix := g.GetEtcdPrefixForList()
+	resourcePrefix := constant.ResourceTypePrefixMap[resourceType]
+	if resourcePrefix == "" {
+		return basePrefix
+	}
+	return fmt.Sprintf("%s%s/", basePrefix, resourcePrefix)
+}
+
+// NormalizeEtcdPrefix 标准化 etcd prefix，确保以 "/" 结尾
+// 用于 etcd list 操作，避免前缀匹配冲突
+func NormalizeEtcdPrefix(prefix string) string {
+	if prefix == "" {
+		return "/"
+	}
+	// 确保以 "/" 结尾
+	if !strings.HasSuffix(prefix, "/") {
+		return prefix + "/"
+	}
+	return prefix
+}
+
+// NormalizeEtcdPrefixForStorage 标准化 etcd prefix 用于存储（不带结尾 "/"）
+// 存储时使用不带结尾 "/" 的格式
+func NormalizeEtcdPrefixForStorage(prefix string) string {
+	if prefix == "" {
+		return ""
+	}
+	// 去除结尾的 "/"
+	return strings.TrimSuffix(prefix, "/")
+}
+
+// CheckEtcdPrefixConflict 检查两个 etcd prefix 是否存在层级冲突
+// 冲突情况：
+// 1. 两个 prefix 完全相同（标准化后）
+// 2. 一个 prefix 是另一个的父路径（如 a/b 和 a/b/c）
+// 注意：a-b 和 a-b-test 不算冲突，因为加上 "/" 后不会互相匹配
+func CheckEtcdPrefixConflict(prefix1, prefix2 string) bool {
+	// 标准化处理：确保以 "/" 结尾，便于比较层级关系
+	p1 := NormalizeEtcdPrefix(strings.TrimPrefix(prefix1, "/"))
+	p2 := NormalizeEtcdPrefix(strings.TrimPrefix(prefix2, "/"))
+
+	// 去除开头的 "/" 后再标准化
+	p1 = "/" + strings.TrimPrefix(p1, "/")
+	p2 = "/" + strings.TrimPrefix(p2, "/")
+
+	// 完全相同
+	if p1 == p2 {
+		return true
+	}
+
+	// 检查是否互为父子路径
+	// p1="/a/b/" 和 p2="/a/b/c/" 冲突，因为 p1 是 p2 的前缀
+	// p1="/a-b/" 和 p2="/a-b-test/" 不冲突，因为互不为前缀
+	return strings.HasPrefix(p1, p2) || strings.HasPrefix(p2, p1)
+}

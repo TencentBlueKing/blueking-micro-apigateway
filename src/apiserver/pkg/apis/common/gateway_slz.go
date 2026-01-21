@@ -33,6 +33,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -240,36 +241,42 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 		}
 	}
 
-	// 校验 prefix 相同的网关
-	gateways, err := biz.GetGatewayEtcdConfigList(ctx, "prefix", etcdStoreConfig.Prefix)
-	if err != nil {
-		return "", "", err
-	}
-	for _, gateway := range gateways {
-		// 编辑网关时校验去重需要排除自己
-		if gatewayID != 0 && gatewayID == gateway.ID {
+	// 校验 etcd 集群和 prefix 冲突
+	// 优化：只查询使用相同 etcd 集群的网关，而不是所有网关
+	for _, storeEndpoint := range etcdStoreConfig.Endpoint.Endpoints() {
+		// 去除协议前缀，用于在数据库中模糊查询
+		cleanStoreEndpoint := strings.TrimPrefix(
+			strings.TrimPrefix(storeEndpoint, "http://"),
+			"https://",
+		)
+		if cleanStoreEndpoint == "" {
 			continue
 		}
-		endpoints := gateway.EtcdConfig.Endpoint.Endpoints()
-		for _, storeEndpoint := range etcdStoreConfig.Endpoint.Endpoints() {
-			for _, endpoint := range endpoints {
-				// 校验 endpoint 是否存在
-				cleanStoreEndpoint := strings.TrimPrefix(
-					strings.TrimPrefix(storeEndpoint, constant.HTTP),
-					constant.HTTPS,
+
+		// 查询 endpoint 包含当前地址的网关
+		sameClusterGateways, err := biz.GetGatewaysByEndpointLike(ctx, cleanStoreEndpoint, gatewayID)
+		if err != nil {
+			logging.Errorf("query gateways by endpoint failed: %s", err.Error())
+			continue
+		}
+
+		// 检查这些网关是否有 prefix 冲突
+		for _, gateway := range sameClusterGateways {
+			existingPrefix := gateway.EtcdConfig.Prefix
+			newPrefix := etcdStoreConfig.Prefix
+
+			// 检查 prefix 层级冲突（如 a/b 和 a/b/c 会冲突，但 a-b 和 a-b-test 不会）
+			if model.CheckEtcdPrefixConflict(existingPrefix, newPrefix) {
+				err = fmt.Errorf(
+					"etcd 前缀 [%s] 与网关 [%s] 的前缀 [%s] 在同一 etcd 集群中存在层级冲突，"+
+						"一个是另一个的父路径，会导致资源同步时相互影响，请使用不同的前缀层级",
+					newPrefix,
+					gateway.Name,
+					existingPrefix,
 				)
-				cleanEndpoint := strings.TrimPrefix(
-					strings.TrimPrefix(endpoint, constant.HTTP),
-					constant.HTTPS,
-				)
-				if storeEndpoint != "" && endpoint != "" && cleanStoreEndpoint == cleanEndpoint {
-					err = fmt.Errorf(
-						"etcd 地址[%s] 已在另一个网关 [%s] 中存在, 请勿重复提交",
-						endpoint,
-						gateway.Name,
-					)
-					return "", "", err
-				}
+				logging.Errorf("etcd prefix conflict in same cluster: new=%s, existing=%s, gateway=%s",
+					newPrefix, existingPrefix, gateway.Name)
+				return "", "", err
 			}
 		}
 	}

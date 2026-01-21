@@ -1,0 +1,47 @@
+meta {
+  name: create_gateway_prefix_no_conflict_sibling
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/
+}
+
+body {
+    {
+      "name": "test-sibling-prefix",
+      "description": "Test Gateway with sibling prefix",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/gateway2",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("同一 etcd 集群创建同级不同 prefix 应成功", function() {
+    // 前置条件：已存在一个使用 /apisix 前缀的网关
+    // 尝试创建使用 /gateway2 前缀的网关应该成功
+    // 因为它们是同级的不同前缀
+    expect(res.status).to.equal(200);
+  });
+
+  test("响应应包含网关 token", function() {
+    expect(res.body.data.token).to.be.a('string');
+  });
+}

@@ -1,0 +1,48 @@
+meta {
+  name: update_gateway_prefix_conflict_try_conflict
+  type: http
+  seq: 21
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/test-update-conflict-gateway/
+}
+
+body {
+    {
+      "name": "test-update-conflict-gateway",
+      "description": "Try to update with conflicting prefix",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/apisix/sub",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("更新网关使用与其他网关冲突的 prefix 应返回 400", function() {
+    // 前置条件：已存在一个使用 /apisix 前缀的网关
+    // 尝试更新网关使用 /apisix/sub 前缀应该失败
+    // 因为 /apisix 是 /apisix/sub 的父路径
+    expect(res.status).to.equal(400);
+  });
+
+  test("错误信息应包含层级冲突提示", function() {
+    const errorMsg = res.body.message || res.body.error?.message || "";
+    expect(errorMsg).to.include("层级冲突");
+  });
+}

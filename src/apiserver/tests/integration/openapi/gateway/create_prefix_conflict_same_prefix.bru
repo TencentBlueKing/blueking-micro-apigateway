@@ -1,0 +1,47 @@
+meta {
+  name: create_gateway_prefix_conflict_same_prefix
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/
+}
+
+body {
+    {
+      "name": "test-same-prefix",
+      "description": "Test Gateway with same prefix",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/apisix",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("同一 etcd 集群创建完全相同的 prefix 应返回 400", function() {
+    // 前置条件：已存在一个使用 /apisix 前缀的网关
+    // 尝试创建使用相同 /apisix 前缀的网关应该失败
+    expect(res.status).to.equal(400);
+  });
+
+  test("错误信息应包含层级冲突提示", function() {
+    const errorMsg = res.body.message || res.body.error?.message || "";
+    expect(errorMsg).to.include("层级冲突");
+  });
+}

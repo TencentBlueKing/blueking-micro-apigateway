@@ -15,7 +15,7 @@ headers {
 
 tests {
   test("清理更新测试网关", function() {
-    // 清理测试创建的网关，允许 200（成功删除）或 404（已不存在）
-    expect([200, 404]).to.include(res.status);
+    // 清理测试创建的网关，允许 204（成功删除）
+    expect([204]).to.include(res.status);
   });
 }

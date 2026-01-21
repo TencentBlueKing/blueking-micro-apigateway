@@ -1,0 +1,42 @@
+meta {
+  name: update_gateway_prefix_no_conflict_self
+  type: http
+  seq: 22
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/test-update-conflict-gateway/
+}
+
+body {
+    {
+      "name": "test-update-conflict-gateway",
+      "description": "Update with same prefix should not conflict with self",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin",
+        "test"
+      ],
+      "etcd_prefix": "/update-test-prefix",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("更新网关保持自己的 prefix 不应冲突", function() {
+    // 网关更新时使用自己原有的 prefix 不应该与自己冲突
+    expect(res.status).to.equal(200);
+  });
+}

@@ -1,0 +1,43 @@
+meta {
+  name: update_gateway_prefix_no_conflict_different_cluster
+  type: http
+  seq: 24
+}
+
+put {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/test-update-conflict-gateway/
+}
+
+body {
+    {
+      "name": "test-update-conflict-gateway",
+      "description": "Update with different etcd cluster allows same prefix hierarchy",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints_alt}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/apisix/sub",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("更新网关使用不同 etcd 集群允许层级关系的 prefix", function() {
+    // 不同的 etcd 集群，即使 prefix 有层级关系也不应冲突
+    // 注意：此测试需要配置 etcd_endpoints_alt 环境变量指向不同的 etcd 集群
+    // 如果没有配置，此测试可能会因连接失败而不是 prefix 冲突而失败
+    expect(res.status).to.equal(200);
+  });
+}

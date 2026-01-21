@@ -1,0 +1,40 @@
+meta {
+  name: update_gateway_prefix_conflict_same_cluster
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/
+}
+
+body {
+    {
+      "name": "test-update-conflict-gateway",
+      "description": "Gateway for testing update prefix conflict",
+      "mode": 1,
+      "apisix_type": "bk-apisix",
+      "apisix_version": "3.11.0",
+      "etcd_endpoints": [
+        "{{etcd_endpoints}}"
+      ],
+      "maintainers": [
+        "admin"
+      ],
+      "etcd_prefix": "/update-test-prefix",
+      "etcd_schema_type": "http",
+      "etcd_username": "{{etcd_username}}",
+      "etcd_password": "{{etcd_password}}"
+    }
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+tests {
+  test("创建用于更新测试的网关应成功", function() {
+    expect(res.status).to.equal(200);
+  });
+}

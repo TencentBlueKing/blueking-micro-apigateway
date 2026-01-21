@@ -50,11 +50,9 @@ import (
 // UnifyOpInterface ...
 type UnifyOpInterface interface {
 	// SyncerRun 同步资源
-	SyncerRun(ctx context.Context, resourceChan chan []*model.GatewaySyncData)
+	SyncerRun(ctx context.Context)
 	// SyncWithPrefix 同步指定前缀的资源
 	SyncWithPrefix(ctx context.Context, prefix string) (map[constant.APISIXResource]int, error)
-	// SyncWithPrefixWithChannel 同步指定前缀的资源，使用 channel 进行落库
-	SyncWithPrefixWithChannel(ctx context.Context, prefix string, resourceChan chan []*model.GatewaySyncData) error
 	// RevertConfigByIDList 回滚指定资源
 	RevertConfigByIDList(ctx context.Context, resourceType constant.APISIXResource, idList []string) error
 }
@@ -70,7 +68,7 @@ type UnifyOp struct {
 }
 
 // SyncAll 同步所有资源
-func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
+func SyncAll(ctx context.Context) {
 	gateways, err := ListGateways(ctx, 0)
 	if err != nil {
 		logging.Errorf("list gateways error: %s", err.Error())
@@ -83,7 +81,7 @@ func SyncAll(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
 			continue
 		}
 		goroutinex.GoroutineWithRecovery(ctx, func() {
-			sy.SyncerRun(ctx, resourceChan)
+			sy.SyncerRun(ctx)
 		})
 	}
 }
@@ -467,7 +465,7 @@ func NewUnifyOp(gatewayInfo *model.Gateway, needElector bool) (*UnifyOp, error) 
 }
 
 // SyncerRun 定时同步
-func (s *UnifyOp) SyncerRun(ctx context.Context, resourceChan chan []*model.GatewaySyncData) {
+func (s *UnifyOp) SyncerRun(ctx context.Context) {
 	s.elector.Run(ctx)
 	s.elector.WaitForLeading()
 	s.isLeader = s.elector.IsLeader()
@@ -627,26 +625,6 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 		}
 	}
 	return syncedResourceTypeStats, nil
-}
-
-// SyncWithPrefixWithChannel 同步 prefix 下面的所有资源，通过 channel 来落库
-func (s *UnifyOp) SyncWithPrefixWithChannel(
-	ctx context.Context,
-	prefix string,
-	resourceChannel chan []*model.GatewaySyncData,
-) error {
-	if !s.isLeader {
-		return nil
-	}
-	logging.Infof("syncer[gateway:%s] start", s.gatewayInfo.Name)
-	kvList, err := s.etcdStore.List(ctx, prefix)
-	if err != nil {
-		return err
-	}
-	resourceList := s.kvToResource(ctx, kvList)
-	resourceChannel <- resourceList
-	logging.Infof("syncer[gateway:%s] end", s.gatewayInfo.Name)
-	return nil
 }
 
 var revertConfigByIDListFunc = map[constant.APISIXResource]func(ctx context.Context,

@@ -121,6 +121,29 @@ func GetGatewayEtcdConfigList(ctx context.Context, key, val string) ([]*model.Ga
 	).Find()
 }
 
+// GetGatewaysByEndpointLike 查询 etcd endpoint 包含指定地址的网关列表
+// 用于查找使用同一个 etcd 集群的网关
+func GetGatewaysByEndpointLike(ctx context.Context, endpoint string, excludeID int) ([]*model.Gateway, error) {
+	u := repo.Gateway
+	query := u.WithContext(ctx)
+
+	// 排除自己
+	if excludeID != 0 {
+		query = query.Where(u.ID.Neq(excludeID))
+	}
+
+	// 使用 LIKE 查询查找 endpoint 包含指定地址的网关
+	// 注意：此查询可能有部分匹配，但后续的 prefix 冲突检查会进一步过滤
+	gateways, err := query.Where(
+		gen.Cond(datatypes.JSONQuery("etcd_config").Likes("%"+endpoint+"%", "endpoint"))...,
+	).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	return gateways, nil
+}
+
 // ListGatewayResourceLabels 查询网关对应资源的标签列表
 func ListGatewayResourceLabels(
 	ctx context.Context,

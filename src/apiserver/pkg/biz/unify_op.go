@@ -420,13 +420,14 @@ func SyncResources(
 	resourceType constant.APISIXResource,
 ) (map[constant.APISIXResource]int, error) {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	prefix := gatewayInfo.EtcdConfig.Prefix
-	if !strings.HasPrefix(gatewayInfo.EtcdConfig.Prefix, "/") {
-		prefix = fmt.Sprintf("%s/", prefix)
-	}
+	var prefix string
 	// 如果资源类型为空，则同步所有资源
 	if resourceType != "" {
-		prefix = fmt.Sprintf("%s/%s", prefix, constant.ResourceTypePrefixMap[resourceType])
+		// 使用标准化的资源类型 prefix
+		prefix = gatewayInfo.GetEtcdResourcePrefix(resourceType)
+	} else {
+		// 使用标准化的网关 prefix（带 "/" 结尾，避免前缀匹配冲突）
+		prefix = gatewayInfo.GetEtcdPrefixForList()
 	}
 	syncer, err := NewUnifyOp(gatewayInfo, false)
 	if err != nil {
@@ -485,7 +486,8 @@ func (s *UnifyOp) SyncerRun(ctx context.Context, resourceChan chan []*model.Gate
 		s.gatewayInfo = gatewayInfo
 		gatewayCtx := context.Background()
 		gatewayCtx = ginx.SetGatewayInfoToContext(gatewayCtx, s.gatewayInfo)
-		_, err = s.SyncWithPrefix(gatewayCtx, s.gatewayInfo.EtcdConfig.Prefix)
+		// 使用标准化的 prefix（带 "/" 结尾，避免前缀匹配冲突）
+		_, err = s.SyncWithPrefix(gatewayCtx, s.gatewayInfo.GetEtcdPrefixForList())
 		if err != nil {
 			logging.Errorf("sync all error: %s", err.Error())
 		}
@@ -611,7 +613,8 @@ func (s *UnifyOp) RevertConfigByIDList(
 		}
 	}
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	prefix := fmt.Sprintf("%s/%s", gatewayInfo.EtcdConfig.Prefix, constant.ResourceTypePrefixMap[resourceType])
+	// 使用标准化的资源类型 prefix（带 "/" 结尾，避免前缀匹配冲突）
+	prefix := gatewayInfo.GetEtcdResourcePrefix(resourceType)
 	kvList, err := s.etcdStore.List(ctx, prefix)
 	if err != nil {
 		return err
@@ -648,16 +651,18 @@ func (s *UnifyOp) kvToResource(
 	var consumerGroupIDs []string
 	var protoIDs []string
 	var streamRouteIDs []string
+	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
+	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
 	for _, kv := range kvList {
-		resourceKeyWithoutPrefix := strings.ReplaceAll(kv.Key, s.gatewayInfo.EtcdConfig.Prefix, "")
+		resourceKeyWithoutPrefix := strings.TrimPrefix(kv.Key, normalizedPrefix)
 		resourceKeyList := strings.Split(resourceKeyWithoutPrefix, "/")
-		if len(resourceKeyList) != 3 {
+		if len(resourceKeyList) != 2 {
 			// key 不合法
 			logging.Errorf("key is not validate: %s", kv.Key)
 			continue
 		}
-		resourceTypeValue := resourceKeyList[1]
-		id := resourceKeyList[2]
+		resourceTypeValue := resourceKeyList[0]
+		id := resourceKeyList[1]
 		resourceType := constant.ResourcePrefixTypeMap[resourceTypeValue]
 		if resourceType == "" {
 			logging.Errorf("key is not validate without resource type: %s", kv.Key)
@@ -1238,10 +1243,8 @@ func GetResourceConfigDiffDetail(
 // ExportEtcdResources 导出网关下面的所有资源
 func (s *UnifyOp) ExportEtcdResources(ctx context.Context) ([]*model.GatewaySyncData, error) {
 	logging.Infof("export [gateway:%s] start", s.gatewayInfo.Name)
-	prefix := s.gatewayInfo.EtcdConfig.Prefix
-	if !strings.HasPrefix(s.gatewayInfo.EtcdConfig.Prefix, "/") {
-		prefix = fmt.Sprintf("%s/", prefix)
-	}
+	// 使用标准化的 prefix（带 "/" 结尾，避免前缀匹配冲突）
+	prefix := s.gatewayInfo.GetEtcdPrefixForList()
 	kvList, err := s.etcdStore.List(ctx, prefix)
 	if err != nil {
 		return nil, err

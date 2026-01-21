@@ -259,6 +259,13 @@ func (g *Gateway) RemoveSensitive() {
 	g.Token = constant.SensitiveInfoFiledDisplay
 }
 
+// RemoveEndpointProtocol 去除 endpoint 地址的协议前缀（http:// 或 https://）
+func RemoveEndpointProtocol(endpoint string) string {
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	return endpoint
+}
+
 // GetEtcdPrefixForList 获取用于 etcd list 操作的 prefix（带 "/" 结尾）
 // 确保前缀匹配时不会匹配到同名前缀的其他网关资源
 // 例如：prefix "a-b" 会变成 "a-b/"，避免匹配到 "a-b-test" 的资源

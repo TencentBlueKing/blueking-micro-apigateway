@@ -245,10 +245,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 	// 优化：只查询使用相同 etcd 集群的网关，而不是所有网关
 	for _, storeEndpoint := range etcdStoreConfig.Endpoint.Endpoints() {
 		// 去除协议前缀，用于在数据库中模糊查询
-		cleanStoreEndpoint := strings.TrimPrefix(
-			strings.TrimPrefix(storeEndpoint, "http://"),
-			"https://",
-		)
+		cleanStoreEndpoint := model.RemoveEndpointProtocol(storeEndpoint)
 		if cleanStoreEndpoint == "" {
 			continue
 		}
@@ -257,7 +254,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 		sameClusterGateways, err := biz.GetGatewaysByEndpointLike(ctx, cleanStoreEndpoint, gatewayID)
 		if err != nil {
 			logging.Errorf("query gateways by endpoint failed: %s", err.Error())
-			continue
+			return "", "", fmt.Errorf("查询相同 etcd 集群的网关失败: %w", err)
 		}
 
 		// 检查这些网关是否有 prefix 冲突

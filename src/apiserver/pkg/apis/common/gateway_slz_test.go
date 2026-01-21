@@ -20,6 +20,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -72,7 +73,7 @@ func checkPrefixConflictLogic(
 ) error {
 	for _, endpoint := range newEndpoints {
 		// 去除协议前缀
-		cleanEndpoint := strings.TrimPrefix(strings.TrimPrefix(endpoint, "http://"), "https://")
+		cleanEndpoint := model.RemoveEndpointProtocol(endpoint)
 		if cleanEndpoint == "" {
 			continue
 		}
@@ -80,7 +81,7 @@ func checkPrefixConflictLogic(
 		// 查询 endpoint 包含当前地址的网关
 		sameClusterGateways, err := biz.GetGatewaysByEndpointLike(ctx, cleanEndpoint, gatewayID)
 		if err != nil {
-			continue
+			return fmt.Errorf("查询相同 etcd 集群的网关失败: %w", err)
 		}
 
 		// 检查这些网关是否有 prefix 冲突

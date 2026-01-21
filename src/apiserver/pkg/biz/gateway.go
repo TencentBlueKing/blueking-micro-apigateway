@@ -133,7 +133,7 @@ func GetGatewaysByEndpointLike(ctx context.Context, endpoint string, excludeID i
 	}
 
 	// 使用 LIKE 查询查找 endpoint 包含指定地址的网关
-	// 去除协议前缀后进行匹配
+	// 注意：此查询可能有部分匹配，但后续的 prefix 冲突检查会进一步过滤
 	gateways, err := query.Where(
 		gen.Cond(datatypes.JSONQuery("etcd_config").Likes("%"+endpoint+"%", "endpoint"))...,
 	).Find()

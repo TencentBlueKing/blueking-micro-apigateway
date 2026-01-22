@@ -162,13 +162,8 @@ func (cfg *MysqlConfig) DSN() string {
 
 // BkPlatUrlConfig 蓝鲸各平台服务地址
 type BkPlatUrlConfig struct {
-	// 蓝鲸开发者中心地址
-	BkPaaS string
 	// 统一登录地址
 	BkLogin string
-	// 组件 API 地址
-	BkCompApi string
-	// TODO: SaaS 开发者可按需添加诸如 BkIAM，BkLog 等服务配置
 }
 
 // BizConfig 业务相关配置

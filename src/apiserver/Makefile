@@ -39,10 +39,10 @@ dep: tidy
 build: doc
 	CGO_ENABLED=0 go build  -ldflags ${LDFLAGS} -o  apiserver ./main.go
 
-# run unittest
+# run unittest (exclude tests/ directory which contains integration tests)
 .PHONY: test
 test: tidy
-	go test ./... -covermode=atomic -coverprofile .coverage.cov
+	go test $$(go list ./... | grep -v '/tests/') -covermode=atomic -coverprofile .coverage.cov
 
 
 integration-test:

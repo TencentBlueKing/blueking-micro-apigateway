@@ -44,7 +44,9 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
 
 	//  csrf
-	group.Use(middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret, config.G.Service.AllowedOrigins))
+	// 注意：gorilla/csrf 的 TrustedOrigins 只需要主机名（如 example.com:8080），不需要 scheme（如 https://）
+	csrfTrustedOrigins := config.ExtractHostsForCSRF(config.G.Service.AllowedOrigins)
+	group.Use(middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret, csrfTrustedOrigins))
 	group.Use(middleware.CSRFToken(config.G.Service.AppCode, config.G.Service.CSRFCookieDomain))
 
 	// user auth

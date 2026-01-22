@@ -532,3 +532,328 @@ func TestCSRF_UntrustedOrigin(t *testing.T) {
 	// 应该返回 403 Forbidden，因为 Origin 不在 TrustedOrigins 列表中
 	assert.Equal(t, http.StatusForbidden, postResp.StatusCode)
 }
+
+// TestCSRF_RealWorldScenario 测试真实场景：模拟从环境变量配置的 Origin 进行 API 访问
+func TestCSRF_RealWorldScenario(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "bk-micro-gateway"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	// 模拟真实配置：从环境变量读取的完整 URL 经过 ExtractHostsForCSRF 处理后得到的主机名列表
+	// 原始配置: ALLOWED_ORIGINS=https://dev-t.paas3-dev.bktencent.com:8888,https://bk-micro-web.paas3-dev.bktencent.com
+	// 处理后的 CSRF trusted origins:
+	trustedOrigins := []string{
+		"dev-t.paas3-dev.bktencent.com:8888",
+		"bk-micro-web.paas3-dev.bktencent.com",
+	}
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret, trustedOrigins))
+	router.Use(CSRFToken(appID, ""))
+	router.GET("/api/v1/web/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+	router.PUT("/api/v1/web/gateways/:gateway_id/routes/:id/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message":    "success",
+			"gateway_id": c.Param("gateway_id"),
+			"route_id":   c.Param("id"),
+		})
+	})
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// Step 1: 获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/api/v1/web/token")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, tokenResp.StatusCode)
+	defer tokenResp.Body.Close()
+
+	var tokenResponse map[string]string
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	assert.NoError(t, err)
+	csrfToken := tokenResponse["token"]
+	assert.NotEmpty(t, csrfToken)
+
+	// Step 2: 测试来自可信源的 PUT 请求（模拟编辑路由）
+	testCases := []struct {
+		name       string
+		origin     string
+		expectCode int
+	}{
+		{
+			name:       "trusted origin without port",
+			origin:     "https://bk-micro-web.paas3-dev.bktencent.com",
+			expectCode: http.StatusOK,
+		},
+		{
+			name:       "trusted origin with port",
+			origin:     "https://dev-t.paas3-dev.bktencent.com:8888",
+			expectCode: http.StatusOK,
+		},
+		{
+			name:       "untrusted origin",
+			origin:     "https://malicious.com",
+			expectCode: http.StatusForbidden,
+		},
+		{
+			name:       "similar but different origin",
+			origin:     "https://fake-bk-micro-web.paas3-dev.bktencent.com",
+			expectCode: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// 模拟真实请求：PUT /api/v1/web/gateways/26/routes/bk.r.xxx/
+			reqBody := `{"config":{"methods":["GET","POST"],"uris":["aaaa"],"name":"route33"}}`
+			putReq, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/web/gateways/26/routes/bk.r.hQkvuSAAOG/", strings.NewReader(reqBody))
+			putReq.Header.Set("Content-Type", "application/json")
+			putReq.Header.Set("X-CSRF-Token", csrfToken)
+			putReq.Header.Set("Origin", tc.origin)
+			putReq.Header.Set("X-Requested-With", "fetch")
+
+			putResp, err := client.Do(putReq)
+			assert.NoError(t, err)
+			defer putResp.Body.Close()
+
+			assert.Equal(t, tc.expectCode, putResp.StatusCode,
+				"Origin %s should return %d", tc.origin, tc.expectCode)
+		})
+	}
+}
+
+// TestCSRF_CORSAndCSRFIntegration 测试 CORS 和 CSRF 中间件的集成
+func TestCSRF_CORSAndCSRFIntegration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+
+	// CORS 需要完整 URL，CSRF 只需要主机名
+	corsOrigins := []string{
+		"https://example.com",
+		"https://api.example.org:8080",
+	}
+	csrfTrustedOrigins := []string{
+		"example.com",
+		"api.example.org:8080",
+	}
+
+	router := gin.New()
+	// 先 CORS，再 CSRF
+	router.Use(CORS(corsOrigins))
+	router.Use(CSRF(appID, secret, csrfTrustedOrigins))
+	router.Use(CSRFToken(appID, ""))
+
+	router.GET("/api/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+	router.POST("/api/data", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+	router.OPTIONS("/api/data", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// Step 1: 获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/api/token")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, tokenResp.StatusCode)
+	defer tokenResp.Body.Close()
+
+	var tokenResponse map[string]string
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	assert.NoError(t, err)
+	csrfToken := tokenResponse["token"]
+
+	// Step 2: 发送跨域 POST 请求
+	postReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/data", strings.NewReader(`{"key":"value"}`))
+	postReq.Header.Set("Content-Type", "application/json")
+	postReq.Header.Set("Origin", "https://example.com")
+	postReq.Header.Set("X-CSRF-Token", csrfToken)
+
+	postResp, err := client.Do(postReq)
+	assert.NoError(t, err)
+	defer postResp.Body.Close()
+
+	// 应该成功：CORS 允许 https://example.com，CSRF 信任 example.com
+	assert.Equal(t, http.StatusOK, postResp.StatusCode)
+
+	// 验证 CORS 响应头
+	assert.Equal(t, "https://example.com", postResp.Header.Get("Access-Control-Allow-Origin"))
+}
+
+// TestCSRF_AllHTTPMethods 测试所有 HTTP 方法的 CSRF 保护
+func TestCSRF_AllHTTPMethods(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{"example.com"}
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret, trustedOrigins))
+	router.Use(CSRFToken(appID, ""))
+
+	router.GET("/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+
+	handler := func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"method": c.Request.Method})
+	}
+
+	// 安全方法（不需要 CSRF token）
+	router.GET("/test", handler)
+	router.HEAD("/test", handler)
+	router.OPTIONS("/test", handler)
+
+	// 不安全方法（需要 CSRF token）
+	router.POST("/test", handler)
+	router.PUT("/test", handler)
+	router.PATCH("/test", handler)
+	router.DELETE("/test", handler)
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// 获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/token")
+	assert.NoError(t, err)
+	defer tokenResp.Body.Close()
+
+	var tokenResponse map[string]string
+	_ = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	csrfToken := tokenResponse["token"]
+
+	testCases := []struct {
+		method          string
+		needToken       bool
+		expectWithToken int
+		expectNoToken   int
+	}{
+		// 安全方法：不需要 token
+		{"GET", false, http.StatusOK, http.StatusOK},
+		{"HEAD", false, http.StatusOK, http.StatusOK},
+		{"OPTIONS", false, http.StatusOK, http.StatusOK},
+		// 不安全方法：需要 token
+		{"POST", true, http.StatusOK, http.StatusForbidden},
+		{"PUT", true, http.StatusOK, http.StatusForbidden},
+		{"PATCH", true, http.StatusOK, http.StatusForbidden},
+		{"DELETE", true, http.StatusOK, http.StatusForbidden},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.method+"_with_token", func(t *testing.T) {
+			req, _ := http.NewRequest(tc.method, ts.URL+"/test", nil)
+			req.Header.Set("Origin", "https://example.com")
+			req.Header.Set("X-CSRF-Token", csrfToken)
+
+			resp, err := client.Do(req)
+			assert.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.expectWithToken, resp.StatusCode,
+				"%s with token should return %d", tc.method, tc.expectWithToken)
+		})
+
+		if tc.needToken {
+			t.Run(tc.method+"_without_token", func(t *testing.T) {
+				req, _ := http.NewRequest(tc.method, ts.URL+"/test", nil)
+				req.Header.Set("Origin", "https://example.com")
+				// 不设置 CSRF token
+
+				resp, err := client.Do(req)
+				assert.NoError(t, err)
+				defer resp.Body.Close()
+
+				assert.Equal(t, tc.expectNoToken, resp.StatusCode,
+					"%s without token should return %d", tc.method, tc.expectNoToken)
+			})
+		}
+	}
+}
+
+// TestCSRF_JSONContentType 测试 JSON 请求体的 CSRF 保护
+func TestCSRF_JSONContentType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{"example.com"}
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret, trustedOrigins))
+	router.Use(CSRFToken(appID, ""))
+
+	router.GET("/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+	router.POST("/api/resource", func(c *gin.Context) {
+		var body map[string]interface{}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"received": body})
+	})
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// 获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/token")
+	assert.NoError(t, err)
+	defer tokenResp.Body.Close()
+
+	var tokenResponse map[string]string
+	_ = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	csrfToken := tokenResponse["token"]
+
+	// 发送 JSON 请求
+	jsonBody := `{"name":"test","value":123}`
+	postReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/resource", strings.NewReader(jsonBody))
+	postReq.Header.Set("Content-Type", "application/json")
+	postReq.Header.Set("Accept", "application/json")
+	postReq.Header.Set("Origin", "https://example.com")
+	postReq.Header.Set("X-CSRF-Token", csrfToken)
+	postReq.Header.Set("X-Requested-With", "fetch") // 模拟 AJAX 请求
+
+	postResp, err := client.Do(postReq)
+	assert.NoError(t, err)
+	defer postResp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, postResp.StatusCode)
+
+	// 验证响应
+	var respBody map[string]interface{}
+	err = json.NewDecoder(postResp.Body).Decode(&respBody)
+	assert.NoError(t, err)
+	assert.NotNil(t, respBody["received"])
+}

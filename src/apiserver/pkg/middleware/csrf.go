@@ -30,13 +30,16 @@ import (
 
 // CSRF 中间件用于防止跨站请求伪造
 // trustedOrigins 参数用于配置允许跨域 CSRF 请求的可信源列表
+// 支持完整 URL 格式或纯主机名格式，会自动提取主机名
 func CSRF(appID, secret string, trustedOrigins []string) gin.HandlerFunc {
+	// gorilla/csrf 的 TrustedOrigins 只需要主机名（如 example.com:8080），不需要 scheme
+	normalizedOrigins := ExtractHostsForCSRF(trustedOrigins)
 	csrfMiddleware := csrf.Protect(
 		[]byte(secret),
 		csrf.Secure(false),
 		csrf.Path("/"),
 		csrf.CookieName(appID+"-csrf"),
-		csrf.TrustedOrigins(trustedOrigins),
+		csrf.TrustedOrigins(normalizedOrigins),
 	)
 
 	return func(c *gin.Context) {

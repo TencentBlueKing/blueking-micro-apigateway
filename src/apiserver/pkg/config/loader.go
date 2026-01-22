@@ -155,9 +155,10 @@ func loadServiceConfigFromEnv() (ServiceConfig, error) {
 	// 默认允许任意源访问
 	allowedOrigins := []string{"*"}
 	if val := envx.Get("ALLOWED_ORIGINS", ""); val != "" {
-		// 允许访问的源在环境变量中格式如 "http://localhost:8080,http://localhost:8081"
+		// 允许访问的源在环境变量中格式如 "http://localhost:8080,http://localhost:8081" 或 "example.com,api.example.org"
 		allowedOrigins = strings.Split(val, ",")
 	}
+
 	return ServiceConfig{
 		Server: ServerConfig{
 			Port:         cast.ToInt(envx.Get("PORT", "8080")),

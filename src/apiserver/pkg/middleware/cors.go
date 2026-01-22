@@ -27,9 +27,12 @@ import (
 )
 
 // CORS 用于管理跨域请求
+// allowedOrigins 支持完整 URL 格式或纯主机名格式，会自动规范化处理
 func CORS(allowedOrigins []string) gin.HandlerFunc {
+	// gin-contrib/cors 需要完整 URL 格式（如 https://example.com）
+	normalizedOrigins := NormalizeOriginsForCORS(allowedOrigins)
 	return cors.New(cors.Config{
-		AllowOrigins: allowedOrigins,
+		AllowOrigins: normalizedOrigins,
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{
 			"Authorization", "Content-Type", "Upgrade", "Origin",

@@ -25,6 +25,18 @@ interface IErrorInfo {
 
 // 请求成功执行拦截器
 export default async (response: any, config: IFetchConfig) => {
+  // 处理 http 非 200 异常
+  if (!RegExp(/20/).test(String(response.status))) {
+    const text = await response.text();
+    const errorInfo: IErrorInfo = {
+      status: response.status,
+      error: {
+        message: text,
+      },
+    };
+    return Promise.reject(errorInfo);
+  }
+
   // 处理204没有返回值的情况
   if (response.status === 204) {
     return Promise.resolve(response);
@@ -45,10 +57,4 @@ export default async (response: any, config: IFetchConfig) => {
     }
     return Promise.reject(response);
   }
-  // 处理 http 非 200 异常
-  const errorInfo: IErrorInfo = {
-    status: response.status,
-    error: responseInfo.error,
-  };
-  return Promise.reject(errorInfo);
 };

@@ -1285,7 +1285,7 @@ func GetResourceConfigDiffDetail(
 ) (*dto.ResourceDiffDetailResponse, error) {
 	// 获取同步资源配置
 	syncedResourceConfig := json.RawMessage("{}")
-	syncedResource, err := GetSyncedItemByID(ctx, id)
+	syncedResource, err := GetSyncedItemByResourceTypeAndID(ctx, resourceType, id)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}

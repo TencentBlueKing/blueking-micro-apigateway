@@ -23,6 +23,7 @@ import (
 
 	"gorm.io/gen/field"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
@@ -104,8 +105,12 @@ func QuerySyncedItems(ctx context.Context, param map[string]any) ([]*model.Gatew
 	return buildSyncedItemQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
-// GetSyncedItemByID 通过 ID 获取同步资源
-func GetSyncedItemByID(ctx context.Context, id string) (*model.GatewaySyncData, error) {
+// GetSyncedItemByResourceTypeAndID 通过 ResourceType 和 ID 获取同步资源
+func GetSyncedItemByResourceTypeAndID(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+) (*model.GatewaySyncData, error) {
 	u := repo.GatewaySyncData
-	return buildSyncedItemQuery(ctx).Where(u.ID.Eq(id)).Take()
+	return buildSyncedItemQuery(ctx).Where(u.Type.Eq(string(resourceType)), u.ID.Eq(id)).Take()
 }

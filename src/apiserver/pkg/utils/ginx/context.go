@@ -26,6 +26,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
@@ -75,6 +76,22 @@ func GetUserIDFromContext(ctx context.Context) string {
 	return userID
 }
 
+// SetTx sets a transaction for database operations
+// This function takes a pointer to a repo.Query object which represents a database transaction
+// It can be used to pass transaction context to various database operations
+func SetTx(ctx context.Context, tx *repo.Query) context.Context {
+	return context.WithValue(ctx, constant.DbTxKey, tx)
+}
+
+// GetTx get a transaction from context
+func GetTx(ctx context.Context) *repo.Query {
+	tx, ok := ctx.Value(constant.DbTxKey).(*repo.Query)
+	if !ok {
+		return nil
+	}
+	return tx
+}
+
 // SetUserID ...
 func SetUserID(c *gin.Context, userID string) {
 	c.Set(string(constant.UserIDKey), userID)
@@ -113,7 +130,9 @@ func SetGatewayInfoToContext(c context.Context, gatewayInfo *model.Gateway) cont
 
 // SetResourceType ...
 func SetResourceType(c *gin.Context, resourceType constant.APISIXResource) {
-	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), constant.ResourceTypeKey, resourceType))
+	c.Request = c.Request.WithContext(
+		context.WithValue(c.Request.Context(), constant.ResourceTypeKey, resourceType),
+	)
 }
 
 // GetResourceType ...

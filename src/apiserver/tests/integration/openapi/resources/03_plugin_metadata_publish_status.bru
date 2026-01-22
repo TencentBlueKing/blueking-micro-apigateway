@@ -16,5 +16,5 @@ headers {
 assert {
   res.status: eq 200
   res.body.data.status: eq success
-  res.body.data.id: matches /^bk.*/
+  res.body.data.id: matches datadog
 }

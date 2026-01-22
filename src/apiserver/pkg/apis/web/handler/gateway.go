@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -191,17 +191,19 @@ func GatewayList(c *gin.Context) {
 		if !gateway.HasPermission(ginx.GetUserID(c)) {
 			continue
 		}
-		routeCount, err := biz.GetRouteCount(c, gateway.ID)
+		// 设置 gateway
+		ctx := ginx.SetGatewayInfoToContext(c.Request.Context(), gateway)
+		routeCount, err := biz.GetRouteCount(ctx, gateway.ID)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		serviceCount, err := biz.GetServiceCount(c, gateway.ID)
+		serviceCount, err := biz.GetServiceCount(ctx)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		upstreamCount, err := biz.GetUpstreamCount(c, gateway.ID)
+		upstreamCount, err := biz.GetUpstreamCount(ctx)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -301,7 +303,7 @@ func GatewayCheckName(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	if !biz.ExistsGatewayName(c.Request.Context(), req.Name, req.ID) {
+	if biz.ExistsGatewayName(c.Request.Context(), req.Name, req.ID) {
 		output := serializer.CheckGatewayNameResponse{
 			Status: "error",
 		}
@@ -332,6 +334,7 @@ func EtcdTestConnection(c *gin.Context) {
 		gateway, err := biz.GetGateway(c.Request.Context(), req.GatewayID)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
+			return
 		}
 		// 如果输入密码为脱敏信息，则替换为已保存的密码进行连通性测试
 		if req.EtcdSchemaType == constant.HTTP {

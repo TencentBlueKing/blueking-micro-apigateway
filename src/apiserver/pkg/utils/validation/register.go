@@ -29,7 +29,7 @@ import (
 var bizValidate *validator.Validate
 
 // BindAndValidate ...
-func BindAndValidate(c *gin.Context, obj interface{}) error {
+func BindAndValidate(c *gin.Context, obj any) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func BindAndValidate(c *gin.Context, obj interface{}) error {
 }
 
 // ValidateStruct ...
-func ValidateStruct(ctx context.Context, obj interface{}) error {
+func ValidateStruct(ctx context.Context, obj any) error {
 	return bizValidate.StructCtx(ctx, obj)
 }
 

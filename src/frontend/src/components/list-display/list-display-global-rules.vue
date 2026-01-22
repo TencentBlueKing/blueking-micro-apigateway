@@ -30,7 +30,7 @@
       <list-content-row
         v-for="(config, configName) in globalRules.config.plugins" :key="configName" :label="configName as string"
       >
-        {{ config }}
+        <encode-json :config="config" />
       </list-content-row>
     </list-content-article>
   </div>
@@ -42,6 +42,7 @@ import ListContentRow from '@/components/list-display/components/list-content-ro
 import ListContentArticle from '@/components/list-display/components/list-content-article.vue';
 import { IGlobalRules } from '@/types/global-rules';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
+import EncodeJson from '@/components/list-display/components/encode-json.vue';
 
 interface IProps {
   resource: IGlobalRules

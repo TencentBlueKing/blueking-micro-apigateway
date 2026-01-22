@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -79,10 +79,9 @@ func ProtoCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"proto ID"
+//	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"proto ID"
 //	@Param		request		body	serializer.ProtoInfo	true	"proto 更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [put]
 func ProtoUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -95,6 +94,15 @@ func ProtoUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.Proto, pathParam.ID, req.Config, map[string]any{
+		"name": req.Name,
+	}) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Proto, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -116,6 +124,7 @@ func ProtoUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ProtoGet ...
@@ -124,8 +133,8 @@ func ProtoUpdate(c *gin.Context) {
 //	@Summary	proto 详情
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ProtoOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [get]
 func ProtoGet(c *gin.Context) {
@@ -163,8 +172,8 @@ func ProtoGet(c *gin.Context) {
 //	@Summary	proto 删除
 //	@Produce	json
 //	@Tags		webapi.proto
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/{id}/ [delete]
 func ProtoDelete(c *gin.Context) {
@@ -218,8 +227,7 @@ func ProtoList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -270,7 +278,7 @@ func ProtoList(c *gin.Context) {
 //	@Success	200			{object}	serializer.ProtoDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos-dropdown/ [get]
 func ProtoDropDownList(c *gin.Context) {
-	protos, err := biz.ListProtos(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	protos, err := biz.ListProtos(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

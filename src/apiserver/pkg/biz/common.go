@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -30,14 +30,19 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
+	"gorm.io/gorm"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
+	"github.com/tidwall/sjson"
+
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
@@ -61,7 +66,7 @@ var resourceTableMap = map[constant.APISIXResource]string{
 	constant.StreamRoute:    model.StreamRoute{}.TableName(),
 }
 
-var resourceModelSliceMap = map[constant.APISIXResource]interface{}{
+var resourceModelSliceMap = map[constant.APISIXResource]any{
 	constant.Route:          &[]model.Route{},
 	constant.Upstream:       &[]model.Upstream{},
 	constant.Consumer:       &[]model.Consumer{},
@@ -75,7 +80,7 @@ var resourceModelSliceMap = map[constant.APISIXResource]interface{}{
 	constant.StreamRoute:    &[]model.StreamRoute{},
 }
 
-var resourceModelMap = map[constant.APISIXResource]interface{}{
+var resourceModelMap = map[constant.APISIXResource]any{
 	constant.Route:          &model.Route{},
 	constant.Upstream:       &model.Upstream{},
 	constant.Consumer:       &model.Consumer{},
@@ -93,7 +98,7 @@ var resourceModelMap = map[constant.APISIXResource]interface{}{
 type Labels map[string]string
 
 // Scan 实现从数据库到结构体的转换
-func (l *Labels) Scan(value interface{}) error {
+func (l *Labels) Scan(value any) error {
 	if value == nil {
 		*l = nil
 		return nil
@@ -105,7 +110,7 @@ func (l *Labels) Scan(value interface{}) error {
 	case string:
 		data = []byte(v)
 	default:
-		return fmt.Errorf("不支持的数据库类型: %T", v)
+		return fmt.Errorf("不支持的数据库类型：%T", v)
 	}
 	return json.Unmarshal(data, l)
 }
@@ -116,6 +121,122 @@ func (l Labels) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return json.Marshal(l)
+}
+
+// buildCommonDbQuery 获取通用查询
+// 该查询会根据网关 ID 进行过滤，确保只能查询当前网关下的资源
+func buildCommonDbQuery(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+) *gorm.DB {
+	return database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
+		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
+}
+
+// BatchDeleteResourceByIDs 事务批量删除资源
+func BatchDeleteResourceByIDs(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) error {
+	params := map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}
+	// pluginMetadata 特殊处理
+	if resourceType == constant.PluginMetadata {
+		params["name"] = ids
+	} else {
+		params["id"] = ids
+	}
+	fieldAttr := field.Attrs(params)
+	switch resourceType {
+	case constant.Route:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Route.WithContext(ctx).Where(fieldAttr).Delete(&model.Route{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Route.WithContext(ctx).Where(fieldAttr).Delete(&model.Route{})
+		return err
+	case constant.Upstream:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Upstream.WithContext(ctx).Where(fieldAttr).Delete(&model.Upstream{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Upstream.WithContext(ctx).Where(fieldAttr).Delete(&model.Upstream{})
+		return err
+	case constant.PluginConfig:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.PluginConfig.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginConfig{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).PluginConfig.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginConfig{})
+		return err
+	case constant.GlobalRule:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.GlobalRule.WithContext(ctx).Where(fieldAttr).Delete(&model.GlobalRule{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).GlobalRule.WithContext(ctx).Where(fieldAttr).Delete(&model.GlobalRule{})
+		return err
+	case constant.PluginMetadata:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.PluginMetadata.WithContext(ctx).Where(fieldAttr).Delete(&model.PluginMetadata{})
+			return err
+		}
+		_, err := ginx.GetTx(
+			ctx,
+		).PluginMetadata.WithContext(
+			ctx,
+		).Where(
+			fieldAttr,
+		).Delete(
+			&model.PluginMetadata{},
+		)
+		return err
+	case constant.StreamRoute:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.StreamRoute.WithContext(ctx).Where(fieldAttr).Delete(&model.StreamRoute{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Where(fieldAttr).Delete(&model.StreamRoute{})
+		return err
+	case constant.Service:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Service.WithContext(ctx).Where(fieldAttr).Delete(&model.Service{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Service.WithContext(ctx).Where(fieldAttr).Delete(&model.Service{})
+		return err
+	case constant.Proto:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Proto.WithContext(ctx).Where(fieldAttr).Delete(&model.Proto{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Proto.WithContext(ctx).Where(fieldAttr).Delete(&model.Proto{})
+		return err
+	case constant.SSL:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.SSL.WithContext(ctx).Where(fieldAttr).Delete(&model.SSL{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).SSL.WithContext(ctx).Where(fieldAttr).Delete(&model.SSL{})
+		return err
+	case constant.Consumer:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.Consumer.WithContext(ctx).Where(fieldAttr).Delete(&model.Consumer{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).Consumer.WithContext(ctx).Where(fieldAttr).Delete(&model.Consumer{})
+		return err
+	case constant.ConsumerGroup:
+		if ginx.GetTx(ctx) == nil {
+			_, err := repo.ConsumerGroup.WithContext(ctx).Where(fieldAttr).Delete(&model.ConsumerGroup{})
+			return err
+		}
+		_, err := ginx.GetTx(ctx).ConsumerGroup.WithContext(ctx).Where(fieldAttr).Delete(&model.ConsumerGroup{})
+		return err
+	}
+	return nil
 }
 
 // BatchUpdateResourceStatusWithAuditLog 批量更新资源状态并添加审计日志
@@ -163,10 +284,31 @@ func BatchUpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus,
 ) error {
-	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id IN (?)", ids).Updates(map[string]interface{}{
-		"status": status,
-	}).Error
+	query := buildCommonDbQuery(ctx, resourceType)
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接更新
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		return query.Where("id IN (?)", ids).Updates(map[string]any{
+			"status": status,
+		}).Error
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+		batchIDs := ids[i:end]
+		query = buildCommonDbQuery(ctx, resourceType)
+		err := query.Where("id IN (?)", batchIDs).Updates(map[string]any{
+			"status": status,
+		}).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateResourceStatus 单个更新状态
@@ -174,8 +316,8 @@ func UpdateResourceStatus(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string, status constant.ResourceStatus,
 ) error {
-	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Updates(map[string]interface{}{
+	query := buildCommonDbQuery(ctx, resourceType)
+	return query.Where("id = ?", id).Updates(map[string]any{
 		"status":  status,
 		"updater": ginx.GetUserIDFromContext(ctx),
 	}).Error
@@ -189,22 +331,44 @@ func UpdateResourceStatusWithAuditLog(
 	return WrapUpdateResourceStatusByIDAddAuditLog(ctx, resourceType, id, status, UpdateResourceStatus)
 }
 
-// BatchGetResources 批量获取资源
+// BatchGetResources 批量获取资源（修复分批次条件叠加问题）
 func BatchGetResources(
 	ctx context.Context,
-	resourceType constant.APISIXResource, ids []string,
+	resourceType constant.APISIXResource,
+	ids []string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	if gatewayInfo != nil {
-		query = query.Where("gateway_id = ?", gatewayInfo.ID)
+	query := buildCommonDbQuery(ctx, resourceType)
+
+	// 空 IDs 直接返回
+	if len(ids) == 0 {
+		err := query.Find(&res).Error
+		return res, err
 	}
-	if len(ids) != 0 {
-		query = query.Where("id IN (?)", ids)
+
+	// 直接查询短列表
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		err := query.Where("id IN (?)", ids).Find(&res).Error
+		return res, err
 	}
-	err := query.Find(&res).Error
-	return res, err
+
+	// 正确分批次逻辑：每个批次使用新的查询实例
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+		batchIDs := ids[i:end]
+		// 关键点：每个批次创建新查询，避免条件叠加
+		batchQuery := buildCommonDbQuery(ctx, resourceType)
+		var batchRes []*model.ResourceCommonModel
+		if err := batchQuery.Where("id IN (?)", batchIDs).Find(&batchRes).Error; err != nil {
+			return nil, err
+		}
+		res = append(res, batchRes...)
+	}
+
+	return res, nil
 }
 
 // GetResourcesLabels 获取资源标签
@@ -213,12 +377,7 @@ func GetResourcesLabels(
 	resourceType constant.APISIXResource,
 ) (map[string]string, error) {
 	var labelsList []Labels
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType])
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	if gatewayInfo != nil {
-		query = query.Where("gateway_id = ?", gatewayInfo.ID)
-	}
-	err := query.Select("JSON_EXTRACT(config, '$.labels') as labels").
+	err := buildCommonDbQuery(ctx, resourceType).Select("JSON_EXTRACT(config, '$.labels') as labels").
 		Scan(&labelsList).Error
 	// 去重
 	labelsMap := make(map[string]string)
@@ -242,7 +401,7 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 	var deleteIDs []string
 	var updateIDs []string
 	for _, resource := range resourceList {
-		// 新增待发布和success才能删除
+		// 新增待发布和 success 才能删除
 		switch resource.Status {
 		case constant.ResourceStatusCreateDraft:
 			deleteIDs = append(deleteIDs, resource.ID)
@@ -268,15 +427,199 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 	return nil
 }
 
-// GetResourceByID 根据id获取资源
+// GetResourceByID 根据 id 获取资源
 func GetResourceByID(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string,
 ) (model.ResourceCommonModel, error) {
 	var res model.ResourceCommonModel
-	err := database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Take(&res).Error
+	query := buildCommonDbQuery(ctx, resourceType)
+	err := query.Where("id = ?", id).Take(&res).Error
 	return res, err
+}
+
+// IsResourceConfigChanged 判断资源配置是否发生变化
+func IsResourceConfigChanged(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+	inputConfigJson json.RawMessage,
+) bool {
+	resource, err := GetResourceByID(ctx, resourceType, id)
+	if err != nil {
+		// if failed to get resource, treat as config changed
+		return true
+	}
+	currentConfigJson := json.RawMessage(resource.Config)
+
+	// reference: GetResourceConfigDiffDetail
+	// For PluginMetadata, remove the "name" field before comparison
+	if resourceType == constant.PluginMetadata {
+		currentConfigJson = []byte(jsonx.RemoveJsonKey(string(currentConfigJson), []string{"name"}))
+		inputConfigJson = []byte(jsonx.RemoveJsonKey(string(inputConfigJson), []string{"name"}))
+	}
+
+	// Parse both JSONs and compare their structures
+	// This properly handles JSON objects with different key orders
+	var currentConfigParsed, inputConfigParsed any
+	if err := json.Unmarshal(currentConfigJson, &currentConfigParsed); err != nil {
+		// if failed to unmarshal current config, treat as config changed
+		return true
+	}
+	if err := json.Unmarshal(inputConfigJson, &inputConfigParsed); err != nil {
+		// if failed to unmarshal input config, treat as config changed
+		return true
+	}
+
+	// Use reflect.DeepEqual to compare the parsed JSON structures
+	// This correctly handles JSON objects regardless of key order
+	return !reflect.DeepEqual(currentConfigParsed, inputConfigParsed)
+}
+
+// IsResourceChanged 判断资源是否发生变化（包括配置和其他字段）
+// This function checks both the config field and resource-specific extra fields
+//
+//nolint:gocyclo
+func IsResourceChanged(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+	inputConfigJson json.RawMessage,
+	extraFields map[string]any,
+) bool {
+	// First check if config has changed
+	if IsResourceConfigChanged(ctx, resourceType, id, inputConfigJson) {
+		return true
+	}
+
+	// Then check resource-specific extra fields
+	switch resourceType {
+	case constant.Route:
+		route, err := GetRoute(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && route.Name != name {
+			return true
+		}
+		if serviceID, ok := extraFields["service_id"].(string); ok && route.ServiceID != serviceID {
+			return true
+		}
+		if upstreamID, ok := extraFields["upstream_id"].(string); ok && route.UpstreamID != upstreamID {
+			return true
+		}
+		if pluginConfigID, ok := extraFields["plugin_config_id"].(string); ok &&
+			route.PluginConfigID != pluginConfigID {
+			return true
+		}
+
+	case constant.Consumer:
+		consumer, err := GetConsumer(ctx, id)
+		if err != nil {
+			return true
+		}
+		if username, ok := extraFields["username"].(string); ok && consumer.Username != username {
+			return true
+		}
+		if groupID, ok := extraFields["group_id"].(string); ok && consumer.GroupID != groupID {
+			return true
+		}
+
+	case constant.Service:
+		service, err := GetService(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && service.Name != name {
+			return true
+		}
+		if upstreamID, ok := extraFields["upstream_id"].(string); ok && service.UpstreamID != upstreamID {
+			return true
+		}
+
+	case constant.Upstream:
+		upstream, err := GetUpstream(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && upstream.Name != name {
+			return true
+		}
+		if sslID, ok := extraFields["ssl_id"].(string); ok && upstream.SSLID != sslID {
+			return true
+		}
+
+	case constant.StreamRoute:
+		streamRoute, err := GetStreamRoute(ctx, id)
+		if err != nil {
+			return true
+		}
+		if name, ok := extraFields["name"].(string); ok && streamRoute.Name != name {
+			return true
+		}
+		if serviceID, ok := extraFields["service_id"].(string); ok && streamRoute.ServiceID != serviceID {
+			return true
+		}
+		if upstreamID, ok := extraFields["upstream_id"].(string); ok && streamRoute.UpstreamID != upstreamID {
+			return true
+		}
+
+	case constant.Proto,
+		constant.ConsumerGroup,
+		constant.PluginConfig,
+		constant.GlobalRule,
+		constant.PluginMetadata,
+		constant.SSL:
+		// These resources only have Name field besides Config
+		// We need to get the specific resource to check the name
+		var currentName string
+
+		switch resourceType {
+		case constant.Proto:
+			proto, getErr := GetProto(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = proto.Name
+		case constant.ConsumerGroup:
+			consumerGroup, getErr := GetConsumerGroup(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = consumerGroup.Name
+		case constant.PluginConfig:
+			pluginConfig, getErr := GetPluginConfig(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = pluginConfig.Name
+		case constant.GlobalRule:
+			globalRule, getErr := GetGlobalRule(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = globalRule.Name
+		case constant.PluginMetadata:
+			pluginMetadata, getErr := GetPluginMetadata(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = pluginMetadata.Name
+		case constant.SSL:
+			ssl, getErr := GetSSL(ctx, id)
+			if getErr != nil {
+				return true
+			}
+			currentName = ssl.Name
+		}
+
+		if name, ok := extraFields["name"].(string); ok && currentName != name {
+			return true
+		}
+	}
+
+	// No changes detected
+	return false
 }
 
 // GetResourceByIDs 根据 ids 获取资源
@@ -286,9 +629,77 @@ func GetResourceByIDs(
 	ids []string,
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
-	err := database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id IN ?", ids).Find(&res).Error
-	return res, err
+	query := buildCommonDbQuery(ctx, resourceType)
+	if len(ids) == 0 {
+		err := query.Find(&res).Error
+		return res, err
+	}
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		err := query.Where("id IN ?", ids).Find(&res).Error
+		return res, err
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		var batchRes []model.ResourceCommonModel
+		query = buildCommonDbQuery(ctx, resourceType)
+		err := query.Where("id IN ?", batchIDs).
+			Find(&batchRes).Error
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, batchRes...)
+	}
+
+	return res, nil
+}
+
+// DeleteResourceByIDs 根据 ids 删除资源
+func DeleteResourceByIDs(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) error {
+	// 空 IDs 快速返回
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// 单批次直接删除（优化小数据集性能）
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		return BatchDeleteResourceByIDs(
+			ctx,
+			resourceType,
+			ids,
+		)
+	}
+
+	// 分批次删除（避免条件叠加）
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+		batchIDs := ids[i:end]
+		// 关键点：每个批次创建新查询
+		if err := BatchDeleteResourceByIDs(
+			ctx,
+			resourceType,
+			batchIDs,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetSchemaByIDs 根据 ids 获取 schema
@@ -297,20 +708,44 @@ func GetSchemaByIDs(
 	ids []string,
 ) ([]model.GatewayCustomPluginSchema, error) {
 	var res []model.GatewayCustomPluginSchema
-	err := database.Client().WithContext(ctx).Table(
-		model.GatewayCustomPluginSchema{}.TableName()).Where("auto_id IN ?", ids).Find(&res).Error
-	return res, err
+	query := buildCommonDbQuery(ctx, constant.PluginConfig)
+	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
+	if len(ids) <= constant.DBConditionIDMaxLength {
+		err := query.Where("auto_id IN ?", ids).Find(&res).Error
+		return res, err
+	}
+
+	// 分批处理大量 IDs
+	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
+		end := i + constant.DBConditionIDMaxLength
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIDs := ids[i:end]
+		var batchRes []model.GatewayCustomPluginSchema
+
+		err := query.Where(
+			"auto_id IN ?", batchIDs).Find(&batchRes).Error
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, batchRes...)
+	}
+
+	return res, nil
 }
 
 // QueryResource ... 根据条件查询资源
 func QueryResource(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
-	params map[string]interface{},
+	params map[string]any,
 	name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(params)
+	query := buildCommonDbQuery(ctx, resourceType).Where(params)
 	if name != "" {
 		query = query.Where(model.GetResourceNameKey(resourceType)+" LIKE ?", "%"+name+"%")
 	}
@@ -343,7 +778,7 @@ func DuplicatedResourceName(
 	name string,
 ) bool {
 	var res []*model.ResourceCommonModel
-	d := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
+	d := buildCommonDbQuery(ctx, resourceType).Where(
 		getQueryNameParams(ctx, resourceType, []string{name}))
 	if id != "" {
 		d = d.Not("id = ?", id)
@@ -351,25 +786,21 @@ func DuplicatedResourceName(
 	err := d.Find(&res).Error
 	if err != nil {
 		logging.Errorf("query resource name: %s error: %s", name, err.Error())
-		return false
-	}
-	if len(res) == 0 {
 		return true
 	}
-	return false
+	if len(res) == 0 {
+		return false
+	}
+	return true
 }
 
 func getQueryNameParams(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
 	name []string,
-) map[string]interface{} {
-	params := map[string]interface{}{}
+) map[string]any {
+	params := map[string]any{}
 	params[model.GetResourceNameKey(resourceType)] = name
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	if gatewayInfo != nil {
-		params["gateway_id"] = gatewayInfo.ID
-	}
 	return params
 }
 
@@ -381,7 +812,7 @@ func BatchCheckNameDuplication(
 ) (bool, error) {
 	var res []*model.ResourceCommonModel
 	params := getQueryNameParams(ctx, resourceType, names)
-	query := database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(params)
+	query := buildCommonDbQuery(ctx, resourceType).Where(params)
 	err := query.Find(&res).Error
 	if err != nil {
 		return false, err
@@ -412,23 +843,24 @@ func BatchCreateResources(
 // UpdateResource 更新单个资源
 func UpdateResource(
 	ctx context.Context,
-	resourceType constant.APISIXResource, id string, resource *model.ResourceCommonModel,
+	resourceType constant.APISIXResource,
+	id string,
+	resource *model.ResourceCommonModel,
 ) error {
 	resourceModel, exists := resourceModelMap[resourceType]
 	if !exists {
 		return fmt.Errorf("unsupported resource type: %v", resourceType)
 	}
 	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
-
 	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resource.ToResourceModel(resourceType)))
-	return database.Client().WithContext(ctx).Table(
-		resourceTableMap[resourceType]).Where("id = ?", id).Updates(newResourceModel).Error
+	return buildCommonDbQuery(ctx, resourceType).Where("id = ?", id).Updates(newResourceModel).Error
 }
 
 // GetResourceUpdateStatus 获取资源更新状态
 func GetResourceUpdateStatus(
 	ctx context.Context,
-	resourceType constant.APISIXResource, id string,
+	resourceType constant.APISIXResource,
+	id string,
 ) (constant.ResourceStatus, error) {
 	resource, err := GetResourceByID(ctx, resourceType, id)
 	if err != nil {
@@ -474,81 +906,165 @@ func ParseOrderByExprList(
 	return orderByExprs
 }
 
+// BuildConfigRawForValidation 构建配置用于验证
+// FIXME: maybe we should refactor this to `remove` the Name from the r.Config totally,
+// FIXME: instead of hack in validation
+func BuildConfigRawForValidation(
+	configRaw string,
+	resourceType constant.APISIXResource,
+	apisixVersion constant.APISIXVersion,
+) json.RawMessage {
+	configRawForValidationBytes := make([]byte, len(configRaw))
+	copy(configRawForValidationBytes, configRaw)
+	configRawForValidation := json.RawMessage(configRawForValidationBytes)
+
+	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id", apisixVersion) {
+		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "id")
+	}
+	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "name", apisixVersion) {
+		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "name")
+	}
+
+	return configRawForValidation
+}
+
 // ValidateResource 校验资源
-func ValidateResource(ctx context.Context, resources map[constant.APISIXResource][]*model.GatewaySyncData) error {
+// ValidateResource validates resources based on schema and association checks
+// ctx: context containing request information
+// resources: map of APISIX resources to their sync data
+// allResourceIDMap: map of all valid resource IDs for association validation
+// Returns: error if validation fails, nil otherwise
+func ValidateResource(
+	ctx context.Context,
+	resources map[constant.APISIXResource][]*model.GatewaySyncData,
+	allResourceIDMap map[string]struct{},
+	allPluginSchemaMap map[string]any,
+) error {
+	// Extract gateway information from context
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	resourceTypeIDMap := make(map[constant.APISIXResource]map[string]struct{})
+	// Iterate through each resource type and its associated data
 	for resourceType, resource := range resources {
+		// Create schema validator for the resource type
 		schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
 			"main."+resourceType.String())
 		if err != nil {
 			return err
 		}
+		// Validate each resource instance
 		for _, r := range resource {
-			if err = schemaValidator.Validate(json.RawMessage(r.Config)); err != nil {
+			configRawForValidation := BuildConfigRawForValidation(
+				string(r.Config),
+				resourceType,
+				gatewayInfo.GetAPISIXVersionX(),
+			)
+
+			// Validate resource against schema
+			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
 				return err
 			}
-			// 配置校验
-			customizePluginSchemaMap := GetCustomizePluginSchemaMap(ctx, gatewayInfo.ID)
 			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
-				resourceType, "main."+string(resourceType), customizePluginSchemaMap, constant.DATABASE)
+				resourceType, "main."+string(resourceType), allPluginSchemaMap, constant.DATABASE)
 			if err != nil {
 				return err
 			}
-			if err = jsonConfigValidator.Validate(json.RawMessage(r.Config)); err != nil { // 校验json schema
+			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
 				return fmt.Errorf("resource config:%s validate failed, err: %v",
 					r.Config, err)
 			}
 
 			// 校验关联数据是否存在
-			var resourceAssociateIDInfo serializer.ResourceAssociateID
+			var resourceAssociateIDInfo dto.ResourceAssociateID
 			err = json.Unmarshal(r.Config, &resourceAssociateIDInfo)
 			if err != nil {
 				return err
 			}
 			if resourceAssociateIDInfo.ServiceID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.Service]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.Service, resourceAssociateIDInfo.ServiceID)]; !ok {
 					return fmt.Errorf("associated service [id:%s] not found",
 						resourceAssociateIDInfo.ServiceID)
-				} else {
-					if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.ServiceID]; !ok {
-						return fmt.Errorf("associated service [id:%s] not found",
-							resourceAssociateIDInfo.ServiceID)
-					}
 				}
 			}
 			if resourceAssociateIDInfo.UpstreamID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.Upstream]; !ok {
-					return fmt.Errorf("associated upstream [id:%s] not found",
-						resourceAssociateIDInfo.UpstreamID)
-				} else if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.UpstreamID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.Upstream, resourceAssociateIDInfo.UpstreamID)]; !ok {
 					return fmt.Errorf("associated upstream [id:%s] not found",
 						resourceAssociateIDInfo.UpstreamID)
 				}
 			}
-
 			if resourceAssociateIDInfo.PluginConfigID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.PluginConfig]; !ok {
-					return fmt.Errorf("associated plugin_config [id:%s] not found",
-						resourceAssociateIDInfo.PluginConfigID)
-				} else if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.PluginConfigID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.PluginConfig, resourceAssociateIDInfo.PluginConfigID)]; !ok {
 					return fmt.Errorf("associated plugin_config [id:%s] not found",
 						resourceAssociateIDInfo.PluginConfigID)
 				}
 			}
-
 			if resourceAssociateIDInfo.GroupID != "" {
-				if resourceAssociateIDMap, ok := resourceTypeIDMap[constant.ConsumerGroup]; !ok {
-					return fmt.Errorf("associated consumer_group [id:%s] not found",
-						resourceAssociateIDInfo.GroupID)
-				} else if _, ok := resourceAssociateIDMap[resourceAssociateIDInfo.GroupID]; !ok {
+				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
+					constant.ConsumerGroup, resourceAssociateIDInfo.GroupID)]; !ok {
 					return fmt.Errorf("associated consumer_group [id:%s] not found",
 						resourceAssociateIDInfo.GroupID)
 				}
 			}
 		}
 	}
+	return nil
+}
 
+// FormatResourceIDNameList 格式化资源 ID 和名称列表
+func FormatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
+	switch resourceType {
+	case constant.Route:
+		routes := resources.([]*model.Route)
+		routeDetails := make([]string, 0, len(routes))
+		for _, route := range routes {
+			routeDetails = append(
+				routeDetails,
+				fmt.Sprintf("%s(%s)", route.ID, route.GetName(resourceType)),
+			)
+		}
+		return routeDetails
+	case constant.Upstream:
+		upstreams := resources.([]*model.Upstream)
+		upstreamDetails := make([]string, 0, len(upstreams))
+		for _, upstream := range upstreams {
+			upstreamDetails = append(
+				upstreamDetails,
+				fmt.Sprintf("%s(%s)", upstream.ID, upstream.GetName(resourceType)),
+			)
+		}
+		return upstreamDetails
+	case constant.Consumer:
+		consumers := resources.([]*model.Consumer)
+		consumerDetails := make([]string, 0, len(consumers))
+		for _, consumer := range consumers {
+			consumerDetails = append(
+				consumerDetails,
+				fmt.Sprintf("%s(%s)", consumer.ID, consumer.GetName(resourceType)),
+			)
+		}
+		return consumerDetails
+	case constant.Service:
+		services := resources.([]*model.Service)
+		serviceDetails := make([]string, 0, len(services))
+		for _, service := range services {
+			serviceDetails = append(
+				serviceDetails,
+				fmt.Sprintf("%s(%s)", service.ID, service.GetName(resourceType)),
+			)
+		}
+		return serviceDetails
+	case constant.StreamRoute:
+		streamRoutes := resources.([]*model.StreamRoute)
+		streamRouteDetails := make([]string, 0, len(streamRoutes))
+		for _, streamRoute := range streamRoutes {
+			streamRouteDetails = append(
+				streamRouteDetails,
+				fmt.Sprintf("%s(%s)", streamRoute.ID, streamRoute.GetName(resourceType)),
+			)
+		}
+		return streamRouteDetails
+	}
 	return nil
 }

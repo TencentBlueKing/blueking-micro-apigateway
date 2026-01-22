@@ -1003,17 +1003,6 @@
     "type": "tapisix",
     "example": {
       "target_service": "your_target_service"
-    },
-    "metadata_example": {
-      "security_service_endpoint": "your_security_service_endpoint",
-      "user_name": "your_user_name",
-      "user_key": "your_user_key",
-      "max_retry": 3,
-      "connect_timeout": 5000,
-      "send_timeout": 5000,
-      "read_timeout": 5000,
-      "session_ticket_cache_ttl": 10800000,
-      "session_ticket_cache_count": 65536
     }
   },
   {

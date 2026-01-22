@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -20,6 +20,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -39,15 +40,24 @@ type BaseModel struct {
 // ResourceCommonModel  资源通用模型
 type ResourceCommonModel struct {
 	BaseModel
-	AutoID    int            `gorm:"column:auto_id;type:int;primaryKey;autoIncrement"` // 自增ID
-	ID        string         `gorm:"column:id;type:varchar(255)"`                      // apisix ID
-	GatewayID int            `gorm:"column:gateway_id;type:int;uniqueIndex:idx_name"`  // 网关ID
-	Config    datatypes.JSON `gorm:"column:config;type:json"`                          // route raw config
-	// 发布状态: create-draft,update-draft,success,delete-draft
+	AutoID    int            `gorm:"column:auto_id;type:int;primaryKey;autoIncrement"`                   // 自增 ID
+	ID        string         `gorm:"column:id;type:varchar(255);uniqueIndex:idx_id"`                     // apisix ID
+	GatewayID int            `gorm:"column:gateway_id;type:int;uniqueIndex:idx_name;uniqueIndex:idx_id"` // 网关 ID
+	Config    datatypes.JSON `gorm:"column:config;type:json"`                                            // config
+	// 发布状态：create-draft,update-draft,success,delete-draft
 	Status constant.ResourceStatus `gorm:"column:status;type:varchar(32)"`
 }
 
-// GetResourceNameKey 获取资源名称key
+// GetResourceKey 获取资源 key
+func (r ResourceCommonModel) GetResourceKey(resourceType constant.APISIXResource) string {
+	// 插件元素数需要特殊处理，因为插件元素数没有真正 id
+	if resourceType == constant.PluginMetadata {
+		return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, r.GetName(resourceType))
+	}
+	return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, r.ID)
+}
+
+// GetResourceNameKey 获取资源名称 key
 func GetResourceNameKey(resourceType constant.APISIXResource) string {
 	if resourceType == constant.Consumer {
 		return "username"
@@ -55,38 +65,38 @@ func GetResourceNameKey(resourceType constant.APISIXResource) string {
 	return "name"
 }
 
-// GetServiceID 获取service id
+// GetServiceID 获取 service id
 func (r ResourceCommonModel) GetServiceID() string {
 	return gjson.GetBytes(r.Config, "service_id").String()
 }
 
-// GetUpstreamID 获取upstream id
+// GetUpstreamID 获取 upstream id
 func (r ResourceCommonModel) GetUpstreamID() string {
 	return gjson.GetBytes(r.Config, "upstream_id").String()
 }
 
-// GetPluginConfigID 获取plugin config id
+// GetPluginConfigID 获取 plugin config id
 func (r ResourceCommonModel) GetPluginConfigID() string {
 	return gjson.GetBytes(r.Config, "plugin_config_id").String()
 }
 
-// GetGroupID 获取group id
+// GetGroupID 获取 group id
 func (r ResourceCommonModel) GetGroupID() string {
 	return gjson.GetBytes(r.Config, "group_id").String()
 }
 
-// GetSSLID 获取ssl id
+// GetSSLID 获取 ssl id
 func (r ResourceCommonModel) GetSSLID() string {
 	return gjson.GetBytes(r.Config, "tls.client_key").String()
 }
 
-// GetName 获取name
+// GetName 获取 name
 func (r ResourceCommonModel) GetName(resourceType constant.APISIXResource) string {
 	return gjson.GetBytes(r.Config, GetResourceNameKey(resourceType)).String()
 }
 
 // ToResourceModel 转换为具体资源
-func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResource) interface{} {
+func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResource) any {
 	switch resourceType {
 	case constant.Route:
 		return Route{

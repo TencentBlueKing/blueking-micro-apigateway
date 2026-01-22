@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -22,18 +22,31 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildPluginMetadataQuery 获取 PluginMetadata 查询对象
+func buildPluginMetadataQuery(ctx context.Context) repo.IPluginMetadataDo {
+	return repo.PluginMetadata.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+func buildPluginMetadataQueryWithTx(ctx context.Context, tx *repo.Query) repo.IPluginMetadataDo {
+	return tx.WithContext(ctx).PluginMetadata.Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListPluginMetadatas 查询网关 PluginMetadata 列表
-func ListPluginMetadatas(ctx context.Context, gatewayID int) ([]*model.PluginMetadata, error) {
+func ListPluginMetadatas(ctx context.Context) ([]*model.PluginMetadata, error) {
 	u := repo.PluginMetadata
-	return repo.PluginMetadata.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildPluginMetadataQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetPluginMetadataOrderExprList 获取 PluginMetadata 排序字段列表
@@ -57,7 +70,7 @@ func GetPluginMetadataOrderExprList(orderBy string) []field.Expr {
 // ListPagedPluginMetadatas 分页查询 PluginMetadata 列表
 func ListPagedPluginMetadatas(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	status []string,
 	name string,
 	updater string,
@@ -65,7 +78,7 @@ func ListPagedPluginMetadatas(
 	page PageParam,
 ) ([]*model.PluginMetadata, int64, error) {
 	u := repo.PluginMetadata
-	query := u.WithContext(ctx)
+	query := buildPluginMetadataQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -86,13 +99,16 @@ func CreatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 
 // batchCreatePluginMetadatas 批量创建 PluginMetadata
 func batchCreatePluginMetadatas(ctx context.Context, pluginMetadataList []*model.PluginMetadata) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildPluginMetadataQueryWithTx(ctx, ginx.GetTx(ctx)).Create(pluginMetadataList...)
+	}
 	return repo.PluginMetadata.WithContext(ctx).Create(pluginMetadataList...)
 }
 
 // UpdatePluginMetadata 更新 PluginMetadata
 func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetadata) error {
 	u := repo.PluginMetadata
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(pluginMetadata.ID)).Select(
+	_, err := buildPluginMetadataQuery(ctx).Where(u.ID.Eq(pluginMetadata.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -104,19 +120,19 @@ func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 // GetPluginMetadata 查询 PluginMetadata 详情
 func GetPluginMetadata(ctx context.Context, id string) (*model.PluginMetadata, error) {
 	u := repo.PluginMetadata
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildPluginMetadataQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryPluginMetadatas 搜索 PluginMetadata
-func QueryPluginMetadatas(ctx context.Context, param map[string]interface{}) ([]*model.PluginMetadata, error) {
-	u := repo.PluginMetadata
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryPluginMetadatas(ctx context.Context, param map[string]any) ([]*model.PluginMetadata, error) {
+	return buildPluginMetadataQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeletePluginMetadatas 批量删除 PluginMetadata 并记录审计日志
 func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 	u := repo.PluginMetadata
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.PluginMetadata, ids)
 		if err != nil {
 			return err
@@ -126,7 +142,7 @@ func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildPluginMetadataQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -141,7 +157,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	pluginMetadatas, err := QueryPluginMetadatas(ctx, map[string]interface{}{
+	pluginMetadatas, err := QueryPluginMetadatas(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -151,25 +167,46 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(pluginMetadatas))
 	for _, pluginMetadata := range pluginMetadatas {
+		// 标识此次更新的操作类型为撤销
+		pluginMetadata.OperationType = constant.OperationTypeRevert
 		if pluginMetadata.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			pluginMetadata.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginMetadata.ID,
+				Config: pluginMetadata.Config,
+				Status: pluginMetadata.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[pluginMetadata.ID]; ok {
-			pluginMetadata.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			pluginMetadata.Name = syncData.GetName()
 			pluginMetadata.Config = syncData.Config
 			pluginMetadata.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginMetadata.ID,
+				Config: pluginMetadata.Config,
+				Status: pluginMetadata.Status,
+			})
 			continue
 		} else {
-			return errors.New("未找到插件元数据 id 的同步数据:" + pluginMetadata.ID)
+			return errors.New("未找到插件元数据 id 的同步数据：" + pluginMetadata.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.PluginMetadata, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, pluginMetadata := range pluginMetadatas {
-			err := repo.PluginMetadata.WithContext(ctx).Save(pluginMetadata)
+			_, err := buildPluginMetadataQueryWithTx(ctx, tx).Updates(pluginMetadata)
 			if err != nil {
 				return err
 			}

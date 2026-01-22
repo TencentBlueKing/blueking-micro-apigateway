@@ -41,6 +41,8 @@ const (
 	batchCreateError = "batch create error"
 )
 
+var ctx context.Context
+
 var _ = Describe("EtcdPublisher", func() {
 	Describe("NewEtcdPublisher", func() {
 		var (
@@ -131,7 +133,13 @@ var _ = Describe("EtcdPublisher", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().
 					List(gomock.Any(), "prefix").
-					Return([]storage.KeyValuePair{{Key: "key1", Value: "value1"}, {Key: "key2", Value: "value2"}}, nil)
+					Return(
+						[]storage.KeyValuePair{
+							{Key: "key1", Value: "value1"},
+							{Key: "key2", Value: "value2"},
+						},
+						nil,
+					)
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,
 				}
@@ -139,7 +147,10 @@ var _ = Describe("EtcdPublisher", func() {
 				assert.NoError(GinkgoT(), err)
 				assert.Equal(
 					GinkgoT(),
-					[]storage.KeyValuePair{{Key: "key1", Value: "value1"}, {Key: "key2", Value: "value2"}},
+					[]storage.KeyValuePair{
+						{Key: "key1", Value: "value1"},
+						{Key: "key2", Value: "value2"},
+					},
 					result,
 				)
 			})
@@ -209,7 +220,13 @@ var _ = Describe("EtcdPublisher", func() {
 
 			It("Test Create: Create error", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
-				mockEtcdStore.EXPECT().Create(gomock.Any(), "/key", "value").Return(errors.New("create error"))
+				mockEtcdStore.EXPECT().Create(
+					gomock.Any(),
+					"/key",
+					"value",
+				).Return(
+					errors.New("create error"),
+				)
 
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,
@@ -238,7 +255,7 @@ var _ = Describe("EtcdPublisher", func() {
 			It("Test Update: ok", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "/key").Return("value", nil)
-				mockEtcdStore.EXPECT().Update(gomock.Any(), "key", "value").Return(nil)
+				mockEtcdStore.EXPECT().Update(gomock.Any(), "/key", "value").Return(nil)
 
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,
@@ -315,7 +332,13 @@ var _ = Describe("EtcdPublisher", func() {
 			It("Test Update: Update error", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
 				mockEtcdStore.EXPECT().Get(gomock.Any(), "/key").Return("value", nil)
-				mockEtcdStore.EXPECT().Update(gomock.Any(), "key", "value").Return(errors.New("update error"))
+				mockEtcdStore.EXPECT().Update(
+					gomock.Any(),
+					"/key",
+					"value",
+				).Return(
+					errors.New("update error"),
+				)
 
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,
@@ -343,7 +366,12 @@ var _ = Describe("EtcdPublisher", func() {
 		Describe("BatchCreate", func() {
 			It("Test BatchCreate: ok", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
-				mockEtcdStore.EXPECT().BatchCreate(gomock.Any(), map[string]string{"/key": "value"}).Return(nil)
+				mockEtcdStore.EXPECT().BatchCreate(
+					gomock.Any(),
+					map[string]string{"/key": "value"},
+				).Return(
+					nil,
+				)
 
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,
@@ -423,7 +451,12 @@ var _ = Describe("EtcdPublisher", func() {
 		Describe("BatchUpdate", func() {
 			It("Test BatchUpdate: ok", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
-				mockEtcdStore.EXPECT().BatchCreate(gomock.Any(), map[string]string{"/key": "value"}).Return(nil)
+				mockEtcdStore.EXPECT().BatchCreate(
+					gomock.Any(),
+					map[string]string{"/key": "value"},
+				).Return(
+					nil,
+				)
 
 				p := &EtcdPublisher{
 					etcdStore: mockEtcdStore,

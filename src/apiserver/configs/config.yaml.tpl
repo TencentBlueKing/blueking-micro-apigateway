@@ -22,13 +22,14 @@ service:
   # 默认允许所有用户访问
   allowedUsers: []
   # 健康检查 API Token
-  healthzToken: ""
+  healthzToken: <masked>
   # 指标 API Token
-  metricToken: ""
+  metricToken: <masked>
   # 是否启用 Swagger 服务
   enableSwagger: false
-  # 文档文件存放目录
+  # 文档，静态文件，模板的基础目录
   docFileBaseDir: docs
+  staticFileBaseDir: static
   appCode: "demo"
   appSecret: "123"
   userTokenKey: "bk_token"
@@ -77,10 +78,10 @@ mysqlconfig:
   port: 3306
   name: bk-micro-apigateway
   user: root
-  password: ""
+  password: <masked>
   charset: utf8mb4
 
-# 加密配置
 crypto:
-  nonce: ""
-  key: ""
+  nonce: k2dbCGetyusW
+  key: jxi18GX5w2qgHwfZCFpn07q8FScXJOd3
+

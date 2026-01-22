@@ -22,21 +22,26 @@ import { getEnvVars } from '@/http';
 interface ILinks {
   bk_feed_back_link: string
   bk_guide_link: string
+  bk_apigateway_link: string
 }
 
 export const useEnv = defineStore('env', {
   state: (): {
+    edition: string,
     links: ILinks,
   } => ({
+    edition: '',
     links: {
       bk_feed_back_link: '',
       bk_guide_link: '',
+      bk_apigateway_link: '',
     },
   }),
 
   actions: {
-    async setLinks() {
+    async setVars() {
       const response = await getEnvVars();
+      this.edition = response.edition;
       this.links = response.links;
     },
   },

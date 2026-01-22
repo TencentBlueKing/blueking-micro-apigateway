@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -43,8 +43,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.consumer
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	serializer.ConsumerInfo	true	"consumer 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.ConsumerInfo	true	"consumer
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers/ [post]
 func ConsumerCreate(c *gin.Context) {
@@ -82,10 +84,9 @@ func ConsumerCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.consumer
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"consumerID"
-//	@Param		request		body	serializer.ConsumerInfo	true	"consumer更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"consumerID"
+//	@Param		request		body	serializer.ConsumerInfo	true	"consumer 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers/{id}/ [put]
 func ConsumerUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -97,6 +98,15 @@ func ConsumerUpdate(c *gin.Context) {
 	req := serializer.ConsumerInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.Consumer, pathParam.ID, req.Config, map[string]any{
+		"username": req.Name, // the key here is "username", not "name"(model.Consumer)
+		"group_id": req.GroupID,
+	}) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -124,6 +134,7 @@ func ConsumerUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ConsumerList ...
@@ -152,8 +163,7 @@ func ConsumerList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -203,8 +213,8 @@ func ConsumerList(c *gin.Context) {
 //	@Summary	consumer 详情
 //	@Produce	json
 //	@Tags		webapi.consumer
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ConsumerOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers/{id}/ [get]
 func ConsumerGet(c *gin.Context) {
@@ -221,9 +231,10 @@ func ConsumerGet(c *gin.Context) {
 	output := serializer.ConsumerOutputInfo{
 		GatewayID: consumer.GatewayID,
 		ConsumerInfo: serializer.ConsumerInfo{
-			ID:     consumer.ID,
-			Name:   consumer.Username,
-			Config: json.RawMessage(consumer.Config),
+			ID:      consumer.ID,
+			Name:    consumer.Username,
+			GroupID: consumer.GroupID,
+			Config:  json.RawMessage(consumer.Config),
 		},
 		CreatedAt: consumer.CreatedAt.Unix(),
 		UpdatedAt: consumer.UpdatedAt.Unix(),
@@ -240,8 +251,8 @@ func ConsumerGet(c *gin.Context) {
 //	@Summary	consumer 删除
 //	@Produce	json
 //	@Tags		webapi.consumer
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers/{id}/ [delete]
 func ConsumerDelete(c *gin.Context) {
@@ -284,7 +295,7 @@ func ConsumerDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.ConsumerDropDownListResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers-dropdown/ [get]
 func ConsumerDropDownList(c *gin.Context) {
-	consumers, err := biz.ListConsumers(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	consumers, err := biz.ListConsumers(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

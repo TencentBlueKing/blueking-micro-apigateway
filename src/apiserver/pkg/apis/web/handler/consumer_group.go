@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -81,10 +81,9 @@ func ConsumerGroupCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.consumer_group
-//	@Param		gateway_id	path	int								true	"网关ID"
-//	@Param		id			path	string							true	"consumer_group ID"
-//	@Param		request		body	serializer.ConsumerGroupInfo	true	"consumer_group更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int								true	"网关 ID"	@Param	id	path	string	true	"consumer_group ID"
+//	@Param		request		body	serializer.ConsumerGroupInfo	true	"consumer_group 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [put]
 func ConsumerGroupUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -96,6 +95,14 @@ func ConsumerGroupUpdate(c *gin.Context) {
 	req := serializer.ConsumerGroupInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.ConsumerGroup, pathParam.ID, req.Config, map[string]any{
+		"name": req.Name,
+	}) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -122,6 +129,7 @@ func ConsumerGroupUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ConsumerGroupList ...
@@ -150,8 +158,7 @@ func ConsumerGroupList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -199,8 +206,8 @@ func ConsumerGroupList(c *gin.Context) {
 //	@Summary	consumer_group 详情
 //	@Produce	json
 //	@Tags		webapi.consumer_group
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ConsumerGroupOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [get]
 func ConsumerGroupGet(c *gin.Context) {
@@ -236,8 +243,8 @@ func ConsumerGroupGet(c *gin.Context) {
 //	@Summary	consumer_group 删除
 //	@Produce	json
 //	@Tags		webapi.consumer_group
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/{id}/ [delete]
 func ConsumerGroupDelete(c *gin.Context) {
@@ -280,7 +287,7 @@ func ConsumerGroupDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.ConsumerGroupDropDownListResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups-dropdown/ [get]
 func ConsumerGroupDropDownList(c *gin.Context) {
-	consumerGroups, err := biz.ListConsumerGroups(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	consumerGroups, err := biz.ListConsumerGroups(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

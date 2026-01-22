@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -42,8 +42,10 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int						true	"网关 ID"
-//	@Param		request		body	serializer.ServiceInfo	true	"service 创建参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.ServiceInfo	true	"service
+//
+// 创建参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/ [post]
 func ServiceCreate(c *gin.Context) {
@@ -81,10 +83,9 @@ func ServiceCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int						true	"网关ID"
-//	@Param		id			path	string					true	"service ID"
-//	@Param		request		body	serializer.ServiceInfo	true	"service更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int						true	"网关 ID"	@Param	id	path	string	true	"service ID"
+//	@Param		request		body	serializer.ServiceInfo	true	"service 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [put]
 func ServiceUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -96,6 +97,15 @@ func ServiceUpdate(c *gin.Context) {
 	req := serializer.ServiceInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.Service, pathParam.ID, req.Config, map[string]any{
+		"name":        req.Name,
+		"upstream_id": req.UpstreamID,
+	}) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -123,6 +133,7 @@ func ServiceUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ServiceList ...
@@ -151,8 +162,7 @@ func ServiceList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -201,8 +211,8 @@ func ServiceList(c *gin.Context) {
 //	@Summary	service 详情
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.ServiceOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [get]
 func ServiceGet(c *gin.Context) {
@@ -241,8 +251,8 @@ func ServiceGet(c *gin.Context) {
 //	@Summary	service 删除
 //	@Produce	json
 //	@Tags		webapi.service
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/{id}/ [delete]
 func ServiceDelete(c *gin.Context) {
@@ -285,7 +295,7 @@ func ServiceDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.ServiceDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/services-dropdown/ [get]
 func ServiceDropDownList(c *gin.Context) {
-	services, err := biz.ListServices(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	services, err := biz.ListServices(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

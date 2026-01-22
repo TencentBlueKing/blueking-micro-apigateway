@@ -221,7 +221,7 @@
 import { IRoute, IRouteConfig } from '@/types/route';
 import { HTTP_METHODS_MAP } from '@/enum';
 import UpstreamForm, { type IFlags } from '@/components/form/form-upstream.vue';
-import { IUpstream, IUpstreamConfig } from '@/types/upstream';
+import { IUpstreamConfig } from '@/types/upstream';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import FormUris from '@/components/form/form-uris.vue';
@@ -231,11 +231,9 @@ import addFormats from 'ajv-formats';
 import ROUTE_JSON from '@/assets/schemas/route.json';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { getRoute, postRoute, putRoute } from '@/http/route';
-import { getUpstreams } from '@/http/upstream';
-import { getPluginConfigs } from '@/http/plugin-config';
-import { IPluginConfigDto } from '@/types/plugin-config';
+import { getUpstream } from '@/http/upstream';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
 import SelectUpstream from '@/components/select/select-upstream.vue';
 import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
@@ -331,10 +329,6 @@ const rules = {
   // ],
 };
 
-const upstreamList = ref<IUpstream[]>([]);
-
-const pluginConfigList = ref<IPluginConfigDto[]>([]);
-
 const enabledPluginList = ref<ILocalPlugin[]>([]);
 
 const isPluginConfigManageSliderVisible = ref(false);
@@ -356,8 +350,6 @@ watch(() => route.params.id, async (id: unknown) => {
       ...restConfig
     } = config;
 
-    await getDependencies();
-
     routeConfig.value = { ...routeConfig.value, ...restConfig };
 
     if (!restConfig.methods?.length) {
@@ -366,9 +358,9 @@ watch(() => route.params.id, async (id: unknown) => {
 
     if (service_id) {
       formModel.value.service_id = service_id;
-      // 路由绑定了服务，上游自动改为不选择
+      // 路由绑定了服务，上游服务有数据且upstream_id不存在改为手动填写，上游服务无数据且upstream_id不存在改为不选择
       if (!upstream_id) {
-        formModel.value.upstream_id = '__none__';
+        formModel.value.upstream_id = remoteUpstream ? '__config__' :  '__none__';
       }
     }
 
@@ -416,14 +408,10 @@ watch(() => route.params.id, async (id: unknown) => {
 }, { immediate: true });
 
 const handleServiceIdChanged = () => {
-  // 如果选择了不绑定服务，上游不允许为“不选择”
-  if (formModel.value.service_id === '__none__' && formModel.value.upstream_id === '__none__') {
-    formModel.value.upstream_id = '__config__';
-  }
-
-  // 选择了绑定的服务，上游自动改为不选择
-  if (formModel.value.service_id && formModel.value.service_id !== '__none__') {
-    formModel.value.upstream_id = '__none__';
+  // 选择了不绑定服务，则上游不允许为“不选择”, 选择了绑定的服务，则上游自动改为不选择
+  const isServiceNone = formModel.value.service_id === '__none__';
+  if (formModel.value.service_id) {
+    formModel.value.upstream_id = isServiceNone ? '__config__' : '__none__';
   }
 };
 
@@ -564,13 +552,17 @@ const handleSubmit = async () => {
 
       if (formModel.value.service_id !== '__none__') {
         data.service_id = formModel.value.service_id;
+
+        if (formModel.value.service_id) {
+          data.config.service_id = formModel.value.service_id;
+        }
       }
 
       // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
-      if (formModel.value.upstream_id !== '__config__' && formModel.value.upstream_id !== '__none__') {
+      if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
         data.upstream_id = formModel.value.upstream_id;
       } else {
-        data.upstream_id = '';
+        delete data.config.upstream_id;
       }
 
       if (routeConfig.value.plugin_config_id) {
@@ -617,40 +609,16 @@ const handleCancelClick = () => {
   router.back();
 };
 
-const getUpstreamList = async () => {
-  const response = await getUpstreams({ query: { offset: 0, limit: 100 } });
-  upstreamList.value = response.results || [];
-};
-
-const handleUpstreamSelect = () => {
+const handleUpstreamSelect = async () => {
   if (!formModel.value.upstream_id || formModel.value.upstream_id === '__config__' || formModel.value.upstream_id === '__none__') {
     upstream.value = createDefaultUpstream();
     return;
   }
 
-  const _upstream = upstreamList.value.find(upstream => upstream.id === formModel.value.upstream_id);
+  const _upstream = await getUpstream({ id: formModel.value.upstream_id });
   const { config } = _upstream;
-  upstream.value = cloneDeep(config);
+  upstream.value = config;
 };
-
-const getPluginConfigList = async () => {
-  const response = await getPluginConfigs();
-  pluginConfigList.value = response.results as IPluginConfigDto[] || [];
-};
-
-const getDependencies = async () => {
-  await Promise.all([
-    getUpstreamList(),
-    getPluginConfigList(),
-  ]);
-};
-
-onMounted(async () => {
-  if (isEditMode.value) {
-    return;
-  }
-  await getDependencies();
-});
 
 </script>
 

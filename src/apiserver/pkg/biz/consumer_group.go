@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -31,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildConsumerGroupQuery 获取 ConsumerGroup 查询对象
+func buildConsumerGroupQuery(ctx context.Context) repo.IConsumerGroupDo {
+	return repo.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildConsumerGroupQueryWithTx 获取 ConsumerGroup 查询对象
+func buildConsumerGroupQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerGroupDo {
+	return tx.ConsumerGroup.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListConsumerGroups 查询网关 ConsumerGroup 列表
-func ListConsumerGroups(ctx context.Context, gatewayID int) ([]*model.ConsumerGroup, error) {
+func ListConsumerGroups(ctx context.Context) ([]*model.ConsumerGroup, error) {
 	u := repo.ConsumerGroup
-	return repo.ConsumerGroup.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildConsumerGroupQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetConsumerGroupOrderExprList 获取 ConsumerGroup 排序字段列表
@@ -58,7 +71,7 @@ func GetConsumerGroupOrderExprList(orderBy string) []field.Expr {
 // ListPagedConsumerGroups 分页查询 ConsumerGroup 列表
 func ListPagedConsumerGroups(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -67,7 +80,7 @@ func ListPagedConsumerGroups(
 	page PageParam,
 ) ([]*model.ConsumerGroup, int64, error) {
 	u := repo.ConsumerGroup
-	query := u.WithContext(ctx)
+	query := buildConsumerGroupQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -98,13 +111,16 @@ func CreateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup)
 
 // BatchCreateConsumerGroups 批量创建 ConsumerGroup
 func BatchCreateConsumerGroups(ctx context.Context, consumerGroups []*model.ConsumerGroup) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildConsumerGroupQueryWithTx(ctx, ginx.GetTx(ctx)).Create(consumerGroups...)
+	}
 	return repo.ConsumerGroup.WithContext(ctx).Create(consumerGroups...)
 }
 
 // UpdateConsumerGroup 更新 ConsumerGroup
 func UpdateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup) error {
 	u := repo.ConsumerGroup
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(consumerGroup.ID)).Select(
+	_, err := buildConsumerGroupQuery(ctx).Where(u.ID.Eq(consumerGroup.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -116,22 +132,18 @@ func UpdateConsumerGroup(ctx context.Context, consumerGroup model.ConsumerGroup)
 // GetConsumerGroup 查询 ConsumerGroup 详情
 func GetConsumerGroup(ctx context.Context, id string) (*model.ConsumerGroup, error) {
 	u := repo.ConsumerGroup
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildConsumerGroupQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryConsumerGroups 搜索 ConsumerGroup
-func QueryConsumerGroups(ctx context.Context, param map[string]interface{}) ([]*model.ConsumerGroup, error) {
-	u := repo.ConsumerGroup
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryConsumerGroups(ctx context.Context, param map[string]any) ([]*model.ConsumerGroup, error) {
+	return buildConsumerGroupQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsConsumerGroup 查询 ConsumerGroup 是否存在
 func ExistsConsumerGroup(ctx context.Context, id string) bool {
 	u := repo.ConsumerGroup
-	groups, err := u.WithContext(ctx).Where(
-		u.ID.Eq(id),
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
-	).Find()
+	groups, err := buildConsumerGroupQuery(ctx).Where(u.ID.Eq(id)).Find()
 	if err != nil {
 		return false
 	}
@@ -154,7 +166,7 @@ func BatchDeleteConsumerGroups(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildConsumerGroupQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -169,7 +181,7 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	consumerGroups, err := QueryConsumerGroups(ctx, map[string]interface{}{
+	consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -179,25 +191,46 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(consumerGroups))
 	for _, consumerGroup := range consumerGroups {
+		// 标识此次更新的操作类型为撤销
+		consumerGroup.OperationType = constant.OperationTypeRevert
 		if consumerGroup.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			consumerGroup.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumerGroup.ID,
+				Config: consumerGroup.Config,
+				Status: consumerGroup.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[consumerGroup.ID]; ok {
-			consumerGroup.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			consumerGroup.Name = syncData.GetName()
 			consumerGroup.Config = syncData.Config
 			consumerGroup.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumerGroup.ID,
+				Config: consumerGroup.Config,
+				Status: consumerGroup.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for consumerGroup id:" + consumerGroup.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.ConsumerGroup, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, consumerGroup := range consumerGroups {
-			err := repo.ConsumerGroup.WithContext(ctx).Save(consumerGroup)
+			_, err := buildConsumerGroupQueryWithTx(ctx, tx).Updates(consumerGroup)
 			if err != nil {
 				return err
 			}

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -19,7 +19,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -28,11 +27,13 @@ import (
 	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -307,15 +308,23 @@ func EtcdExport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	outputs := handExportEtcdResources(resources)
+	outputs, err := handExportEtcdResources(c.Request.Context(), resources)
+	if err != nil {
+		logging.ErrorFWithContext(c.Request.Context(), "handle export etcd resources error: %s", err.Error())
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
 	// response json
 	fileData, _ := json.MarshalIndent(outputs, "", "    ")
 	fileName := fmt.Sprintf("%s_export_etcd_resources.json", ginx.GetGatewayInfo(c).Name)
 	ginx.SuccessFileResponse(c, "text/plain", fileData, fileName)
 }
 
-// handExportEtcdResources 处理导出etcd资源
-func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.EtcdExportOutput {
+// handExportEtcdResources 处理导出 etcd 资源
+func handExportEtcdResources(
+	ctx context.Context,
+	resources []*model.GatewaySyncData,
+) (serializer.EtcdExportOutput, error) {
 	outputs := make(serializer.EtcdExportOutput)
 	for _, resource := range resources {
 		if resource.ID == "" {
@@ -333,7 +342,30 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 		}
 		outputs[resource.Type] = append(outputs[resource.Type], resourceOutput)
 	}
-	return outputs
+	// add schema
+	schemaMap, err := biz.GetCustomizePluginSchemaInfoMap(ctx)
+	if err != nil {
+		logging.ErrorFWithContext(ctx, "get customize plugin schema info map error: %s", err.Error())
+		return nil, err
+	}
+	var schemaInfoList []serializer.ResourceInfo
+	for name, schema := range schemaMap {
+		schemaInfo := map[string]any{
+			"name":    name,
+			"schema":  schema.Schema,
+			"example": schema.Example,
+		}
+		schemaInfoBytes, _ := json.Marshal(schemaInfo)
+		schemaInfoList = append(schemaInfoList, serializer.ResourceInfo{
+			ResourceType: constant.Schema,
+			Name:         name,
+			Config:       schemaInfoBytes,
+		})
+	}
+	if len(schemaInfoList) > 0 {
+		outputs[constant.Schema] = schemaInfoList
+	}
+	return outputs, nil
 }
 
 // ResourceUpload 资源上传 ...
@@ -344,9 +376,9 @@ func handExportEtcdResources(resources []*model.GatewaySyncData) serializer.Etcd
 //	@Produce	json
 //	@Tags		webapi.unify_op
 //	@Accept		multipart/form-data
-//	@Param		resource_file	formData	file							true	"资源配置文件(json)"
-//	@Param		gateway_id		path		int								true	"网关 ID"
-//	@Success	200				{object}	serializer.ResourceUploadInfo	"导入资源列表"
+//	@Param		resource_file	formData	file						true	"资源配置文件 (json)"
+//	@Param		gateway_id		path		int							true	"网关 ID"
+//	@Success	200				{object}	common.ResourceUploadInfo	"导入资源列表"
 //	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/upload/ [post]
 //
 // ResourceUpload handles the upload of resource configuration files for import.
@@ -365,93 +397,31 @@ func ResourceUpload(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	file, _ := fileHeader.Open()
-	defer file.Close()
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(file)
-	if err != nil {
+	var resourceInfoTypeMap map[constant.APISIXResource][]*common.ResourceInfo
+	if err := filex.ReadFileToObject(fileHeader, &resourceInfoTypeMap); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	resourceData := buf.Bytes()
-	var resourceInfoTypeMap map[constant.APISIXResource][]serializer.ResourceInfo
-	if err := json.Unmarshal(resourceData, &resourceInfoTypeMap); err != nil {
+	indexResult, err := common.HandlerResourceIndexMap(c.Request.Context(), resourceInfoTypeMap)
+	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// check 配置
-	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for _, resourceInfoList := range resourceTypeMap {
-		for _, resourceInfo := range resourceInfoList {
-			res := &model.GatewaySyncData{
-				Type:   resourceInfo.Type,
-				ID:     resourceInfo.ID,
-				Config: resourceInfo.Config,
-			}
-			if _, ok := resourceTypeMap[resourceInfo.Type]; ok {
-				resourceTypeMap[resourceInfo.Type] = append(resourceTypeMap[resourceInfo.Type], res)
-				continue
-			}
-			resourceTypeMap[resourceInfo.Type] = []*model.GatewaySyncData{res}
-		}
-	}
-	err = biz.ValidateResource(c.Request.Context(), resourceTypeMap)
+	err = biz.ValidateResource(c.Request.Context(), indexResult.ResourceTypeMap, indexResult.AllResourceIdList,
+		indexResult.AllSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %v", err))
 		return
 	}
-	resources, err := enrichResourceInfo(c.Request.Context(), resourceInfoTypeMap)
+	// 分类整理资源输出信息
+	resources, err := common.ClassifyImportResourceInfo(resourceInfoTypeMap, indexResult.ExistsResourceIdList,
+		indexResult.AddedSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	ginx.SuccessJSONResponse(c, resources)
-}
-
-// enrichResourceInfo enriches resource information by syncing with database and applying filters
-// It takes context, import data list, and name filter as parameters
-// Returns enriched resource information list and error if any
-func enrichResourceInfo(
-	ctx context.Context,
-	importDataList map[constant.APISIXResource][]serializer.ResourceInfo,
-) (*serializer.ResourceUploadInfo, error) {
-	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
-	for _, impList := range importDataList {
-		for _, imp := range impList {
-			if idList, ok := resourceIDMap[imp.ResourceType]; ok {
-				resourceIDMap[imp.ResourceType] = append(idList, imp.ResourceID)
-			} else {
-				resourceIDMap[imp.ResourceType] = []string{imp.ResourceID}
-			}
-		}
-	}
-	dbResourceIDMap := make(map[string]*model.ResourceCommonModel)
-	for resourceType, idList := range resourceIDMap {
-		dbResources, err := biz.BatchGetResources(ctx, resourceType, idList)
-		if err != nil {
-			return nil, err
-		}
-		for _, dbResource := range dbResources {
-			dbResourceIDMap[dbResource.ID] = dbResource
-		}
-	}
-	uploadOutput := &serializer.ResourceUploadInfo{
-		Adds:   make(map[constant.APISIXResource][]serializer.ResourceInfo),
-		Update: make(map[constant.APISIXResource][]serializer.ResourceInfo),
-	}
-	for _, impList := range importDataList {
-		for _, imp := range impList {
-			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
-			if _, ok := dbResourceIDMap[imp.ResourceID]; !ok {
-				imp.Status = constant.UploadStatusAdd
-				uploadOutput.Adds[imp.ResourceType] = append(uploadOutput.Adds[imp.ResourceType], imp)
-			} else {
-				imp.Status = constant.UploadStatusUpdate
-				uploadOutput.Update[imp.ResourceType] = append(uploadOutput.Update[imp.ResourceType], imp)
-			}
-		}
-	}
-	return uploadOutput, nil
 }
 
 // ResourceImport 资源导入 ...
@@ -461,8 +431,8 @@ func enrichResourceInfo(
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.unify_op
-//	@Param		gateway_id	path	int								true	"网关 ID"
-//	@Param		request		body	serializer.ResourceUploadInfo	true	"待导入的资源列表"
+//	@Param		gateway_id	path	int							true	"网关 ID"
+//	@Param		request		body	common.ResourceUploadInfo	true	"待导入的资源列表"
 //	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/import/ [post]
 //
 // ResourceImport handles importing resources from the request body,
@@ -476,18 +446,41 @@ func ResourceImport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	var resourcesImport serializer.ResourceUploadInfo
+	var resourcesImport common.ResourceUploadInfo
 	if err := c.ShouldBindJSON(&resourcesImport); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	addResourcesMap, updateResourcesMap, err := handlerImportResources(c.Request.Context(), resourcesImport)
+	// 处理新增的 schema 资源
+	allSchemaMap, err := biz.GetCustomizePluginSchemaMap(c.Request.Context())
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	addedSchemaMap, err := handleResourceCustomPluginSchema(c, resourcesImport.Add, allSchemaMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	updatedSchemaMap, err := handleResourceCustomPluginSchema(c, resourcesImport.Update, allSchemaMap)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	handleResult, err := common.HandleUploadResources(c.Request.Context(), &resourcesImport, allSchemaMap,
+		map[constant.APISIXResource][]string{})
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// 插入数据
-	err = biz.UploadResources(c.Request.Context(), addResourcesMap, updateResourcesMap)
+	err = biz.UploadResources(
+		c.Request.Context(),
+		handleResult.AddResourceTypeMap,
+		handleResult.UpdateResourceTypeMap,
+		addedSchemaMap,
+		updatedSchemaMap,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -495,49 +488,33 @@ func ResourceImport(c *gin.Context) {
 	ginx.SuccessNoContentResponse(c)
 }
 
-// handlerImportResources 处理导入资源
-func handlerImportResources(
-	ctx context.Context,
-	resourcesImport serializer.ResourceUploadInfo,
-) (map[constant.APISIXResource][]*model.GatewaySyncData, map[constant.APISIXResource][]*model.GatewaySyncData, error) {
-	// 分类聚合
-	resourceTypeAddMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	resourceTypeUpdateMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for resourceType, resourceInfoList := range resourcesImport.Adds {
-		for _, imp := range resourceInfoList {
-			resourceImp := &model.GatewaySyncData{
-				Type:   resourceType,
-				ID:     imp.ResourceID,
-				Config: datatypes.JSON(imp.Config),
+func handleResourceCustomPluginSchema(c *gin.Context, resources map[constant.APISIXResource][]*common.ResourceInfo,
+	allSchemaMap map[string]any,
+) (map[string]*model.GatewayCustomPluginSchema, error) {
+	schemaMap := make(map[string]*model.GatewayCustomPluginSchema)
+	for _, resourceList := range resources {
+		for _, resource := range resourceList {
+			if resource.ResourceType == constant.Schema {
+				schemaModel := &model.GatewayCustomPluginSchema{
+					GatewayID: ginx.GetGatewayInfo(c).ID,
+					Name:      resource.Name,
+					Schema:    datatypes.JSON(gjson.GetBytes(resource.Config, "schema").String()),
+					Example:   datatypes.JSON(gjson.GetBytes(resource.Config, "example").String()),
+					BaseModel: model.BaseModel{
+						Creator: ginx.GetUserIDFromContext(c),
+						Updater: ginx.GetUserIDFromContext(c),
+					},
+					OperationType: constant.OperationImport,
+				}
+				schemaMap[resource.Name] = schemaModel
+				var schemaInfo map[string]any
+				err := json.Unmarshal(schemaModel.Schema, &schemaInfo)
+				if err != nil {
+					return nil, err
+				}
+				allSchemaMap[resource.Name] = schemaInfo
 			}
-			if _, ok := resourceTypeAddMap[imp.ResourceType]; !ok {
-				resourceTypeAddMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeAddMap[resourceType] = append(resourceTypeAddMap[resourceType], resourceImp)
 		}
 	}
-	err := biz.ValidateResource(ctx, resourceTypeAddMap)
-	if err != nil {
-		return nil, nil, fmt.Errorf("add resources validate failed, err: %v", err)
-	}
-	for resourceType, resourceInfoList := range resourcesImport.Update {
-		for _, imp := range resourceInfoList {
-			resourceImp := &model.GatewaySyncData{
-				Type:   resourceType,
-				ID:     imp.ResourceID,
-				Config: datatypes.JSON(imp.Config),
-			}
-			if _, ok := resourceTypeUpdateMap[imp.ResourceType]; ok {
-				resourceTypeUpdateMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeUpdateMap[resourceType] = append(resourceTypeUpdateMap[resourceType], resourceImp)
-		}
-	}
-	err = biz.ValidateResource(ctx, resourceTypeUpdateMap)
-	if err != nil {
-		return nil, nil, fmt.Errorf("updated resources validate failed, err: %v", err)
-	}
-	return resourceTypeAddMap, resourceTypeUpdateMap, nil
+	return schemaMap, nil
 }

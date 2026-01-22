@@ -26,6 +26,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // Syncer ...
@@ -52,8 +53,15 @@ func (s *Syncer) Run() {
 			ctx := context.Background()
 			u := repo.GatewaySyncData
 			err := repo.Q.Transaction(func(tx *repo.Query) error {
+				if len(resourceList) == 0 {
+					return nil
+				}
 				// 先删除后插入
-				_, err := tx.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(resourceList[0].GatewayID)).
+				_, err := tx.GatewaySyncData.WithContext(
+					ctx,
+				).Where(
+					u.GatewayID.Eq(resourceList[0].GatewayID),
+				).
 					Delete()
 				if err != nil {
 					return err
@@ -61,30 +69,43 @@ func (s *Syncer) Run() {
 				return tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourceList, 500)
 			})
 			if err != nil {
-				logging.Errorf("sync gateway:%d resource error: %s", resourceList[0].GatewayID, err.Error())
+				logging.Errorf(
+					"sync gateway:%d resource error: %s",
+					resourceList[0].GatewayID,
+					err.Error(),
+				)
 			}
 		}
 	}
 }
 
+// buildSyncedItemQuery 获取查询同步资源列表的 query
+func buildSyncedItemQuery(ctx context.Context) repo.IGatewaySyncDataDo {
+	return repo.GatewaySyncData.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListPagedSyncedItems 分页查询同步资源列表
 func ListPagedSyncedItems(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	page PageParam,
 ) ([]*model.GatewaySyncData, int64, error) {
 	u := repo.GatewaySyncData
-	return u.WithContext(ctx).Where(field.Attrs(param)).Order(u.CreatedAt.Desc()).FindByPage(page.Offset, page.Limit)
+	return buildSyncedItemQuery(ctx).
+		Where(field.Attrs(param)).
+		Order(u.CreatedAt.Desc()).
+		FindByPage(page.Offset, page.Limit)
 }
 
 // QuerySyncedItems 查询同步资源
-func QuerySyncedItems(ctx context.Context, param map[string]interface{}) ([]*model.GatewaySyncData, error) {
-	u := repo.GatewaySyncData
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QuerySyncedItems(ctx context.Context, param map[string]any) ([]*model.GatewaySyncData, error) {
+	return buildSyncedItemQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // GetSyncedItemByID 通过 ID 获取同步资源
-func GetSyncedItemByID(ctx context.Context, gatewayID int, id string) (*model.GatewaySyncData, error) {
+func GetSyncedItemByID(ctx context.Context, id string) (*model.GatewaySyncData, error) {
 	u := repo.GatewaySyncData
-	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID), u.ID.Eq(id)).Take()
+	return buildSyncedItemQuery(ctx).Where(u.ID.Eq(id)).Take()
 }

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -47,16 +47,16 @@ type Gateway struct {
 	Maintainers   pq.StringArray `gorm:"column:maintainers;type:text"`                     // 网关负责人
 	Desc          string         `gorm:"column:desc;type:text"`                            // 网关描述
 	APISIXType    string         `gorm:"column:apisix_type;type:varchar(255)"`             // apisix/bk-apisix/tapisix
-	APISIXVersion string         `gorm:"column:apisix_version;type:varchar(255)"`          // apisix实例版本
-	EtcdConfig    EtcdConfig     `gorm:"column:etcd_config;type:json"`                     // etcd组件配置，JSON存储
-	Token         string         `gorm:"column:token;type:varchar(255)"`                   // 网关token
+	APISIXVersion string         `gorm:"column:apisix_version;type:varchar(255)"`          // apisix 实例版本
+	EtcdConfig    EtcdConfig     `gorm:"column:etcd_config;type:json"`                     // etcd 组件配置，JSON 存储
+	Token         string         `gorm:"column:token;type:varchar(255)"`                   // 网关 token
 	ReadOnly      bool           `gorm:"column:read_only;type:tinyint"`                    // 是否只读
 	LastSyncedAt  time.Time      `json:"last_synced_at" gorm:"type:datetime;default:null"` // 上次同步时间
 	auditSnapshot datatypes.JSON `gorm:"-"`                                                // 用于审计日志传递网关信息，不持久化到数据库
 	BaseModel
 }
 
-// EtcdConfig etcd配置
+// EtcdConfig etcd 配置
 type EtcdConfig struct {
 	InstanceID string `json:"instance_id,omitempty"`
 	base.EtcdConfig
@@ -91,7 +91,7 @@ func (g Gateway) GetAPISIXVersionX() constant.APISIXVersion {
 
 // HasPermission 是否有权限
 func (g *Gateway) HasPermission(userID string) bool {
-	// demo模式有所有网关的权限
+	// demo 模式有所有网关的权限
 	if config.IsDemoMode() {
 		return true
 	}
@@ -117,14 +117,33 @@ func (g *Gateway) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := g.HandleEtcdConfig(false); err != nil {
 		return err
 	}
+	// 如果只更新 last_synced_at 字段(同步操作)，跳过审计快照
+	if isOnlyLastSyncedAtUpdate(tx) {
+		return nil
+	}
 	g.auditSnapshot, err = g.Snapshot(tx)
 	return err
 }
 
 // AfterUpdate 更新后钩子
 func (g *Gateway) AfterUpdate(tx *gorm.DB) (err error) {
+	// 如果只更新 last_synced_at 字段(同步操作)，跳过审计记录
+	if isOnlyLastSyncedAtUpdate(tx) {
+		return nil
+	}
 	// 添加审计
 	return g.AddAuditLog(tx, constant.OperationTypeUpdate)
+}
+
+// isOnlyLastSyncedAtUpdate 检查是否只更新了 last_synced_at 字段
+func isOnlyLastSyncedAtUpdate(tx *gorm.DB) bool {
+	// 检查是否指定了 Select 字段
+	selects := tx.Statement.Selects
+	if len(selects) == 0 {
+		return false
+	}
+	// 如果只选择了一个字段且是 last_synced_at，则认为是同步操作
+	return len(selects) == 1 && (selects[0] == "LastSyncedAt" || selects[0] == "last_synced_at")
 }
 
 // BeforeDelete 删除前钩子
@@ -156,7 +175,11 @@ func (g *Gateway) CopyAndMaskPassword() Gateway {
 	}
 	if gateway.EtcdConfig.GetSchemaType() == constant.HTTP {
 		pwd := gateway.EtcdConfig.Password
-		gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
+		if len(pwd) >= 6 {
+			gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
+		} else {
+			gateway.EtcdConfig.Password = fmt.Sprintf("%s****", pwd[:3])
+		}
 	}
 	return gateway
 }
@@ -207,7 +230,7 @@ func (g *Gateway) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (er
 	)
 }
 
-// HandleEtcdConfig 处理etcd配置
+// HandleEtcdConfig 处理 etcd 配置
 func (g *Gateway) HandleEtcdConfig(read bool) (err error) {
 	g.EtcdConfig.Password, err = getSecret(g.EtcdConfig.Password, read)
 	if err != nil {
@@ -253,4 +276,62 @@ func getSecret(secret string, read bool) (string, error) {
 func (g *Gateway) RemoveSensitive() {
 	g.EtcdConfig.Password = constant.SensitiveInfoFiledDisplay
 	g.Token = constant.SensitiveInfoFiledDisplay
+}
+
+// RemoveEndpointProtocol 去除 endpoint 地址的协议前缀（http:// 或 https://）
+func RemoveEndpointProtocol(endpoint string) string {
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	return endpoint
+}
+
+// GetEtcdPrefixForList 获取用于 etcd list 操作的 prefix（带 "/" 结尾）
+// 确保前缀匹配时不会匹配到同名前缀的其他网关资源
+// 例如：prefix "a-b" 会变成 "a-b/"，避免匹配到 "a-b-test" 的资源
+func (g *Gateway) GetEtcdPrefixForList() string {
+	return NormalizeEtcdPrefix(g.EtcdConfig.Prefix)
+}
+
+// GetEtcdResourcePrefix 获取指定资源类型的 etcd prefix（用于 list 操作）
+func (g *Gateway) GetEtcdResourcePrefix(resourceType constant.APISIXResource) string {
+	basePrefix := g.GetEtcdPrefixForList()
+	resourcePrefix := constant.ResourceTypePrefixMap[resourceType]
+	if resourcePrefix == "" {
+		return basePrefix
+	}
+	return fmt.Sprintf("%s%s/", basePrefix, resourcePrefix)
+}
+
+// NormalizeEtcdPrefix 标准化 etcd prefix，确保以 "/" 结尾
+// 用于 etcd list 操作，避免前缀匹配冲突
+func NormalizeEtcdPrefix(prefix string) string {
+	if prefix == "" {
+		return "/"
+	}
+	// 确保以 "/" 结尾
+	if !strings.HasSuffix(prefix, "/") {
+		return prefix + "/"
+	}
+	return prefix
+}
+
+// CheckEtcdPrefixConflict 检查两个 etcd prefix 是否存在层级冲突
+// 冲突情况：
+// 1. 两个 prefix 完全相同（标准化后）
+// 2. 一个 prefix 是另一个的父路径（如 a/b 和 a/b/c）
+// 注意：a-b 和 a-b-test 不算冲突，因为加上 "/" 后不会互相匹配
+func CheckEtcdPrefixConflict(prefix1, prefix2 string) bool {
+	// 标准化处理：确保以 "/" 结尾，便于比较层级关系
+	p1 := NormalizeEtcdPrefix(prefix1)
+	p2 := NormalizeEtcdPrefix(prefix2)
+
+	// 完全相同
+	if p1 == p2 {
+		return true
+	}
+
+	// 检查是否互为父子路径
+	// p1="/a/b/" 和 p2="/a/b/c/" 冲突，因为 p1 是 p2 的前缀
+	// p1="/a-b/" 和 p2="/a-b-test/" 不冲突，因为互不为前缀
+	return strings.HasPrefix(p1, p2) || strings.HasPrefix(p2, p1)
 }

@@ -83,7 +83,7 @@ func TestBaseErrorJSONResponseWithData(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	extraData := map[string]interface{}{"field": "value"}
+	extraData := map[string]any{"field": "value"}
 	ginx.BaseErrorJSONResponseWithData(c, "TEST_ERROR", "test message", http.StatusBadRequest, extraData)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -120,9 +120,13 @@ func TestNewErrorJSONResponse(t *testing.T) {
 		c.Request.Header.Set("X-Request-Id", "test-request-id")
 
 		// 设置上下文中的验证错误
-		ctx := context.WithValue(c.Request.Context(), constant.APISIXValidateErrKey, &schema.APISIXValidateError{
-			Err: errors.New("validation error from context"),
-		})
+		ctx := context.WithValue(
+			c.Request.Context(),
+			constant.APISIXValidateErrKey,
+			&schema.APISIXValidateError{
+				Err: errors.New("validation error from context"),
+			},
+		)
 		c.Request = c.Request.WithContext(ctx)
 
 		// 模拟验证错误

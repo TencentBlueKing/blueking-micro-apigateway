@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -26,11 +26,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -41,7 +43,7 @@ import (
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string									true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string									true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string									true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath					true	"资源类型"
 //	@Param		request			body		serializer.ResourceBatchCreateRequest	true	"资源创建参数"
@@ -57,7 +59,10 @@ func ResourceBatchCreate(c *gin.Context) {
 	var names []string
 	for _, resource := range req {
 		if _, ok := nameMap[resource.Name]; ok {
-			ginx.BadRequestErrorJSONResponse(c, fmt.Errorf("resource name: %s is not unique", resource.Name))
+			ginx.BadRequestErrorJSONResponse(
+				c,
+				fmt.Errorf("resource name: %s is not unique", resource.Name),
+			)
 			return
 		}
 		nameMap[resource.Name] = struct{}{}
@@ -84,8 +89,11 @@ func ResourceBatchCreate(c *gin.Context) {
 	var res []serializer.ResourceCreateResponse
 	for _, resource := range resources {
 		res = append(res, serializer.ResourceCreateResponse{
-			ID:   resource.ID,
-			Name: gjson.GetBytes(resource.Config, model.GetResourceNameKey(ginx.GetResourceType(c))).String(),
+			ID: resource.ID,
+			Name: gjson.GetBytes(
+				resource.Config,
+				model.GetResourceNameKey(ginx.GetResourceType(c)),
+			).String(),
 		})
 	}
 	ginx.SuccessJSONResponse(c, res)
@@ -98,7 +106,7 @@ func ResourceBatchCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string								true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string								true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string								true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath				true	"资源类型"
 //	@Param		request			query		serializer.ResourceBatchGetRequest	true	"资源查询参数"
@@ -133,7 +141,7 @@ func ResourceBatchGet(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string									true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string									true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string									true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath					true	"资源类型"
 //	@Param		request			body	serializer.ResourceBatchDeleteRequest	true	"批量删除资源参数"
@@ -178,7 +186,7 @@ func ResourceBatchDelete(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string					true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath	true	"资源类型"
 //	@Param		id				path		string					true	"资源 ID"
@@ -210,7 +218,7 @@ func ResourceGet(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header		string					true	"创建网关返回的 token"
 //	@Param		gateway_name	path		string					true	"网关名称"
 //	@Param		resource_type	path		constant.ResourcePath	true	"资源类型"
 //	@Param		id				path		string					true	"资源 ID"
@@ -241,12 +249,12 @@ func ResourceGetStatus(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string								true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath				true	"资源类型"
 //	@Param		id				path	string								true	"资源 ID"
 //	@Param		request			body	serializer.ResourceUpdateRequest	true	"资源更新参数"
-//	@Success	201
+//	@Success	204
 //	@Router		/api/v1/open/gateways/{gateway_name}/resources/{resource_type}/{id}/ [put]
 func ResourceUpdate(c *gin.Context) {
 	var pathParam serializer.ResourcePathParam
@@ -260,7 +268,7 @@ func ResourceUpdate(c *gin.Context) {
 		return
 	}
 	duplicated := biz.DuplicatedResourceName(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, req.Name)
-	if !duplicated {
+	if duplicated {
 		ginx.BadRequestErrorJSONResponse(c, errors.New(
 			fmt.Sprintf("name: %s is duplicated with existing %s", req.Name, ginx.GetResourceType(c)),
 		))
@@ -280,6 +288,7 @@ func ResourceUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // ResourceDelete ...
@@ -289,7 +298,7 @@ func ResourceUpdate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string					true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string					true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath	true	"资源类型"
 //	@Param		id				path	string					true	"资源 ID"
@@ -321,7 +330,7 @@ func ResourceDelete(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		openapi.resource
-//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的token"
+//	@Param		X-BK-API-TOKEN	header	string								true	"创建网关返回的 token"
 //	@Param		gateway_name	path	string								true	"网关名称"
 //	@Param		resource_type	path	constant.ResourcePath				true	"资源类型"
 //	@Param		request			body	serializer.ResourcePublishRequest	true	"资源删除参数"
@@ -339,4 +348,64 @@ func ResourcePublish(c *gin.Context) {
 		return
 	}
 	ginx.SuccessCreateResponse(c)
+}
+
+// ResourceImport ...
+//
+//	@ID			openapi_resource_import
+//	@Summary	资源导入
+//	@Accept		json
+//	@Produce	json
+//	@Tags		openapi.resource
+//	@Param		X-BK-API-TOKEN	header	string	true	"创建网关返回的 token"
+//	@Param		gateway_name	path	string	true	"网关名称"
+//	@Accept		multipart/form-data
+//	@Param		resource_file	formData	file	true	"资源配置文件 (json)"
+//	@Success	200				{object}	common.ResourceUploadInfo
+//	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/import/ [post]
+func ResourceImport(c *gin.Context) {
+	fileHeader, err := c.FormFile("resource_file")
+	if err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	var resourceImport serializer.ResourceImportRequest
+	if err := filex.ReadFileToObject(fileHeader, &resourceImport); err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	handlerResourceIndexResult, err := common.HandlerResourceIndexMap(c.Request.Context(),
+		resourceImport.Data)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	uploadInfo, err := common.ClassifyImportResourceInfo(
+		resourceImport.Data,
+		handlerResourceIndexResult.ExistsResourceIdList,
+		handlerResourceIndexResult.AddedSchemaMap,
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	handlerResult, err := common.HandleUploadResources(c.Request.Context(),
+		uploadInfo, handlerResourceIndexResult.AllSchemaMap, resourceImport.Metadata.IgnoreFields)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	// 插入数据
+	err = biz.UploadResources(
+		c.Request.Context(),
+		handlerResult.AddResourceTypeMap,
+		handlerResult.UpdateResourceTypeMap,
+		handlerResourceIndexResult.AddedSchemaMap,
+		handlerResourceIndexResult.UpdatedSchemaMap,
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	ginx.SuccessJSONResponse(c, uploadInfo)
 }

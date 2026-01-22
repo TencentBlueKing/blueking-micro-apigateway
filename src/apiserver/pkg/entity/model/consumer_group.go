@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -29,8 +29,10 @@ import (
 
 // ConsumerGroup 表示数据库中的 consumer_group 表
 type ConsumerGroup struct {
-	Name                string `gorm:"column:name;type:varchar(255);not null;uniqueIndex:idx_name"` // 消费group name
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	// 消费 group name
+	Name                string                 `gorm:"column:name;type:varchar(255);not null;uniqueIndex:idx_name"`
+	ResourceCommonModel                        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -61,6 +63,10 @@ func (c *ConsumerGroup) BeforeUpdate(tx *gorm.DB) (err error) {
 	err = ResourceSchemaCallback(tx, c.GatewayID, c.ID, constant.ConsumerGroup, c.Config)
 	if err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if c.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return c.AddAuditLog(tx, constant.OperationTypeUpdate)
@@ -94,7 +100,7 @@ func (c *ConsumerGroup) AddAuditLog(tx *gorm.DB, operation constant.OperationTyp
 		c.GatewayID, c.ID, c.Updater, c.Status, operation, constant.ConsumerGroup, originConfig, c.Config)
 }
 
-// HandleConfig 处理config
+// HandleConfig 处理 config
 func (c *ConsumerGroup) HandleConfig() (err error) {
 	c.Config, err = sjson.SetBytes(c.Config, "id", c.ID)
 	if err != nil {

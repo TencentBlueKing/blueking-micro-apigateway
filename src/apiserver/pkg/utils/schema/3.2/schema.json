@@ -2644,6 +2644,20 @@
               "type": "integer"
             }
           ]
+        },
+        "service_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[a-zA-Z0-9-_.]+$",
+              "type": "string"
+            },
+            {
+              "minimum": 1,
+              "type": "integer"
+            }
+          ]
         }
       },
       "type": "object"
@@ -7346,7 +7360,10 @@
               "apisix"
             ],
             "items": {
-              "pattern": "^(?!tag=)[ -~]*",
+              "pattern": "^[ -~]*$",
+              "not": {
+                "pattern": "^tag="
+              },
               "type": "string"
             },
             "minItems": 1,

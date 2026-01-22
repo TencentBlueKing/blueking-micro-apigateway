@@ -41,7 +41,11 @@
             </BkFormItem>
 
             <BkFormItem :label="t('绑定服务')" class="form-item">
-              <SelectService v-model="formModel.service_id" :check-disabled="formModel.service_id === '__none__'">
+              <SelectService
+                v-model="formModel.service_id"
+                :check-disabled="formModel.service_id === '__none__'"
+                @change="handleServiceChange"
+              >
                 <BkOption id="__none__" :name="t('不绑定服务')" />
               </SelectService>
             </BkFormItem>
@@ -94,9 +98,18 @@
                   v-model="formModel.upstream_id"
                   :check-disabled="!formModel.upstream_id
                     || ['__config__', '__none__'].includes(formModel.upstream_id)"
-                  :static-options="upstreamOptions"
                   @change="handleUpstreamSelect"
-                />
+                >
+                  <BkOption
+                    id="__none__"
+                    :disabled="['__none__'].includes(formModel.service_id)"
+                    :name="t('不选择（仅在已绑定了服务时可用）')"
+                  />
+                  <BkOption
+                    id="__config__"
+                    :name="t('手动填写（会覆盖绑定服务的配置）')"
+                  />
+                </SelectUpstream>
               </BkFormItem>
             </BkForm>
 
@@ -118,15 +131,6 @@
           <template #subTitle>{{ t('可直接使用插件组，或逐个添加插件，也可组合使用') }}</template>
           <div>
             <BkForm class="form-element">
-              <BkFormItem :label="t('插件组')" class="form-item">
-                <SelectPluginConfig v-model="routeConfig.plugin_config_id" />
-                <div class="common-form-tips" style="line-height: 1.2;margin-top: 4px;">
-                  {{
-                    t('可以将一组通用的插件配置提取成插件组，然后在路由中引用；' +
-                      '对于同一个插件的配置，只能有一个是有效的，优先级为 Consumer > Route > Plugin Config > Service。')
-                  }}
-                </div>
-              </BkFormItem>
               <BkFormItem :label="t('插件')" class="form-item">
                 <ButtonIcon
                   icon-color="#3a84ff"
@@ -157,13 +161,13 @@
 
 <script lang="ts" setup>
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
-import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { Form, InfoBox, Message } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { IStreamRoute, IStreamRouteConfig } from '@/types/stream-route';
-import { IUpstream, IUpstreamConfig } from '@/types/upstream';
-import { getUpstreams } from '@/http/upstream';
+import { IUpstreamConfig } from '@/types/upstream';
+import { getUpstream } from '@/http/upstream';
 import { getStreamRoute, postStreamRoute, putStreamRoute } from '@/http/stream-route';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import Ajv from 'ajv';
@@ -181,7 +185,6 @@ import FormLabelsNew from '@/components/form/form-labels-new.vue';
 import FormRemoteAddressNew from '@/components/form/form-remote-addrs-new.vue';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import SelectUpstream from '@/components/select/select-upstream.vue';
-import SelectPluginConfig from '@/components/select/select-plugin-config.vue';
 import SelectService from '@/components/select/select-service.vue';
 
 interface ILocalPlugin {
@@ -246,37 +249,12 @@ const rules = {
   ],
 };
 
-const upstreamOptions = ref([
-  {
-    id: '__none__',
-    name: t('不选择（仅在已绑定了服务时可用）'),
-  },
-  {
-    id: '__config__',
-    name: t('手动填写（会覆盖绑定服务的配置）'),
-  },
-]);
-
-const upstreamList = ref<IUpstream[]>([]);
-
 const enabledPluginList = ref<ILocalPlugin[]>([]);
 
 const isPluginConfigManageSliderVisible = ref(false);
 
 const routeDtoId = computed(() => {
   return route.params.id as string;
-});
-
-watch(() => formModel.value.service_id, () => {
-  // 如果选择了不绑定服务，上游不允许为“不选择”
-  if (formModel.value.service_id === '__none__' && formModel.value.upstream_id === '__none__') {
-    formModel.value.upstream_id = '__config__';
-  }
-
-  // 选择了绑定的服务，上游自动改为不选择
-  if (formModel.value.service_id && formModel.value.service_id !== '__none__') {
-    formModel.value.upstream_id = '__none__';
-  }
 });
 
 watch(() => route.params.id, async (id: string | null) => {
@@ -288,8 +266,6 @@ watch(() => route.params.id, async (id: string | null) => {
       plugins: remotePlugins,
       ...restConfig
     } = config;
-
-    await getDependencies();
 
     routeConfig.value = { ...routeConfig.value, ...restConfig };
 
@@ -305,9 +281,9 @@ watch(() => route.params.id, async (id: string | null) => {
 
     if (service_id) {
       formModel.value.service_id = service_id;
-      // 路由绑定了服务，上游自动改为不选择
+      // 路由绑定了服务，上游服务有数据且upstream_id不存在改为手动填写，上游服务无数据且upstream_id不存在改为不选择
       if (!upstream_id) {
-        formModel.value.upstream_id = '__none__';
+        formModel.value.upstream_id = remoteUpstream ? '__config__' :  '__none__';
       }
     }
 
@@ -435,10 +411,6 @@ const handleSubmit = async () => {
       delete config.upstream_id;
     }
 
-    if (!config.plugin_config_id) {
-      delete config.plugin_config_id;
-    }
-
     // 校验表单
     await Promise.all([
       formRef.value?.validate(),
@@ -492,15 +464,14 @@ const handleSubmit = async () => {
 
       if (!['__none__'].includes(formModel.value.service_id)) {
         data.service_id = formModel.value.service_id;
+        if (formModel.value.service_id) {
+          data.config.service_id = formModel.value.service_id;
+        }
       }
 
       // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
       if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
-        data.upstream_id =  formModel.value.upstream_id;
-      }
-
-      if (routeConfig.value.plugin_config_id) {
-        data.plugin_config_id = routeConfig.value.plugin_config_id;
+        data.upstream_id = formModel.value.upstream_id;
       }
 
       InfoBox({
@@ -541,33 +512,25 @@ const handleCancelClick = () => {
   router.back();
 };
 
-const getUpstreamList = async () => {
-  const response = await getUpstreams({ query: { offset: 0, limit: 100 } });
-  upstreamList.value = response.results || [];
+// 绑定服务联动选择上游服务
+const handleServiceChange = () => {
+  // 选择了不绑定服务，则上游不允许为“不选择”, 选择了绑定的服务，则上游自动改为不选择
+  const isServiceNone = formModel.value.service_id === '__none__';
+  if (formModel.value.service_id) {
+    formModel.value.upstream_id = isServiceNone ? '__config__' : '__none__';
+  }
 };
 
-const handleUpstreamSelect = () => {
+const handleUpstreamSelect = async () => {
   if (!formModel.value.upstream_id || ['__config__', '__none__'].includes(formModel.value.upstream_id)) {
     upstream.value = createDefaultUpstream();
     return;
   }
 
-  const curUpstream = upstreamList.value.find(upstream => upstream.id === formModel.value.upstream_id) ?? {};
-  if (curUpstream) {
-    upstream.value = cloneDeep(curUpstream.config);
-  }
+  const _upstream = await getUpstream({ id: formModel.value.upstream_id });
+  const { config } = _upstream;
+  upstream.value = config;
 };
-
-const getDependencies = async () => {
-  await getUpstreamList();
-};
-
-onMounted(() => {
-  if (isEditMode.value) {
-    return;
-  }
-  getDependencies();
-});
 
 </script>
 

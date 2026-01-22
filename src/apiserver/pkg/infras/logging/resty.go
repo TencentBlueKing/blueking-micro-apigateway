@@ -34,17 +34,17 @@ func New() *Logger {
 }
 
 // Errorf ...
-func (l *Logger) Errorf(format string, v ...interface{}) {
+func (l *Logger) Errorf(format string, v ...any) {
 	logf(slog.LevelError, format, v...)
 }
 
 // Warnf ...
-func (l *Logger) Warnf(format string, v ...interface{}) {
+func (l *Logger) Warnf(format string, v ...any) {
 	logf(slog.LevelWarn, format, v...)
 }
 
 // Debugf ...
-func (l *Logger) Debugf(format string, v ...interface{}) {
+func (l *Logger) Debugf(format string, v ...any) {
 	logf(slog.LevelDebug, format, v...)
 }
 

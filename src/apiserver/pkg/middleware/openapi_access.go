@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -34,7 +34,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
-// OpenAPIAccess  openapi权限校验
+// OpenAPIAccess  openapi 权限校验
 func OpenAPIAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gatewayName := c.Param("gateway_name")
@@ -51,7 +51,7 @@ func OpenAPIAccess() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			// 非第一次注册，则校验token
+			// 非第一次注册，则校验 token
 			if !config.G.Service.Standalone && queryToken != gatewayInfo.Token {
 				c.AbortWithStatus(http.StatusUnauthorized)
 				return
@@ -60,8 +60,8 @@ func OpenAPIAccess() gin.HandlerFunc {
 		}
 
 		// 两种情况：
-		// 独立部署,校验token是否是在白名单里面。
-		// 非独立部署，校验token是否是自动生成的。
+		// 独立部署，校验 token 是否是在白名单里面。
+		// 非独立部署，校验 token 是否是自动生成的。
 		if config.G.Service.Standalone &&
 			(queryToken == "" || !config.G.Biz.OpenApiTokenWhitelist[queryToken]) {
 			log.ErrorFWithContext(c.Request.Context(), "openapi token [%s] is not valid", queryToken)

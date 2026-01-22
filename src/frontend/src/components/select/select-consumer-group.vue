@@ -89,7 +89,7 @@ const viewerConfig = ref<{ resource: IConsumerGroup | null, source: string, visi
 });
 
 const getOptions = async () => {
-  const response = await getConsumerGroups();
+  const response = await getConsumerGroups({ query: { limit: 100, offset: 0 } });
   const results = response?.results || [];
   consumerGroupOptions.value.push(...results.map((consumerGroup: IConsumerGroup) => {
     let desc = '';

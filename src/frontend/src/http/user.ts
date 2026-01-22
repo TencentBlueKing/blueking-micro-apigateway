@@ -34,9 +34,11 @@ export const getFeatureFlags = (data: Record<string, any>) => fetch.get(`${BK_DA
 export const getVersionLog = (): Promise<IVersionLogItem[]> => fetch.get(`${BK_DASHBOARD_URL}/version-log/`);
 
 export const getEnvVars = (): Promise<{
+  edition: string;
   links: {
-    bk_feed_back_link: string,
-    bk_guide_link: string
+    bk_feed_back_link: string;
+    bk_guide_link: string;
+    bk_apigateway_link: string;
   }
 }> => fetch.get(`${BK_DASHBOARD_URL}/env-vars/`);
 

@@ -39,7 +39,7 @@
 </template>
 
 <script lang="tsx" setup>
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref } from 'vue';
 import { IStreamRoute } from '@/types';
 import { FilterOptionClass, type IFilterOption } from '@/types/table-filter';
 import { type PrimaryTableProps, type TableRowData } from '@blueking/tdesign-ui';
@@ -68,55 +68,62 @@ const source = ref('');
 let serviceNameMap: Record<string, string> = {};
 let upstreamNameMap: Record<string, string> = {};
 
-const columns = shallowRef<PrimaryTableProps['columns']>([
-  {
-    title: 'ID',
-    colKey: 'id',
-    ellipsis: true,
-  },
-  {
-    title: t('描述'),
-    colKey: 'desc',
-    ellipsis: true,
-    cell: (h, { row }: TableRowData) => row.config?.desc || '--',
-  },
-  {
-    title: t('服务'),
-    colKey: 'service_id',
-    ellipsis: true,
-    filter: {
-      type: 'single',
-      showConfirmAndReset: true,
-      list: getFilterOptions({ options: serviceSelectOptions.value, extra: true }),
-      popupProps: {
-        overlayInnerClassName: 'custom-radio-filter-wrapper',
-      },
+const columns = computed<PrimaryTableProps['columns']>(() => {
+  return [
+    {
+      title: 'ID',
+      colKey: 'id',
+      ellipsis: true,
     },
-    cell: (h, { row }: TableRowData) => (row.service_id
-      ? <bk-button
+    {
+      title: t('描述'),
+      colKey: 'desc',
+      ellipsis: true,
+      cell: (h, { row }: TableRowData) => row.config?.desc || '--',
+    },
+    {
+      title: t('服务'),
+      colKey: 'service_id',
+      ellipsis: true,
+      width: 120,
+      filter: {
+        type: 'single',
+        showConfirmAndReset: true,
+        list: getFilterOptions({
+          options: serviceSelectOptions.value,
+          extra: true,
+        }),
+        popupProps: {
+          overlayInnerClassName: 'custom-radio-filter-wrapper',
+        },
+      },
+      cell: (h, { row }: TableRowData) => (row.service_id
+        ? <bk-button
         text theme="primary"
         onClick={() => handleRelatedResourceIdClicked({ routeName: 'service', id: row.service_id })}
       >{serviceNameMap[row.service_id]}</bk-button> : '--'),
-  },
-  {
-    title: t('上游'),
-    colKey: 'upstream_id',
-    ellipsis: true,
-    filter: {
-      type: 'single',
-      showConfirmAndReset: true,
-      list: getFilterOptions({ options: upstreamSelectOptions.value, extra: true }),
-      popupProps: {
-        overlayInnerClassName: 'custom-radio-filter-wrapper',
-      },
     },
-    cell: (h, { row }: TableRowData) => (row.upstream_id
-      ? <bk-button
+    {
+      title: t('上游'),
+      colKey: 'upstream_id',
+      ellipsis: true,
+      width: 120,
+      filter: {
+        type: 'single',
+        showConfirmAndReset: true,
+        list: getFilterOptions({ options: upstreamSelectOptions.value, extra: true }),
+        popupProps: {
+          overlayInnerClassName: 'custom-radio-filter-wrapper',
+        },
+      },
+      cell: (h, { row }: TableRowData) => (row.upstream_id
+        ? <bk-button
         text theme="primary"
         onClick={() => handleRelatedResourceIdClicked({ routeName: 'upstream', id: row.upstream_id })}
       >{upstreamNameMap[row.upstream_id]}</bk-button> : '--'),
-  },
-]);
+    },
+  ];
+});
 
 const extraSearchOptions = computed(() => [
   {
@@ -161,13 +168,10 @@ const getServiceSelectOptions = async () => {
   serviceSelectOptions.value = (response ?? []).map(item => ({
     name: item.name,
     id: item.id,
+    label: item.name,
+    value: item.id,
     desc: item.desc,
   }));
-  const filterOptions = getFilterOptions({ options: serviceSelectOptions.value, extra: true });
-  const groupCol = columns.value.find(col => ['service_id'].includes(col.colKey));
-  if (groupCol) {
-    groupCol.filter.list = filterOptions;
-  }
   serviceNameMap = serviceSelectOptions.value.reduce<Record<string, string>>((acc, cur) => {
     acc[cur.id] = cur.name;
     return acc;
@@ -180,6 +184,8 @@ const getUpstreamSelectOptions = async () => {
   upstreamSelectOptions.value = (response ?? []).map(item => ({
     name: item.name,
     id: item.id,
+    label: item.name,
+    value: item.id,
     desc: item.desc,
   }));
   const filterOptions = getFilterOptions({ options: upstreamSelectOptions.value, extra: true });

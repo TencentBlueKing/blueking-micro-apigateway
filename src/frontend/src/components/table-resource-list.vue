@@ -82,8 +82,8 @@
             clearable
             class="table-resource-search"
             unique-select
+            value-behavior="need-key"
             @search="handleSearch"
-            @keyup.enter="handleSearch"
             @click.stop="handleSearchSelectClick"
           />
         </div>
@@ -151,7 +151,7 @@
 import { computed, ref, watch, shallowRef, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { cloneDeep } from 'lodash-es';
-import { IQueryListParams, IDropList } from '@/types';
+import { IQueryListParams, IDropList, ITableSettings } from '@/types';
 import { Message, InfoBox, Checkbox, Dropdown } from 'bkui-vue';
 import { DownSmall } from 'bkui-vue/lib/icon';
 import { ISearchItem } from 'bkui-vue/lib/search-select/utils';
@@ -172,7 +172,7 @@ import { getDiffByType, getResourceDiff, IDiffGroup, publish } from '@/http/publ
 import dayjs from 'dayjs';
 import i18n from '@/i18n';
 import useTsxRouter from '@/hooks/use-tsx-router';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useTableSortChange } from '@/hooks/use-table-sort-change';
 import TagStatus from '@/components/tag-status.vue';
 import DialogPublishResource from '@/components/dialog-publish-resource.vue';
@@ -214,6 +214,14 @@ export interface ISearchParam {
   name: string,
   values?: { id: string, name: string }[]
 }
+
+const settings = defineModel<ITableSettings>('settings', {
+  default: () => ({
+    columns: [],
+    rowSize: 'medium',
+    fontSize: 'medium',
+  }),
+});
 
 const {
   routes = {},
@@ -275,12 +283,6 @@ const {
   handleCustomSelectChange,
   handleCustomSelectAllChange,
 } = useTDesignSelection();
-
-const settings = shallowRef({
-  size: 'small',
-  checked: [],
-  disabled: [],
-});
 
 const allowSortField = shallowRef(['name', 'username', 'updated_at']);
 
@@ -428,7 +430,6 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     __name__: 'label',
     title: t('标签'),
     colKey: 'label',
-    width: 'auto',
     ellipsis: false,
     cellStyle: {
       whiteSpace: 'normal',
@@ -457,6 +458,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     title: t('更新时间'),
     colKey: 'updated_at',
     ellipsis: true,
+    width: 160,
     sorter: true,
     cell: (h, { row }) => {
       return dayjs.unix(row.updated_at as number)
@@ -468,7 +470,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
     title: t('更新人'),
     colKey: 'updater',
     ellipsis: true,
-    width: 80,
+    width: 100,
     cell: (h, { row }) => <span>{row.updater || row.update_by || '--'}</span>,
   },
   {
@@ -575,7 +577,7 @@ const commonColumns = ref<PrimaryTableProps['columns']>([
   },
 ]);
 
-const tableColumn = ref<PrimaryTableProps['columns']>([
+const tableColumn = computed<PrimaryTableProps['columns']>(() => [
   ...selectionColumns.value,
   {
     title: t('名称'),
@@ -625,6 +627,8 @@ const diffGroupList = ref<IDiffGroup[]>([]);
 const diffGroupListBack = ref<IDiffGroup[]>([]);
 const singlePublishId = ref<string>('');
 const publishDelIds = ref<string[]>([]);
+// 只计算一次标签列宽度
+let isLabelColWidthCalculated = false;
 
 const localSearchOptions = computed<ISearchItem[]>(() => {
   if (resourceType === 'plugin_custom') {
@@ -748,6 +752,7 @@ const getLabelWidth = () => {
       labelCol.width = labelWidth;
     }
   });
+  isLabelColWidthCalculated = true;
 };
 
 // 回显选中数据
@@ -851,7 +856,9 @@ const handleDropdownClick = (row: IDropList) => {
 };
 
 const handleRequestDone = () => {
-  getLabelWidth();
+  if (!isLabelColWidthCalculated) {
+    getLabelWidth();
+  }
   getSelectionData();
 };
 

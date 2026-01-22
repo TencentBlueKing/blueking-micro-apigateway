@@ -20,10 +20,12 @@ package serializer
 
 // EnvVarsResponse ...
 type EnvVarsResponse struct {
-	Links LinkInfo `json:"links"`
+	Edition string   `json:"edition"`
+	Links   LinkInfo `json:"links"`
 }
 
 type LinkInfo struct {
-	BKGuideLink    string `json:"bk_guide_link"`     // 产品使用指南地址
-	BKFeedBackLink string `json:"bk_feed_back_link"` // 产品反馈地址
+	BKGuideLink      string `json:"bk_guide_link"`      // 产品使用指南地址
+	BKFeedBackLink   string `json:"bk_feed_back_link"`  // 产品反馈地址
+	BKApigatewayLink string `json:"bk_apigateway_link"` // 蓝鲸共享网关地址
 }

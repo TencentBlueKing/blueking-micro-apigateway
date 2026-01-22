@@ -19,7 +19,7 @@
 <template>
   <bk-sideslider
     v-model:is-show="isShow"
-    width="960"
+    width="1200"
     @closed="handleClosed"
   >
     <template #header>

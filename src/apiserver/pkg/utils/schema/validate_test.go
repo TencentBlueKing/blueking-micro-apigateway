@@ -33,8 +33,6 @@ import (
 var APISIXVersionList = []constant.APISIXVersion{
 	constant.APISIXVersion313,
 	constant.APISIXVersion311,
-	constant.APISIXVersion33,
-	constant.APISIXVersion32,
 }
 
 func TestNewResourceSchema(t *testing.T) {
@@ -213,7 +211,13 @@ func TestNewAPISIXJsonSchemaValidator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewAPISIXJsonSchemaValidator(tt.version, tt.resource, tt.jsonPath, nil, constant.DATABASE)
+			_, err := NewAPISIXJsonSchemaValidator(
+				tt.version,
+				tt.resource,
+				tt.jsonPath,
+				nil,
+				constant.DATABASE,
+			)
 			if tt.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -460,15 +464,12 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.DATABASE,
 			jsonPath: "main.ssl",
 			config: `{
-			  "name": "ssl1",
 			  "cert": "-----BEGIN CERTIFICATE-----\nMIIDJzCCAg+gAwIBAgIRAJvCZRh2nejK7+Ss3AgrEa0wDQYJKoZIhvcNAQELBQAw\ngYoxEjAQBgNVBAMMCWxkZGdvLm5ldDEMMAoGA1UECwwDZGV2MQ4wDAYDVQQKDAVs\nZGRnbzELMAkGA1UEBhMCQ04xIzAhBgkqhkiG9w0BCQEWFGxlY2hlbmdhZG1pbkAx\nMjYuY29tMREwDwYDVQQHDAhzaGFuZ2hhaTERMA8GA1UECAwIc2hhbmdoYWkwHhcN\nMjUwMjI2MDE0ODQ0WhcNMjcwMjI2MDE0ODQ0WjATMREwDwYDVQQDDAh0ZXN0LmNv\nbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAIIJ82TMFlWOR7dDkJ0X\nLclmCUDlefEJY2laYPWxaCe3oaIndosUmgm5aovYUTWDRAByn56HPFub5fc2Kt9v\n5+HWVd149JuP43F5NXaUKbE6GuXUWR7WhorzIRbabvvkE4SdpkrGwthi6AxUnvKK\naHKn11hSk+MBUWxjhSJoQy/ds3fKSpq7j+LAMRmQo9a3uW/HBl7FdfWIH5ZTN3Q8\n+ZDMc2zrEqOXFBGFBwzsbcVGNppMkUBuYmxIp7O3slB7rH7oOkdpYReIwWQOOswO\nhbBu5UGqC8nMX0N0jhzMyxrvDOIFSjjKiXuu46qd+t/GxUB9+8ZJ/Fn3WsJ6iQf7\n+cMCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEARSufAXUin/eFxcpojYMZ6F3t6VYp\njiZ+3Sx+UjQ4mq3qq8eQ/r0haxGtw2GeMuyprfxj6YTX6erQlJKkDk8vJXpDbFR4\n4dj1g4VQDZshPH2j2HJ/4l/kAvbDy/Rj9eIdV0Ux+t8s7MYgP7yf35Nb1ejJyWhB\nPS56NWCyj43lJcwnUmH4EAvLiFdgGgiaPQdm2/XlyEd8UVZugihIgjlQ3XKwMwsb\nXFfjJdDgdhFO5jmtU+rdEQWuaJDCEEWQJfMFmWRGApri97T/14QOulTqCXfk8+Wq\nw4WMGMQt3zIALlf7Meknv2qfTxax3JAO8lf7KuN5A4S5SuqAHke9NfGzAA==\n-----END CERTIFICATE-----",
 			  "key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCCCfNkzBZVjke3\nQ5CdFy3JZglA5XnxCWNpWmD1sWgnt6GiJ3aLFJoJuWqL2FE1g0QAcp+ehzxbm+X3\nNirfb+fh1lXdePSbj+NxeTV2lCmxOhrl1Fke1oaK8yEW2m775BOEnaZKxsLYYugM\nVJ7yimhyp9dYUpPjAVFsY4UiaEMv3bN3ykqau4/iwDEZkKPWt7lvxwZexXX1iB+W\nUzd0PPmQzHNs6xKjlxQRhQcM7G3FRjaaTJFAbmJsSKezt7JQe6x+6DpHaWEXiMFk\nDjrMDoWwbuVBqgvJzF9DdI4czMsa7wziBUo4yol7ruOqnfrfxsVAffvGSfxZ91rC\neokH+/nDAgMBAAECggEACSzKj4IW0VKInNWXjn3kLSGV5Y5LXEZdTUGjNbKetq6u\nKNK/+nApriX27ocEs9HfKmjr+jNwfsYxI5Ae1kT/B2AoDshJ+e/dDFSRARzTFD4V\nR8IDx7k7JPKikwo2am9dMS4uXXhIpxvTY4tU66f4Vp6hAwpQhOPC6vLaoeLZWrcg\nAjjPTud/1N8D+CMsnsrfLh9XPLvUZIqYm5DCgE6fFle1/X/YrqzzMzflCG3Ns5Gv\nMY0i1xR7baAj8nT9iG+MCvCW8Ak2++pweX2Hli6l5aqk+esDU/zUAdddJdtpufGT\nkobCOKtqNXzEj6UGrsQU/27dc1tQKt4VgRvsgC+aAQKBgQC5zySFCpqtZY/naKnw\nGXf1Pl7r8aTuWVA+8ziRiyPlyI60oMHhu0bSIoRIh7lpa8km/cNsJOMTFWmHUANT\ndu53icmSCO++M1d+nrl3aWYyqbAlFvqMPtiW5/pYRnWJi4GSQTonGY32EhmN1qo5\nJbmj7NVxRnX0g9OTX4+f5MdCUQKBgQCzKXzwim/KxeOeVURVu/LQGK+Or2Ssyzjr\nz8MPQ2OE5DX528hLkE5h0EVhffSrsTfQiiMIhzU/Rywa7khNRqsTmhFEHM5JI+Rl\nGZgGgG4T5Q3idfrx3jXGqMylmoR0pA+4aGpSGg135vuIhJWCn8RI/mgMl0KP6Nax\nSSZkex4B0wKBgFr470FwIrEY068SEHnsjk31fpX4lq7X7bEUdjLUM/wyCKSpPKPf\nhFon6ip0wTO7QR4lCoQtPzw9tJA6fZZk2XaPcLBeTbsK+iCVZ+ruIMpXSFWwfXUi\n4/pmk6yaurtgIU1RQD6ahWXgEMDgRDF8pfp7Xzl5rRDNZk52cCRx55kxAoGAV4/p\nTi56oKHCszl9ImGvNGE8PAIgtArGkQmDjcwjsWlPsAPoinXGuStvHUzP7bG5U6SP\nprVeIsUIG0ll8M6fAf+EfMOPVlPCZl7x3AucwQBrnsiGkvtFUQhirHUuU0tzm278\nt4+gEX/EY15ZK/QlnH8qHy02DNuBQjg8GVPKwJ0CgYATHdUKjNJG0dMkJ8pjjsI1\nXOYqFo7bXeA5iw6gvmhGTt0Oc7QkOt/VWyvGvRn4UPXcaZixEsFj+rKVlCbZG9gJ\nDvC3nKL8jGXiVs0eJot2WHZJlM04YqzSlaqBNW5O+p/IMmJ1q1zehGm1oIHq0RlA\ncO+a+H4tgy7YSbgYm32XKQ==\n-----END RSA PRIVATE KEY-----",
 			  "snis": [
 			  	"test.com"
 			  ],
-			  "status": 1,
-			  "validity_start": 1740534524,
-			  "validity_end": 1803606524
+			  "status": 1
 		    }`,
 			shouldFail: false,
 		},
@@ -495,7 +496,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.DATABASE,
 			jsonPath: "main.consumer_group",
 			config: `{
-              "name": "consumer_group1",
+              "id": "consumer_group1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -512,6 +513,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.DATABASE,
 			jsonPath: "main.plugin_config",
 			config: `{
+              "id": "plugin_config1",
               "name": "plugin_config1",
               "plugins": {
                 "authz-casbin": {
@@ -529,7 +531,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.DATABASE,
 			jsonPath: "main.global_rule",
 			config: `{
-              "name": "global_rule1",
+              "id": "global_rule1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -559,7 +561,6 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.DATABASE,
 			jsonPath: "main.stream_route",
 			config: `{
-              "name": "stream1",
               "remote_addr": "127.0.0.1",
               "server_addr": "127.0.0.1",
               "server_port": 8000,
@@ -690,9 +691,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			  "snis": [
 			  	"test.com"
 			  ],
-			  "status": 1,
-			  "validity_start": 1740534524,
-			  "validity_end": 1803606524
+			  "status": 1
 		    }`,
 			shouldFail: false,
 		},
@@ -719,6 +718,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.ETCD,
 			jsonPath: "main.consumer_group",
 			config: `{
+              "id": "consumer_group1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -735,6 +735,8 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.ETCD,
 			jsonPath: "main.plugin_config",
 			config: `{
+              "id": "plugin_config1",
+              "name": "plugin_config1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -751,6 +753,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			dataType: constant.ETCD,
 			jsonPath: "main.global_rule",
 			config: `{
+              "id": "global_rule1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -915,9 +918,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			  "snis": [
 			  	"test.com"
 			  ],
-			  "status": 1,
-			  "validity_start": 1740534524,
-			  "validity_end": 1803606524
+			  "status": 1
 		    }`,
 			shouldFail: true,
 		},
@@ -1037,7 +1038,13 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 	for _, version := range APISIXVersionList {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				validator, err := NewAPISIXJsonSchemaValidator(version, tt.resource, tt.jsonPath, nil, tt.dataType)
+				validator, err := NewAPISIXJsonSchemaValidator(
+					version,
+					tt.resource,
+					tt.jsonPath,
+					nil,
+					tt.dataType,
+				)
 				assert.NoError(t, err)
 
 				err = validator.Validate(json.RawMessage(tt.config))
@@ -1054,12 +1061,12 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 func TestValidateVarItem(t *testing.T) {
 	tests := []struct {
 		name       string
-		item       []interface{}
+		item       []any
 		shouldFail bool
 	}{
 		{
 			name: "Valid Triple",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"==",
 				"123",
@@ -1068,7 +1075,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Valid Quadruple",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"!",
 				"==",
@@ -1078,7 +1085,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid Length",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"==",
 			},
@@ -1086,7 +1093,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid First Element",
-			item: []interface{}{
+			item: []any{
 				123,
 				"==",
 				"123",
@@ -1095,7 +1102,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid Quadruple Second Element",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"invalid",
 				"==",
@@ -1105,7 +1112,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Invalid Operator",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"invalid_op",
 				"123",
@@ -1114,7 +1121,7 @@ func TestValidateVarItem(t *testing.T) {
 		},
 		{
 			name: "Empty Value",
-			item: []interface{}{
+			item: []any{
 				"arg_id",
 				"==",
 				nil,
@@ -1138,18 +1145,18 @@ func TestValidateVarItem(t *testing.T) {
 func TestCheckVars(t *testing.T) {
 	tests := []struct {
 		name       string
-		vars       []interface{}
+		vars       []any
 		shouldFail bool
 	}{
 		{
 			name: "Valid Vars",
-			vars: []interface{}{
-				[]interface{}{
+			vars: []any{
+				[]any{
 					"arg_id",
 					"==",
 					"123",
 				},
-				[]interface{}{
+				[]any{
 					"http_x_header",
 					"!",
 					"~~",
@@ -1160,20 +1167,20 @@ func TestCheckVars(t *testing.T) {
 		},
 		{
 			name:       "Empty Vars",
-			vars:       []interface{}{},
+			vars:       []any{},
 			shouldFail: false,
 		},
 		{
 			name: "Invalid Item Type",
-			vars: []interface{}{
+			vars: []any{
 				"invalid_item",
 			},
 			shouldFail: true,
 		},
 		{
 			name: "Invalid Var Item",
-			vars: []interface{}{
-				[]interface{}{
+			vars: []any{
+				[]any{
 					"arg_id",
 					"invalid_op",
 					"123",
@@ -1539,15 +1546,12 @@ func TestAPISIXSchemaValidatorValidate(t *testing.T) {
 			resource: constant.SSL,
 			jsonPath: "main.ssl",
 			config: `{
-			  "name": "ssl1",
 			  "cert": "-----BEGIN CERTIFICATE-----\nMIIDJzCCAg+gAwIBAgIRAJvCZRh2nejK7+Ss3AgrEa0wDQYJKoZIhvcNAQELBQAw\ngYoxEjAQBgNVBAMMCWxkZGdvLm5ldDEMMAoGA1UECwwDZGV2MQ4wDAYDVQQKDAVs\nZGRnbzELMAkGA1UEBhMCQ04xIzAhBgkqhkiG9w0BCQEWFGxlY2hlbmdhZG1pbkAx\nMjYuY29tMREwDwYDVQQHDAhzaGFuZ2hhaTERMA8GA1UECAwIc2hhbmdoYWkwHhcN\nMjUwMjI2MDE0ODQ0WhcNMjcwMjI2MDE0ODQ0WjATMREwDwYDVQQDDAh0ZXN0LmNv\nbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAIIJ82TMFlWOR7dDkJ0X\nLclmCUDlefEJY2laYPWxaCe3oaIndosUmgm5aovYUTWDRAByn56HPFub5fc2Kt9v\n5+HWVd149JuP43F5NXaUKbE6GuXUWR7WhorzIRbabvvkE4SdpkrGwthi6AxUnvKK\naHKn11hSk+MBUWxjhSJoQy/ds3fKSpq7j+LAMRmQo9a3uW/HBl7FdfWIH5ZTN3Q8\n+ZDMc2zrEqOXFBGFBwzsbcVGNppMkUBuYmxIp7O3slB7rH7oOkdpYReIwWQOOswO\nhbBu5UGqC8nMX0N0jhzMyxrvDOIFSjjKiXuu46qd+t/GxUB9+8ZJ/Fn3WsJ6iQf7\n+cMCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEARSufAXUin/eFxcpojYMZ6F3t6VYp\njiZ+3Sx+UjQ4mq3qq8eQ/r0haxGtw2GeMuyprfxj6YTX6erQlJKkDk8vJXpDbFR4\n4dj1g4VQDZshPH2j2HJ/4l/kAvbDy/Rj9eIdV0Ux+t8s7MYgP7yf35Nb1ejJyWhB\nPS56NWCyj43lJcwnUmH4EAvLiFdgGgiaPQdm2/XlyEd8UVZugihIgjlQ3XKwMwsb\nXFfjJdDgdhFO5jmtU+rdEQWuaJDCEEWQJfMFmWRGApri97T/14QOulTqCXfk8+Wq\nw4WMGMQt3zIALlf7Meknv2qfTxax3JAO8lf7KuN5A4S5SuqAHke9NfGzAA==\n-----END CERTIFICATE-----",
 			  "key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCCCfNkzBZVjke3\nQ5CdFy3JZglA5XnxCWNpWmD1sWgnt6GiJ3aLFJoJuWqL2FE1g0QAcp+ehzxbm+X3\nNirfb+fh1lXdePSbj+NxeTV2lCmxOhrl1Fke1oaK8yEW2m775BOEnaZKxsLYYugM\nVJ7yimhyp9dYUpPjAVFsY4UiaEMv3bN3ykqau4/iwDEZkKPWt7lvxwZexXX1iB+W\nUzd0PPmQzHNs6xKjlxQRhQcM7G3FRjaaTJFAbmJsSKezt7JQe6x+6DpHaWEXiMFk\nDjrMDoWwbuVBqgvJzF9DdI4czMsa7wziBUo4yol7ruOqnfrfxsVAffvGSfxZ91rC\neokH+/nDAgMBAAECggEACSzKj4IW0VKInNWXjn3kLSGV5Y5LXEZdTUGjNbKetq6u\nKNK/+nApriX27ocEs9HfKmjr+jNwfsYxI5Ae1kT/B2AoDshJ+e/dDFSRARzTFD4V\nR8IDx7k7JPKikwo2am9dMS4uXXhIpxvTY4tU66f4Vp6hAwpQhOPC6vLaoeLZWrcg\nAjjPTud/1N8D+CMsnsrfLh9XPLvUZIqYm5DCgE6fFle1/X/YrqzzMzflCG3Ns5Gv\nMY0i1xR7baAj8nT9iG+MCvCW8Ak2++pweX2Hli6l5aqk+esDU/zUAdddJdtpufGT\nkobCOKtqNXzEj6UGrsQU/27dc1tQKt4VgRvsgC+aAQKBgQC5zySFCpqtZY/naKnw\nGXf1Pl7r8aTuWVA+8ziRiyPlyI60oMHhu0bSIoRIh7lpa8km/cNsJOMTFWmHUANT\ndu53icmSCO++M1d+nrl3aWYyqbAlFvqMPtiW5/pYRnWJi4GSQTonGY32EhmN1qo5\nJbmj7NVxRnX0g9OTX4+f5MdCUQKBgQCzKXzwim/KxeOeVURVu/LQGK+Or2Ssyzjr\nz8MPQ2OE5DX528hLkE5h0EVhffSrsTfQiiMIhzU/Rywa7khNRqsTmhFEHM5JI+Rl\nGZgGgG4T5Q3idfrx3jXGqMylmoR0pA+4aGpSGg135vuIhJWCn8RI/mgMl0KP6Nax\nSSZkex4B0wKBgFr470FwIrEY068SEHnsjk31fpX4lq7X7bEUdjLUM/wyCKSpPKPf\nhFon6ip0wTO7QR4lCoQtPzw9tJA6fZZk2XaPcLBeTbsK+iCVZ+ruIMpXSFWwfXUi\n4/pmk6yaurtgIU1RQD6ahWXgEMDgRDF8pfp7Xzl5rRDNZk52cCRx55kxAoGAV4/p\nTi56oKHCszl9ImGvNGE8PAIgtArGkQmDjcwjsWlPsAPoinXGuStvHUzP7bG5U6SP\nprVeIsUIG0ll8M6fAf+EfMOPVlPCZl7x3AucwQBrnsiGkvtFUQhirHUuU0tzm278\nt4+gEX/EY15ZK/QlnH8qHy02DNuBQjg8GVPKwJ0CgYATHdUKjNJG0dMkJ8pjjsI1\nXOYqFo7bXeA5iw6gvmhGTt0Oc7QkOt/VWyvGvRn4UPXcaZixEsFj+rKVlCbZG9gJ\nDvC3nKL8jGXiVs0eJot2WHZJlM04YqzSlaqBNW5O+p/IMmJ1q1zehGm1oIHq0RlA\ncO+a+H4tgy7YSbgYm32XKQ==\n-----END RSA PRIVATE KEY-----",
 			  "snis": [
 			  	"test.com"
 			  ],
-			  "status": 1,
-			  "validity_start": 1740534524,
-			  "validity_end": 1803606524
+			  "status": 1
 		    }`,
 			shouldFail: false,
 		},
@@ -1572,7 +1576,7 @@ func TestAPISIXSchemaValidatorValidate(t *testing.T) {
 			resource: constant.ConsumerGroup,
 			jsonPath: "main.consumer_group",
 			config: `{
-              "name": "consumer_group1",
+              "id": "consumer_group1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -1588,6 +1592,7 @@ func TestAPISIXSchemaValidatorValidate(t *testing.T) {
 			resource: constant.PluginConfig,
 			jsonPath: "main.plugin_config",
 			config: `{
+              "id": "plugin_config1",
               "name": "plugin_config1",
               "plugins": {
                 "authz-casbin": {
@@ -1604,7 +1609,7 @@ func TestAPISIXSchemaValidatorValidate(t *testing.T) {
 			resource: constant.GlobalRule,
 			jsonPath: "main.global_rule",
 			config: `{
-              "name": "global_rule1",
+              "id": "global_rule1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -1632,7 +1637,6 @@ func TestAPISIXSchemaValidatorValidate(t *testing.T) {
 			resource: constant.StreamRoute,
 			jsonPath: "main.stream_route",
 			config: `{
-              "name": "stream1",
               "remote_addr": "127.0.0.1",
               "server_addr": "127.0.0.1",
               "server_port": 8000,

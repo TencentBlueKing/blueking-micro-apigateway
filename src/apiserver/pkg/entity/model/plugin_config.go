@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -29,8 +29,9 @@ import (
 
 // PluginConfig  plugin_config 表
 type PluginConfig struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // 配置策略名称
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	Name                string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // 配置策略名称
+	ResourceCommonModel                        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -61,6 +62,10 @@ func (p *PluginConfig) BeforeUpdate(tx *gorm.DB) (err error) {
 	err = ResourceSchemaCallback(tx, p.GatewayID, p.ID, constant.PluginConfig, p.Config)
 	if err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if p.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return p.AddAuditLog(tx, constant.OperationTypeUpdate)

@@ -28,18 +28,18 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// IsJSONEmpty 判断json是否为空
+// IsJSONEmpty 判断 json 是否为空
 func IsJSONEmpty(raw json.RawMessage) bool {
 	// 尝试解析为一个空接口
-	var data interface{}
+	var data any
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return false
 	}
 	// 根据解析的类型判断是否为空
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return len(v) == 0 // 对象是否为空
-	case []interface{}:
+	case []any:
 		return len(v) == 0 // 数组是否为空
 	default:
 		return false // 其他类型不被认为是空
@@ -81,7 +81,7 @@ func PatchJson(doc []byte, path, val string) ([]byte, error) {
 }
 
 // MergePatch ...
-func MergePatch(obj interface{}, subPath string, reqBody []byte) ([]byte, error) {
+func MergePatch(obj any, subPath string, reqBody []byte) ([]byte, error) {
 	var res []byte
 	jsonBytes, err := json.Marshal(obj)
 	if err != nil {
@@ -109,7 +109,7 @@ func RemoveEmptyObjectsAndArrays(jsonStr string) (string, error) {
 		// 遍历对象的每个键值对
 		for key, value := range result.Map() {
 			if key == "plugins" {
-				// 跳过plugins字段，该字段比较特殊，需要保留
+				// 跳过 plugins 字段，该字段比较特殊，需要保留
 				continue
 			}
 			if value.IsObject() || value.IsArray() {

@@ -28,7 +28,7 @@ var _ = Describe("PluginConfig", func() {
 			err := pluginConfig.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
-			var configMap map[string]interface{}
+			var configMap map[string]any
 			err = json.Unmarshal(pluginConfig.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))

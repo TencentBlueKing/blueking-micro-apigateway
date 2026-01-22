@@ -130,6 +130,9 @@
             clearable
           />
         </bk-form-item>
+        <span class="common-form-tips form-item-name-tips">
+          {{ t('敏感信息会加密存储确保数据安全') }}
+        </span>
       </div>
 
       <div v-else>
@@ -169,6 +172,9 @@
             type="textarea"
           />
         </bk-form-item>
+        <span class="common-form-tips form-item-name-tips">
+          {{ t('敏感信息会加密存储确保数据安全') }}
+        </span>
       </div>
 
       <bk-form-item
@@ -235,6 +241,9 @@
       >
         <bk-switcher v-model="formData.read_only" theme="primary"></bk-switcher>
       </bk-form-item>
+      <span class="common-form-tips form-item-name-tips">
+        {{ t('开启只读模式，可以从 etcd 同步数据，在控制面中仅展示，不可变更，不可发布') }}
+      </span>
       <!-- <bk-form-item
         :label="t('模式')"
         property="mode"

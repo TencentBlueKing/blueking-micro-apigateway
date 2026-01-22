@@ -37,7 +37,10 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	group := router.Group(path)
 	// middleware: session
 	store := cookie.NewStore([]byte(config.G.Service.AppSecret))
-	store.Options(sessions.Options{MaxAge: int(config.G.Service.SessionCookieAge.Seconds())})
+	store.Options(sessions.Options{
+		Path:   "/",
+		MaxAge: int(config.G.Service.SessionCookieAge.Seconds()),
+	})
 	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
 
 	//  csrf
@@ -167,6 +170,7 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 
 	// sync_data
 	gatewayGroup.GET("/synced/items/", handler.SyncedItemList)
+	gatewayGroup.GET("/synced/summary/", handler.SyncedItemSummary)
 	gatewayGroup.GET("/synced/last_time/", handler.SyncedLastTime)
 
 	// unify_op

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -19,6 +19,8 @@
 package model
 
 import (
+	"encoding/json"
+
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
@@ -30,15 +32,23 @@ import (
 
 // StreamRoute 表示数据库中的 stream_route 表
 type StreamRoute struct {
-	Name                string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // stream_route 名称
-	ServiceID           string `gorm:"column:service_id;type:varchar(255)"`                // 关联 service_id 唯一标识
-	UpstreamID          string `gorm:"column:upstream_id;type:varchar(255)"`               // 关联 upstream_id 唯一标识
-	ResourceCommonModel        // 资源通用model: 创建时间、更新时间、创建人、更新人、config、status等
+	// stream_route 名称
+	Name string `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"`
+	// 关联 service_id 唯一标识
+	ServiceID string `gorm:"column:service_id;type:varchar(255)"`
+	// 关联 upstream_id 唯一标识
+	UpstreamID          string                 `gorm:"column:upstream_id;type:varchar(255)"`
+	ResourceCommonModel                        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // GetLabels 获取 labels
-func (s StreamRoute) GetLabels() string {
-	return gjson.GetBytes(s.Config, "labels").String()
+func (s StreamRoute) GetLabels() json.RawMessage {
+	labels := gjson.GetBytes(s.Config, "labels")
+	if !labels.Exists() {
+		return nil
+	}
+	return json.RawMessage(labels.Raw)
 }
 
 // TableName 设置表名
@@ -59,6 +69,10 @@ func (s *StreamRoute) BeforeCreate(tx *gorm.DB) (err error) {
 func (s *StreamRoute) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := s.HandleConfig(); err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if s.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return s.AddAuditLog(tx, constant.OperationTypeUpdate)

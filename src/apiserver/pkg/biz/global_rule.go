@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -30,12 +30,27 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildGlobalRuleQuery 获取 GlobalRule 查询对象
+func buildGlobalRuleQuery(ctx context.Context) repo.IGlobalRuleDo {
+	return repo.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildGlobalRuleQueryWithTx 获取 GlobalRule 查询对象 (带事务)
+func buildGlobalRuleQueryWithTx(ctx context.Context, tx *repo.Query) repo.IGlobalRuleDo {
+	return tx.GlobalRule.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListGlobalRules 查询网关 GlobalRule 列表
-func ListGlobalRules(ctx context.Context, gatewayID int) ([]*model.GlobalRule, error) {
+func ListGlobalRules(ctx context.Context) ([]*model.GlobalRule, error) {
 	u := repo.GlobalRule
-	return repo.GlobalRule.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildGlobalRuleQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetGlobalRuleOrderExprList 获取 GlobalRule 排序字段列表
@@ -59,7 +74,7 @@ func GetGlobalRuleOrderExprList(orderBy string) []field.Expr {
 // ListPagedGlobalRules 分页查询 GlobalRule 列表
 func ListPagedGlobalRules(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	status []string,
 	name string,
 	updater string,
@@ -67,7 +82,7 @@ func ListPagedGlobalRules(
 	page PageParam,
 ) ([]*model.GlobalRule, int64, error) {
 	u := repo.GlobalRule
-	query := u.WithContext(ctx)
+	query := buildGlobalRuleQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -88,13 +103,16 @@ func CreateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 
 // BatchCreateGlobalRules 批量创建 GlobalRule
 func BatchCreateGlobalRules(ctx context.Context, globalRules []*model.GlobalRule) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildGlobalRuleQueryWithTx(ctx, ginx.GetTx(ctx)).Create(globalRules...)
+	}
 	return repo.GlobalRule.WithContext(ctx).Create(globalRules...)
 }
 
 // UpdateGlobalRule 更新 GlobalRule
 func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 	u := repo.GlobalRule
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(globalRule.ID)).Select(
+	_, err := buildGlobalRuleQuery(ctx).Where(u.ID.Eq(globalRule.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -106,13 +124,12 @@ func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 // GetGlobalRule 查询 GlobalRule 详情
 func GetGlobalRule(ctx context.Context, id string) (*model.GlobalRule, error) {
 	u := repo.GlobalRule
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildGlobalRuleQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryGlobalRules 搜索 GlobalRule
-func QueryGlobalRules(ctx context.Context, param map[string]interface{}) ([]*model.GlobalRule, error) {
-	u := repo.GlobalRule
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryGlobalRules(ctx context.Context, param map[string]any) ([]*model.GlobalRule, error) {
+	return buildGlobalRuleQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteGlobalRules 批量删除 GlobalRule 并添加审计日志
@@ -128,7 +145,7 @@ func BatchDeleteGlobalRules(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildGlobalRuleQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -143,7 +160,7 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	globalRules, err := QueryGlobalRules(ctx, map[string]interface{}{
+	globalRules, err := QueryGlobalRules(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -153,24 +170,45 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(globalRules))
 	for _, globalRule := range globalRules {
+		// 标识此次更新的操作类型为撤销
+		globalRule.OperationType = constant.OperationTypeRevert
 		if globalRule.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			globalRule.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     globalRule.ID,
+				Config: globalRule.Config,
+				Status: globalRule.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[globalRule.ID]; ok {
-			globalRule.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			globalRule.Name = syncData.GetName()
 			globalRule.Config = syncData.Config
 			globalRule.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     globalRule.ID,
+				Config: globalRule.Config,
+				Status: globalRule.Status,
+			})
 		} else {
 			return errors.New("can not find sync data for globalRule id:" + globalRule.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.GlobalRule, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, globalRule := range globalRules {
-			err := repo.GlobalRule.WithContext(ctx).Save(globalRule)
+			_, err := buildGlobalRuleQueryWithTx(ctx, tx).Updates(globalRule)
 			if err != nil {
 				return err
 			}
@@ -181,8 +219,8 @@ func BatchRevertGlobalRules(ctx context.Context, syncDataList []*model.GatewaySy
 }
 
 // GetGlobalRulePluginToID 获取 global rule 配置的插件映射
-func GetGlobalRulePluginToID(ctx context.Context, gatewayID int) (map[string]dto.GlobalRulePlugin, error) {
-	globalRules, err := ListGlobalRules(ctx, gatewayID)
+func GetGlobalRulePluginToID(ctx context.Context) (map[string]dto.GlobalRulePlugin, error) {
+	globalRules, err := ListGlobalRules(ctx)
 	if err != nil {
 		return nil, err
 	}

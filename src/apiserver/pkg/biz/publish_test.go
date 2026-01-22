@@ -89,8 +89,11 @@ func TestPublishRoutes(t *testing.T) {
 		{
 			name: "test_publish_route_without_related_resource",
 			args: args{
-				ctx:   gatewayCtx,
-				route: data.Route1WithNoRelationResource(gatewayInfo, constant.ResourceStatusCreateDraft),
+				ctx: gatewayCtx,
+				route: data.Route1WithNoRelationResource(
+					gatewayInfo,
+					constant.ResourceStatusCreateDraft,
+				),
 			},
 			wantErr: false,
 		},
@@ -116,7 +119,7 @@ func TestPublishRoutes(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.Route], 1)
 
 			// assert sync resource
-			syncedRoute, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.route.ID)
+			syncedRoute, err := GetSyncedItemByID(tt.args.ctx, tt.args.route.ID)
 			assert.NoError(t, err)
 
 			assert.Equal(t, syncedRoute.ID, tt.args.route.ID)
@@ -178,7 +181,7 @@ func TestPublishService(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.Service], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.service.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.service.ID)
 			assert.NoError(t, err)
 
 			assert.Equal(t, syncedResource.ID, tt.args.service.ID)
@@ -240,7 +243,7 @@ func TestPublishUpstreams(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.Upstream], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.upstream.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.upstream.ID)
 			assert.NoError(t, err)
 
 			assert.Equal(t, syncedResource.ID, tt.args.upstream.ID)
@@ -302,7 +305,7 @@ func TestPublishConsumer(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.Consumer], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.consumer.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.consumer.ID)
 			assert.NoError(t, err)
 
 			assert.Equal(t, syncedResource.ID, tt.args.consumer.ID)
@@ -337,8 +340,11 @@ func TestPublishPluginConfigs(t *testing.T) {
 		{
 			name: "test_publish_plugin_config_without_related_resource",
 			args: args{
-				ctx:          gatewayCtx,
-				pluginConfig: data.PluginConfig1WithNoRelation(gatewayInfo, constant.ResourceStatusCreateDraft),
+				ctx: gatewayCtx,
+				pluginConfig: data.PluginConfig1WithNoRelation(
+					gatewayInfo,
+					constant.ResourceStatusCreateDraft,
+				),
 			},
 			wantErr: false,
 		},
@@ -363,14 +369,19 @@ func TestPublishPluginConfigs(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.PluginConfig], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.pluginConfig.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.pluginConfig.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, syncedResource.ID, tt.args.pluginConfig.ID)
 
 			// assert diff resource
-			resources, err := DiffResources(tt.args.ctx,
-				constant.PluginConfig, []string{tt.args.pluginConfig.ID}, "", []constant.ResourceStatus{},
-				false)
+			resources, err := DiffResources(
+				tt.args.ctx,
+				constant.PluginConfig,
+				[]string{tt.args.pluginConfig.ID},
+				"",
+				[]constant.ResourceStatus{},
+				false,
+			)
 			assert.NoError(t, err)
 			assert.Equal(t, 0, len(resources))
 
@@ -421,7 +432,7 @@ func TestPublishGlobalRules(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.GlobalRule], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.globalRule.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.globalRule.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, syncedResource.ID, tt.args.globalRule.ID)
 
@@ -479,7 +490,7 @@ func TestPublishProtos(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.Proto], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.proto.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.proto.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, syncedResource.ID, tt.args.proto.ID)
 
@@ -537,14 +548,19 @@ func TestPublishPluginMetadatas(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.PluginMetadata], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.pluginMetadata.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.pluginMetadata.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, syncedResource.ID, tt.args.pluginMetadata.ID)
 
 			// assert diff resource
-			resources, err := DiffResources(tt.args.ctx,
-				constant.PluginMetadata, []string{tt.args.pluginMetadata.ID}, "", []constant.ResourceStatus{},
-				false)
+			resources, err := DiffResources(
+				tt.args.ctx,
+				constant.PluginMetadata,
+				[]string{tt.args.pluginMetadata.ID},
+				"",
+				[]constant.ResourceStatus{},
+				false,
+			)
 			assert.NoError(t, err)
 			assert.Equal(t, 0, len(resources))
 
@@ -569,8 +585,11 @@ func TestPublishConsumerGroups(t *testing.T) {
 		{
 			name: "test_publish_consumer_group",
 			args: args{
-				ctx:           gatewayCtx,
-				consumerGroup: data.ConsumerGroup1WithNoRelation(gatewayInfo, constant.ResourceStatusCreateDraft),
+				ctx: gatewayCtx,
+				consumerGroup: data.ConsumerGroup1WithNoRelation(
+					gatewayInfo,
+					constant.ResourceStatusCreateDraft,
+				),
 			},
 			wantErr: false,
 		},
@@ -595,14 +614,19 @@ func TestPublishConsumerGroups(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.ConsumerGroup], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.consumerGroup.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.consumerGroup.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, syncedResource.ID, tt.args.consumerGroup.ID)
 
 			// assert diff resource
-			resources, err := DiffResources(tt.args.ctx,
-				constant.ConsumerGroup, []string{tt.args.consumerGroup.ID}, "", []constant.ResourceStatus{},
-				false)
+			resources, err := DiffResources(
+				tt.args.ctx,
+				constant.ConsumerGroup,
+				[]string{tt.args.consumerGroup.ID},
+				"",
+				[]constant.ResourceStatus{},
+				false,
+			)
 			assert.NoError(t, err)
 			assert.Equal(t, 0, len(resources))
 
@@ -653,7 +677,7 @@ func TestPublishSSLs(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.SSL], 1)
 
 			// assert sync resource
-			syncedResource, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.ssl.ID)
+			syncedResource, err := GetSyncedItemByID(tt.args.ctx, tt.args.ssl.ID)
 			assert.NoError(t, err)
 			assert.Equal(t, syncedResource.ID, tt.args.ssl.ID)
 
@@ -685,8 +709,11 @@ func TestPublishStreamRoutes(t *testing.T) {
 		{
 			name: "test_publish_stream_route_without_related_resource",
 			args: args{
-				ctx:         gatewayCtx,
-				streamRoute: data.StreamRoute1WithNoRelationResource(gatewayInfo, constant.ResourceStatusCreateDraft),
+				ctx: gatewayCtx,
+				streamRoute: data.StreamRoute1WithNoRelationResource(
+					gatewayInfo,
+					constant.ResourceStatusCreateDraft,
+				),
 			},
 			wantErr: false,
 		},
@@ -712,7 +739,7 @@ func TestPublishStreamRoutes(t *testing.T) {
 			assert.Equal(t, syncedResourceTypeStats[constant.StreamRoute], 1)
 
 			// assert sync resource
-			syncedStreamRoute, err := GetSyncedItemByID(tt.args.ctx, gatewayInfo.ID, tt.args.streamRoute.ID)
+			syncedStreamRoute, err := GetSyncedItemByID(tt.args.ctx, tt.args.streamRoute.ID)
 			assert.NoError(t, err)
 
 			assert.Equal(t, syncedStreamRoute.ID, tt.args.streamRoute.ID)

@@ -65,9 +65,6 @@ const enabledPluginList = defineModel<ILocalPlugin[]>({
   required: true,
 });
 
-const ajv = new Ajv();
-addFormats(ajv);
-
 interface ILocalPlugin {
   id?: string
   name: string
@@ -115,6 +112,8 @@ const showEditSlider = ({ name, config }: { name: string, config?: string }) => 
 const handleEditConfirm = (plugin: ILocalPlugin) => {
   try {
     // 校验 schema
+    const ajv = new Ajv();
+    addFormats(ajv);
     const schemaValidate = ajv.compile(schema.value);
     if (schemaValidate(JSON.parse(plugin.config))) {
       const targetPlugin = enabledPluginList.value.find(item => item.name === plugin.name);

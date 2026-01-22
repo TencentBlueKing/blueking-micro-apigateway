@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -79,10 +79,9 @@ func GlobalRuleCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.global_rule
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"global_rule ID"
-//	@Param		request		body	serializer.GlobalRuleInfo	true	"global_rule更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int							true	"网关 ID"	@Param	id	path	string	true	"global_rule ID"
+//	@Param		request		body	serializer.GlobalRuleInfo	true	"global_rule 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [put]
 func GlobalRuleUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -94,6 +93,14 @@ func GlobalRuleUpdate(c *gin.Context) {
 	req := serializer.GlobalRuleInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.GlobalRule, pathParam.ID, req.Config, map[string]any{
+		"name": req.Name,
+	}) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -120,6 +127,7 @@ func GlobalRuleUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // GlobalRuleList ...
@@ -143,8 +151,7 @@ func GlobalRuleList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -191,8 +198,8 @@ func GlobalRuleList(c *gin.Context) {
 //	@Summary	global_rule 详情
 //	@Produce	json
 //	@Tags		webapi.global_rule
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源自增 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.GlobalRuleOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [get]
 func GlobalRuleGet(c *gin.Context) {
@@ -230,8 +237,8 @@ func GlobalRuleGet(c *gin.Context) {
 //	@Summary	global_rule 删除
 //	@Produce	json
 //	@Tags		webapi.global_rule
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源自增 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/{id}/ [delete]
 func GlobalRuleDelete(c *gin.Context) {
@@ -274,7 +281,7 @@ func GlobalRuleDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.GlobalRuleDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules-dropdown/ [get]
 func GlobalRuleDropDownList(c *gin.Context) {
-	rules, err := biz.ListGlobalRules(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	rules, err := biz.ListGlobalRules(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -304,7 +311,7 @@ func GlobalRuleDropDownList(c *gin.Context) {
 //	@Success	200			{object}	serializer.GlobalRulePluginsResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/-/plugins/ [get]
 func GlobalRulePlugins(c *gin.Context) {
-	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

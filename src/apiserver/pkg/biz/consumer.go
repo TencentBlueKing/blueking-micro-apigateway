@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -22,18 +22,32 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildConsumerQuery 获取 Consumer 查询对象
+func buildConsumerQuery(ctx context.Context) repo.IConsumerDo {
+	return repo.Consumer.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildConsumerQueryWithTx 获取 Consumer 查询对象 (带事务)
+func buildConsumerQueryWithTx(ctx context.Context, tx *repo.Query) repo.IConsumerDo {
+	return tx.Consumer.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListConsumers 查询网关 Consumer 列表
-func ListConsumers(ctx context.Context, gatewayID int) ([]*model.Consumer, error) {
+func ListConsumers(ctx context.Context) ([]*model.Consumer, error) {
 	u := repo.Consumer
-	return repo.Consumer.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildConsumerQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetConsumerOrderExprList 获取 Consumer 排序字段列表
@@ -57,7 +71,7 @@ func GetConsumerOrderExprList(orderBy string) []field.Expr {
 // ListPagedConsumers 分页查询 Consumer 列表
 func ListPagedConsumers(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -67,7 +81,7 @@ func ListPagedConsumers(
 	page PageParam,
 ) ([]*model.Consumer, int64, error) {
 	u := repo.Consumer
-	query := u.WithContext(ctx)
+	query := buildConsumerQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -107,13 +121,16 @@ func CreateConsumer(ctx context.Context, consumer model.Consumer) error {
 
 // BatchCreateConsumers 批量创建 Consumer
 func BatchCreateConsumers(ctx context.Context, consumers []*model.Consumer) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildConsumerQueryWithTx(ctx, ginx.GetTx(ctx)).Create(consumers...)
+	}
 	return repo.Consumer.WithContext(ctx).Create(consumers...)
 }
 
 // UpdateConsumer 更新 Consumer
 func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 	u := repo.Consumer
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(consumer.ID)).Select(
+	_, err := buildConsumerQuery(ctx).Where(u.ID.Eq(consumer.ID)).Select(
 		u.Username,
 		u.Updater,
 		u.GroupID,
@@ -126,11 +143,11 @@ func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 // GetConsumer 查询 Consumer 详情
 func GetConsumer(ctx context.Context, id string) (*model.Consumer, error) {
 	u := repo.Consumer
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildConsumerQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryConsumers 搜索 consumer
-func QueryConsumers(ctx context.Context, param map[string]interface{}) ([]*model.Consumer, error) {
+func QueryConsumers(ctx context.Context, param map[string]any) ([]*model.Consumer, error) {
 	u := repo.Consumer
 	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
 }
@@ -139,6 +156,7 @@ func QueryConsumers(ctx context.Context, param map[string]interface{}) ([]*model
 func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 	u := repo.Consumer
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Consumer, ids)
 		if err != nil {
 			return err
@@ -148,7 +166,7 @@ func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildConsumerQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -163,7 +181,7 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	consumers, err := QueryConsumers(ctx, map[string]interface{}{
+	consumers, err := QueryConsumers(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -173,27 +191,53 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(consumers))
 	for _, consumer := range consumers {
+		// 标识此次更新的操作类型为撤销
+		consumer.OperationType = constant.OperationTypeRevert
 		if consumer.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			consumer.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumer.ID,
+				Config: consumer.Config,
+				Status: consumer.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[consumer.ID]; ok {
-			consumer.Username = gjson.ParseBytes(syncData.Config).Get("username").String()
+			consumer.Username = syncData.GetName()
 			consumer.Config = syncData.Config
 			consumer.Status = constant.ResourceStatusSuccess
 			// 更新关联关系数据
-			consumer.GroupID = gjson.ParseBytes(syncData.Config).Get("group_id").String()
+			consumer.GroupID = syncData.GetGroupID()
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     consumer.ID,
+				Config: consumer.Config,
+				Status: consumer.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for consumer id:" + consumer.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Consumer, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, consumer := range consumers {
-			err := repo.Consumer.WithContext(ctx).Save(consumer)
+			_, err := buildConsumerQueryWithTx(ctx, tx).Select(
+				repo.Consumer.Username,
+				repo.Consumer.GroupID,
+				repo.Consumer.Status,
+				repo.Consumer.Config,
+			).Updates(consumer)
 			if err != nil {
 				return err
 			}

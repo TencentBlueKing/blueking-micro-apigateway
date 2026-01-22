@@ -20,8 +20,9 @@
 package middleware
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"

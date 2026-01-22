@@ -1,0 +1,29 @@
+meta {
+  name: import_gateway_resources
+  type: http
+  seq: 35
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/{{gateway_name}}/resources/-/import/
+  body: multipartForm
+}
+
+headers {
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+
+
+body:multipart-form {
+  resource_file: @file(/apps/openapi/data/test_import_file.json)
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.add.upstream.length: eq 1
+  res.body.data.add.route.length: eq 2
+  res.body.data.add.service.length: eq 2
+  res.body.data.add.plugin_config.length: eq 1
+  res.body.data.add.schema.length: eq 1
+}

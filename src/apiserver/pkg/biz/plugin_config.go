@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -31,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildPluginConfigQuery 获取 PluginConfig 查询对象
+func buildPluginConfigQuery(ctx context.Context) repo.IPluginConfigDo {
+	return repo.PluginConfig.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildPluginConfigQueryWithTx 获取 tx 的 PluginConfig 查询对象
+func buildPluginConfigQueryWithTx(ctx context.Context, tx *repo.Query) repo.IPluginConfigDo {
+	return tx.WithContext(ctx).PluginConfig.Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListPluginConfigs 查询网关 PluginConfig 列表
-func ListPluginConfigs(ctx context.Context, gatewayID int) ([]*model.PluginConfig, error) {
+func ListPluginConfigs(ctx context.Context) ([]*model.PluginConfig, error) {
 	u := repo.PluginConfig
-	return repo.PluginConfig.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildPluginConfigQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetPluginConfigOrderExprList 获取 PluginConfig 排序字段列表
@@ -58,7 +71,7 @@ func GetPluginConfigOrderExprList(orderBy string) []field.Expr {
 // ListPagedPluginConfigs 分页查询 pluginConfig 表
 func ListPagedPluginConfigs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -67,7 +80,7 @@ func ListPagedPluginConfigs(
 	page PageParam,
 ) ([]*model.PluginConfig, int64, error) {
 	u := repo.PluginConfig
-	query := u.WithContext(ctx)
+	query := buildPluginConfigQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -98,13 +111,16 @@ func CreatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 
 // BatchCreatePluginConfigs 批量创建 PluginConfig
 func BatchCreatePluginConfigs(ctx context.Context, pluginConfigs []*model.PluginConfig) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildPluginConfigQueryWithTx(ctx, ginx.GetTx(ctx)).Create(pluginConfigs...)
+	}
 	return repo.PluginConfig.WithContext(ctx).Create(pluginConfigs...)
 }
 
 // UpdatePluginConfig 更新 PluginConfig
 func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) error {
 	u := repo.PluginConfig
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(pluginConfig.ID)).Select(
+	_, err := buildPluginConfigQuery(ctx).Where(u.ID.Eq(pluginConfig.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -116,13 +132,12 @@ func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 // GetPluginConfig 查询 PluginConfig 详情
 func GetPluginConfig(ctx context.Context, id string) (*model.PluginConfig, error) {
 	u := repo.PluginConfig
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildPluginConfigQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryPluginConfigs  搜索插件配置
-func QueryPluginConfigs(ctx context.Context, param map[string]interface{}) ([]*model.PluginConfig, error) {
-	u := repo.PluginConfig
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryPluginConfigs(ctx context.Context, param map[string]any) ([]*model.PluginConfig, error) {
+	return buildPluginConfigQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsPluginConfig 查询 PluginConfig 是否存在
@@ -145,6 +160,7 @@ func ExistsPluginConfig(ctx context.Context, id string) bool {
 func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 	u := repo.PluginConfig
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.PluginConfig, ids)
 		if err != nil {
 			return err
@@ -154,7 +170,7 @@ func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildPluginConfigQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -169,7 +185,7 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	pluginConfigs, err := QueryPluginConfigs(ctx, map[string]interface{}{
+	pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -179,25 +195,46 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(pluginConfigs))
 	for _, pluginConfig := range pluginConfigs {
+		// 标识此次更新的类型为撤销
+		pluginConfig.OperationType = constant.OperationTypeRevert
 		if pluginConfig.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			pluginConfig.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginConfig.ID,
+				Config: pluginConfig.Config,
+				Status: pluginConfig.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[pluginConfig.ID]; ok {
-			pluginConfig.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			pluginConfig.Name = syncData.GetName()
 			pluginConfig.Config = syncData.Config
 			pluginConfig.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pluginConfig.ID,
+				Config: pluginConfig.Config,
+				Status: pluginConfig.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for pluginConfig id:" + pluginConfig.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.PluginConfig, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, pluginConfig := range pluginConfigs {
-			err := repo.PluginConfig.WithContext(ctx).Save(pluginConfig)
+			_, err := buildPluginConfigQueryWithTx(ctx, tx).Updates(pluginConfig)
 			if err != nil {
 				return err
 			}

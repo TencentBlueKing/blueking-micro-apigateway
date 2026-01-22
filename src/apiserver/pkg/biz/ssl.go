@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -34,10 +33,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/sslx"
 )
 
+// buildSSLQuery 获取 SSL 查询对象
+func buildSSLQuery(ctx context.Context) repo.ISSLDo {
+	return repo.SSL.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildSSLQueryWithTx 获取 SSL 查询对象（带事务）
+func buildSSLQueryWithTx(ctx context.Context, tx *repo.Query) repo.ISSLDo {
+	return tx.SSL.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListSSL 查询网关 ssl 列表
-func ListSSL(ctx context.Context, gatewayID int) ([]*model.SSL, error) {
+func ListSSL(ctx context.Context) ([]*model.SSL, error) {
 	u := repo.SSL
-	return repo.SSL.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildSSLQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetSSLOrderExprList 获取 ssl 排序字段列表
@@ -58,10 +71,10 @@ func GetSSLOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedSSL 分页查询ssl
+// ListPagedSSL 分页查询 ssl
 func ListPagedSSL(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -70,7 +83,7 @@ func ListPagedSSL(
 	page PageParam,
 ) ([]*model.SSL, int64, error) {
 	u := repo.SSL
-	query := u.WithContext(ctx)
+	query := buildSSLQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -96,7 +109,7 @@ func ListPagedSSL(
 
 // ParseCert 解析证书
 func ParseCert(ctx context.Context, name, cert, key string) (*entity.SSL, error) {
-	sinis, err := sslx.ParseCert(cert, key)
+	snis, err := sslx.ParseCert(cert, key)
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +117,10 @@ func ParseCert(ctx context.Context, name, cert, key string) (*entity.SSL, error)
 	if err != nil {
 		return nil, err
 	}
-	sslinfo := &entity.SSL{
+	sslInfo := &entity.SSL{
 		Cert:          cert,
 		Key:           key,
-		Snis:          sinis,
+		Snis:          snis,
 		ValidityEnd:   validity.NotAfter,
 		ValidityStart: validity.NotBefore,
 		Status:        constant.SSLDefaultStatus,
@@ -116,7 +129,7 @@ func ParseCert(ctx context.Context, name, cert, key string) (*entity.SSL, error)
 			ID:   idx.GenResourceID(constant.SSL),
 		},
 	}
-	return sslinfo, nil
+	return sslInfo, nil
 }
 
 // CreateSSL 创建 SSL
@@ -126,20 +139,23 @@ func CreateSSL(ctx context.Context, sslModel *model.SSL) error {
 
 // BatchCreateSSL 批量创建 SSL
 func BatchCreateSSL(ctx context.Context, ssls []*model.SSL) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildSSLQueryWithTx(ctx, ginx.GetTx(ctx)).Create(ssls...)
+	}
 	return repo.SSL.WithContext(ctx).Create(ssls...)
 }
 
 // UpdateSSL 更新 SSL
 func UpdateSSL(ctx context.Context, ssl *model.SSL) error {
 	u := repo.SSL
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(ssl.ID)).Updates(ssl)
+	_, err := buildSSLQuery(ctx).Where(u.ID.Eq(ssl.ID)).Updates(ssl)
 	return err
 }
 
 // GetSSL 查询 SSL 详情
 func GetSSL(ctx context.Context, id string) (*model.SSL, error) {
 	u := repo.SSL
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildSSLQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // BatchRevertSSLs 批量回滚 ssl
@@ -151,7 +167,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	ssls, err := QuerySSL(ctx, map[string]interface{}{
+	ssls, err := QuerySSL(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -161,25 +177,46 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(ssls))
 	for _, ssl := range ssls {
+		// 标识此次更新的操作类型为撤销
+		ssl.OperationType = constant.OperationTypeRevert
 		if ssl.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			ssl.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     ssl.ID,
+				Config: ssl.Config,
+				Status: ssl.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[ssl.ID]; ok {
-			ssl.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			ssl.Name = syncData.GetName()
 			ssl.Config = syncData.Config
 			ssl.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     ssl.ID,
+				Config: ssl.Config,
+				Status: ssl.Status,
+			})
 			continue
 		} else {
-			return errors.New("can not find sync data for sls id:" + ssl.ID)
+			return errors.New("can not find sync data for ssl id:" + ssl.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		for _, sls := range ssls {
-			err := repo.SSL.WithContext(ctx).Save(sls)
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.SSL, ids, afterResources)
+		if err != nil {
+			return err
+		}
+		for _, ssl := range ssls {
+			_, err := buildSSLQueryWithTx(ctx, tx).Updates(ssl)
 			if err != nil {
 				return err
 			}
@@ -190,22 +227,20 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 }
 
 // QuerySSL 搜索 SSL
-func QuerySSL(ctx context.Context, param map[string]interface{}) ([]*model.SSL, error) {
-	u := repo.SSL
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QuerySSL(ctx context.Context, param map[string]any) ([]*model.SSL, error) {
+	return buildSSLQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsSSL 查询 SSL 是否存在
 func ExistsSSL(ctx context.Context, id string) bool {
 	u := repo.SSL
-	SSL, err := u.WithContext(ctx).Where(
+	ssl, err := buildSSLQuery(ctx).Where(
 		u.ID.Eq(id),
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
 	).Find()
 	if err != nil {
 		return false
 	}
-	if len(SSL) == 0 {
+	if len(ssl) == 0 {
 		return false
 	}
 	return true
@@ -215,11 +250,12 @@ func ExistsSSL(ctx context.Context, id string) bool {
 func BatchDeleteSSL(ctx context.Context, ids []string) error {
 	u := repo.SSL
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.SSL, ids)
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildSSLQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err

@@ -93,7 +93,7 @@
     <list-content-article v-if="route.config.plugins && Object.keys(route.config.plugins).length">
       <template #title>{{ t('已启用插件') }}</template>
       <list-content-row v-for="(config, configName) in route.config.plugins" :key="configName" :label="configName">
-        {{ config }}
+        <encode-json :config="config" />
       </list-content-row>
     </list-content-article>
   </div>
@@ -109,6 +109,7 @@ import { IUpstream } from '@/types/upstream';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
 import { useRouter } from 'vue-router';
 import TagLabel from '@/components/tag-label.vue';
+import EncodeJson from '@/components/list-display/components/encode-json.vue';
 
 interface IProps {
   resource: IRoute

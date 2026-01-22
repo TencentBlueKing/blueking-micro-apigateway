@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -26,7 +26,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 )
 
-// RegisterOpenApi  注册openapi路由
+// RegisterOpenApi  注册 openapi 路由
 func RegisterOpenApi(path string, router *gin.RouterGroup) {
 	group := router.Group(path)
 	// gateway
@@ -37,6 +37,8 @@ func RegisterOpenApi(path string, router *gin.RouterGroup) {
 	gatewayGroup.PUT("/:gateway_name/", handler.GatewayUpdate)
 	gatewayGroup.DELETE("/:gateway_name/", handler.GatewayDelete)
 	gatewayGroup.POST("/:gateway_name/publish/", handler.GatewayPublish)
+	// resource import
+	gatewayGroup.POST("/:gateway_name/resources/-/import/", handler.ResourceImport)
 
 	// resource
 	resourceGroup := gatewayGroup.Group("/:gateway_name/resources")

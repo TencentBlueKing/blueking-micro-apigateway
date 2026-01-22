@@ -66,3 +66,8 @@ export const importEtcdResources = ({ gatewayId, resources }: {
     update?: Record<string, any[]>
   }
 }) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/unify_op/resources/import/`, resources);
+
+// 获取一致 缺失 总数
+export const getSyncedSummary = ({ gatewayId }: {
+  gatewayId?: number
+}) => fetch.get(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/synced/summary/`);

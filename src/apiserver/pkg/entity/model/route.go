@@ -16,24 +16,6 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-/*
- * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关 (BlueKing - APIGateway) available.
- * Copyright (C) 2025 Tencent. All rights reserved.
- * Licensed under the MIT License (the "License"); you may not use this file except
- * in compliance with the License. You may obtain a copy of the License at
- *
- *     http://opensource.org/licenses/MIT
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * We undertake not to change the open source license (MIT license) applicable
- * to the current version of the project delivered to anyone in the future.
- */
-
 package model
 
 import (
@@ -47,11 +29,15 @@ import (
 
 // Route 路由资源表
 type Route struct {
-	Name                string `gorm:"column:name;type:varchar(64);uniqueIndex:idx_name"` // route 名称
-	ServiceID           string `gorm:"column:service_id;type:varchar(255)"`               // 关联 service 唯一标识
-	UpstreamID          string `gorm:"column:upstream_id;type:varchar(255)"`              // 关联 upstream_id 唯一标识
-	PluginConfigID      string `gorm:"column:plugin_config_id;type:varchar(255)"`         // 关联 plugin_config_id 唯一标识
-	ResourceCommonModel        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	Name string `gorm:"column:name;type:varchar(64);uniqueIndex:idx_name"` // route 名称
+	// 关联 service 唯一标识
+	ServiceID string `gorm:"column:service_id;type:varchar(255)"`
+	// 关联 upstream_id 唯一标识
+	UpstreamID string `gorm:"column:upstream_id;type:varchar(255)"`
+	// 关联 plugin_config_id 唯一标识
+	PluginConfigID      string                 `gorm:"column:plugin_config_id;type:varchar(255)"`
+	ResourceCommonModel                        // 资源通用 model: 创建时间、更新时间、创建人、更新人、config、status 等
+	OperationType       constant.OperationType `gorm:"-"` // 用于标识操作类型，不持久化到数据库
 }
 
 // TableName 设置表名
@@ -69,6 +55,10 @@ func (r *Route) BeforeCreate(tx *gorm.DB) (err error) {
 	if err != nil {
 		return err
 	}
+	// 如果操作类型为一键托管，则不触发审计
+	if r.OperationType == constant.OperationOneClickManaged {
+		return nil
+	}
 	// 添加审计
 	return r.AddAuditLog(tx, constant.OperationTypeCreate)
 }
@@ -83,6 +73,10 @@ func (r *Route) BeforeUpdate(tx *gorm.DB) (err error) {
 	err = ResourceSchemaCallback(tx, r.GatewayID, r.ID, constant.Route, r.Config)
 	if err != nil {
 		return err
+	}
+	// 如果更新的操作类型为撤销，则不触发审计
+	if r.OperationType == constant.OperationTypeRevert {
+		return nil
 	}
 	// 添加审计
 	return r.AddAuditLog(tx, constant.OperationTypeUpdate)

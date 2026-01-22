@@ -86,11 +86,6 @@ type ResourceInfo struct {
 	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态(add/update)
 }
 
-type ResourceUploadInfo struct {
-	Adds   map[constant.APISIXResource][]ResourceInfo `json:"add,omitempty"`
-	Update map[constant.APISIXResource][]ResourceInfo `json:"update,omitempty"`
-}
-
 // OperationTypeToResourceStatus 操作类型转换资源状态
 func OperationTypeToResourceStatus(operationType []constant.OperationType) []constant.ResourceStatus {
 	var resourceStatus []constant.ResourceStatus

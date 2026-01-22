@@ -36,7 +36,7 @@ func GoroutineWithRecovery(ctx context.Context, fn func()) {
 				buf := make([]byte, 64<<10)
 				n := runtime.Stack(buf, false)
 				buf = buf[:n]
-				msg := fmt.Sprintf("painic err:%s", buf)
+				msg := fmt.Sprintf("panic err:%s", buf)
 				log.Println(msg)
 				sentry.CurrentHub().Client().CaptureMessage(msg, nil, sentry.NewScope())
 			}

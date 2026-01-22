@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -82,10 +82,9 @@ func PluginMetadataCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.plugin_metadata
-//	@Param		gateway_id	path	int								true	"网关ID"
-//	@Param		id			path	string							true	"plugin_metadata ID"
-//	@Param		request		body	serializer.PluginMetadataInfo	true	"plugin_metadata更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int								true	"网关 ID"	@Param	id	path	string	true	"plugin_metadata ID"
+//	@Param		request		body	serializer.PluginMetadataInfo	true	"plugin_metadata 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas/{id}/ [put]
 func PluginMetadataUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -97,6 +96,20 @@ func PluginMetadataUpdate(c *gin.Context) {
 	req := serializer.PluginMetadataInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(
+		c.Request.Context(),
+		constant.PluginMetadata,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name": req.Name,
+		},
+	) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -123,6 +136,7 @@ func PluginMetadataUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // PluginMetadataList ...
@@ -146,8 +160,7 @@ func PluginMetadataList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -194,8 +207,8 @@ func PluginMetadataList(c *gin.Context) {
 //	@Summary	plugin_metadata 详情
 //	@Produce	json
 //	@Tags		webapi.plugin_metadata
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.PluginMetadataOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas/{id}/ [get]
 func PluginMetadataGet(c *gin.Context) {
@@ -234,8 +247,8 @@ func PluginMetadataGet(c *gin.Context) {
 //	@Summary	plugin_metadata 删除
 //	@Produce	json
 //	@Tags		webapi.plugin_metadata
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas/{id}/ [delete]
 func PluginMetadataDelete(c *gin.Context) {
@@ -279,7 +292,7 @@ func PluginMetadataDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.PluginMetadataDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas-dropdown/ [get]
 func PluginMetadataDropDownList(c *gin.Context) {
-	pluginMetadatas, err := biz.ListPluginMetadatas(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	pluginMetadatas, err := biz.ListPluginMetadatas(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
@@ -31,12 +30,27 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildRouteQuery 获取 Route 查询对象
+func buildRouteQuery(ctx context.Context) repo.IRouteDo {
+	return repo.Route.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildRouteQueryWithTx 获取 Route 查询对象，包含事务
+func buildRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IRouteDo {
+	return tx.WithContext(ctx).Route.Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListRoutes 查询网关路由列表
-func ListRoutes(ctx context.Context, gatewayID int) ([]*model.Route, error) {
+func ListRoutes(ctx context.Context) ([]*model.Route, error) {
 	u := repo.Route
-	return repo.Route.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildRouteQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetRouteOrderExprList 获取路由排序字段列表
@@ -60,7 +74,7 @@ func GetRouteOrderExprList(orderBy string) []field.Expr {
 // ListPagedRoutes 分页查询网关路由列表
 func ListPagedRoutes(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -73,7 +87,7 @@ func ListPagedRoutes(
 	page PageParam,
 ) ([]*model.Route, int64, error) {
 	u := repo.Route
-	query := u.WithContext(ctx)
+	query := buildRouteQuery(ctx)
 	if len(status) > 1 || status[0] != "" {
 		query = query.Where(u.Status.In(status...))
 	}
@@ -139,13 +153,16 @@ func CreateRoute(ctx context.Context, route model.Route) error {
 
 // BatchCreateRoutes 批量创建路由
 func BatchCreateRoutes(ctx context.Context, routes []*model.Route) error {
-	return repo.Route.WithContext(ctx).Create(routes...)
+	if ginx.GetTx(ctx) != nil {
+		return buildRouteQueryWithTx(ctx, ginx.GetTx(ctx)).CreateInBatches(routes, constant.DBBatchCreateSize)
+	}
+	return repo.Route.WithContext(ctx).CreateInBatches(routes, constant.DBBatchCreateSize)
 }
 
 // UpdateRoute 更新路由
 func UpdateRoute(ctx context.Context, route model.Route) error {
 	u := repo.Route
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(route.ID)).Select(
+	_, err := buildRouteQuery(ctx).Where(u.ID.Eq(route.ID)).Select(
 		u.Name,
 		u.PluginConfigID,
 		u.ServiceID,
@@ -160,19 +177,19 @@ func UpdateRoute(ctx context.Context, route model.Route) error {
 // GetRoute 查询路由详情
 func GetRoute(ctx context.Context, id string) (*model.Route, error) {
 	u := repo.Route
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildRouteQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryRoutes 搜索路由
-func QueryRoutes(ctx context.Context, param map[string]interface{}) ([]*model.Route, error) {
-	u := repo.Route
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryRoutes(ctx context.Context, param map[string]any) ([]*model.Route, error) {
+	return buildRouteQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteRoutes 批量删除路由 并记录审计日志
 func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 	u := repo.Route
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Route, ids)
 		if err != nil {
 			return err
@@ -182,7 +199,7 @@ func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildRouteQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -203,7 +220,7 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	routes, err := QueryRoutes(ctx, map[string]interface{}{
+	routes, err := QueryRoutes(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -213,29 +230,57 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(routes))
 	for _, route := range routes {
+		// 标识此次更新的类型为撤销
+		route.OperationType = constant.OperationTypeRevert
 		if route.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			route.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     route.ID,
+				Config: route.Config,
+				Status: route.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[route.ID]; ok {
-			route.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			route.Name = syncData.GetName()
 			route.Config = syncData.Config
 			route.Status = constant.ResourceStatusSuccess
 			// 更新关联关系数据
-			route.PluginConfigID = gjson.ParseBytes(syncData.Config).Get("plugin_config_id").String()
-			route.UpstreamID = gjson.ParseBytes(syncData.Config).Get("upstream_id").String()
-			route.ServiceID = gjson.ParseBytes(syncData.Config).Get("service_id").String()
+			route.PluginConfigID = syncData.GetPluginConfigID()
+			route.UpstreamID = syncData.GetUpstreamID()
+			route.ServiceID = syncData.GetServiceID()
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     route.ID,
+				Config: route.Config,
+				Status: route.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for route id:" + route.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Route, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, route := range routes {
-			err := repo.Route.WithContext(ctx).Save(route)
+			_, err := buildRouteQueryWithTx(ctx, tx).Select(
+				repo.Route.Name,
+				repo.Route.PluginConfigID,
+				repo.Route.ServiceID,
+				repo.Route.UpstreamID,
+				repo.Route.Config,
+				repo.Route.Status,
+			).Updates(route)
 			if err != nil {
 				return err
 			}

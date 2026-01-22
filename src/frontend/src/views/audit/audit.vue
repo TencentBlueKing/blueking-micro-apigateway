@@ -46,6 +46,7 @@
           clearable
           class="table-resource-search"
           unique-select
+          value-behavior="need-key"
           @click.stop="handleSearchSelectClick"
         />
       </div>
@@ -63,8 +64,7 @@
         :columns="columns"
         @clear-filter="handleClearFilter"
         @filter-change="handleFilterChange"
-      >
-      </MicroAgTable>
+      />
     </div>
   </div>
 
@@ -83,7 +83,7 @@ import { IOperationAuditLogs, ITableMethod } from '@/types';
 import dayjs from 'dayjs';
 import { useCommon } from '@/store';
 import { useDatePicker } from '@/hooks/use-date-picker';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useSearchSelectPopoverHidden } from '@/hooks/use-search-select-popover-hidden';
 import { getOperationAuditLogs } from '@/http/audit';
 // @ts-ignore
@@ -91,9 +91,9 @@ import TagOperationType from '@/components/tag-operation-type.vue';
 import SliderLogDiffViewer from '@/components/slider-log-diff-viewer.vue';
 // @ts-ignore
 import MicroAgTable from '@/components/micro-ag-table/table';
-import {
-  type PrimaryTableProps,
-  type FilterValue,
+import type {
+  PrimaryTableProps,
+  FilterValue,
 } from '@blueking/tdesign-ui';
 
 const common = useCommon();

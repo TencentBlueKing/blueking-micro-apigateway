@@ -22,18 +22,32 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildStreamRouteQuery 获取 StreamRoute 查询对象
+func buildStreamRouteQuery(ctx context.Context) repo.IStreamRouteDo {
+	return repo.StreamRoute.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildStreamRouteQueryWithTx 获取 StreamRoute 查询对象
+func buildStreamRouteQueryWithTx(ctx context.Context, tx *repo.Query) repo.IStreamRouteDo {
+	return tx.WithContext(ctx).StreamRoute.Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListStreamRoutes 查询网关 StreamRoute 列表
-func ListStreamRoutes(ctx context.Context, gatewayID int) ([]*model.StreamRoute, error) {
+func ListStreamRoutes(ctx context.Context) ([]*model.StreamRoute, error) {
 	u := repo.StreamRoute
-	return repo.StreamRoute.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildStreamRouteQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetStreamRouteOrderExprList 获取 StreamRoute 排序字段列表
@@ -57,7 +71,7 @@ func GetStreamRouteOrderExprList(orderBy string) []field.Expr {
 // ListPagedStreamRoutes 分页查询 StreamRoute
 func ListPagedStreamRoutes(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -68,7 +82,7 @@ func ListPagedStreamRoutes(
 	page PageParam,
 ) ([]*model.StreamRoute, int64, error) {
 	u := repo.StreamRoute
-	query := u.WithContext(ctx)
+	query := buildStreamRouteQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -110,18 +124,24 @@ func ListPagedStreamRoutes(
 
 // CreateStreamRoute 创建 StreamRoute
 func CreateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error {
-	return repo.StreamRoute.WithContext(ctx).Create(&streamRoute)
+	if ginx.GetTx(ctx) != nil {
+		return buildStreamRouteQueryWithTx(ctx, ginx.GetTx(ctx)).Create(&streamRoute)
+	}
+	return buildStreamRouteQuery(ctx).Create(&streamRoute)
 }
 
 // BatchCreateStreamRoutes 批量创建 StreamRoute
 func BatchCreateStreamRoutes(ctx context.Context, streamRoutes []*model.StreamRoute) error {
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).StreamRoute.WithContext(ctx).Create(streamRoutes...)
+	}
 	return repo.StreamRoute.WithContext(ctx).Create(streamRoutes...)
 }
 
 // UpdateStreamRoute 更新 StreamRoute
 func UpdateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error {
 	u := repo.StreamRoute
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(streamRoute.ID)).Select(
+	_, err := buildStreamRouteQuery(ctx).Where(u.ID.Eq(streamRoute.ID)).Select(
 		u.Name,
 		u.ServiceID,
 		u.UpstreamID,
@@ -135,24 +155,28 @@ func UpdateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error
 // GetStreamRoute 查询 StreamRoute 详情
 func GetStreamRoute(ctx context.Context, id string) (*model.StreamRoute, error) {
 	u := repo.StreamRoute
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildStreamRouteQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryStreamRoutes 搜索 StreamRoute
-func QueryStreamRoutes(ctx context.Context, param map[string]interface{}) ([]*model.StreamRoute, error) {
-	u := repo.StreamRoute
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryStreamRoutes(ctx context.Context, param map[string]any) ([]*model.StreamRoute, error) {
+	return buildStreamRouteQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteStreamRoutes 批量删除 StreamRoute 并添加审计日志
 func BatchDeleteStreamRoutes(ctx context.Context, ids []string) error {
+	// Get the StreamRoute repository instance
 	u := repo.StreamRoute
+	// Execute the operation within a transaction
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		// Set the transaction context for the operation
+		ctx = ginx.SetTx(ctx, tx)
+		// Add audit logs for the deletion operation
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.StreamRoute, ids)
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildStreamRouteQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -167,7 +191,7 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	streamRoutes, err := QueryStreamRoutes(ctx, map[string]interface{}{
+	streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -177,25 +201,55 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(streamRoutes))
 	for _, sr := range streamRoutes {
+		// 标识此次更新的操作类型为撤销
+		sr.OperationType = constant.OperationTypeRevert
 		if sr.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			sr.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     sr.ID,
+				Config: sr.Config,
+				Status: sr.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[sr.ID]; ok {
-			sr.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			sr.Name = syncData.GetName()
 			sr.Config = syncData.Config
 			sr.Status = constant.ResourceStatusSuccess
+			// 更新关联关系数据
+			sr.ServiceID = syncData.GetServiceID()
+			sr.UpstreamID = syncData.GetUpstreamID()
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     sr.ID,
+				Config: sr.Config,
+				Status: sr.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for streamRoute id:" + sr.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.StreamRoute, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, sr := range streamRoutes {
-			err := repo.StreamRoute.WithContext(ctx).Save(sr)
+			_, err := buildStreamRouteQueryWithTx(ctx, tx).Select(
+				repo.StreamRoute.Name,
+				repo.StreamRoute.ServiceID,
+				repo.StreamRoute.UpstreamID,
+				repo.StreamRoute.Config,
+				repo.StreamRoute.Status,
+			).Updates(sr)
 			if err != nil {
 				return err
 			}

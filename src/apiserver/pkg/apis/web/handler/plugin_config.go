@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -81,10 +81,9 @@ func PluginConfigCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.plugin_config
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"plugin_conf ID"
-//	@Param		request		body	serializer.PluginConfigInfo	true	"plugin_conf更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int							true	"网关 ID"	@Param	id	path	string	true	"plugin_conf ID"
+//	@Param		request		body	serializer.PluginConfigInfo	true	"plugin_conf 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs/{id}/ [put]
 func PluginConfigUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -96,6 +95,14 @@ func PluginConfigUpdate(c *gin.Context) {
 	req := serializer.PluginConfigInfo{ID: pathParam.ID}
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.PluginConfig, pathParam.ID, req.Config, map[string]any{
+		"name": req.Name,
+	}) {
+		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
@@ -122,6 +129,7 @@ func PluginConfigUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // PluginConfigList ...
@@ -150,8 +158,7 @@ func PluginConfigList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -199,8 +206,8 @@ func PluginConfigList(c *gin.Context) {
 //	@Summary	plugin_config 详情
 //	@Produce	json
 //	@Tags		webapi.plugin_config
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.PluginConfigOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs/{id}/ [get]
 func PluginConfigGet(c *gin.Context) {
@@ -239,8 +246,8 @@ func PluginConfigGet(c *gin.Context) {
 //	@Summary	plugin_config 删除
 //	@Produce	json
 //	@Tags		webapi.plugin_config
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs/{id}/ [delete]
 func PluginConfigDelete(c *gin.Context) {
@@ -284,7 +291,7 @@ func PluginConfigDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.PluginConfigDropDownResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs-dropdown/ [get]
 func PluginConfigDropDownList(c *gin.Context) {
-	pluginConfigs, err := biz.ListPluginConfigs(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	pluginConfigs, err := biz.ListPluginConfigs(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -73,7 +73,7 @@
 import TableResourceList, { ISearchParam } from '@/components/table-resource-list.vue';
 import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 import { deleteService, getService, getServices } from '@/http/service';
-import { computed, ref, shallowRef, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { IService } from '@/types/service';
 import { FilterOptionClass, type IFilterOption } from '@/types/table-filter';
 import { useI18n } from 'vue-i18n';
@@ -92,7 +92,7 @@ const relationSearchParams = ref<{ upstream_id?: string }>({});
 // 关联的上游 select 下拉选项
 const upstreamSelectOptions = ref<{ value: string, label: string, desc: string }[]>([]);
 
-const columns = shallowRef<PrimaryTableProps['columns']>([
+const columns = computed<PrimaryTableProps['columns']>(() => [
   {
     title: 'ID',
     colKey: 'id',
@@ -151,6 +151,12 @@ const extraSearchOptions = computed(() => [
   },
 ]);
 
+const toggleResourceViewerSlider = ({ resource }: { resource: IService }) => {
+  service.value = resource;
+  source.value = JSON.stringify(resource.config);
+  isResourceViewerShow.value = true;
+};
+
 watch(() => route.query.id, async () => {
   if (route.query.id) {
     const id = route.query.id as string;
@@ -179,25 +185,15 @@ function getFilterOptions({
   return new FilterOptionClass({ key, value, options, extra })?.filterOptions;
 };
 
-const toggleResourceViewerSlider = ({ resource }: { resource: IService }) => {
-  service.value = resource;
-  source.value = JSON.stringify(resource.config);
-  isResourceViewerShow.value = true;
-};
-
-
 const getUpstreamSelectOptions = async () => {
   const response = await getUpstreamDropdowns();
   upstreamSelectOptions.value = (response ?? []).map(item => ({
     name: item.name,
     id: item.id,
+    label: item.name,
+    value: item.id,
     desc: item.desc,
   }));
-  const filterOptions = getFilterOptions({ options: upstreamSelectOptions.value, extra: true });
-  const groupCol = columns.value.find(col => ['upstream_id'].includes(col.colKey));
-  if (groupCol) {
-    groupCol.filter.list = filterOptions;
-  }
   upstreamNameMap = upstreamSelectOptions.value.reduce<Record<string, string>>((acc, cur) => {
     acc[cur.id] = cur.name;
     return acc;

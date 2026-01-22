@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -31,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildServiceQuery 获取 Service 查询对象
+func buildServiceQuery(ctx context.Context) repo.IServiceDo {
+	return repo.Service.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildServiceQueryWithTx 获取 Service 查询对象（带事务）
+func buildServiceQueryWithTx(ctx context.Context, tx *repo.Query) repo.IServiceDo {
+	return tx.WithContext(ctx).Service.Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListServices 查询网关 Service 列表
-func ListServices(ctx context.Context, gatewayID int) ([]*model.Service, error) {
+func ListServices(ctx context.Context) ([]*model.Service, error) {
 	u := repo.Service
-	return repo.Service.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildServiceQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetServiceOrderExprList 获取 Service 排序字段列表
@@ -58,7 +71,7 @@ func GetServiceOrderExprList(orderBy string) []field.Expr {
 // ListPagedServices 分页查询网 service 列表
 func ListPagedServices(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	label map[string][]string,
 	status []string,
 	name string,
@@ -68,7 +81,7 @@ func ListPagedServices(
 	page PageParam,
 ) ([]*model.Service, int64, error) {
 	u := repo.Service
-	query := u.WithContext(ctx)
+	query := buildServiceQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -108,13 +121,16 @@ func CreateService(ctx context.Context, service model.Service) error {
 
 // BatchCreateServices 批量创建 service
 func BatchCreateServices(ctx context.Context, services []*model.Service) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildServiceQueryWithTx(ctx, ginx.GetTx(ctx)).Create(services...)
+	}
 	return repo.Service.WithContext(ctx).Create(services...)
 }
 
 // UpdateService 更新 Service
 func UpdateService(ctx context.Context, service model.Service) error {
 	u := repo.Service
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(service.ID)).Select(
+	_, err := buildServiceQuery(ctx).Where(u.ID.Eq(service.ID)).Select(
 		u.Name,
 		u.UpstreamID,
 		u.Config,
@@ -127,21 +143,19 @@ func UpdateService(ctx context.Context, service model.Service) error {
 // GetService 查询 Service 详情
 func GetService(ctx context.Context, id string) (*model.Service, error) {
 	u := repo.Service
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	return buildServiceQuery(ctx).Where(u.ID.Eq(id)).First()
 }
 
 // QueryServices 搜索 service
-func QueryServices(ctx context.Context, param map[string]interface{}) ([]*model.Service, error) {
-	u := repo.Service
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+func QueryServices(ctx context.Context, param map[string]any) ([]*model.Service, error) {
+	return buildServiceQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // ExistsService 查询 Service 是否存在
 func ExistsService(ctx context.Context, id string) bool {
 	u := repo.Service
-	services, err := u.WithContext(ctx).Where(
+	services, err := buildServiceQuery(ctx).Where(
 		u.ID.Eq(id),
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
 	).Find()
 	if err != nil {
 		return false
@@ -156,6 +170,7 @@ func ExistsService(ctx context.Context, id string) bool {
 func BatchDeleteServices(ctx context.Context, ids []string) error {
 	u := repo.Service
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Service, ids)
 		if err != nil {
 			return err
@@ -165,16 +180,15 @@ func BatchDeleteServices(ctx context.Context, ids []string) error {
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildServiceQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
 }
 
 // GetServiceCount 查询网关 Service 数量
-func GetServiceCount(ctx context.Context, gatewayID int) (int64, error) {
-	u := repo.Service
-	return u.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Count()
+func GetServiceCount(ctx context.Context) (int64, error) {
+	return buildServiceQuery(ctx).Count()
 }
 
 // BatchRevertServices 批量回滚 Service
@@ -186,7 +200,7 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	services, err := QueryServices(ctx, map[string]interface{}{
+	services, err := QueryServices(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -196,27 +210,53 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(services))
 	for _, service := range services {
+		// 标识此次更新的类型为撤销
+		service.OperationType = constant.OperationTypeRevert
 		if service.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			service.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     service.ID,
+				Config: service.Config,
+				Status: service.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[service.ID]; ok {
-			service.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			service.Name = syncData.GetName()
 			service.Config = syncData.Config
 			service.Status = constant.ResourceStatusSuccess
 			// 更新关联关系数据
-			service.UpstreamID = gjson.ParseBytes(syncData.Config).Get("upstream_id").String()
+			service.UpstreamID = syncData.GetUpstreamID()
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     service.ID,
+				Config: service.Config,
+				Status: service.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for service id:" + service.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Service, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, service := range services {
-			err := repo.Service.WithContext(ctx).Save(service)
+			_, err := buildServiceQueryWithTx(ctx, tx).Select(
+				repo.Service.Name,
+				repo.Service.UpstreamID,
+				repo.Service.Config,
+				repo.Service.Status,
+			).Updates(service)
 			if err != nil {
 				return err
 			}

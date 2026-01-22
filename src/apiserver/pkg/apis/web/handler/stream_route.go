@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -82,8 +82,7 @@ func StreamRouteCreate(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.stream_route
-//	@Param		gateway_id	path	int							true	"网关ID"
-//	@Param		id			path	string						true	"stream_route ID"
+//	@Param		gateway_id	path	int							true	"网关 ID"	@Param	id	path	string	true	"stream_route ID"
 //	@Param		request		body	serializer.StreamRouteInfo	true	"stream_route 更新参数"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes/{id}/ [put]
@@ -98,6 +97,17 @@ func StreamRouteUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.StreamRoute, pathParam.ID, req.Config, map[string]any{
+		"name":        req.Name,
+		"service_id":  req.ServiceID,
+		"upstream_id": req.UpstreamID,
+	}) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.StreamRoute, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -231,8 +241,7 @@ func StreamRouteList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
-	queryParam["gateway_id"] = pathParam.GatewayID
+	queryParam := map[string]any{}
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
@@ -288,7 +297,7 @@ func StreamRouteList(c *gin.Context) {
 //	@Success	200			{object}	serializer.StreamRouteDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes-dropdown/ [get]
 func StreamRouteDropDownList(c *gin.Context) {
-	streamRouteList, err := biz.ListStreamRoutes(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	streamRouteList, err := biz.ListStreamRoutes(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

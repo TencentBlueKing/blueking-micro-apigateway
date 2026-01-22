@@ -29,14 +29,26 @@ import (
 )
 
 // CSRF 中间件用于防止跨站请求伪造
-func CSRF(appID string, secret string) gin.HandlerFunc {
-	return adapter.Wrap(
-		csrf.Protect([]byte(secret), csrf.Secure(false), csrf.Path("/"), csrf.CookieName(appID+"-csrf")),
+func CSRF(appID, secret string) gin.HandlerFunc {
+	csrfMiddleware := csrf.Protect(
+		[]byte(secret),
+		csrf.Secure(false),
+		csrf.Path("/"),
+		csrf.CookieName(appID+"-csrf"),
 	)
+
+	return func(c *gin.Context) {
+		// 对于非 HTTPS 环境，使用 PlaintextHTTPRequest 来标记请求
+		// 这会跳过 Referer 检查，避免 v1.7.3 的默认 Referer 检查导致的问题
+		c.Request = csrf.PlaintextHTTPRequest(c.Request)
+
+		// 使用适配器包装 CSRF 中间件
+		adapter.Wrap(csrfMiddleware)(c)
+	}
 }
 
 // CSRFToken 中间件用于在 cookie 中设置 csrf token
-func CSRFToken(appID string, domain string) gin.HandlerFunc {
+func CSRFToken(appID, domain string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.SetSameSite(http.SameSiteLaxMode)
 		// 参数依次为：cookie 名称，值，有效期（0 表示会话 cookie）

@@ -22,7 +22,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -31,10 +30,24 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// buildProtoQuery 获取 Proto 查询对象
+func buildProtoQuery(ctx context.Context) repo.IProtoDo {
+	return repo.Proto.WithContext(ctx).Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
+// buildProtoQueryWithTx 获取 Proto 查询对象
+func buildProtoQueryWithTx(ctx context.Context, tx *repo.Query) repo.IProtoDo {
+	return tx.WithContext(ctx).Proto.Where(field.Attrs(map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+	}))
+}
+
 // ListProtos 查询网关 Proto 列表
-func ListProtos(ctx context.Context, gatewayID int) ([]*model.Proto, error) {
+func ListProtos(ctx context.Context) ([]*model.Proto, error) {
 	u := repo.Proto
-	return repo.Proto.WithContext(ctx).Where(u.GatewayID.Eq(gatewayID)).Order(u.UpdatedAt.Desc()).Find()
+	return buildProtoQuery(ctx).Order(u.UpdatedAt.Desc()).Find()
 }
 
 // GetProtoOrderExprList 获取 Proto 排序字段列表
@@ -58,7 +71,7 @@ func GetProtoOrderExprList(orderBy string) []field.Expr {
 // ListPagedProtos 分页查询 Proto
 func ListPagedProtos(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	status []string,
 	name string,
 	updater string,
@@ -66,7 +79,7 @@ func ListPagedProtos(
 	page PageParam,
 ) ([]*model.Proto, int64, error) {
 	u := repo.Proto
-	query := u.WithContext(ctx)
+	query := buildProtoQuery(ctx)
 	if name != "" {
 		query = query.Where(u.Name.Like("%" + name + "%"))
 	}
@@ -89,13 +102,16 @@ func CreateProto(ctx context.Context, proto model.Proto) error {
 
 // BatchCreateProtos 批量创建 Proto
 func BatchCreateProtos(ctx context.Context, protos []*model.Proto) error {
+	if ginx.GetTx(ctx) != nil {
+		return buildProtoQueryWithTx(ctx, ginx.GetTx(ctx)).Create(protos...)
+	}
 	return repo.Proto.WithContext(ctx).Create(protos...)
 }
 
 // UpdateProto 更新 Proto
 func UpdateProto(ctx context.Context, proto model.Proto) error {
 	u := repo.Proto
-	_, err := u.WithContext(ctx).Where(u.ID.Eq(proto.ID)).Select(
+	_, err := buildProtoQuery(ctx).Where(u.ID.Eq(proto.ID)).Select(
 		u.Name,
 		u.Config,
 		u.Status,
@@ -107,40 +123,28 @@ func UpdateProto(ctx context.Context, proto model.Proto) error {
 // GetProto 查询 Proto 详情
 func GetProto(ctx context.Context, id string) (*model.Proto, error) {
 	u := repo.Proto
-	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+	proto, err := buildProtoQuery(ctx).Where(u.ID.Eq(id)).First()
+	if err != nil {
+		return nil, err
+	}
+	return proto, nil
 }
 
 // QueryProtos 搜索 Proto
-func QueryProtos(ctx context.Context, param map[string]interface{}) ([]*model.Proto, error) {
-	u := repo.Proto
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
-}
-
-// ExistsProto 查询 Proto 是否存在
-func ExistsProto(ctx context.Context, id string) bool {
-	u := repo.Proto
-	proto, err := u.WithContext(ctx).Where(
-		u.ID.Eq(id),
-		u.GatewayID.Eq(ginx.GetGatewayInfoFromContext(ctx).ID),
-	).Find()
-	if err != nil {
-		return false
-	}
-	if len(proto) == 0 {
-		return false
-	}
-	return true
+func QueryProtos(ctx context.Context, param map[string]any) ([]*model.Proto, error) {
+	return buildProtoQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteProtos 批量删除 Proto 并添加审计日志
 func BatchDeleteProtos(ctx context.Context, ids []string) error {
 	u := repo.Proto
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Proto, ids)
 		if err != nil {
 			return err
 		}
-		_, err = u.WithContext(ctx).Where(u.ID.In(ids...)).Delete()
+		_, err = buildProtoQueryWithTx(ctx, tx).Where(u.ID.In(ids...)).Delete()
 		return err
 	})
 	return err
@@ -155,7 +159,7 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		syncResourceMap[syncData.ID] = syncData
 	}
 	// 查询原来的数据
-	protos, err := QueryProtos(ctx, map[string]interface{}{
+	protos, err := QueryProtos(ctx, map[string]any{
 		"id": ids,
 		"status": []constant.ResourceStatus{
 			constant.ResourceStatusDeleteDraft,
@@ -165,25 +169,46 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 	if err != nil {
 		return err
 	}
+	afterResources := make([]*model.ResourceCommonModel, 0, len(protos))
 	for _, pb := range protos {
+		// 标识此次更新的操作类型为撤销
+		pb.OperationType = constant.OperationTypeRevert
 		if pb.Status == constant.ResourceStatusDeleteDraft {
 			// 删除待发布回滚只需要更新状态即可
 			pb.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pb.ID,
+				Config: pb.Config,
+				Status: pb.Status,
+			})
 			continue
 		}
 		// 同步更新配置
 		if syncData, ok := syncResourceMap[pb.ID]; ok {
-			pb.Name = gjson.ParseBytes(syncData.Config).Get("name").String()
+			pb.Name = syncData.GetName()
 			pb.Config = syncData.Config
 			pb.Status = constant.ResourceStatusSuccess
+			// 用于审计日志更新，只需要补充 ID, Config, Status 即可
+			afterResources = append(afterResources, &model.ResourceCommonModel{
+				ID:     pb.ID,
+				Config: pb.Config,
+				Status: pb.Status,
+			})
 			continue
 		} else {
 			return errors.New("can not find sync data for Proto id:" + pb.ID)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
+		ctx = ginx.SetTx(ctx, tx)
+		// 添加撤销的审计日志
+		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Proto, ids, afterResources)
+		if err != nil {
+			return err
+		}
 		for _, pb := range protos {
-			err := repo.Proto.WithContext(ctx).Save(pb)
+			_, err := buildProtoQueryWithTx(ctx, tx).Updates(pb)
 			if err != nil {
 				return err
 			}

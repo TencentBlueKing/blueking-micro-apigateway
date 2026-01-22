@@ -191,12 +191,14 @@ func (o OperationType) String() string {
 
 // OperationTypeCreate ...
 const (
-	OperationTypeCreate      OperationType = "create"       // 创建
-	OperationTypeUpdate      OperationType = "update"       // 更新
-	OperationTypeDelete      OperationType = "delete"       // 删除
-	OperationTypePublish     OperationType = "publish"      // 同步
-	OperationTypeRevert      OperationType = "revert"       // 撤销
-	OperationTypeFixConflict OperationType = "fix_conflict" // 解决冲突
+	OperationTypeCreate      OperationType = "create"            // 创建
+	OperationTypeUpdate      OperationType = "update"            // 更新
+	OperationTypeDelete      OperationType = "delete"            // 删除
+	OperationTypePublish     OperationType = "publish"           // 同步
+	OperationTypeRevert      OperationType = "revert"            // 撤销
+	OperationTypeFixConflict OperationType = "fix_conflict"      // 解决冲突
+	OperationOneClickManaged OperationType = "one_click_managed" // 一键同步（数据量太大，不添加审计）
+	OperationImport          OperationType = "import"            // 导入
 )
 
 // OperationTypeMap ...

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -44,7 +44,7 @@ type FuncBatchUpdateResourceStatus func(ctx context.Context,
 // FuncDeleteResourceByID ...
 type FuncDeleteResourceByID func(ctx context.Context, ids []string) error
 
-// AddBatchAuditLog ... 添加批量审计日志,适用于批量操作只改变状态的情况
+// AddBatchAuditLog ... 添加批量审计日志，适用于批量操作只改变状态的情况
 func AddBatchAuditLog(ctx context.Context, operationType constant.OperationType, resourceType constant.APISIXResource,
 	resources []*model.ResourceCommonModel,
 	resourceIDStatusAfterMap map[string]constant.ResourceStatus,
@@ -90,6 +90,9 @@ func AddBatchAuditLog(ctx context.Context, operationType constant.OperationType,
 		DataBefore:    dataBeforeRaw,
 		DataAfter:     dataAfterRaw,
 		Operator:      ginx.GetUserIDFromContext(ctx),
+	}
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
 	}
 	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
 }
@@ -145,7 +148,7 @@ func WrapBatchUpdateResourceStatusAddAuditLog(ctx context.Context, resourceType 
 	if err != nil {
 		return err
 	}
-	return fn(ctx, resourceType, resourceIDs, status)
+	return nil
 }
 
 // AddDeleteResourceByIDAuditLog ... 删除资源时添加审计日志
@@ -175,10 +178,63 @@ func AddDeleteResourceByIDAuditLog(ctx context.Context, resourceType constant.AP
 	return nil
 }
 
+// WrapBatchRevertResourceAddAuditLog ... 批量撤销资源时添加审计日志
+func WrapBatchRevertResourceAddAuditLog(ctx context.Context, resourceType constant.APISIXResource,
+	resourceIDs []string, afterResources []*model.ResourceCommonModel,
+) error {
+	// 查询之前的配置
+	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
+	if err != nil {
+		return err
+	}
+
+	var dataBefore []model.BatchOperationData
+	var dataAfter []model.BatchOperationData
+	for _, resource := range resourceList {
+		dataBefore = append(dataBefore, model.BatchOperationData{
+			ID:     resource.ID,
+			Status: resource.Status,
+			Config: json.RawMessage(resource.Config),
+		})
+	}
+
+	for _, resource := range afterResources {
+		dataAfter = append(dataAfter, model.BatchOperationData{
+			ID:     resource.ID,
+			Status: resource.Status,
+			Config: json.RawMessage(resource.Config),
+		})
+	}
+
+	dataBeforeRaw, err := json.Marshal(dataBefore)
+	if err != nil {
+		return errors.Wrap(err, "marshal dataBefore failed")
+	}
+
+	dataAfterRaw, err := json.Marshal(dataAfter)
+	if err != nil {
+		return errors.Wrap(err, "marshal dataAfter failed")
+	}
+
+	operationAuditLog := &model.OperationAuditLog{
+		GatewayID:     ginx.GetGatewayInfoFromContext(ctx).ID,
+		ResourceType:  resourceType,
+		OperationType: constant.OperationTypeRevert,
+		ResourceIDs:   strings.Join(resourceIDs, ","),
+		DataBefore:    dataBeforeRaw,
+		DataAfter:     dataAfterRaw,
+		Operator:      ginx.GetUserIDFromContext(ctx),
+	}
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+	}
+	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+}
+
 // ListOperationAuditLogs 查询操作审计列表
 func ListOperationAuditLogs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	resourceID string,
 	operator string,
 	timeStart int,
@@ -204,7 +260,7 @@ func ListOperationAuditLogs(
 // ListPagedOperationAuditLogs 分页查询 操作审计列表
 func ListPagedOperationAuditLogs(
 	ctx context.Context,
-	param map[string]interface{},
+	param map[string]any,
 	resourceID string,
 	operator string,
 	timeStart int,

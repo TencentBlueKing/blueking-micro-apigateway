@@ -85,7 +85,7 @@ func ValidateStreamRoute(ctx context.Context, fl validator.FieldLevel) bool {
 	if streamRoute == "" {
 		return false
 	}
-	return biz.DuplicatedResourceName(
+	return !biz.DuplicatedResourceName(
 		ctx,
 		constant.StreamRoute,
 		fl.Parent().FieldByName("ID").String(),

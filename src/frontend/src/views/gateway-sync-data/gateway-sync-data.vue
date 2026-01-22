@@ -50,54 +50,64 @@
           class="table-resource-search"
           clearable
           unique-select
+          value-behavior="need-key"
           @click.stop="handleSearchSelectClick"
         />
       </div>
     </div>
     <div class="table-wrapper">
-      <div class="table-top-total">
-        <span class="equal">{{ equalCount }}</span>
-        <span>{{ t('一致') }}</span>
-        <span class="line"></span>
-        <span class="lose">{{ loseCount }}</span>
-        <span>{{ t('缺失') }}</span>
-        <template v-if="loseCount">
-          <span> , </span>
-          <span class="add-opt" @click="handleBatchAdd">{{ t('一键添加到编辑区维护') }}</span>
-        </template>
-      </div>
-      <MicroAgTable
-        ref="tableRef"
-        v-model:selected-row-keys="selectionHook.selectionsRowKeys.value"
-        v-model:table-data="tableData"
-        v-model:settings="settings"
-        v-model:is-all-selection="selectionHook.isAllSelection.value"
-        row-key="id"
-        resizable
-        :disable-data-page="true"
-        :filter-value="filterData"
-        :sort="sortData"
-        :api-method="getTableData"
-        :columns="columns"
-        :is-show-first-full-row="selectionHook.selections.value.length > 0"
-        @request-done="handleRequestDone"
-        @select-change="selectionHook.handleSelectionChange"
-        @clear-filter="handleClearFilter"
-        @filter-change="handleFilterChange"
-        @sort-change="handleSortChange"
-      >
-        <template #firstFullRow>
-          <div class="table-first-full-row">
-            <span class="normal-text">
-              <span>{{ t('已选') }}</span>
-              <span class="count">{{ selectionHook.selections.value.length }}</span>
-              <span>{{ t('条') }}</span>
-              <span class="mr4">,</span>
-            </span>
-            <span class="hight-light-text" @click="handleMultiAdd">{{ t('添加到编辑区') }}</span>
-          </div>
-        </template>
-      </MicroAgTable>
+      <bk-loading :loading="isAddLoading" class="index-higher">
+        <div class="table-top-total">
+          <span class="equal">{{ summary.success }}</span>
+          <span>{{ t('一致') }}</span>
+          <span class="line"></span>
+          <span class="lose">{{ summary.miss }}</span>
+          <span>{{ t('缺失') }}</span>
+          <template v-if="summary.miss">
+            <span> , </span>
+            <bk-pop-confirm
+              width="288"
+              :content="t('将所有差异的数据添加到编辑区！')"
+              trigger="click"
+              @confirm="handleBatchAdd"
+            >
+              <span class="add-opt">{{ t('一键添加到编辑区维护') }}</span>
+            </bk-pop-confirm>
+          </template>
+        </div>
+        <MicroAgTable
+          ref="tableRef"
+          v-model:selected-row-keys="selectionHook.selectionsRowKeys.value"
+          v-model:table-data="tableData"
+          v-model:settings="settings"
+          v-model:is-all-selection="selectionHook.isAllSelection.value"
+          row-key="id"
+          resizable
+          :disable-data-page="true"
+          :filter-value="filterData"
+          :sort="sortData"
+          :api-method="getTableData"
+          :columns="columns"
+          :is-show-first-full-row="selectionHook.selections.value.length > 0"
+          @request-done="handleRequestDone"
+          @select-change="selectionHook.handleSelectionChange"
+          @clear-filter="handleClearFilter"
+          @filter-change="handleFilterChange"
+          @sort-change="handleSortChange"
+        >
+          <template #firstFullRow>
+            <div class="table-first-full-row">
+              <span class="normal-text">
+                <span>{{ t('已选') }}</span>
+                <span class="count">{{ selectionHook.selections.value.length }}</span>
+                <span>{{ t('条') }}</span>
+                <span class="mr4">,</span>
+              </span>
+              <span class="hight-light-text" @click="handleMultiAdd">{{ t('添加到编辑区') }}</span>
+            </div>
+          </template>
+        </MicroAgTable>
+      </bk-loading>
     </div>
   </div>
 
@@ -127,13 +137,13 @@ import { useCommon } from '@/store';
 import { useI18n } from 'vue-i18n';
 import { Message, InfoBox, Checkbox } from 'bkui-vue';
 import { useTDesignSelection } from '@/hooks/use-tdesign-selection';
-import { useTableFilterChange } from '@/hooks/user-table-filter-change';
+import { useTableFilterChange } from '@/hooks/use-table-filter-change';
 import { useTableSortChange } from '@/hooks/use-table-sort-change';
 import { useSearchSelectPopoverHidden } from '@/hooks/use-search-select-popover-hidden';
-import {
-  type PrimaryTableProps,
-  type SortInfo,
-  type FilterValue,
+import type {
+  PrimaryTableProps,
+  SortInfo,
+  FilterValue,
 } from '@blueking/tdesign-ui';
 import dayjs from 'dayjs';
 // @ts-ignore
@@ -141,7 +151,7 @@ import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 // @ts-ignore
 import SliderResourceDiffViewer from '@/components/slider-resource-diff-viewer.vue';
 import MicroAgTable from '@/components/micro-ag-table/table';
-import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData } from '@/http/gateway-sync-data';
+import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData, getSyncedSummary } from '@/http/gateway-sync-data';
 import { getResourceDiff } from '@/http/publish';
 import { Copy } from 'bkui-vue/lib/icon';
 import { handleCopy } from '@/common/util';
@@ -155,6 +165,7 @@ const { handleTableSortChange } = useTableSortChange();
 const { handleSearchOutside, handleSearchSelectClick } = useSearchSelectPopoverHidden();
 
 const isSyncLoading = ref<boolean>(false);
+const isAddLoading = ref<boolean>(false);
 const filterData = ref<FilterValue>({});
 const sortData =  ref<SortInfo>({});
 const searchParams = ref<{ id: string, name: string, values?: { id: string, name: string }[] }[]>([]);
@@ -181,6 +192,14 @@ const settings = shallowRef({
   disabled: [],
 });
 const allowSortField = shallowRef(['name']);
+
+const summary = ref<{
+  success: number,
+  miss: number
+}>({
+  success: 0,
+  miss: 0,
+});
 
 const isDisabledSelected = (item) => {
   return !['miss'].includes(item.status);
@@ -237,7 +256,7 @@ const setIndeterminate = computed(() => {
   return isExistCheck && selectionHook.selections.value.length > 0 && !selectionHook.isAllSelection.value;
 });
 
-const columns: PrimaryTableProps['columns'] = [
+const columns: PrimaryTableProps['columns'] = computed(() => [
   {
     colKey: 'row-select',
     type: 'custom-checkbox',
@@ -346,6 +365,7 @@ const columns: PrimaryTableProps['columns'] = [
     title: t('资源类型'),
     colKey: 'resource_type',
     ellipsis: true,
+    width: 120,
     cell: (h, { row }) => common.enums?.resource_type?.[row.resource_type] ?? '--',
     filter: {
       type: 'single',
@@ -355,6 +375,7 @@ const columns: PrimaryTableProps['columns'] = [
   {
     title: t('同步版本'),
     colKey: 'mode_revision',
+    width: 120,
   },
   {
     title: t('同步时间'),
@@ -372,6 +393,7 @@ const columns: PrimaryTableProps['columns'] = [
   {
     title: t('状态'),
     colKey: 'status',
+    width: 120,
     cell: (h, { row }) => <bk-tag theme={row.status === 'success' ? 'success' : 'danger'}>{ row.status === 'success' ? '一致' : '缺失' }</bk-tag>,
     filter: {
       type: 'single',
@@ -381,6 +403,7 @@ const columns: PrimaryTableProps['columns'] = [
   {
     title: t('操作'),
     colKey: 'opt',
+    width: 160,
     fixed: 'right',
     cell: (h, { row }) => {
       return (
@@ -406,7 +429,7 @@ const columns: PrimaryTableProps['columns'] = [
       );
     },
   },
-];
+]);
 
 const searchOptions = computed(() => {
   return [
@@ -435,27 +458,19 @@ const searchOptions = computed(() => {
   ];
 });
 
-const showDataList = computed(() => {
-  if (!tableData.value?.length) return [];
+// const showDataList = computed(() => {
+//   if (!tableData.value?.length) return [];
 
-  return tableData.value.map((item: IGatewaySyncDataDto) => {
-    if (item.resource_type === 'consumer') {
-      item.name = item.config.username;
-    } else {
-      item.name = item.config.name;
-    }
+//   return tableData.value.map((item: IGatewaySyncDataDto) => {
+//     if (item.resource_type === 'consumer') {
+//       item.name = item.config.username;
+//     } else {
+//       item.name = item.config.name;
+//     }
 
-    return item;
-  });
-});
-
-const equalCount = computed(() => {
-  return showDataList.value.filter(item => item.status === 'success').length;
-});
-
-const loseCount = computed(() => {
-  return showDataList.value.filter(item => item.status === 'miss').length;
-});
+//     return item;
+//   });
+// });
 
 const disabledSelected = computed(() => {
   return !tableData.value?.length || tableData.value?.every(item => !['miss'].includes(item.status));
@@ -467,6 +482,12 @@ watch(
     handleSearch();
   },
 );
+
+const fetchSyncedSummary = async () => {
+  const result = await getSyncedSummary({ gatewayId: common.gatewayId });
+  summary.value = result;
+};
+fetchSyncedSummary();
 
 const getTableData = async (params: Record<string, any> = {}) => {
   const results = await getGatewaySyncDataList({ gatewayId: common.gatewayId, query: params });
@@ -538,6 +559,7 @@ const handleSync = async () => {
     isSyncLoading.value = true;
     await postGatewaySyncData({ data: filterData.value });
     getList();
+    fetchSyncedSummary();
     Message({
       theme: 'success',
       message: t('ETCD 资源已同步到列表'),
@@ -576,12 +598,14 @@ const handleCheckDiff = async (row: IGatewaySyncDataDto) => {
 };
 
 const addResource = async (ids?: string[]) => {
+  isAddLoading.value = true;
   try {
-    const response = await addResourceToEditArea(ids ? { data: { resource_id_list: ids } } : {});
+    const response = await addResourceToEditArea(ids ? { data: { resource_id_list: ids } } : { data: {} });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const validEntries = Object.entries(response).filter(([_, value]) => value);
     getList();
     handleResetSelection();
+    fetchSyncedSummary();
 
     InfoBox({
       type: 'success',
@@ -622,7 +646,9 @@ const addResource = async (ids?: string[]) => {
         ],
       ),
     });
-  } catch (e) {}
+  } catch (e) {} finally {
+    isAddLoading.value = false;
+  }
 };
 
 const handleAdd = (row: IGatewaySyncDataDto) => {
@@ -743,6 +769,12 @@ const handleResetSelection = () => {
   .active-text {
     color: #3A84FF;
     cursor: pointer;
+  }
+}
+
+.index-higher {
+  .bk-loading-mask {
+    z-index: 10000;
   }
 }
 </style>

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -35,15 +35,17 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
-// SSLCheck  SSL证书check ...
+// SSLCheck  SSL 证书 check ...
 //
 //	@ID			ssl_check
-//	@Summary	证书check
+//	@Summary	证书 check
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int							true	"网关 ID"
-//	@Param		request		body	serializer.SSLCheckRequest	true	"ssl check请求参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.SSLCheckRequest	true	"ssl
+//
+// check 请求参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/check [post]
 func SSLCheck(c *gin.Context) {
@@ -63,15 +65,17 @@ func SSLCheck(c *gin.Context) {
 	})
 }
 
-// SSLCreate  SSL证书创建 ...
+// SSLCreate  SSL 证书创建 ...
 //
 //	@ID			ssl_create
-//	@Summary	证书create
+//	@Summary	证书 create
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int					true	"网关 ID"
-//	@Param		request		body	serializer.SSLInfo	true	"ssl create请求参数"
+//	@Param		gateway_id	path	int	true	"网关 ID"	@Param	request	body	serializer.SSLInfo	true	"ssl
+//
+// create 请求参数"
+//
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/ [post]
 func SSLCreate(c *gin.Context) {
@@ -80,7 +84,7 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	// 再次check
+	// 再次 check
 	sslEntity, err := req.ToEntity()
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
@@ -114,20 +118,19 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	ginx.SuccessNoContentResponse(c)
+	ginx.SuccessCreateResponse(c)
 }
 
 // SSLUpdate ...
 //
 //	@ID			ssl_update
-//	@Summary	ssl更新
+//	@Summary	ssl 更新
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int					true	"网关ID"
-//	@Param		id			path	string				true	"SSL ID"
-//	@Param		request		body	serializer.SSLInfo	true	"SSL更新参数"
-//	@Success	201
+//	@Param		gateway_id	path	int					true	"网关 ID"	@Param	id	path	string	true	"SSL ID"
+//	@Param		request		body	serializer.SSLInfo	true	"SSL 更新参数"
+//	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [put]
 func SSLUpdate(c *gin.Context) {
 	var pathParam serializer.ResourceCommonPathParam
@@ -140,7 +143,7 @@ func SSLUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	// 再次check
+	// 再次 check
 	sslEntity, err := req.ToEntity()
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
@@ -157,6 +160,15 @@ func SSLUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
+
+	// if resource not changed (config and extra fields), return success directly
+	if !biz.IsResourceChanged(c.Request.Context(), constant.SSL, pathParam.ID, req.Config, map[string]any{
+		"name": req.Name,
+	}) {
+		ginx.SuccessNoContentResponse(c)
+		return
+	}
+
 	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.SSL, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -178,6 +190,7 @@ func SSLUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
+	ginx.SuccessNoContentResponse(c)
 }
 
 // SSLList ...
@@ -206,7 +219,7 @@ func SSLList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{}
+	queryParam := map[string]any{}
 	queryParam["gateway_id"] = pathParam.GatewayID
 	if req.ID != "" {
 		queryParam["id"] = req.ID
@@ -255,8 +268,8 @@ func SSLList(c *gin.Context) {
 //	@Summary	ssl 详情
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path		int	true	"网关 id"
-//	@Param		id			path		int	true	"资源 ID"
+//	@Param		gateway_id	path		int		true	"网关 id"
+//	@Param		id			path		string	true	"资源 ID"
 //	@Success	200			{object}	serializer.SSLOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [get]
 func SSLGet(c *gin.Context) {
@@ -294,8 +307,8 @@ func SSLGet(c *gin.Context) {
 //	@Summary	ssl 删除
 //	@Produce	json
 //	@Tags		webapi.ssl
-//	@Param		gateway_id	path	int	true	"网关 id"
-//	@Param		id			path	int	true	"资源 ID"
+//	@Param		gateway_id	path	int		true	"网关 id"
+//	@Param		id			path	string	true	"资源 ID"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls/{id}/ [delete]
 func SSLDelete(c *gin.Context) {
@@ -338,7 +351,7 @@ func SSLDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.SSLDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls-dropdown/ [get]
 func SSLDropDownList(c *gin.Context) {
-	ssls, err := biz.ListSSL(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	ssls, err := biz.ListSSL(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -42,14 +43,14 @@ import (
 //	@Param		gateway_id	path		int										true	"网关 ID"
 //	@Param		request		query		serializer.OperationAuditLogListRequest	false	"查询参数"
 //	@Success	200			{object}	ginx.PaginatedResponse{results=[]serializer.OperationAuditLogListResponse}
-//	@Router		/api/v1/web/gateways/{gateway_id}/audits/logs// [get]
+//	@Router		/api/v1/web/gateways/{gateway_id}/audits/logs/ [get]
 func OperationAuditLogList(c *gin.Context) {
 	var req serializer.OperationAuditLogListRequest
 	if err := c.ShouldBind(&req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	queryParam := map[string]interface{}{
+	queryParam := map[string]any{
 		"gateway_id": c.Param("gateway_id"),
 	}
 	if req.OperationType != "" {
@@ -92,9 +93,26 @@ func getOperationAuditLogResourceIDNames(
 ) (map[string]string, error) {
 	// 按资源类型分类 IDs
 	auditLogResourceTypeIDMap := map[constant.APISIXResource][]string{}
+	deleteResourceIDNameMap := map[string]string{}
 	for _, log := range operationAuditLogs {
 		if log.ResourceType == "" || log.ResourceIDs == "" {
 			continue
+		}
+		// 资源删除后，无法从数据库中查询到资源名称，获取删除前 config 中存储的资源名称
+		if log.OperationType == constant.OperationTypeDelete {
+			for _, data := range gjson.ParseBytes(log.DataBefore).Array() {
+				resourceID := data.Get("id").String()
+				resourceName := ""
+				if log.ResourceType == constant.Schema {
+					// schema 审计日志类型需要单独处理 Name
+					resourceName = data.Get("config").Get("Name").String()
+				} else {
+					resourceName = data.Get("config").Get(model.GetResourceNameKey(log.ResourceType)).String()
+				}
+				if _, ok := deleteResourceIDNameMap[resourceID]; !ok && resourceName != "" {
+					deleteResourceIDNameMap[resourceID] = resourceName
+				}
+			}
 		}
 		resourceIDs := strings.Split(log.ResourceIDs, ",")
 		auditLogResourceTypeIDMap[log.ResourceType] = append(
@@ -102,7 +120,7 @@ func getOperationAuditLogResourceIDNames(
 			resourceIDs...,
 		)
 	}
-	// 根据资源类型+资源 IDs 获取对应资源名称
+	// 根据资源类型 + 资源 IDs 获取对应资源名称
 	resourceIDNameMap := map[string]string{}
 	for resourceType, resourceIDs := range auditLogResourceTypeIDMap {
 		switch resourceType {
@@ -128,6 +146,12 @@ func getOperationAuditLogResourceIDNames(
 			}
 		}
 	}
+	// 可能存在删除后又撤销的操作，所以检查已删除的资源 ID 是否能够被匹配到，未匹配到需将删除前的资源名称补充进去
+	for id, name := range deleteResourceIDNameMap {
+		if _, ok := resourceIDNameMap[id]; !ok {
+			resourceIDNameMap[id] = name
+		}
+	}
 	return resourceIDNameMap, nil
 }
 
@@ -135,7 +159,7 @@ func getOperationAuditLogResourceIDNames(
 func getOperationAuditLogResults(
 	ctx context.Context,
 	req serializer.OperationAuditLogListRequest,
-	queryParam map[string]interface{},
+	queryParam map[string]any,
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
@@ -187,7 +211,7 @@ func getOperationAuditLogResults(
 func getOperationAuditLogResultsByName(
 	ctx context.Context,
 	req serializer.OperationAuditLogListRequest,
-	queryParam map[string]interface{},
+	queryParam map[string]any,
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {

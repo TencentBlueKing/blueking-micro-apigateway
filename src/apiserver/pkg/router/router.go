@@ -49,7 +49,9 @@ func New(slogger *slog.Logger) *gin.Engine {
 	// middlewares: globally
 	// -- recovery sentry
 	router.Use(middleware.Recovery())
-	router.Use(middleware.CORS(config.G.Service.AllowedOrigins))
+	// 注意：gin-contrib/cors 需要完整 URL 格式（如 https://example.com）
+	corsAllowedOrigins := config.NormalizeOriginsForCORS(config.G.Service.AllowedOrigins)
+	router.Use(middleware.CORS(corsAllowedOrigins))
 	router.Use(middleware.RequestID())
 	// -- trace
 	if config.G.Tracing.GinAPIEnabled() {

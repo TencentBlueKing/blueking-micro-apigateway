@@ -157,9 +157,7 @@ func loadServiceConfigFromEnv() (ServiceConfig, error) {
 	allowedOrigins := []string{"*"}
 	if val := envx.Get("ALLOWED_ORIGINS", ""); val != "" {
 		// 允许访问的源在环境变量中格式如 "http://localhost:8080,http://localhost:8081" 或 "example.com,api.example.org"
-		origins := strings.Split(val, ",")
-		// 规范化处理：CORS 需要完整 URL
-		allowedOrigins = NormalizeOriginsForCORS(origins)
+		allowedOrigins = strings.Split(val, ",")
 	}
 
 	return ServiceConfig{

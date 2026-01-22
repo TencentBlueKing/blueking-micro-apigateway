@@ -1,6 +1,6 @@
 /*
  * TencentBlueKing is pleased to support the open source community by making
- * 蓝鲸智云 - 微网关(BlueKing - Micro APIGateway) available.
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
  * Copyright (C) 2025 Tencent. All rights reserved.
  * Licensed under the MIT License (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -20,12 +20,13 @@ package config
 
 import (
 	"fmt"
-	"net/url"
 	"time"
 )
 
 // Config SaaS 配置
 type Config struct {
+	// 版本
+	Edition string
 	// 服务配置
 	Service ServiceConfig
 	// sentry 配置
@@ -74,9 +75,9 @@ type ServiceConfig struct {
 	SessionCookieAge time.Duration
 	// standalone true: 代表独立部署
 	Standalone bool
-	// 是否开启demo模式
+	// 是否开启 demo 模式
 	DemoMode bool
-	// demo模式提醒报错信息
+	// demo 模式提醒报错信息
 	DemoModeWarnMsg string
 }
 
@@ -151,7 +152,7 @@ func (cfg *MysqlConfig) DSN() string {
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true",
 		cfg.User,
-		url.QueryEscape(cfg.Password),
+		cfg.Password,
 		cfg.Host,
 		cfg.Port,
 		cfg.Name,
@@ -161,13 +162,8 @@ func (cfg *MysqlConfig) DSN() string {
 
 // BkPlatUrlConfig 蓝鲸各平台服务地址
 type BkPlatUrlConfig struct {
-	// 蓝鲸开发者中心地址
-	BkPaaS string
 	// 统一登录地址
 	BkLogin string
-	// 组件 API 地址
-	BkCompApi string
-	// TODO: SaaS 开发者可按需添加诸如 BkIAM，BkLog 等服务配置
 }
 
 // BizConfig 业务相关配置
@@ -175,14 +171,15 @@ type BizConfig struct {
 	SyncInterval          time.Duration     // 定时同步间隔
 	TAPISIXPluginDocURLs  map[string]string // TAPISIX 插件文档地址列表
 	BKPluginDocURLs       map[string]string // 蓝鲸插件文档地址列表
-	OpenApiTokenWhitelist map[string]bool   // OpenAPI 接口token白名单
-	DemoProtectResources  map[string]bool   // demo模式保护资源列表
+	OpenApiTokenWhitelist map[string]bool   // OpenAPI 接口 token 白名单
+	DemoProtectResources  map[string]bool   // demo 模式保护资源列表
 	Links                 LinkConfig        // 前端需要的链接相关配置
 }
 
 type LinkConfig struct {
-	BKGuideLink    string // 产品使用指南地址
-	BKFeedBackLink string // 产品反馈地址
+	BKGuideLink      string // 产品使用指南地址
+	BKFeedBackLink   string // 产品反馈地址
+	BKApigatewayLink string // 蓝鲸共享网关地址
 }
 
 // Crypto  配置

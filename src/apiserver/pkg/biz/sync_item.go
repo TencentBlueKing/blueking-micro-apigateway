@@ -25,60 +25,9 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
-
-// Syncer ...
-type Syncer struct {
-	SystemItemChannel chan []*model.GatewaySyncData
-	ctx               context.Context
-}
-
-// NewSyncer 创建 Syncer 实例
-func NewSyncer(ctx context.Context) *Syncer {
-	return &Syncer{
-		SystemItemChannel: make(chan []*model.GatewaySyncData, 100),
-		ctx:               ctx,
-	}
-}
-
-// Run 启动同步器
-func (s *Syncer) Run() {
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case resourceList := <-s.SystemItemChannel:
-			ctx := context.Background()
-			u := repo.GatewaySyncData
-			err := repo.Q.Transaction(func(tx *repo.Query) error {
-				if len(resourceList) == 0 {
-					return nil
-				}
-				// 先删除后插入
-				_, err := tx.GatewaySyncData.WithContext(
-					ctx,
-				).Where(
-					u.GatewayID.Eq(resourceList[0].GatewayID),
-				).
-					Delete()
-				if err != nil {
-					return err
-				}
-				return tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourceList, 500)
-			})
-			if err != nil {
-				logging.Errorf(
-					"sync gateway:%d resource error: %s",
-					resourceList[0].GatewayID,
-					err.Error(),
-				)
-			}
-		}
-	}
-}
 
 // buildSyncedItemQuery 获取查询同步资源列表的 query
 func buildSyncedItemQuery(ctx context.Context) repo.IGatewaySyncDataDo {

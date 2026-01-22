@@ -37,7 +37,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/trace"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/router"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/goroutinex"
 )
 
 // NewWebServerCmd ...
@@ -93,11 +92,7 @@ func NewWebServerCmd() *cobra.Command {
 			}()
 			baseCtx := context.Background()
 			// 启动同步
-			syncer := biz.NewSyncer(baseCtx)
-			goroutinex.GoroutineWithRecovery(baseCtx, func() {
-				syncer.Run()
-			})
-			biz.SyncAll(baseCtx, syncer.SystemItemChannel)
+			biz.SyncAll(baseCtx)
 			ctx, cancel := context.WithTimeout(
 				baseCtx, time.Duration(cfg.Service.Server.GraceTimeout)*time.Second,
 			)

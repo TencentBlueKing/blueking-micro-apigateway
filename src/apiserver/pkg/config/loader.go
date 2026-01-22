@@ -196,9 +196,7 @@ func loadServiceConfigFromEnv() (ServiceConfig, error) {
 // 从环境变量读取蓝鲸平台服务地址
 func loadBkPlatUrlFromEnv() BkPlatUrlConfig {
 	return BkPlatUrlConfig{
-		BkPaaS:    strings.TrimRight(envx.Get("BKPAAS_URL", "http://bkpaas.example.com"), "/"),
-		BkLogin:   strings.TrimRight(envx.Get("BKPAAS_LOGIN_URL", "http://bklogin.example.com"), "/"),
-		BkCompApi: strings.TrimRight(envx.Get("BK_COMPONENT_API_URL", "http://bkapi.example.com"), "/"),
+		BkLogin: strings.TrimRight(envx.Get("BKPAAS_LOGIN_URL", "http://bklogin.example.com"), "/"),
 	}
 }
 

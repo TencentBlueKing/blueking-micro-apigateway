@@ -122,6 +122,15 @@ func loadMysqlConfigFromEnv() (*MysqlConfig, error) {
 		return nil, errors.Wrapf(err, "invalid GCS_MYSQL_PORT: %s", port)
 	}
 
+	// TLS configuration
+	tlsCfg := TLS{
+		Enabled:            envx.GetBoolean("MYSQL_TLS_ENABLED", false),
+		CertCaFile:         envx.Get("MYSQL_TLS_CA_FILE", ""),
+		CertFile:           envx.Get("MYSQL_TLS_CERT_FILE", ""),
+		CertKeyFile:        envx.Get("MYSQL_TLS_KEY_FILE", ""),
+		InsecureSkipVerify: envx.GetBoolean("MYSQL_TLS_INSECURE_SKIP_VERIFY", true),
+	}
+
 	return &MysqlConfig{
 		Host:     host,
 		Port:     mysqlPort,
@@ -129,6 +138,7 @@ func loadMysqlConfigFromEnv() (*MysqlConfig, error) {
 		User:     user,
 		Password: passwd,
 		Charset:  charset,
+		TLS:      tlsCfg,
 	}, nil
 }
 

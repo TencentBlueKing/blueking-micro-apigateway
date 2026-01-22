@@ -137,6 +137,15 @@ func (t Tracing) DBAPIEnabled() bool {
 	return t.Enable && t.Instrument.DbAPI
 }
 
+// TLS is the config for TLS
+type TLS struct {
+	Enabled            bool
+	CertCaFile         string
+	CertFile           string
+	CertKeyFile        string
+	InsecureSkipVerify bool
+}
+
 // MysqlConfig Mysql 增强服务配置
 type MysqlConfig struct {
 	Host     string
@@ -145,11 +154,12 @@ type MysqlConfig struct {
 	User     string
 	Password string
 	Charset  string
+	TLS      TLS
 }
 
 // DSN ...
 func (cfg *MysqlConfig) DSN() string {
-	return fmt.Sprintf(
+	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true",
 		cfg.User,
 		cfg.Password,
@@ -158,6 +168,10 @@ func (cfg *MysqlConfig) DSN() string {
 		cfg.Name,
 		cfg.Charset,
 	)
+	if cfg.TLS.Enabled {
+		dsn += "&tls=custom"
+	}
+	return dsn
 }
 
 // BkPlatUrlConfig 蓝鲸各平台服务地址

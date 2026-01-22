@@ -36,9 +36,10 @@ func TestCSRF_GETRequest(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -56,9 +57,10 @@ func TestCSRF_POSTRequestWithoutToken(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -76,10 +78,11 @@ func TestCSRF_POSTRequestWithValidToken(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	// Create a router with both CSRF protection and token setting
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.Use(CSRFToken(appID, ""))
 	router.GET("/token", func(c *gin.Context) {
 		token := csrf.Token(c.Request)
@@ -149,10 +152,11 @@ func TestCSRFToken_SetsCookie(t *testing.T) {
 	appID := "test-app"
 	domain := "example.com"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	// CSRFToken requires CSRF middleware to be applied first
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.Use(CSRFToken(appID, domain))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
@@ -185,9 +189,10 @@ func TestCSRF_CookieName(t *testing.T) {
 
 	appID := "my-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -216,9 +221,10 @@ func TestCSRF_PlaintextHTTPRequest(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -242,9 +248,10 @@ func TestCSRF_PlaintextHTTPRequestWithToken(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.Use(CSRFToken(appID, ""))
 	router.GET("/token", func(c *gin.Context) {
 		token := csrf.Token(c.Request)
@@ -296,10 +303,11 @@ func TestCSRF_ContextKeyPresence(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	var contextChecked bool
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.GET("/test", func(c *gin.Context) {
 		// 检查请求上下文中是否设置了 PlaintextHTTPContextKey
 		if c.Request.Context().Value(csrf.PlaintextHTTPContextKey) != nil {
@@ -322,6 +330,7 @@ func TestCSRF_MiddlewareStructure(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	var middlewareOrder []string
 	router := gin.New()
@@ -332,7 +341,7 @@ func TestCSRF_MiddlewareStructure(t *testing.T) {
 		c.Next()
 	})
 
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 
 	// 添加一个后置中间件
 	router.Use(func(c *gin.Context) {
@@ -360,9 +369,10 @@ func TestCSRF_ErrorHandling(t *testing.T) {
 
 	appID := "test-app"
 	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{}
 
 	router := gin.New()
-	router.Use(CSRF(appID, secret))
+	router.Use(CSRF(appID, secret, trustedOrigins))
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
@@ -411,4 +421,114 @@ func TestCSRF_ErrorHandling(t *testing.T) {
 			assert.Equal(t, tc.expectCode, w.Code, "Expected status code for %s", tc.name)
 		})
 	}
+}
+
+// TestCSRF_TrustedOrigins 测试 TrustedOrigins 配置
+func TestCSRF_TrustedOrigins(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{"example.com", "trusted.example.org"}
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret, trustedOrigins))
+	router.Use(CSRFToken(appID, ""))
+	router.GET("/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+	router.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// 创建测试服务器
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// 创建带 cookie jar 的客户端
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// 首先获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/token")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, tokenResp.StatusCode)
+	defer tokenResp.Body.Close()
+
+	// 解析 token
+	var tokenResponse map[string]string
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	assert.NoError(t, err)
+	csrfTokenValue := tokenResponse["token"]
+	assert.NotEmpty(t, csrfTokenValue)
+
+	// 发送 POST 请求，设置来自可信源的 Origin 头
+	postReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/test", strings.NewReader("data=test"))
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postReq.Header.Set("X-CSRF-Token", csrfTokenValue)
+	postReq.Header.Set("Origin", "https://example.com")
+
+	postResp, err := client.Do(postReq)
+	assert.NoError(t, err)
+	defer postResp.Body.Close()
+
+	// 应该成功，因为 Origin 在 TrustedOrigins 列表中
+	assert.Equal(t, http.StatusOK, postResp.StatusCode)
+}
+
+// TestCSRF_UntrustedOrigin 测试不可信源的 Origin 被拒绝
+func TestCSRF_UntrustedOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	appID := "test-app"
+	secret := "test-secret-key-32-bytes-long!!"
+	trustedOrigins := []string{"example.com"}
+
+	router := gin.New()
+	router.Use(CSRF(appID, secret, trustedOrigins))
+	router.Use(CSRFToken(appID, ""))
+	router.GET("/token", func(c *gin.Context) {
+		token := csrf.Token(c.Request)
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+	router.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// 创建测试服务器
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// 创建带 cookie jar 的客户端
+	jar, err := cookiejar.New(nil)
+	assert.NoError(t, err)
+	client := &http.Client{Jar: jar}
+
+	// 首先获取 CSRF token
+	tokenResp, err := client.Get(ts.URL + "/token")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, tokenResp.StatusCode)
+	defer tokenResp.Body.Close()
+
+	// 解析 token
+	var tokenResponse map[string]string
+	err = json.NewDecoder(tokenResp.Body).Decode(&tokenResponse)
+	assert.NoError(t, err)
+	csrfTokenValue := tokenResponse["token"]
+	assert.NotEmpty(t, csrfTokenValue)
+
+	// 发送 POST 请求，设置来自不可信源的 Origin 头
+	postReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/test", strings.NewReader("data=test"))
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postReq.Header.Set("X-CSRF-Token", csrfTokenValue)
+	postReq.Header.Set("Origin", "https://malicious.com")
+
+	postResp, err := client.Do(postReq)
+	assert.NoError(t, err)
+	defer postResp.Body.Close()
+
+	// 应该返回 403 Forbidden，因为 Origin 不在 TrustedOrigins 列表中
+	assert.Equal(t, http.StatusForbidden, postResp.StatusCode)
 }

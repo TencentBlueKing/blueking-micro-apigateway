@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -64,6 +65,10 @@ var ValidAPISIXVersions = []string{
 
 // getGatewayFromRequest retrieves the gateway info and sets it in context
 func getGatewayFromRequest(ctx context.Context, gatewayID int) (*model.Gateway, context.Context, error) {
+	if token := middleware.GetMCPAccessTokenFromContext(ctx); token != nil && token.GatewayID != gatewayID {
+		return nil, ctx, fmt.Errorf("access token does not match gateway_id")
+	}
+
 	gateway, err := biz.GetGateway(ctx, gatewayID)
 	if err != nil {
 		return nil, ctx, fmt.Errorf("gateway not found: %w", err)

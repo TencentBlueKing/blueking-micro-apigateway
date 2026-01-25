@@ -95,6 +95,7 @@ func MCPAuth() gin.HandlerFunc {
 
 		// Set MCP token in context
 		c.Set(MCPTokenContextKey, token)
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), MCPTokenContextKey, token))
 
 		// Set validation error info for downstream handlers
 		ginx.SetValidateErrorInfo(c)

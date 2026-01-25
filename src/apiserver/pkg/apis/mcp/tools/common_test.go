@@ -19,12 +19,18 @@
 package tools
 
 import (
+	"context"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
 func TestParseResourceType(t *testing.T) {
@@ -224,6 +230,44 @@ func TestToJSON(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestGetGatewayFromRequestRejectsMismatchedToken(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), middleware.MCPTokenContextKey, &model.MCPAccessToken{
+		GatewayID: 1,
+	})
+
+	_, _, err := getGatewayFromRequest(ctx, 2)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "access token does not match gateway_id")
+}
+
+func TestGetGatewayFromRequestAcceptsMatchedToken(t *testing.T) {
+	util.InitEmbedDb()
+
+	ctx := context.Background()
+	gateway := &model.Gateway{
+		Name:          "mcp-tools-gateway",
+		APISIXVersion: string(constant.APISIXVersion313),
+	}
+	err := biz.CreateGateway(ctx, gateway)
+	assert.NoError(t, err)
+	assert.Greater(t, gateway.ID, 0)
+
+	ctxWithToken := context.WithValue(ctx, middleware.MCPTokenContextKey, &model.MCPAccessToken{
+		GatewayID: gateway.ID,
+	})
+
+	gotGateway, gotCtx, err := getGatewayFromRequest(ctxWithToken, gateway.ID)
+	assert.NoError(t, err)
+	assert.NotNil(t, gotGateway)
+	assert.Equal(t, gateway.ID, gotGateway.ID)
+
+	ctxGateway := ginx.GetGatewayInfoFromContext(gotCtx)
+	assert.NotNil(t, ctxGateway)
+	assert.Equal(t, gateway.ID, ctxGateway.ID)
 }
 
 func TestSuccessResult(t *testing.T) {

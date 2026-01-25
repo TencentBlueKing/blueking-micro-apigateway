@@ -45,6 +45,9 @@ type SuccessResponse struct {
 	Data any `json:"data"`
 }
 
+// Response is an alias for SuccessResponse for Swagger documentation
+type Response = SuccessResponse
+
 // Error ...
 type Error struct {
 	Code    string `json:"code"`

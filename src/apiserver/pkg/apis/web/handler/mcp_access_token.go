@@ -173,7 +173,7 @@ func MCPAccessTokenGet(c *gin.Context) {
 //	@Accept		json
 //	@Produce	json
 //	@Tags		webapi.mcp_access_token
-//	@Param		gateway_id	path	int										true	"网关 ID" 	@Param		token_id	path	int										true	"令牌 ID"
+//	@Param		gateway_id	path	int										true	"网关 ID"	@Param	token_id	path	int	true	"令牌 ID"
 //	@Param		request		body	serializer.MCPAccessTokenUpdateRequest	true	"更新参数"
 //	@Success	204
 //	@Router		/api/v1/web/gateways/{gateway_id}/mcp/tokens/{token_id}/ [put]

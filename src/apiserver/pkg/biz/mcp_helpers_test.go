@@ -150,39 +150,6 @@ func TestGetPluginsList(t *testing.T) {
 	}
 }
 
-func TestResourceToMap(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		resource any
-		expected map[string]any
-	}{
-		{
-			name:     "simple struct",
-			resource: struct{ Name string }{Name: "test"},
-			expected: map[string]any{"Name": "test"},
-		},
-		{
-			name:     "nil returns nil",
-			resource: nil,
-			expected: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := resourceToMap(tt.resource)
-			if tt.expected == nil {
-				assert.Nil(t, result)
-			} else {
-				assert.Equal(t, tt.expected, result)
-			}
-		})
-	}
-}
-
 // Note: TestListResourcesWithPagination requires ginx.SetGatewayInfoToContext
 // which needs gin.Context. These functions are tested through integration tests
 // and the MCP tool handlers that properly set up the context.

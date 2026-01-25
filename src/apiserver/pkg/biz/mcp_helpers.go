@@ -20,7 +20,6 @@ package biz
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"gorm.io/datatypes"
@@ -263,17 +262,4 @@ func GetAvailablePlugins(apisixVersion constant.APISIXVersion, apisixType string
 	}
 
 	return commonPlugins, nil
-}
-
-// Helper to convert resource to map for JSON output
-func resourceToMap(resource any) map[string]any {
-	data, err := json.Marshal(resource)
-	if err != nil {
-		return nil
-	}
-	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil
-	}
-	return result
 }

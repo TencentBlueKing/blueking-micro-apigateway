@@ -70,7 +70,7 @@ type MCPAccessTokenCreateOutputInfo struct {
 // MCPAccessTokenListResponse MCP 访问令牌列表响应
 type MCPAccessTokenListResponse []MCPAccessTokenOutputInfo
 
-// ToOutputInfo 将模型转换为输出信息
+// MCPAccessTokenToOutputInfo 将模型转换为输出信息
 func MCPAccessTokenToOutputInfo(token *model.MCPAccessToken) MCPAccessTokenOutputInfo {
 	var lastUsedAt *int64
 	if token.LastUsedAt != nil {
@@ -95,7 +95,7 @@ func MCPAccessTokenToOutputInfo(token *model.MCPAccessToken) MCPAccessTokenOutpu
 	}
 }
 
-// ToCreateOutputInfo 将模型转换为创建输出信息（包含完整令牌）
+// MCPAccessTokenToCreateOutputInfo 将模型转换为创建输出信息（包含完整令牌）
 func MCPAccessTokenToCreateOutputInfo(token *model.MCPAccessToken) MCPAccessTokenCreateOutputInfo {
 	return MCPAccessTokenCreateOutputInfo{
 		MCPAccessTokenOutputInfo: MCPAccessTokenToOutputInfo(token),

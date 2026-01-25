@@ -20,7 +20,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -500,12 +499,4 @@ func revertResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		"reverted_count": revertedCount,
 		"resource_type":  resourceTypeStr,
 	}), nil
-}
-
-// Helper struct for resource with config
-type resourceWithConfig struct {
-	model.ResourceCommonModel
-	Name     string          `json:"name,omitempty"`
-	Username string          `json:"username,omitempty"`
-	Config   json.RawMessage `json:"config"`
 }

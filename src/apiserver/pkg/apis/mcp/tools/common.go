@@ -113,15 +113,6 @@ func successResult(data any) *mcp.CallToolResult {
 	}
 }
 
-// successTextResult creates a successful tool result with text message
-func successTextResult(message string) *mcp.CallToolResult {
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: message},
-		},
-	}
-}
-
 // errorResult creates an error tool result
 func errorResult(err error) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
@@ -144,12 +135,7 @@ func parseArguments(req *mcp.CallToolRequest) map[string]any {
 	return args
 }
 
-// getIntParam extracts an integer parameter from the request (legacy, parses arguments each call)
-func getIntParam(req *mcp.CallToolRequest, name string, defaultVal int) int {
-	return getIntParamFromArgs(parseArguments(req), name, defaultVal)
-}
-
-// getIntParamFromArgs extracts an integer parameter from pre-parsed arguments (optimized)
+// getIntParamFromArgs extracts an integer parameter from pre-parsed arguments
 func getIntParamFromArgs(args map[string]any, name string, defaultVal int) int {
 	if args == nil {
 		return defaultVal
@@ -167,12 +153,7 @@ func getIntParamFromArgs(args map[string]any, name string, defaultVal int) int {
 	return defaultVal
 }
 
-// getStringParam extracts a string parameter from the request (legacy, parses arguments each call)
-func getStringParam(req *mcp.CallToolRequest, name, defaultVal string) string {
-	return getStringParamFromArgs(parseArguments(req), name, defaultVal)
-}
-
-// getStringParamFromArgs extracts a string parameter from pre-parsed arguments (optimized)
+// getStringParamFromArgs extracts a string parameter from pre-parsed arguments
 func getStringParamFromArgs(args map[string]any, name, defaultVal string) string {
 	if args == nil {
 		return defaultVal
@@ -185,12 +166,7 @@ func getStringParamFromArgs(args map[string]any, name, defaultVal string) string
 	return defaultVal
 }
 
-// getStringArrayParam extracts a string array parameter from the request (legacy)
-func getStringArrayParam(req *mcp.CallToolRequest, name string) []string {
-	return getStringArrayParamFromArgs(parseArguments(req), name)
-}
-
-// getStringArrayParamFromArgs extracts a string array parameter from pre-parsed arguments (optimized)
+// getStringArrayParamFromArgs extracts a string array parameter from pre-parsed arguments
 func getStringArrayParamFromArgs(args map[string]any, name string) []string {
 	if args == nil {
 		return nil
@@ -209,12 +185,7 @@ func getStringArrayParamFromArgs(args map[string]any, name string) []string {
 	return nil
 }
 
-// getObjectParam extracts an object parameter from the request as json.RawMessage (legacy)
-func getObjectParam(req *mcp.CallToolRequest, name string) (json.RawMessage, error) {
-	return getObjectParamFromArgs(parseArguments(req), name)
-}
-
-// getObjectParamFromArgs extracts an object parameter from pre-parsed arguments (optimized)
+// getObjectParamFromArgs extracts an object parameter from pre-parsed arguments
 func getObjectParamFromArgs(args map[string]any, name string) (json.RawMessage, error) {
 	if args == nil {
 		return nil, nil

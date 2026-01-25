@@ -240,19 +240,6 @@ func TestSuccessResult(t *testing.T) {
 	assert.Contains(t, textContent.Text, "ok")
 }
 
-func TestSuccessTextResult(t *testing.T) {
-	t.Parallel()
-
-	message := "Operation completed successfully"
-	result := successTextResult(message)
-
-	assert.False(t, result.IsError)
-	assert.Len(t, result.Content, 1)
-	textContent, ok := result.Content[0].(*mcp.TextContent)
-	assert.True(t, ok)
-	assert.Equal(t, message, textContent.Text)
-}
-
 func TestErrorResult(t *testing.T) {
 	t.Parallel()
 

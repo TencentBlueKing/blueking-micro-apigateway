@@ -70,6 +70,13 @@ func SuccessCreateResponse(c *gin.Context) {
 	c.JSON(http.StatusCreated, nil)
 }
 
+// SuccessCreateJSONResponse returns 201 with data
+func SuccessCreateJSONResponse(c *gin.Context, data any) {
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Data: data,
+	})
+}
+
 // SuccessNoContentResponse ...
 func SuccessNoContentResponse(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)

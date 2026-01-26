@@ -32,8 +32,9 @@ import (
 func RegisterSchemaTools(server *mcp.Server) {
 	// get_resource_schema
 	server.AddTool(&mcp.Tool{
-		Name:        "get_resource_schema",
-		Description: "Get the JSON Schema for a specific APISIX resource type. Use this to understand the structure and validation rules for resource configurations.",
+		Name: "get_resource_schema",
+		Description: "Get the JSON Schema for a specific APISIX resource type. " +
+			"Use this to understand the structure and validation rules.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -81,8 +82,9 @@ func RegisterSchemaTools(server *mcp.Server) {
 
 	// validate_resource_config
 	server.AddTool(&mcp.Tool{
-		Name:        "validate_resource_config",
-		Description: "Validate a resource configuration against the APISIX schema. Use this to check if a configuration is valid before creating or updating resources.",
+		Name: "validate_resource_config",
+		Description: "Validate a resource configuration against the APISIX schema. " +
+			"Use this to check if a configuration is valid before creating or updating.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -107,8 +109,9 @@ func RegisterSchemaTools(server *mcp.Server) {
 
 	// list_plugins
 	server.AddTool(&mcp.Tool{
-		Name:        "list_plugins",
-		Description: "List available APISIX plugins. Different APISIX types (apisix, bk-apisix) may have different plugin sets.",
+		Name: "list_plugins",
+		Description: "List available APISIX plugins. " +
+			"Different APISIX types (apisix, bk-apisix) may have different plugin sets.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

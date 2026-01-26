@@ -32,8 +32,9 @@ import (
 func RegisterPublishTools(server *mcp.Server) {
 	// publish_preview
 	server.AddTool(&mcp.Tool{
-		Name:        "publish_preview",
-		Description: "Preview pending changes before publishing. Shows what resources will be created, updated, or deleted in etcd/APISIX.",
+		Name: "publish_preview",
+		Description: "Preview pending changes before publishing. " +
+			"Shows what resources will be created, updated, or deleted in etcd/APISIX.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -58,8 +59,9 @@ func RegisterPublishTools(server *mcp.Server) {
 
 	// publish_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "publish_resource",
-		Description: "Publish specific resources to etcd/APISIX. This applies the changes from the edit area to the data plane.",
+		Name: "publish_resource",
+		Description: "Publish specific resources to etcd/APISIX. " +
+			"Applies the changes from the edit area to the data plane.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -84,8 +86,9 @@ func RegisterPublishTools(server *mcp.Server) {
 
 	// publish_all
 	server.AddTool(&mcp.Tool{
-		Name:        "publish_all",
-		Description: "Publish all pending changes (draft resources) to etcd/APISIX. This is a convenience tool for publishing all modified resources at once.",
+		Name: "publish_all",
+		Description: "Publish all pending changes (draft resources) to etcd/APISIX. " +
+			"Convenience tool for publishing all modified resources at once.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

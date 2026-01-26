@@ -34,8 +34,9 @@ import (
 func RegisterSyncTools(server *mcp.Server) {
 	// sync_from_etcd
 	server.AddTool(&mcp.Tool{
-		Name:        "sync_from_etcd",
-		Description: "Synchronize resources from etcd to the sync area (gateway_sync_data). This fetches the current state from the APISIX data plane.",
+		Name: "sync_from_etcd",
+		Description: "Synchronize resources from etcd to the sync area (gateway_sync_data). " +
+			"Fetches the current state from the APISIX data plane.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -44,9 +45,10 @@ func RegisterSyncTools(server *mcp.Server) {
 					"description": "The gateway ID to sync (required)",
 				},
 				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Optional: Only sync specific resource type. If omitted, syncs all resources. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
+					"type": "string",
+					"description": "Optional: Only sync specific resource type. " +
+						"If omitted, syncs all. " + ResourceTypeDescription(),
+					"enum": ValidResourceTypes,
 				},
 			},
 			"required": []string{"gateway_id"},
@@ -55,8 +57,9 @@ func RegisterSyncTools(server *mcp.Server) {
 
 	// list_synced_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "list_synced_resource",
-		Description: "List resources synced from etcd (from the sync area). These are the resources currently deployed in APISIX.",
+		Name: "list_synced_resource",
+		Description: "List resources synced from etcd (from the sync area). " +
+			"These are the resources currently deployed in APISIX.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -96,8 +99,9 @@ func RegisterSyncTools(server *mcp.Server) {
 
 	// add_synced_resources_to_edit_area
 	server.AddTool(&mcp.Tool{
-		Name:        "add_synced_resources_to_edit_area",
-		Description: "Import synced resources from the sync area to the edit area for management. This copies resources from gateway_sync_data to their respective tables.",
+		Name: "add_synced_resources_to_edit_area",
+		Description: "Import synced resources from the sync area to the edit area. " +
+			"Copies resources from gateway_sync_data to their respective tables.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

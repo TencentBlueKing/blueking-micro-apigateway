@@ -32,8 +32,9 @@ import (
 func RegisterDiffTools(server *mcp.Server) {
 	// diff_resources
 	server.AddTool(&mcp.Tool{
-		Name:        "diff_resources",
-		Description: "Compare resources between the edit area and the sync snapshot. Shows what changes would be applied when publishing.",
+		Name: "diff_resources",
+		Description: "Compare resources between the edit area and the sync snapshot. " +
+			"Shows what changes would be applied when publishing.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -42,9 +43,10 @@ func RegisterDiffTools(server *mcp.Server) {
 					"description": "The gateway ID (required)",
 				},
 				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Filter by resource type (optional). If omitted, shows diff for all types. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
+					"type": "string",
+					"description": "Filter by resource type (optional). " +
+						"If omitted, shows diff for all types. " + ResourceTypeDescription(),
+					"enum": ValidResourceTypes,
 				},
 				"resource_id": map[string]any{
 					"type":        "string",
@@ -57,8 +59,9 @@ func RegisterDiffTools(server *mcp.Server) {
 
 	// diff_detail
 	server.AddTool(&mcp.Tool{
-		Name:        "diff_detail",
-		Description: "Get detailed JSON diff for a single resource, showing the exact changes between edit area and sync snapshot.",
+		Name: "diff_detail",
+		Description: "Get detailed JSON diff for a single resource. " +
+			"Shows exact changes between edit area and sync snapshot.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

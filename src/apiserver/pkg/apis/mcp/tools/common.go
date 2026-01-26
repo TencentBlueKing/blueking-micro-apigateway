@@ -129,12 +129,16 @@ func errorResult(err error) *mcp.CallToolResult {
 }
 
 // parseArguments parses the raw arguments from the request (call once per handler)
+// Returns an empty map if arguments are empty or if parsing fails.
 func parseArguments(req *mcp.CallToolRequest) map[string]any {
 	if len(req.Params.Arguments) == 0 {
 		return make(map[string]any)
 	}
 	var args map[string]any
-	if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+	// Intentionally ignore unmarshal errors and return empty map
+	// This allows handlers to proceed with default values
+	_ = json.Unmarshal(req.Params.Arguments, &args)
+	if args == nil {
 		return make(map[string]any)
 	}
 	return args

@@ -503,7 +503,8 @@ const apiErrorDetailsDoc = `# API Error Details
 - **Duplicate resource**: Attempting to create a resource that already exists
 
 ### 400 Bad Request
-- **Invalid resource type**: Use one of: route, service, upstream, consumer, consumer_group, plugin_config, global_rule, plugin_metadata, proto, ssl, stream_route
+- **Invalid resource type**: Use one of: route, service, upstream, consumer, consumer_group,
+  plugin_config, global_rule, plugin_metadata, proto, ssl, stream_route
 - **Invalid status**: Use one of: create_draft, update_draft, delete_draft, success
 - **Missing required field**: Check the tool's required parameters
 - **Invalid config**: Configuration doesn't match APISIX schema
@@ -516,7 +517,8 @@ const apiErrorDetailsDoc = `# API Error Details
 - **Type mismatch**: Field value doesn't match expected type
 
 ### Version-Specific Errors
-- **Name field not supported**: Some resources (consumer_group, stream_route) don't support ` + "`name`" + ` field in APISIX 3.11
+- **Name field not supported**: Some resources (consumer_group, stream_route) don't support
+  ` + "`name`" + ` field in APISIX 3.11
 - Check APISIXVersion-specific field support
 
 ## Publish Errors

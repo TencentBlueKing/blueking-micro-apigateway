@@ -29,8 +29,9 @@ import (
 func RegisterWorkflowPrompts(server *mcp.Server) {
 	// Standard Workflow
 	server.AddPrompt(&mcp.Prompt{
-		Name:        "standard_workflow",
-		Description: "Complete workflow for syncing, editing, and publishing APISIX resources. Follow this workflow for safe and organized configuration management.",
+		Name: "standard_workflow",
+		Description: "Complete workflow for syncing, editing, and publishing APISIX resources. " +
+			"Follow this workflow for safe and organized configuration management.",
 		Arguments: []*mcp.PromptArgument{
 			{
 				Name:        "gateway_id",
@@ -42,8 +43,9 @@ func RegisterWorkflowPrompts(server *mcp.Server) {
 
 	// Publish Checklist
 	server.AddPrompt(&mcp.Prompt{
-		Name:        "publish_checklist",
-		Description: "Pre-publish verification checklist to ensure safe deployment. Use this before publishing changes to production.",
+		Name: "publish_checklist",
+		Description: "Pre-publish verification checklist to ensure safe deployment. " +
+			"Use this before publishing changes to production.",
 		Arguments: []*mcp.PromptArgument{
 			{
 				Name:        "gateway_id",
@@ -73,8 +75,9 @@ func RegisterWorkflowPrompts(server *mcp.Server) {
 
 	// Resource Dependency Check
 	server.AddPrompt(&mcp.Prompt{
-		Name:        "resource_dependency_check",
-		Description: "Check resource dependencies before performing operations. Use this before deleting or modifying resources.",
+		Name: "resource_dependency_check",
+		Description: "Check resource dependencies before performing operations. " +
+			"Use this before deleting or modifying resources.",
 		Arguments: []*mcp.PromptArgument{
 			{
 				Name:        "gateway_id",

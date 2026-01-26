@@ -35,8 +35,9 @@ import (
 func RegisterResourceCRUDTools(server *mcp.Server) {
 	// list_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "list_resource",
-		Description: "List resources in the edit area with pagination and filtering support. Returns resources managed by the gateway.",
+		Name: "list_resource",
+		Description: "List resources in the edit area with pagination and filtering. " +
+			"Returns resources managed by the gateway.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -163,8 +164,9 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 
 	// delete_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "delete_resource",
-		Description: "Mark resources for deletion. Resources in 'create_draft' status will be hard-deleted; others will be marked as 'delete_draft' until published.",
+		Name: "delete_resource",
+		Description: "Mark resources for deletion. Resources in 'create_draft' status " +
+			"will be hard-deleted; others will be marked as 'delete_draft' until published.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -189,8 +191,9 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 
 	// revert_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "revert_resource",
-		Description: "Revert resources to their synced snapshot state. Discards all local changes for the specified resources.",
+		Name: "revert_resource",
+		Description: "Revert resources to their synced snapshot state. " +
+			"Discards all local changes for the specified resources.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -364,8 +367,6 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceID := getStringParamFromArgs(args, "resource_id", "")
-	// name is handled within the config JSON
-	_ = getStringParamFromArgs(args, "name", "")
 	config, err := getObjectParamFromArgs(args, "config")
 	if err != nil {
 		return errorResult(err), nil

@@ -24,7 +24,7 @@
       :placeholder="t('HTTP 状态码')"
       allow-create
       has-delete-icon
-      style="width: 490px;"
+      :style="{ width: `${width}px` }"
     />
   </div>
 </template>
@@ -40,6 +40,7 @@ interface IProps {
     validator: (value?: any) => boolean;
     message: string
   }
+  width?: number | string;
 }
 
 const statuses = defineModel<number[]>({
@@ -51,6 +52,7 @@ const {
     validator: () => true,
     message: '',
   },
+  width = 490,
 } = defineProps<IProps>();
 
 const localStatuses = ref(statuses.value.map(status => (String(status))));

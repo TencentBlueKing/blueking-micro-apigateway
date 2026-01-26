@@ -19,6 +19,79 @@
 import { IUpstreamConfig } from '@/types/upstream';
 import { IHealthCheck } from '@/types/common';
 
+export const createDefaultHealthCheck = (): IHealthCheck => ({
+  active: {
+    type: 'http',
+    timeout: 1,
+    concurrency: 10,
+    // port: 1,
+    host: '',
+    http_path: '/',
+    req_headers: [],
+    healthy: {
+      successes: 2,
+      interval: 1,
+      http_statuses: [
+        200,
+        302,
+      ],
+    },
+    unhealthy: {
+      timeouts: 3,
+      interval: 1,
+      http_failures: 5,
+      tcp_failures: 2,
+      http_statuses: [
+        429,
+        404,
+        500,
+        501,
+        502,
+        503,
+        504,
+        505,
+      ],
+    },
+  },
+  passive: {
+    type: 'http',
+    healthy: {
+      successes: 5,
+      http_statuses: [
+        200,
+        201,
+        202,
+        203,
+        204,
+        205,
+        206,
+        207,
+        208,
+        226,
+        300,
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+      ],
+    },
+    unhealthy: {
+      timeouts: 7,
+      http_failures: 2,
+      tcp_failures: 2,
+      http_statuses: [
+        429,
+        500,
+        503,
+      ],
+    },
+  },
+});
+
 export const useUpstreamForm = () => {
   const createDefaultUpstream = (override: Partial<IUpstreamConfig> = {}): Partial<IUpstreamConfig> => ({
     scheme: 'http',
@@ -55,79 +128,6 @@ export const useUpstreamForm = () => {
     checks: {},
     labels: {},
     ...override,
-  });
-
-  const createDefaultHealthCheck = (): IHealthCheck => ({
-    active: {
-      type: 'http',
-      timeout: 1,
-      concurrency: 10,
-      // port: 1,
-      host: '',
-      http_path: '/',
-      req_headers: [],
-      healthy: {
-        successes: 2,
-        interval: 1,
-        http_statuses: [
-          200,
-          302,
-        ],
-      },
-      unhealthy: {
-        timeouts: 3,
-        interval: 1,
-        http_failures: 5,
-        tcp_failures: 2,
-        http_statuses: [
-          429,
-          404,
-          500,
-          501,
-          502,
-          503,
-          504,
-          505,
-        ],
-      },
-    },
-    passive: {
-      type: 'http',
-      healthy: {
-        successes: 5,
-        http_statuses: [
-          200,
-          201,
-          202,
-          203,
-          204,
-          205,
-          206,
-          207,
-          208,
-          226,
-          300,
-          301,
-          302,
-          303,
-          304,
-          305,
-          306,
-          307,
-          308,
-        ],
-      },
-      unhealthy: {
-        timeouts: 7,
-        http_failures: 2,
-        tcp_failures: 2,
-        http_statuses: [
-          429,
-          500,
-          503,
-        ],
-      },
-    },
   });
 
   return { createDefaultUpstream, createDefaultHealthCheck };

@@ -30,7 +30,7 @@
         class="form-item" label="" property="value"
       >
         <div class="multi-line-wrapper">
-          <section class="multi-line-item has-suffix">
+          <section :style="{ width: `${inputWidth}px` }" class="multi-line-item has-suffix">
             <bk-input v-model="req_header.value" clearable />
             <div class="suffix-actions">
               <icon
@@ -58,10 +58,16 @@ import { Form } from 'bkui-vue';
 import { ref, useTemplateRef, watch } from 'vue';
 import { isEqual } from 'lodash-es';
 
+interface IProps {
+  inputWidth?: number | string
+}
+
 const req_headers = defineModel<string[]>({
   required: true,
   default: () => [],
 });
+
+const { inputWidth = 486 } = defineProps<IProps>();
 
 const localReqHeaders = ref<{ value: string }[]>([]);
 

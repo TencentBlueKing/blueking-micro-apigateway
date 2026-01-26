@@ -21,19 +21,18 @@
     <div>
       <bk-form
         ref="form-ref"
-        :model="checks"
+        :model="localChecks"
         :rules="rules"
         class="form-element"
         v-bind="$attrs"
       >
-        <!-- 主动检查 -->
-        <bk-form-item class="form-item">
-          <template #label><span style="font-weight: bold;">{{ t('主动检查') }}</span></template>
-          <bk-switcher v-model="flags.active" theme="primary" @change="handleActiveCheckChange" />
-        </bk-form-item>
-        <template v-if="flags.active">
+        <checkbox-collapse
+          v-model="flags.active"
+          :desc="t('通过预设的探针类型，主动探测上游节点的存活性')"
+          :name="t('主动检查')"
+        >
           <bk-form-item :label="t('类型')" class="form-item">
-            <bk-select v-model="checks.active.type" :clearable="false" :filterable="false" style="width: 490px;">
+            <bk-select v-model="localChecks.active.type" :clearable="false" :filterable="false" style="width: 474px;">
               <bk-option
                 v-for="type in healthCheckerTypeOptions"
                 :id="type.id"
@@ -44,23 +43,25 @@
           </bk-form-item>
           <bk-form-item :label="t('超时时间(s)')" class="form-item w180">
             <bk-input
-              v-model="checks.active.timeout" :precision="1" :step="1" type="number"
+              v-model="localChecks.active.timeout" :precision="1" :step="1" type="number"
             />
           </bk-form-item>
           <bk-form-item :label="t('并行数量')" class="form-item w180">
-            <bk-input v-model="checks.active.concurrency" :min="0" :precision="0" :step="1" type="number" />
+            <bk-input v-model="localChecks.active.concurrency" :min="0" :precision="0" :step="1" type="number" />
           </bk-form-item>
-          <bk-form-item :label="t('主机名')" class="form-item w490" property="active.host" required>
-            <bk-input v-model="checks.active.host" clearable />
+          <bk-form-item :label="t('主机名')" class="form-item w474" property="active.host" required>
+            <bk-input v-model="localChecks.active.host" clearable />
           </bk-form-item>
           <bk-form-item :label="t('端口')" class="form-item w180">
-            <bk-input v-model="checks.active.port" :max="65535" :min="1" :precision="0" :step="1" type="number" />
+            <bk-input
+              v-model="localChecks.active.port" :max="65535" :min="1" :precision="0" :step="1" type="number"
+            />
           </bk-form-item>
-          <bk-form-item :label="t('请求路径')" class="form-item w490">
-            <bk-input v-model="checks.active.http_path" clearable />
+          <bk-form-item :label="t('请求路径')" class="form-item w474">
+            <bk-input v-model="localChecks.active.http_path" clearable />
           </bk-form-item>
           <bk-form-item :label="t('请求头')" class="form-item">
-            <req-headers-form v-model="checks.active.req_headers" />
+            <req-headers-form v-model="localChecks.active.req_headers" input-width="414" />
           </bk-form-item>
 
           <div class="form-divider-title">
@@ -69,17 +70,20 @@
 
           <bk-form-item :label="t('间隔时间(s)')" class="form-item w180" property="active.healthy.interval" required>
             <bk-input
-              v-model="checks.active.healthy.interval" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.active.healthy.interval" :min="1" :precision="0" :step="1" type="number"
             />
           </bk-form-item>
           <bk-form-item :label="t('成功次数')" class="form-item w180" property="active.healthy.successes" required>
             <bk-input
-              v-model="checks.active.healthy.successes" :max="254" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.active.healthy.successes" :max="254" :min="1" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
           <bk-form-item :label="t('状态码')" property="active.healthy.http_statuses" required>
             <form-tag-input-http-statuses
-              v-model="checks.active.healthy.http_statuses" :rule="httpStatusesRule"
+              v-model="localChecks.active.healthy.http_statuses"
+              :rule="httpStatusesRule"
+              width="474"
             />
           </bk-form-item>
 
@@ -87,44 +91,62 @@
             {{ t('不健康状态（主动）') }}
           </div>
 
-          <bk-form-item :label="t('超时时间(s)')" class="form-item w180" property="active.unhealthy.timeouts" required>
+          <bk-form-item
+            :label="t('超时时间(s)')" class="form-item w180" property="active.unhealthy.timeouts" required
+          >
             <bk-input
-              v-model="checks.active.unhealthy.timeouts" :max="254" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.active.unhealthy.timeouts" :max="254" :min="1" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
-          <bk-form-item :label="t('间隔时间(s)')" class="form-item w180" property="active.unhealthy.interval" required>
+          <bk-form-item
+            :label="t('间隔时间(s)')" class="form-item w180" property="active.unhealthy.interval" required
+          >
             <bk-input
-              v-model="checks.active.unhealthy.interval" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.active.unhealthy.interval" :min="1" :precision="0" :step="1" type="number"
             />
           </bk-form-item>
           <bk-form-item :label="t('状态码')" property="active.unhealthy.http_statuses" required>
-            <form-tag-input-http-statuses v-model="checks.active.unhealthy.http_statuses" :rule="httpStatusesRule" />
+            <form-tag-input-http-statuses
+              v-model="localChecks.active.unhealthy.http_statuses"
+              :rule="httpStatusesRule"
+              width="474"
+            />
           </bk-form-item>
           <bk-form-item
             :label="t('HTTP 失败次数')" class="form-item w180" property="active.unhealthy.http_failures" required
           >
             <bk-input
-              v-model="checks.active.unhealthy.http_failures" :max="254" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.active.unhealthy.http_failures" :max="254" :min="1" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
           <bk-form-item
             :label="t('TCP 失败次数')" class="form-item w180" property="active.unhealthy.tcp_failures" required
           >
             <bk-input
-              v-model="checks.active.unhealthy.tcp_failures" :max="254" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.active.unhealthy.tcp_failures" :max="254" :min="1" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
-        </template>
+        </checkbox-collapse>
 
         <!-- 被动检查 -->
 
-        <bk-form-item class="form-item">
-          <template #label><span style="font-weight: bold;">{{ t('被动检查') }}</span></template>
-          <bk-switcher v-model="flags.passive" theme="primary" @change="handlePassiveCheckChange" />
-        </bk-form-item>
-        <template v-if="flags.passive">
+        <checkbox-collapse
+          v-model="flags.passive"
+          :desc="t('通过实际请求的响应状态判断节点健康情况，无需额外探针请求，但可能会延迟问题发现，导致部分请求失败。')
+            + t('由于不健康的节点无法收到请求，仅使用被动健康检查策略无法重新将节点标记为健康，因此通常需要结合主动健康检查策略。')"
+          :name="t('被动检查')"
+          style="margin-top: 12px;"
+        >
           <bk-form-item :label="t('类型')" class="form-item">
-            <bk-select v-model="checks.passive.type" :clearable="false" :filterable="false" style="width: 490px;">
+            <bk-select
+              v-model="localChecks.passive.type"
+              :clearable="false"
+              :filterable="false"
+              style="width: 474px;"
+            >
               <bk-option
                 v-for="type in healthCheckerTypeOptions"
                 :id="type.id"
@@ -139,11 +161,16 @@
           </div>
 
           <bk-form-item :label="t('状态码')" property="passive.healthy.http_statuses" required>
-            <form-tag-input-http-statuses v-model="checks.passive.healthy.http_statuses" :rule="httpStatusesRule" />
+            <form-tag-input-http-statuses
+              v-model="localChecks.passive.healthy.http_statuses"
+              :rule="httpStatusesRule"
+              width="474"
+            />
           </bk-form-item>
           <bk-form-item :label="t('成功次数')" class="form-item w180" property="passive.healthy.successes" required>
             <bk-input
-              v-model="checks.passive.healthy.successes" :max="254" :min="0" :precision="0" :step="1" type="number"
+              v-model="localChecks.passive.healthy.successes" :max="254" :min="0" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
 
@@ -151,30 +178,38 @@
             {{ t('不健康状态（被动）') }}
           </div>
 
-          <bk-form-item :label="t('超时时间(s)')" class="form-item w180" property="passive.unhealthy.timeouts" required>
+          <bk-form-item
+            :label="t('超时时间(s)')" class="form-item w180" property="passive.unhealthy.timeouts" required
+          >
             <bk-input
-              v-model="checks.passive.unhealthy.timeouts" :max="254" :min="1" :precision="0" :step="1" type="number"
+              v-model="localChecks.passive.unhealthy.timeouts" :max="254" :min="1" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
           <bk-form-item
             :label="t('TCP 失败次数')" class="form-item w180" property="passive.unhealthy.tcp_failures" required
           >
             <bk-input
-              v-model="checks.passive.unhealthy.tcp_failures" :max="254" :min="0" :precision="0" :step="1" type="number"
+              v-model="localChecks.passive.unhealthy.tcp_failures" :max="254" :min="0" :precision="0" :step="1"
+              type="number"
             />
           </bk-form-item>
           <bk-form-item
             :label="t('HTTP 失败次数')" class="form-item w180" property="passive.unhealthy.http_failures" required
           >
             <bk-input
-              v-model="checks.passive.unhealthy.http_failures" :max="254" :min="0" :precision="0" :step="1"
+              v-model="localChecks.passive.unhealthy.http_failures" :max="254" :min="0" :precision="0" :step="1"
               type="number"
             />
           </bk-form-item>
           <bk-form-item :label="t('状态码')" property="passive.unhealthy.http_statuses" required>
-            <form-tag-input-http-statuses v-model="checks.passive.unhealthy.http_statuses" :rule="httpStatusesRule" />
+            <form-tag-input-http-statuses
+              v-model="localChecks.passive.unhealthy.http_statuses"
+              :rule="httpStatusesRule"
+              width="474"
+            />
           </bk-form-item>
-        </template>
+        </checkbox-collapse>
       </bk-form>
     </div>
   </form-collapse>
@@ -182,30 +217,23 @@
 
 <script lang="ts" setup>
 import { Form, Message } from 'bkui-vue';
-import { nextTick, ref, useTemplateRef } from 'vue';
+import { ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ReqHeadersForm from '@/components/form/form-req-headers.vue';
 import { IHealthCheck } from '@/types/common';
-import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
+import { createDefaultHealthCheck } from '@/views/upstream/use-upstream-form';
 import FormCollapse from '@/components/form-collapse.vue';
 import FormTagInputHttpStatuses from '@/components/form/form-tag-input-http-statuses-.vue';
-import { isInteger } from 'lodash-es';
+import { cloneDeep, isInteger, isPlainObject } from 'lodash-es';
+import CheckboxCollapse from '@/components/checkbox-collapse.vue';
 
-const checks = defineModel<IHealthCheck>({
-  // default: () => ({}),
-  // set(value) {
-  //   flags.value.active = !!value.active;
-  //   flags.value.passive = !!value.passive;
-  //   return value;
-  // },
-  get(value) {
-    flags.value.active = !!value?.active;
-    flags.value.passive = !!value?.passive;
-    return value;
-  },
-});
+interface IProps {
+  checks?: IHealthCheck;
+}
 
-const { createDefaultHealthCheck } = useUpstreamForm();
+const { checks = undefined } = defineProps<IProps>();
+
+const localChecks = ref<IHealthCheck>(createDefaultHealthCheck());
 
 const flags = ref({
   active: false,
@@ -359,31 +387,39 @@ const healthCheckerTypeOptions = [
   },
 ];
 
-const handleActiveCheckChange = (value: boolean) => {
-  if (!checks.value) {
-    checks.value = {};
+watch(() => checks, () => {
+  if (checks && isPlainObject(checks)) {
+    flags.value.active = checks.active !== undefined;
+    flags.value.passive = checks.passive !== undefined;
+    Object.assign(localChecks.value, cloneDeep(checks));
   }
-  nextTick(() => {
-    if (value) {
-      checks.value.active = createDefaultHealthCheck().active;
-    } else {
-      delete checks.value.active;
-    }
-  });
-};
+}, { immediate: true, deep: true });
 
-const handlePassiveCheckChange = (value: boolean) => {
-  if (!checks.value) {
-    checks.value = {};
-  }
-  nextTick(() => {
-    if (value) {
-      checks.value.passive = createDefaultHealthCheck().passive;
-    } else {
-      delete checks.value.passive;
-    }
-  });
-};
+// const handleActiveCheckChange = (value: boolean) => {
+//   if (!checks.value) {
+//     checks.value = {};
+//   }
+//   nextTick(() => {
+//     if (value) {
+//       checks.value.active = createDefaultHealthCheck().active;
+//     } else {
+//       delete checks.value.active;
+//     }
+//   });
+// };
+//
+// const handlePassiveCheckChange = (value: boolean) => {
+//   if (!checks.value) {
+//     checks.value = {};
+//   }
+//   nextTick(() => {
+//     if (value) {
+//       checks.value.passive = createDefaultHealthCheck().passive;
+//     } else {
+//       delete checks.value.passive;
+//     }
+//   });
+// };
 
 const validate = async () => {
   if (!flags.value.active && flags.value.passive) {
@@ -399,6 +435,16 @@ const validate = async () => {
 
 defineExpose({
   validate,
+  getValue: () => {
+    const checks = {};
+    if (flags.value.active) {
+      Object.assign(checks, { active: localChecks.value.active });
+    }
+    if (flags.value.passive) {
+      Object.assign(checks, { passive: localChecks.value.passive });
+    }
+    return checks;
+  },
 });
 </script>
 

@@ -114,7 +114,7 @@
             </BkForm>
 
             <!--  upstream 配置  -->
-            <UpstreamForm
+            <form-upstream
               v-if="formModel.upstream_id === '__config__'"
               ref="upstream-form"
               v-model="upstream"
@@ -186,6 +186,7 @@ import FormRemoteAddressNew from '@/components/form/form-remote-addrs-new.vue';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import SelectUpstream from '@/components/select/select-upstream.vue';
 import SelectService from '@/components/select/select-service.vue';
+import FormUpstream from '@/components/form/form-upstream.vue';
 
 interface ILocalPlugin {
   doc_url?: string
@@ -372,6 +373,10 @@ const handleSubmit = async () => {
     const upstreamId = formModel.value.upstream_id;
     config.upstream_id = upstreamId;
     if (['__config__'].includes(upstreamId)) {
+      const checks = upstreamFormRef.value?.getHealthChecks();
+      if (checks) {
+        upstream.value.checks = checks;
+      }
       const upstreamCopy = cloneDeep(upstream.value);
       if (upstreamCopy.checks) {
         if (!Object.keys(upstreamCopy.checks).length) {

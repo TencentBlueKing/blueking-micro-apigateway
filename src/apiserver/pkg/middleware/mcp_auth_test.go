@@ -137,7 +137,7 @@ func TestGetMCPAccessTokenFromContext(t *testing.T) {
 	assert.Nil(t, result)
 
 	// Test context with wrong type returns nil
-	ctxWithWrongType := context.WithValue(ctx, MCPTokenContextKey, "not-a-token")
+	ctxWithWrongType := context.WithValue(ctx, mcpTokenCtxKey, "not-a-token")
 	result = GetMCPAccessTokenFromContext(ctxWithWrongType)
 	assert.Nil(t, result)
 
@@ -147,7 +147,7 @@ func TestGetMCPAccessTokenFromContext(t *testing.T) {
 		Name:        "test-token",
 		AccessScope: model.MCPAccessScopeRead,
 	}
-	ctxWithToken := context.WithValue(ctx, MCPTokenContextKey, token)
+	ctxWithToken := SetMCPAccessTokenInContext(ctx, token)
 	result = GetMCPAccessTokenFromContext(ctxWithToken)
 	assert.NotNil(t, result)
 	assert.Equal(t, token.ID, result.ID)

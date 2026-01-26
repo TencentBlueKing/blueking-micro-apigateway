@@ -32,8 +32,13 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// mcpContextKey is a custom type for context keys to avoid collisions
+type mcpContextKey string
+
 const (
-	// MCPTokenContextKey is the context key for MCP access token
+	// mcpTokenCtxKey is the type-safe context key for standard Go context
+	mcpTokenCtxKey mcpContextKey = "mcp_access_token"
+	// MCPTokenContextKey is the string key for Gin context (c.Set/c.Get)
 	MCPTokenContextKey = "mcp_access_token"
 )
 
@@ -95,7 +100,7 @@ func MCPAuth() gin.HandlerFunc {
 
 		// Set MCP token in context
 		c.Set(MCPTokenContextKey, token)
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), MCPTokenContextKey, token))
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), mcpTokenCtxKey, token))
 
 		// Set validation error info for downstream handlers
 		ginx.SetValidateErrorInfo(c)
@@ -154,8 +159,14 @@ func GetMCPAccessToken(c *gin.Context) *model.MCPAccessToken {
 
 // GetMCPAccessTokenFromContext retrieves the MCP access token from a standard context
 func GetMCPAccessTokenFromContext(ctx context.Context) *model.MCPAccessToken {
-	if token, ok := ctx.Value(MCPTokenContextKey).(*model.MCPAccessToken); ok {
+	if token, ok := ctx.Value(mcpTokenCtxKey).(*model.MCPAccessToken); ok {
 		return token
 	}
 	return nil
+}
+
+// SetMCPAccessTokenInContext sets the MCP access token in a standard context
+// This is primarily used for testing purposes
+func SetMCPAccessTokenInContext(ctx context.Context, token *model.MCPAccessToken) context.Context {
+	return context.WithValue(ctx, mcpTokenCtxKey, token)
 }

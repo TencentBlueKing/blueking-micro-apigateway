@@ -230,11 +230,12 @@ func validateResourceConfigHandler(ctx context.Context, req *mcp.CallToolRequest
 		return errorResult(fmt.Errorf("failed to create validator: %w", err)), nil
 	}
 
-	validationResult := validator.Validate(config)
-	if validationResult != nil {
+	validationErr := validator.Validate(config)
+	if validationErr != nil {
+		// Validation failure is not an error - return success with valid=false
 		return successResult(map[string]any{
 			"valid":          false,
-			"message":        validationResult.Error(),
+			"message":        validationErr.Error(), //nolint:nilerr // intentional: validation error is returned as success result
 			"apisix_version": apisixVersionStr,
 			"resource_type":  resourceTypeStr,
 		}), nil

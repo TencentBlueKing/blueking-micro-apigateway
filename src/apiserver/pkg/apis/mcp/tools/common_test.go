@@ -235,7 +235,7 @@ func TestToJSON(t *testing.T) {
 func TestGetGatewayFromRequestRejectsMismatchedToken(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(context.Background(), middleware.MCPTokenContextKey, &model.MCPAccessToken{
+	ctx := middleware.SetMCPAccessTokenInContext(context.Background(), &model.MCPAccessToken{
 		GatewayID: 1,
 	})
 
@@ -256,7 +256,7 @@ func TestGetGatewayFromRequestAcceptsMatchedToken(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, gateway.ID, 0)
 
-	ctxWithToken := context.WithValue(ctx, middleware.MCPTokenContextKey, &model.MCPAccessToken{
+	ctxWithToken := middleware.SetMCPAccessTokenInContext(ctx, &model.MCPAccessToken{
 		GatewayID: gateway.ID,
 	})
 

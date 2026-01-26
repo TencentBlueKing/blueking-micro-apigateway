@@ -232,10 +232,11 @@ func validateResourceConfigHandler(ctx context.Context, req *mcp.CallToolRequest
 
 	validationErr := validator.Validate(config)
 	if validationErr != nil {
-		// Validation failure is not an error - return success with valid=false
+		// Validation failure is not a handler error - return success with valid=false
+		//nolint:nilerr // validation error is intentionally returned in success response
 		return successResult(map[string]any{
 			"valid":          false,
-			"message":        validationErr.Error(), //nolint:nilerr // intentional: validation error is returned as success result
+			"message":        validationErr.Error(),
 			"apisix_version": apisixVersionStr,
 			"resource_type":  resourceTypeStr,
 		}), nil

@@ -25,6 +25,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -32,8 +35,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/cryptography"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const (

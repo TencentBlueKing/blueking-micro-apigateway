@@ -27,6 +27,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/basic"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
@@ -81,6 +82,8 @@ func New(slogger *slog.Logger) *gin.Engine {
 		web.RegisterWebApi("/v1/web", apiRG)
 		// 注册openapi路由
 		open.RegisterOpenApi("/v1/open", apiRG)
+		// 注册 MCP 路由 (Model Context Protocol)
+		mcp.RegisterMCPApi("/v1/mcp", apiRG)
 	}
 
 	return router

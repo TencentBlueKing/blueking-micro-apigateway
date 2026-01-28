@@ -199,4 +199,11 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	gatewayGroup.POST("/publish/", handler.PublishResource)
 	gatewayGroup.POST("/publish/all/", handler.PublishResourceAll)
 	gatewayGroup.POST("/sync/", handler.ResourceSync)
+
+	// mcp access tokens
+	gatewayGroup.GET("/mcp/tokens/", handler.MCPAccessTokenList)
+	gatewayGroup.POST("/mcp/tokens/", handler.MCPAccessTokenCreate)
+	gatewayGroup.GET("/mcp/tokens/:token_id/", handler.MCPAccessTokenGet)
+	gatewayGroup.PUT("/mcp/tokens/:token_id/", handler.MCPAccessTokenUpdate)
+	gatewayGroup.DELETE("/mcp/tokens/:token_id/", handler.MCPAccessTokenDelete)
 }

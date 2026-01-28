@@ -87,6 +87,33 @@ func CreateResource(
 	resource any,
 	name string,
 ) error {
+	// Set the name on the resource based on resource type
+	// The name field varies by type (e.g., "name" for most, "username" for consumer)
+	switch r := resource.(type) {
+	case *model.Route:
+		r.Name = name
+	case *model.Service:
+		r.Name = name
+	case *model.Upstream:
+		r.Name = name
+	case *model.Consumer:
+		r.Username = name
+	case *model.ConsumerGroup:
+		r.Name = name
+	case *model.PluginConfig:
+		r.Name = name
+	case *model.GlobalRule:
+		r.Name = name
+	case *model.PluginMetadata:
+		r.Name = name
+	case *model.Proto:
+		r.Name = name
+	case *model.SSL:
+		r.Name = name
+	case *model.StreamRoute:
+		r.Name = name
+	}
+
 	return database.Client().WithContext(ctx).Create(resource).Error
 }
 

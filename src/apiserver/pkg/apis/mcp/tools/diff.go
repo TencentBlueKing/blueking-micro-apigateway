@@ -26,6 +26,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 )
 
 // RegisterDiffTools registers all diff-related MCP tools
@@ -108,31 +109,27 @@ func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.C
 		}
 	}
 
-	// Build resource type list
-	var resourceTypes []constant.APISIXResource
-	if resourceType != "" {
-		resourceTypes = []constant.APISIXResource{resourceType}
-	} else {
-		// All resource types
-		for rt := range constant.ResourceTypeMap {
-			resourceTypes = append(resourceTypes, rt)
-		}
+	// Get diff results - DiffResources returns results for all resource types
+	var idList []string
+	if resourceID != "" {
+		idList = []string{resourceID}
 	}
 
-	// Get diff results
+	// Call DiffResources once - it returns results organized by resource type internally
+	diffResults, err := biz.DiffResources(ctx, resourceType, idList, "", nil, resourceID == "")
+	if err != nil {
+		return errorResult(fmt.Errorf("failed to get diff: %w", err)), nil
+	}
+
+	// Organize results by resource type
 	allDiffs := make(map[string]any)
-	for _, rt := range resourceTypes {
-		var idList []string
-		if resourceID != "" {
-			idList = []string{resourceID}
-		}
-		diffResult, err := biz.DiffResources(ctx, rt, idList, "", nil, resourceID == "")
-		if err != nil {
+	for _, diffResult := range diffResults {
+		rtStr := diffResult.ResourceType.String()
+		// Filter by requested resource type if specified
+		if resourceType != "" && diffResult.ResourceType != resourceType {
 			continue
 		}
-		if len(diffResult) > 0 {
-			allDiffs[rt.String()] = diffResult
-		}
+		allDiffs[rtStr] = []any{diffResult}
 	}
 
 	// Build summary
@@ -203,18 +200,14 @@ func buildDiffSummary(diffs map[string]any) map[string]any {
 	for rt, diffData := range diffs {
 		resourceTypes = append(resourceTypes, rt)
 
-		if diffList, ok := diffData.([]map[string]any); ok {
-			for _, diff := range diffList {
-				totalChanges++
-				if status, ok := diff["status"].(string); ok {
-					switch constant.ResourceStatus(status) {
-					case constant.ResourceStatusCreateDraft:
-						createCount++
-					case constant.ResourceStatusUpdateDraft:
-						updateCount++
-					case constant.ResourceStatusDeleteDraft:
-						deleteCount++
-					}
+		// Handle []any containing dto.ResourceChangeInfo
+		if diffList, ok := diffData.([]any); ok {
+			for _, item := range diffList {
+				if changeInfo, ok := item.(dto.ResourceChangeInfo); ok {
+					createCount += changeInfo.AddedCount
+					updateCount += changeInfo.UpdateCount
+					deleteCount += changeInfo.DeletedCount
+					totalChanges += len(changeInfo.ChangeDetail)
 				}
 			}
 		}

@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -103,7 +104,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 	// create_resource
 	server.AddTool(&mcp.Tool{
 		Name:        "create_resource",
-		Description: "Create a new resource in the edit area. The resource will be in 'create_draft' status until published.",
+		Description: "Create a new resource in the edit area. The resource will be in 'create_draft' status until published. If you found create failed because of name conflict(Error 1062 (23000): Duplicate entry '1' for key 'route.idx_name'), JUST TELL USER TO CHANGE THE NAME AND TRY AGAIN, DO NOT TRY TO FIX IT FOR USER.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -132,7 +133,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 	// update_resource
 	server.AddTool(&mcp.Tool{
 		Name:        "update_resource",
-		Description: "Update an existing resource. The resource status will change to 'update_draft' until published.",
+		Description: "Update an existing resource. The resource status will change to 'update_draft' until published. If you update a resource, you should get the resource first, and modify the fields then update. DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -329,6 +330,10 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 	// Generate resource ID
 	resourceID := idx.GenResourceID(resourceType)
+
+	// Inject name into config so ToResourceModel.GetName() picks it up
+	nameKey := model.GetResourceNameKey(resourceType)
+	config, _ = sjson.SetBytes(config, nameKey, name)
 
 	// Create resource model
 	resource := model.ResourceCommonModel{

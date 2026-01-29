@@ -852,9 +852,7 @@ func UpdateResource(
 		return fmt.Errorf("unsupported resource type: %v", resourceType)
 	}
 	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
-	// ToResourceModel returns a pointer, need to dereference it
-	resourcePtr := resource.ToResourceModel(resourceType)
-	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resourcePtr).Elem())
+	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resource.ToResourceModel(resourceType)))
 	return buildCommonDbQuery(ctx, resourceType).Where("id = ?", id).Updates(newResourceModel).Error
 }
 

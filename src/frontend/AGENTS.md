@@ -28,4 +28,4 @@ src/
 1. **No index.vue**: Page components use descriptive names (e.g., `route/route.vue`, not `route/index.vue`) for better tab identification
 2. **Modular Routing**: Each module's routes are in separate files, then imported into `router/index.ts`
 3. **Use lodash-es**: Import as `import _ from 'lodash-es'` (not `lodash`)
-4. **Pre-commit Hooks**: ESLint runs automatically on staged files before commit
+4. **Linting**: Run ESLint (for example, via `npm run lint`) before committing frontend changes

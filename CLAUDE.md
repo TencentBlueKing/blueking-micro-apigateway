@@ -1,1 +1,3 @@
-/root/workspace/tx/wklken/claude/claudes/blueking-micro-apigateway/CLAUDE.md
+# CLAUDE.md
+
+@AGENTS.md

@@ -80,6 +80,12 @@ mysqlconfig:
   user: root
   password: <masked>
   charset: utf8mb4
+  tls:
+    enabled: false
+    certCaFile: ""
+    certFile: ""
+    certKeyFile: ""
+    insecureSkipVerify: false
 
 crypto:
   nonce: k2dbCGetyusW

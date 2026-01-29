@@ -24,12 +24,16 @@ package database
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -88,8 +92,51 @@ func InitDBClient(cfg *config.MysqlConfig, slogger *slog.Logger) {
 	})
 }
 
+// initMysqlTLS registers TLS config with the MySQL driver
+func initMysqlTLS(tlsCfg *config.TLS) error {
+	// Read CA certificate
+	caCert, err := os.ReadFile(tlsCfg.CertCaFile)
+	if err != nil {
+		return fmt.Errorf("failed to read CA certificate file: %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return fmt.Errorf("failed to append CA certificate to pool")
+	}
+
+	tlsConfig := &tls.Config{
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: tlsCfg.InsecureSkipVerify, //nolint:gosec
+	}
+
+	// Optionally load client certificate and key pair
+	if tlsCfg.CertFile != "" && tlsCfg.CertKeyFile != "" {
+		clientCert, err := tls.LoadX509KeyPair(tlsCfg.CertFile, tlsCfg.CertKeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load client certificate and key: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
+	}
+
+	// Register the TLS config with the MySQL driver
+	if err := mysqlDriver.RegisterTLSConfig("custom", tlsConfig); err != nil {
+		return fmt.Errorf("failed to register TLS config: %w", err)
+	}
+
+	return nil
+}
+
 // 初始化 DB Client
 func newClient(cfg *config.MysqlConfig, slogger *slog.Logger) (*gorm.DB, error) {
+	// Initialize TLS if enabled
+	if cfg.TLS.Enabled {
+		if err := initMysqlTLS(&cfg.TLS); err != nil {
+			return nil, fmt.Errorf("failed to initialize MySQL TLS: %w", err)
+		}
+		log.Infof("MySQL TLS enabled")
+	}
+
 	sqlDB, err := sql.Open("mysql", cfg.DSN())
 	if err != nil {
 		return nil, err

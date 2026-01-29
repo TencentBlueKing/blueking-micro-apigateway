@@ -273,7 +273,7 @@
 
         <!-- 健康检查 -->
         <div style="margin-left: 150px;">
-          <form-health-checks ref="health-check-form" v-model="upstream.checks" />
+          <form-health-checks ref="health-check-form" :checks="upstream.checks" />
         </div>
       </template>
     </bk-form>
@@ -641,6 +641,14 @@ const setLabels = async () => {
   return {};
 };
 
+const getHealthChecks = () => {
+  const checks = healthCheckFormRef.value?.getValue();
+  if (checks && Object.keys(checks).length) {
+    return checks;
+  }
+  return null;
+};
+
 const validate = async () => {
   try {
     const tasks = [
@@ -667,6 +675,7 @@ const validate = async () => {
 defineExpose({
   validate,
   setLabels,
+  getHealthChecks,
 });
 
 </script>

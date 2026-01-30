@@ -26,6 +26,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // RegisterPublishTools registers all publish-related MCP tools
@@ -102,6 +103,9 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Build resource type list
 	var resourceTypes []constant.APISIXResource
@@ -202,8 +206,7 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	return successResult(preview), nil
 }
 
-// publishResourceHandler handles the publish_resource tool call
-// NOTE: This handler is not currently registered for safety reasons.
+//nolint:unused // Kept for future use when MCP publishing is enabled
 func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Check write scope
 	if err := CheckWriteScope(ctx); err != nil {
@@ -229,6 +232,9 @@ func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 		return errorResult(err), nil
 	}
 
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
+
 	// Publish resources
 	err = biz.PublishResourcesByType(ctx, gateway, resourceType, resourceIDs)
 	if err != nil {
@@ -244,8 +250,7 @@ func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 	}), nil
 }
 
-// publishAllHandler handles the publish_all tool call
-// NOTE: This handler is not currently registered for safety reasons.
+//nolint:unused // Kept for future use when MCP publishing is enabled
 func publishAllHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Check write scope
 	if err := CheckWriteScope(ctx); err != nil {
@@ -257,6 +262,9 @@ func publishAllHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get all draft resources and publish them
 	publishedCounts := map[string]int{}

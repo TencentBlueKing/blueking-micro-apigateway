@@ -148,24 +148,35 @@ BK Micro APIGateway manages the following APISIX resource types:
 ## Core Concepts
 
 ### Plugin
-APISIX Plugins extend APISIX's functionalities to meet organization or user-specific requirements in traffic management, observability, security, request/response transformation, serverless computing, and more.
+APISIX Plugins extend APISIX's functionalities to meet organization or user-specific
+requirements in traffic management, observability, security, request/response
+transformation, serverless computing, and more.
 
-A Plugin configuration can be bound directly to a Route, Service, Consumer, or Plugin Config. When the same plugin is configured on multiple objects, the configurations are merged with specific precedence rules. See the "Plugin Merging Precedence" documentation for details.
+A Plugin configuration can be bound directly to a Route, Service, Consumer, or Plugin
+Config. When the same plugin is configured on multiple objects, the configurations are
+merged with specific precedence rules. See the "Plugin Merging Precedence" documentation
+for details.
 
 ## HTTP Resources
 
 ### Route
-Routes match the client's request based on defined rules, load and execute the corresponding plugins, and forward the request to the specified Upstream.
+Routes match the client's request based on defined rules, load and execute the
+corresponding plugins, and forward the request to the specified Upstream.
 - **Key Fields**: uri, hosts, methods, plugins, service_id, upstream_id
 - **Identifier**: id (auto-generated or user-defined)
 
 ### Service
-A Service is an abstraction of an API (which can also be understood as a set of Route abstractions). It usually corresponds to an upstream service abstraction. The relationship between Routes and a Service is usually N:1; N routes bound to 1 Service.
+A Service is an abstraction of an API (which can also be understood as a set of Route
+abstractions). It usually corresponds to an upstream service abstraction. The relationship
+between Routes and a Service is usually N:1; N routes bound to 1 Service.
 - **Key Fields**: name, upstream_id, plugins, hosts
 - **Identifier**: id
 
 ### Upstream
-Upstream is a virtual host abstraction that performs load balancing on a given set of service nodes according to the configured rules. Although Upstream can be directly configured to the Route or Service, using an Upstream object is recommended when there is duplication.
+Upstream is a virtual host abstraction that performs load balancing on a given set of
+service nodes according to the configured rules. Although Upstream can be directly
+configured to the Route or Service, using an Upstream object is recommended when there
+is duplication.
 - **Key Fields**: nodes, type (roundrobin/chash), timeout, health checks
 - **Identifier**: id
 
@@ -175,7 +186,10 @@ Consumers represent API clients/users for authentication and rate limiting.
 - **Identifier**: username (not id)
 
 ### Consumer Group
-Consumer Groups are used to extract commonly used Plugin configurations and can be bound directly to a Consumer. With consumer groups, you can define any number of plugins, e.g. rate limiting and apply them to a set of consumers, instead of managing each consumer individually.
+Consumer Groups are used to extract commonly used Plugin configurations and can be bound
+directly to a Consumer. With consumer groups, you can define any number of plugins, e.g.
+rate limiting and apply them to a set of consumers, instead of managing each consumer
+individually.
 - **Key Fields**: plugins
 - **Identifier**: id
 
@@ -190,7 +204,8 @@ If we want a Plugin to work on all requests, this is where we register a global 
 - **Identifier**: id
 
 ### Plugin Metadata
-A plugin metadata object is used to configure the common metadata field(s) of all plugin instances sharing the same plugin name.
+A plugin metadata object is used to configure the common metadata field(s) of all plugin
+instances sharing the same plugin name.
 - **Key Fields**: plugin-specific metadata
 - **Identifier**: plugin name
 
@@ -562,19 +577,24 @@ const pluginPrecedenceDoc = `# Plugin Merging Precedence
 
 ## Overview
 
-When the same plugin is configured both globally in a global rule and locally in an object (e.g. a route), both plugin instances are executed sequentially.
+When the same plugin is configured both globally in a global rule and locally in an
+object (e.g. a route), both plugin instances are executed sequentially.
 
-However, if the same plugin is configured locally on multiple objects, such as on Route, Service, Consumer, Consumer Group, or Plugin Config, only one copy of configuration is used as each non-global plugin is only executed once.
+However, if the same plugin is configured locally on multiple objects, such as on Route,
+Service, Consumer, Consumer Group, or Plugin Config, only one copy of configuration is
+used as each non-global plugin is only executed once.
 
 ## Precedence Order
 
-This is because during execution, plugins configured in these objects are merged with respect to a specific order of precedence:
+This is because during execution, plugins configured in these objects are merged with
+respect to a specific order of precedence:
 
 ` + "```" + `
 Consumer > Consumer Group > Route > Plugin Config > Service
 ` + "```" + `
 
-If the same plugin has different configurations in different objects, the plugin configuration with the highest order of precedence during merging will be used.
+If the same plugin has different configurations in different objects, the plugin
+configuration with the highest order of precedence during merging will be used.
 
 ## Examples
 

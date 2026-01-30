@@ -27,6 +27,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // RegisterDiffTools registers all diff-related MCP tools
@@ -35,7 +36,9 @@ func RegisterDiffTools(server *mcp.Server) {
 	server.AddTool(&mcp.Tool{
 		Name: "diff_resources",
 		Description: "Compare resources between the edit area and the sync snapshot. " +
-			"Shows what changes would be applied when publishing. The before_status is the current status of the resource in the edit area, and the after_status is the status of the resource after publishing. Not means status Change.",
+			"Shows what changes would be applied when publishing. " +
+			"The before_status is the current status of the resource in the edit area, " +
+			"and the after_status is the status of the resource after publishing. Not means status Change.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -87,6 +90,9 @@ func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.C
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	var resourceType constant.APISIXResource
 	if resourceTypeStr != "" {
@@ -151,6 +157,9 @@ func diffDetailHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get detailed config diff
 	diffDetail, err := biz.GetResourceConfigDiffDetail(ctx, resourceType, resourceID)

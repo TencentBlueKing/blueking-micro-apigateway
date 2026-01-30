@@ -29,6 +29,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
@@ -95,8 +96,11 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 
 	// create_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "create_resource",
-		Description: "Create a new resource in the edit area. The resource will be in 'create_draft' status until published. If you found create failed because of name conflict(Error 1062 (23000): Duplicate entry '1' for key 'route.idx_name'), JUST TELL USER TO CHANGE THE NAME AND TRY AGAIN, DO NOT TRY TO FIX IT FOR USER.",
+		Name: "create_resource",
+		Description: "Create a new resource in the edit area. The resource will be in 'create_draft' " +
+			"status until published. If you found create failed because of name conflict " +
+			"(Error 1062 (23000): Duplicate entry '1' for key 'route.idx_name'), " +
+			"JUST TELL USER TO CHANGE THE NAME AND TRY AGAIN, DO NOT TRY TO FIX IT FOR USER.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -120,8 +124,11 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 
 	// update_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "update_resource",
-		Description: "Update an existing resource. The resource status will change to 'update_draft' until published. If you update a resource, you should get the resource first, and modify the fields then update. DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG.",
+		Name: "update_resource",
+		Description: "Update an existing resource. The resource status will change to 'update_draft' " +
+			"until published. If you update a resource, you should get the resource first, " +
+			"and modify the fields then update. " +
+			"DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -209,9 +216,13 @@ func listResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Ca
 	}
 
 	// Gateway is already set in context by middleware
-	if _, err := getGatewayFromContext(ctx); err != nil {
+	gateway, err := getGatewayFromContext(ctx)
+	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Calculate offset
 	offset := (page - 1) * pageSize
@@ -261,9 +272,13 @@ func getResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Cal
 	}
 
 	// Gateway is already set in context by middleware
-	if _, err := getGatewayFromContext(ctx); err != nil {
+	gateway, err := getGatewayFromContext(ctx)
+	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	resource, err := biz.GetResourceByID(ctx, resourceType, resourceID)
 	if err != nil {
@@ -302,6 +317,9 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Generate resource ID
 	resourceID := idx.GenResourceID(resourceType)
@@ -367,9 +385,13 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	}
 
 	// Gateway is already set in context by middleware
-	if _, err := getGatewayFromContext(ctx); err != nil {
+	gateway, err := getGatewayFromContext(ctx)
+	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get the update status based on current status
 	updateStatus, err := biz.GetResourceUpdateStatus(ctx, resourceType, resourceID)
@@ -418,9 +440,13 @@ func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	}
 
 	// Gateway is already set in context by middleware
-	if _, err := getGatewayFromContext(ctx); err != nil {
+	gateway, err := getGatewayFromContext(ctx)
+	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	deletedCount := 0
 	markedCount := 0
@@ -476,9 +502,13 @@ func revertResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	}
 
 	// Gateway is already set in context by middleware
-	if _, err := getGatewayFromContext(ctx); err != nil {
+	gateway, err := getGatewayFromContext(ctx)
+	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	revertedCount := 0
 	for _, resourceID := range resourceIDs {

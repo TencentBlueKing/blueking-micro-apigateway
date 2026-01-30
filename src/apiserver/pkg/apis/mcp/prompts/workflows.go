@@ -150,7 +150,8 @@ delete_resource(resource_type="route", resource_ids=["old-route"])
 
 **Tip:**
 - Use validate_resource_config to check configs before creating/updating.
-- Before update, should get the resource first, update the fields in ` + "`config`" + ` and put the whole ` + "`config`" + ` into the request!
+- Before update, should get the resource first, update the fields in ` + "`config`" + ` and put the whole
+  ` + "`config`" + ` into the request!
 
 ---
 
@@ -203,6 +204,7 @@ Note: Publishing via MCP is currently disabled for safety. Please use the web UI
 	}, nil
 }
 
+//nolint:unused // Kept for future use when MCP publishing is enabled
 func publishChecklistHandler(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	content := `# Pre-Publish Verification Checklist
 

@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // RegisterSyncTools registers all sync-related MCP tools
@@ -120,6 +121,9 @@ func syncFromEtcdHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Ca
 		return errorResult(err), nil
 	}
 
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
+
 	// Create UnifyOp for sync
 	unifyOp, err := biz.NewUnifyOp(gateway, false)
 	if err != nil {
@@ -174,6 +178,9 @@ func listSyncedResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Validate pagination params
 	if page < 1 {
@@ -305,6 +312,9 @@ func addSyncedResourcesToEditAreaHandler(ctx context.Context, req *mcp.CallToolR
 	if err != nil {
 		return errorResult(err), nil
 	}
+
+	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get synced resources by IDs
 	var syncedResources []*model.GatewaySyncData

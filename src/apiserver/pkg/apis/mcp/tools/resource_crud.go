@@ -21,6 +21,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/tidwall/sjson"
@@ -75,15 +76,19 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 
 	// get_resource
 	server.AddTool(&mcp.Tool{
-		Name:        "get_resource",
-		Description: "Get detailed information about a specific resource including its full configuration.",
+		Name: "get_resource",
+		Description: "Get detailed information about a specific resource including its full configuration. " +
+			"IMPORTANT: Both resource_type and resource_id are required. If a user only provides an ID, " +
+			"you MUST ask them to specify the resource_type (e.g., 'route', 'service', 'upstream', etc.) " +
+			"because the same ID format could belong to different resource types.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
+					"type": "string",
+					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
+						". If user only provides an ID without specifying the type, ask them which resource type it belongs to.",
+					"enum": ValidResourceTypes,
 				},
 				"resource_id": map[string]any{
 					"type":        "string",
@@ -128,14 +133,17 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		Description: "Update an existing resource. The resource status will change to 'update_draft' " +
 			"until published. If you update a resource, you should get the resource first, " +
 			"and modify the fields then update. " +
-			"DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG.",
+			"DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG. " +
+			"IMPORTANT: Both resource_type and resource_id are required. If a user only provides an ID, " +
+			"you MUST ask them to specify the resource_type.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
+					"type": "string",
+					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
+						". If user only provides an ID without specifying the type, ask them which resource type it belongs to.",
+					"enum": ValidResourceTypes,
 				},
 				"resource_id": map[string]any{
 					"type":        "string",
@@ -158,14 +166,19 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 	server.AddTool(&mcp.Tool{
 		Name: "delete_resource",
 		Description: "Mark resources for deletion. Resources in 'create_draft' status " +
-			"will be hard-deleted; others will be marked as 'delete_draft' until published.",
+			"will be hard-deleted; others will be marked as 'delete_draft' until published. " +
+			"IMPORTANT: Both resource_type and resource_ids are required. If a user only provides IDs, " +
+			"you MUST ask them to specify the resource_type. " +
+			"NOTE: This tool checks if resources are referenced by other resources before deletion. " +
+			"For example, a service referenced by routes cannot be deleted until those routes are deleted first.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
+					"type": "string",
+					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
+						". If user only provides IDs without specifying the type, ask them which resource type they belong to.",
+					"enum": ValidResourceTypes,
 				},
 				"resource_ids": map[string]any{
 					"type":        "array",
@@ -181,14 +194,17 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 	server.AddTool(&mcp.Tool{
 		Name: "revert_resource",
 		Description: "Revert resources to their synced snapshot state. " +
-			"Discards all local changes for the specified resources.",
+			"Discards all local changes for the specified resources. " +
+			"IMPORTANT: Both resource_type and resource_ids are required. If a user only provides IDs, " +
+			"you MUST ask them to specify the resource_type.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
+					"type": "string",
+					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
+						". If user only provides IDs without specifying the type, ask them which resource type they belong to.",
+					"enum": ValidResourceTypes,
 				},
 				"resource_ids": map[string]any{
 					"type":        "array",
@@ -447,6 +463,33 @@ func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
+
+	// Check if any of the resources are referenced by other resources
+	references, err := biz.CheckResourceReferences(ctx, resourceType, resourceIDs)
+	if err != nil {
+		return errorResult(fmt.Errorf("failed to check resource references: %w", err)), nil
+	}
+
+	// If any resources are referenced, return an error with details
+	if len(references) > 0 {
+		// Build a detailed error message
+		var blockedResources []string
+		for resourceID, refs := range references {
+			blockedResources = append(
+				blockedResources,
+				fmt.Sprintf(
+					"resource '%s' is referenced by: %s",
+					resourceID,
+					biz.FormatResourceReferences(refs),
+				),
+			)
+		}
+
+		return errorResult(fmt.Errorf(
+			"cannot delete %s resources because they are referenced by other resources. "+
+				"You must delete the referencing resources first:\n%s",
+			resourceTypeStr, strings.Join(blockedResources, "\n"))), nil
+	}
 
 	deletedCount := 0
 	markedCount := 0

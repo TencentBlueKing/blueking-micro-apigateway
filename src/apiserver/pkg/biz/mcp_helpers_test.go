@@ -28,8 +28,10 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
-func TestGetAvailablePlugins(t *testing.T) {
+func TestGetPluginsList_ByVersion(t *testing.T) {
 	t.Parallel()
+
+	ctx := context.Background()
 
 	tests := []struct {
 		name        string
@@ -60,17 +62,18 @@ func TestGetAvailablePlugins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			plugins, err := GetAvailablePlugins(tt.version, tt.apisixType)
+			plugins, err := GetPluginsList(ctx, tt.version, tt.apisixType)
 			assert.NoError(t, err)
 			assert.GreaterOrEqual(t, len(plugins), tt.minExpected)
 		})
 	}
 }
 
-func TestGetAvailablePlugins_ContainsExpectedPlugins(t *testing.T) {
+func TestGetPluginsList_ContainsExpectedPlugins(t *testing.T) {
 	t.Parallel()
 
-	plugins, err := GetAvailablePlugins(constant.APISIXVersion313, "apisix")
+	ctx := context.Background()
+	plugins, err := GetPluginsList(ctx, constant.APISIXVersion313, "apisix")
 	assert.NoError(t, err)
 
 	expectedPlugins := []string{
@@ -90,17 +93,22 @@ func TestGetAvailablePlugins_ContainsExpectedPlugins(t *testing.T) {
 	}
 }
 
-func TestGetAvailablePlugins_BKApisixHasCustomPlugins(t *testing.T) {
+func TestGetPluginsList_BKApisixHasCustomPlugins(t *testing.T) {
 	t.Parallel()
 
-	plugins, err := GetAvailablePlugins(constant.APISIXVersion313, "bk-apisix")
+	ctx := context.Background()
+	plugins, err := GetPluginsList(ctx, constant.APISIXVersion313, "bk-apisix")
 	assert.NoError(t, err)
 
+	// Check for bk-* plugins that are actually in the bk_apisix_plugin.json file
 	bkPlugins := []string{
-		"bk-auth-verify",
-		"bk-permission",
-		"bk-rate-limit",
-		"bk-ip-restriction",
+		"bk-traffic-label",
+		"bk-break-recursive-call",
+		"bk-delete-cookie",
+		"bk-echo",
+		"bk-header-rewrite",
+		"bk-jwt",
+		"bk-login-required",
 	}
 
 	for _, expected := range bkPlugins {
@@ -117,21 +125,18 @@ func TestGetPluginsList(t *testing.T) {
 		name        string
 		version     constant.APISIXVersion
 		apisixType  string
-		pluginType  string
 		expectError bool
 	}{
 		{
-			name:        "list all plugins",
+			name:        "list apisix plugins",
 			version:     constant.APISIXVersion313,
 			apisixType:  "apisix",
-			pluginType:  "",
 			expectError: false,
 		},
 		{
-			name:        "list plugins with type filter",
+			name:        "list bk-apisix plugins",
 			version:     constant.APISIXVersion313,
-			apisixType:  "apisix",
-			pluginType:  "http",
+			apisixType:  "bk-apisix",
 			expectError: false,
 		},
 	}
@@ -139,7 +144,7 @@ func TestGetPluginsList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			plugins, err := GetPluginsList(ctx, tt.version, tt.apisixType, tt.pluginType)
+			plugins, err := GetPluginsList(ctx, tt.version, tt.apisixType)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

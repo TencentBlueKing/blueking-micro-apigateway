@@ -21,6 +21,8 @@ package biz
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"gorm.io/datatypes"
 
@@ -28,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
 // ListResourcesWithPagination lists resources with pagination support
@@ -160,20 +163,35 @@ func UpdateResourceByTypeAndID(
 ) error {
 	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
 
-	updates := map[string]any{
-		"config": config,
-		"status": status,
+	// Create ResourceCommonModel with config
+	resource := model.ResourceCommonModel{
+		ID:        resourceID,
+		GatewayID: gatewayID,
+		Config:    config,
+		Status:    status,
+		BaseModel: model.BaseModel{
+			Updater: "mcp",
+		},
 	}
 
-	if name != "" {
-		nameKey := model.GetResourceNameKey(resourceType)
-		updates[nameKey] = name
+	// Convert to specific resource type (extracts association fields from config)
+	resourceModel, exists := resourceModelMap[resourceType]
+	if !exists {
+		return fmt.Errorf("unsupported resource type: %v", resourceType)
 	}
 
+	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
+	resourceValue := reflect.ValueOf(resource.ToResourceModel(resourceType))
+	if resourceValue.Kind() == reflect.Ptr {
+		resourceValue = resourceValue.Elem()
+	}
+	reflect.ValueOf(newResourceModel).Elem().Set(resourceValue)
+
+	// Update with full model struct (includes association fields)
 	return database.Client().WithContext(ctx).
 		Table(resourceTableMap[resourceType]).
 		Where("gateway_id = ? AND id = ?", gatewayID, resourceID).
-		Updates(updates).Error
+		Updates(newResourceModel).Error
 }
 
 // PublishResourcesByType publishes resources to etcd using the existing PublishResource function
@@ -194,99 +212,190 @@ func PublishResourcesByType(
 	return PublishResource(ctx, resourceType, resourceIDs)
 }
 
-// GetPluginsList returns a list of available plugins
+// GetPluginsList returns a list of available plugins for the given APISIX version and type
+// Uses schema.GetPlugins to read from the version-specific plugin.json files
 func GetPluginsList(
 	ctx context.Context,
 	apisixVersion constant.APISIXVersion,
 	apisixType string,
-	pluginType string,
 ) ([]string, error) {
-	// Get plugins from schema
-	plugins, err := GetAvailablePlugins(apisixVersion, apisixType)
+	// Get plugins from schema based on version and apisix type
+	plugins, err := schema.GetPlugins(apisixType, apisixVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	// Filter by type if specified
-	if pluginType != "" {
-		filteredPlugins := []string{}
-		for _, plugin := range plugins {
-			// For now, return all plugins since we don't have type info
-			// In a full implementation, this would filter by http/stream/metadata
-			filteredPlugins = append(filteredPlugins, plugin)
+	// Filter and collect plugin names
+	var pluginNames []string
+	for _, plugin := range plugins {
+		// Filter by apisixType
+		if apisixType == constant.APISIXTypeAPISIX {
+			// Standard apisix should not include tapisix or bk-apisix plugins
+			if plugin.Type == constant.APISIXTypeTAPISIX || plugin.Type == constant.APISIXTypeBKAPISIX {
+				continue
+			}
 		}
-		return filteredPlugins, nil
+		if apisixType == constant.APISIXTypeTAPISIX {
+			// tapisix should not include bk-apisix plugins
+			if plugin.Type == constant.APISIXTypeBKAPISIX {
+				continue
+			}
+		}
+
+		pluginNames = append(pluginNames, plugin.Name)
 	}
 
-	return plugins, nil
+	return pluginNames, nil
 }
 
-// GetAvailablePlugins returns available plugins for a version and type
-func GetAvailablePlugins(apisixVersion constant.APISIXVersion, apisixType string) ([]string, error) {
-	// This is a simplified implementation
-	// In production, this would read from the schema files
-	commonPlugins := []string{
-		"limit-req",
-		"limit-count",
-		"limit-conn",
-		"proxy-rewrite",
-		"response-rewrite",
-		"redirect",
-		"cors",
-		"ip-restriction",
-		"ua-restriction",
-		"referer-restriction",
-		"consumer-restriction",
-		"key-auth",
-		"jwt-auth",
-		"basic-auth",
-		"hmac-auth",
-		"authz-keycloak",
-		"authz-casdoor",
-		"openid-connect",
-		"prometheus",
-		"zipkin",
-		"skywalking",
-		"http-logger",
-		"file-logger",
-		"syslog",
-		"kafka-logger",
-		"rocketmq-logger",
-		"tcp-logger",
-		"udp-logger",
-		"clickhouse-logger",
-		"sls-logger",
-		"elasticsearch-logger",
-		"request-id",
-		"request-validation",
-		"fault-injection",
-		"traffic-split",
-		"echo",
-		"gzip",
-		"real-ip",
-		"serverless-pre-function",
-		"serverless-post-function",
-		"ext-plugin-pre-req",
-		"ext-plugin-post-req",
-		"ext-plugin-post-resp",
+// ResourceReference represents a resource that references another resource
+type ResourceReference struct {
+	ResourceType string `json:"resource_type"`
+	ResourceID   string `json:"resource_id"`
+	ResourceName string `json:"resource_name"`
+}
+
+// CheckResourceReferences checks if resources of the given type are referenced by other resources
+// Returns a map of resource IDs to lists of resources that reference them
+// If a resource is not referenced, it won't appear in the map
+func CheckResourceReferences(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	resourceIDs []string,
+) (map[string][]ResourceReference, error) {
+	if len(resourceIDs) == 0 {
+		return nil, nil
 	}
 
-	// Add bk-apisix specific plugins
-	if apisixType == "bk-apisix" {
-		commonPlugins = append(commonPlugins,
-			"bk-auth-verify",
-			"bk-permission",
-			"bk-rate-limit",
-			"bk-ip-restriction",
-			"bk-user-restriction",
-			"bk-header-rewrite",
-			"bk-cors",
-			"bk-mock",
-			"bk-error-info",
-			"bk-request-id",
-			"bk-log",
-		)
+	result := make(map[string][]ResourceReference)
+
+	switch resourceType {
+	case constant.Service:
+		// Services are referenced by routes and stream_routes via service_id
+		routes, err := QueryRoutes(ctx, map[string]any{"service_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, route := range routes {
+			if route.ServiceID != "" {
+				result[route.ServiceID] = append(result[route.ServiceID], ResourceReference{
+					ResourceType: constant.Route.String(),
+					ResourceID:   route.ID,
+					ResourceName: route.Name,
+				})
+			}
+		}
+
+		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{"service_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, sr := range streamRoutes {
+			if sr.ServiceID != "" {
+				result[sr.ServiceID] = append(result[sr.ServiceID], ResourceReference{
+					ResourceType: constant.StreamRoute.String(),
+					ResourceID:   sr.ID,
+					ResourceName: sr.Name,
+				})
+			}
+		}
+
+	case constant.Upstream:
+		// Upstreams are referenced by services, routes, and stream_routes via upstream_id
+		services, err := QueryServices(ctx, map[string]any{"upstream_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, svc := range services {
+			if svc.UpstreamID != "" {
+				result[svc.UpstreamID] = append(result[svc.UpstreamID], ResourceReference{
+					ResourceType: constant.Service.String(),
+					ResourceID:   svc.ID,
+					ResourceName: svc.Name,
+				})
+			}
+		}
+
+		routes, err := QueryRoutes(ctx, map[string]any{"upstream_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, route := range routes {
+			if route.UpstreamID != "" {
+				result[route.UpstreamID] = append(result[route.UpstreamID], ResourceReference{
+					ResourceType: constant.Route.String(),
+					ResourceID:   route.ID,
+					ResourceName: route.Name,
+				})
+			}
+		}
+
+		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{"upstream_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, sr := range streamRoutes {
+			if sr.UpstreamID != "" {
+				result[sr.UpstreamID] = append(result[sr.UpstreamID], ResourceReference{
+					ResourceType: constant.StreamRoute.String(),
+					ResourceID:   sr.ID,
+					ResourceName: sr.Name,
+				})
+			}
+		}
+
+	case constant.PluginConfig:
+		// Plugin configs are referenced by routes via plugin_config_id
+		routes, err := QueryRoutes(ctx, map[string]any{"plugin_config_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, route := range routes {
+			if route.PluginConfigID != "" {
+				result[route.PluginConfigID] = append(result[route.PluginConfigID], ResourceReference{
+					ResourceType: constant.Route.String(),
+					ResourceID:   route.ID,
+					ResourceName: route.Name,
+				})
+			}
+		}
+
+	case constant.ConsumerGroup:
+		// Consumer groups are referenced by consumers via group_id
+		consumers, err := QueryConsumers(ctx, map[string]any{"group_id": resourceIDs})
+		if err != nil {
+			return nil, err
+		}
+		for _, consumer := range consumers {
+			if consumer.GroupID != "" {
+				result[consumer.GroupID] = append(result[consumer.GroupID], ResourceReference{
+					ResourceType: constant.Consumer.String(),
+					ResourceID:   consumer.ID,
+					ResourceName: consumer.Username,
+				})
+			}
+		}
 	}
 
-	return commonPlugins, nil
+	return result, nil
+}
+
+// FormatResourceReferences formats resource references into a human-readable string
+func FormatResourceReferences(refs []ResourceReference) string {
+	if len(refs) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if ref.ResourceName != "" {
+			parts = append(
+				parts,
+				fmt.Sprintf("%s '%s' (id: %s)", ref.ResourceType, ref.ResourceName, ref.ResourceID),
+			)
+		} else {
+			parts = append(parts, fmt.Sprintf("%s (id: %s)", ref.ResourceType, ref.ResourceID))
+		}
+	}
+	return strings.Join(parts, ", ")
 }

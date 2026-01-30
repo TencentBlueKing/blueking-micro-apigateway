@@ -110,29 +110,11 @@ func RegisterSchemaTools(server *mcp.Server) {
 	// list_plugins
 	server.AddTool(&mcp.Tool{
 		Name: "list_plugins",
-		Description: "List available APISIX plugins. " +
-			"Different APISIX types (apisix, bk-apisix) may have different plugin sets.",
+		Description: "List available APISIX plugins for the current gateway. " +
+			"The plugin list is determined by the gateway's APISIX version and type.",
 		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"apisix_version": map[string]any{
-					"type":        "string",
-					"description": "APISIX version. " + APISIXVersionDescription(),
-					"enum":        ValidAPISIXVersions,
-				},
-				"apisix_type": map[string]any{
-					"type":        "string",
-					"description": "APISIX distribution type (default: 'apisix')",
-					"enum":        []string{"apisix", "bk-apisix"},
-					"default":     "apisix",
-				},
-				"plugin_type": map[string]any{
-					"type":        "string",
-					"description": "Filter by plugin type (optional)",
-					"enum":        []string{"http", "stream", "metadata"},
-				},
-			},
-			"required": []string{"apisix_version"},
+			"type":       "object",
+			"properties": map[string]any{},
 		},
 	}, listPluginsHandler)
 }
@@ -252,30 +234,25 @@ func validateResourceConfigHandler(ctx context.Context, req *mcp.CallToolRequest
 
 // listPluginsHandler handles the list_plugins tool call
 func listPluginsHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	apisixVersionStr := getStringParamFromArgs(args, "apisix_version", "")
-	apisixType := getStringParamFromArgs(args, "apisix_type", "apisix")
-	pluginType := getStringParamFromArgs(args, "plugin_type", "")
-
-	if apisixVersionStr == "" {
-		return errorResult(fmt.Errorf("apisix_version is required")), nil
-	}
-
-	apisixVersion, err := parseAPISIXVersion(apisixVersionStr)
+	// Get gateway from context to determine version and type
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(fmt.Errorf("failed to get gateway: %w", err)), nil
 	}
 
-	// Get plugins list
-	plugins, err := biz.GetPluginsList(ctx, apisixVersion, apisixType, pluginType)
+	// Use GetAPISIXVersionX() to properly convert version string to APISIXVersion type
+	apisixVersion := gateway.GetAPISIXVersionX()
+	apisixType := gateway.APISIXType
+
+	// Get plugins list based on gateway's version and type
+	plugins, err := biz.GetPluginsList(ctx, apisixVersion, apisixType)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to get plugins: %w", err)), nil
 	}
 
 	return successResult(map[string]any{
-		"apisix_version": apisixVersionStr,
+		"apisix_version": string(apisixVersion),
 		"apisix_type":    apisixType,
-		"plugin_type":    pluginType,
 		"plugins":        plugins,
 		"count":          len(plugins),
 	}), nil

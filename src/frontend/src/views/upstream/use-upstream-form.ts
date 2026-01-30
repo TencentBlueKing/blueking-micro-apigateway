@@ -25,7 +25,7 @@ export const createDefaultHealthCheck = (): IHealthCheck => ({
     timeout: 1,
     concurrency: 10,
     // port: 1,
-    host: '',
+    // host: '',
     http_path: '/',
     req_headers: [],
     healthy: {

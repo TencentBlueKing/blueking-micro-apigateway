@@ -49,7 +49,7 @@
           <bk-form-item :label="t('并行数量')" class="form-item w180">
             <bk-input v-model="localChecks.active.concurrency" :min="0" :precision="0" :step="1" type="number" />
           </bk-form-item>
-          <bk-form-item :label="t('主机名')" class="form-item w474" property="active.host" required>
+          <bk-form-item :label="t('主机名')" class="form-item w474" property="active.host">
             <bk-input v-model="localChecks.active.host" clearable />
           </bk-form-item>
           <bk-form-item :label="t('端口')" class="form-item w180">
@@ -246,7 +246,6 @@ const { t } = useI18n();
 
 const rules = {
   'active.host': [
-    { required: true, message: t('必填项'), trigger: 'blur' },
     {
       pattern: /^\*?[0-9a-zA-Z-._[\]:]+$/,
       message: t('仅支持字母、数字、-、_和 *，但 * 需要在开头位置'),
@@ -394,32 +393,6 @@ watch(() => checks, () => {
     Object.assign(localChecks.value, cloneDeep(checks));
   }
 }, { immediate: true, deep: true });
-
-// const handleActiveCheckChange = (value: boolean) => {
-//   if (!checks.value) {
-//     checks.value = {};
-//   }
-//   nextTick(() => {
-//     if (value) {
-//       checks.value.active = createDefaultHealthCheck().active;
-//     } else {
-//       delete checks.value.active;
-//     }
-//   });
-// };
-//
-// const handlePassiveCheckChange = (value: boolean) => {
-//   if (!checks.value) {
-//     checks.value = {};
-//   }
-//   nextTick(() => {
-//     if (value) {
-//       checks.value.passive = createDefaultHealthCheck().passive;
-//     } else {
-//       delete checks.value.passive;
-//     }
-//   });
-// };
 
 const validate = async () => {
   if (!flags.value.active && flags.value.passive) {

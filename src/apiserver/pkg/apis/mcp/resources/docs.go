@@ -155,17 +155,17 @@ A Plugin configuration can be bound directly to a Route, Service, Consumer, or P
 ## HTTP Resources
 
 ### Route
-Routes define how requests are matched and forwarded to upstream services.
+Routes match the client's request based on defined rules, load and execute the corresponding plugins, and forward the request to the specified Upstream.
 - **Key Fields**: uri, hosts, methods, plugins, service_id, upstream_id
 - **Identifier**: id (auto-generated or user-defined)
 
 ### Service
-Services are abstractions of upstream services, allowing routes to share configurations.
+A Service is an abstraction of an API (which can also be understood as a set of Route abstractions). It usually corresponds to an upstream service abstraction. The relationship between Routes and a Service is usually N:1; N routes bound to 1 Service.
 - **Key Fields**: name, upstream_id, plugins, hosts
 - **Identifier**: id
 
 ### Upstream
-Upstreams define backend server clusters and load balancing rules.
+Upstream is a virtual host abstraction that performs load balancing on a given set of service nodes according to the configured rules. Although Upstream can be directly configured to the Route or Service, using an Upstream object is recommended when there is duplication.
 - **Key Fields**: nodes, type (roundrobin/chash), timeout, health checks
 - **Identifier**: id
 
@@ -175,22 +175,22 @@ Consumers represent API clients/users for authentication and rate limiting.
 - **Identifier**: username (not id)
 
 ### Consumer Group
-Groups of consumers that share common configurations.
+Consumer Groups are used to extract commonly used Plugin configurations and can be bound directly to a Consumer. With consumer groups, you can define any number of plugins, e.g. rate limiting and apply them to a set of consumers, instead of managing each consumer individually.
 - **Key Fields**: plugins
 - **Identifier**: id
 
 ### Plugin Config
-Reusable plugin configurations that can be attached to routes.
+Plugin Configs are used to extract commonly used Plugin configurations and can be bound directly to a Route.
 - **Key Fields**: plugins
 - **Identifier**: id
 
 ### Global Rule
-Plugins that apply to all requests, regardless of route.
+If we want a Plugin to work on all requests, this is where we register a global Plugin with Global Rule.
 - **Key Fields**: plugins
 - **Identifier**: id
 
 ### Plugin Metadata
-Metadata configurations for specific plugins.
+A plugin metadata object is used to configure the common metadata field(s) of all plugin instances sharing the same plugin name.
 - **Key Fields**: plugin-specific metadata
 - **Identifier**: plugin name
 

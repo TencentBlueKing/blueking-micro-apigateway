@@ -162,11 +162,20 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 				}
 			}
 
+			// Determine the display name for the resource. Most resources use "name",
+			// but Consumer uses "username" instead.
+			var name any
+			if rt == constant.Consumer {
+				name = resMap["username"]
+			} else {
+				name = resMap["name"]
+			}
+
 			status, _ := resMap["status"].(string)
 			info := map[string]any{
 				"resource_type": rt.String(),
 				"id":            resMap["id"],
-				"name":          resMap["name"],
+				"name":          name,
 			}
 
 			switch constant.ResourceStatus(status) {

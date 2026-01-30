@@ -148,7 +148,9 @@ update_resource(resource_type="route", resource_id="route-1", config={...})
 delete_resource(resource_type="route", resource_ids=["old-route"])
 ` + "```" + `
 
-**Tip:** Use validate_resource_config to check configs before creating/updating.
+**Tip:**
+- Use validate_resource_config to check configs before creating/updating.
+- Before update, should get the resource first, update the fields in ` + "`config`" + ` and put the whole ` + "`config`" + ` into the request!
 
 ---
 
@@ -187,6 +189,7 @@ Note: Publishing via MCP is currently disabled for safety. Please use the web UI
 4. Capture returned resource IDs and use them in subsequent create calls
 5. Test in staging environment first if possible
 6. Changes take effect immediately after publish
+7. Currently the publish operation can only be done on the website, not from the MCP Server. This is for safety.
 `
 
 	return &mcp.GetPromptResult{

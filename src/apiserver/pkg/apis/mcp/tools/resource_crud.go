@@ -351,6 +351,7 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	args := parseArguments(req)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceID := getStringParamFromArgs(args, "resource_id", "")
+	name := getStringParamFromArgs(args, "name", "")
 	config, err := getObjectParamFromArgs(args, "config")
 	if err != nil {
 		return errorResult(err), nil
@@ -376,14 +377,14 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	// Build the resource model
-	resource := &model.ResourceCommonModel{
-		ID:     resourceID,
-		Config: datatypes.JSON(config),
-		Status: updateStatus,
+	// If name is provided, inject it into config using the correct key for the resource type
+	if name != "" {
+		nameKey := model.GetResourceNameKey(resourceType)
+		config, _ = sjson.SetBytes(config, nameKey, name)
 	}
 
-	err = biz.UpdateResource(ctx, resourceType, resourceID, resource)
+	// Use UpdateResourceByTypeAndID which properly handles name updates
+	err = biz.UpdateResourceByTypeAndID(ctx, resourceType, resourceID, name, datatypes.JSON(config), updateStatus)
 	if err != nil {
 		return errorResult(err), nil
 	}

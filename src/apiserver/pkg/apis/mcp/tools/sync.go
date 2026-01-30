@@ -21,8 +21,10 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -173,48 +175,112 @@ func listSyncedResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*
 		return errorResult(err), nil
 	}
 
-	// Calculate offset
-	offset := (page - 1) * pageSize
-	if offset < 0 {
-		offset = 0
+	// Validate pagination params
+	if page < 1 {
+		page = 1
 	}
 	if pageSize > 100 {
 		pageSize = 100
 	}
 
-	// Query synced data
+	// Query all synced data for this resource type (no SQL filtering on name/status
+	// since those columns don't exist in gateway_sync_data)
 	var syncedData []*model.GatewaySyncData
-	query := database.Client().WithContext(ctx).
-		Where("gateway_id = ? AND type = ?", gateway.ID, resourceType.String())
-
-	if name != "" {
-		query = query.Where("name LIKE ?", "%"+name+"%")
-	}
-
-	// Filter by managed/unmanaged status
-	if status == "managed" {
-		query = query.Where("sync_status = ?", constant.SyncedResourceStatusSuccess)
-	} else if status == "unmanaged" {
-		query = query.Where("sync_status = ? OR sync_status IS NULL", constant.SyncedResourceStatusMiss)
-	}
-
-	var total int64
-	err = query.Model(&model.GatewaySyncData{}).Count(&total).Error
+	err = database.Client().WithContext(ctx).
+		Where("gateway_id = ? AND type = ?", gateway.ID, resourceType.String()).
+		Order("id DESC").
+		Find(&syncedData).Error
 	if err != nil {
 		return errorResult(err), nil
 	}
 
-	err = query.Offset(offset).Limit(pageSize).Order("id DESC").Find(&syncedData).Error
-	if err != nil {
-		return errorResult(err), nil
+	// Enrich with managed/unmanaged status by checking edit-area tables
+	var resourceIDs []string
+	for _, sync := range syncedData {
+		resourceIDs = append(resourceIDs, sync.ID)
 	}
+
+	// Get resources that exist in edit-area
+	managedIDSet := make(map[string]bool)
+	if len(resourceIDs) > 0 {
+		dbResources, err := biz.BatchGetResources(ctx, resourceType, resourceIDs)
+		if err == nil {
+			for _, dbRes := range dbResources {
+				managedIDSet[dbRes.ID] = true
+			}
+		}
+	}
+
+	// Build enriched output with filtering
+	type enrichedResource struct {
+		ID           string `json:"id"`
+		GatewayID    int    `json:"gateway_id"`
+		ResourceType string `json:"resource_type"`
+		Name         string `json:"name"`
+		Status       string `json:"status"` // managed or unmanaged
+		Config       any    `json:"config"`
+		ModRevision  int    `json:"mod_revision"`
+	}
+
+	var filteredResources []enrichedResource
+	for _, sync := range syncedData {
+		// Extract name from config JSON (username for Consumer, name for others)
+		var resourceName string
+		if resourceType == constant.Consumer {
+			resourceName = gjson.GetBytes(sync.Config, "username").String()
+		} else {
+			resourceName = gjson.GetBytes(sync.Config, "name").String()
+		}
+
+		// Filter by name if specified
+		if name != "" && !strings.Contains(resourceName, name) {
+			continue
+		}
+
+		// Determine managed/unmanaged status
+		resourceStatus := "unmanaged"
+		if managedIDSet[sync.ID] {
+			resourceStatus = "managed"
+		}
+
+		// Filter by status if specified
+		if status != "" && status != resourceStatus {
+			continue
+		}
+
+		filteredResources = append(filteredResources, enrichedResource{
+			ID:           sync.ID,
+			GatewayID:    sync.GatewayID,
+			ResourceType: sync.Type.String(),
+			Name:         resourceName,
+			Status:       resourceStatus,
+			Config:       sync.Config,
+			ModRevision:  sync.ModRevision,
+		})
+	}
+
+	// Apply pagination on filtered results
+	total := len(filteredResources)
+	offset := (page - 1) * pageSize
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > total {
+		offset = total
+	}
+	end := offset + pageSize
+	if end > total {
+		end = total
+	}
+
+	pagedResources := filteredResources[offset:end]
 
 	result := map[string]any{
 		"total":         total,
 		"page":          page,
 		"page_size":     pageSize,
 		"resource_type": resourceTypeStr,
-		"resources":     syncedData,
+		"resources":     pagedResources,
 	}
 
 	return successResult(result), nil

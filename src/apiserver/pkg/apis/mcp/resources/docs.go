@@ -74,6 +74,14 @@ func RegisterDocumentationResources(server *mcp.Server) {
 		Description: "Documentation for common API errors and solutions",
 		MIMEType:    "text/markdown",
 	}, apiErrorDetailsHandler)
+
+	// Plugin Precedence
+	server.AddResource(&mcp.Resource{
+		URI:         "bk-apisix://docs/plugin_precedence",
+		Name:        "Plugin Merging Precedence",
+		Description: "Documentation for how plugins are merged when configured on multiple objects",
+		MIMEType:    "text/markdown",
+	}, pluginPrecedenceHandler)
 }
 
 func resourceTypesHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
@@ -124,10 +132,25 @@ func apiErrorDetailsHandler(ctx context.Context, req *mcp.ReadResourceRequest) (
 	}, nil
 }
 
+func pluginPrecedenceHandler(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{URI: req.Params.URI, MIMEType: "text/markdown", Text: pluginPrecedenceDoc},
+		},
+	}, nil
+}
+
 // Documentation content
 const resourceTypesDoc = `# APISIX Resource Types
 
 BK Micro APIGateway manages the following APISIX resource types:
+
+## Core Concepts
+
+### Plugin
+APISIX Plugins extend APISIX's functionalities to meet organization or user-specific requirements in traffic management, observability, security, request/response transformation, serverless computing, and more.
+
+A Plugin configuration can be bound directly to a Route, Service, Consumer, or Plugin Config. When the same plugin is configured on multiple objects, the configurations are merged with specific precedence rules. See the "Plugin Merging Precedence" documentation for details.
 
 ## HTTP Resources
 
@@ -396,7 +419,7 @@ const publishWorkflowDoc = `# Publish Workflow
 
 ### Step 1: Sync from Etcd
 ` + "```" + `
-sync_from_etcd(gateway_id=123)
+sync_from_etcd()
 ` + "```" + `
 - Fetches current state from APISIX/etcd
 - Updates the sync area with latest data
@@ -405,10 +428,10 @@ sync_from_etcd(gateway_id=123)
 ### Step 2: Import New Resources (if needed)
 ` + "```" + `
 # List unmanaged resources
-list_synced_resource(gateway_id=123, resource_type="route", status="unmanaged")
+list_synced_resource(resource_type="route", status="unmanaged")
 
 # Import to edit area
-add_synced_resources_to_edit_area(gateway_id=123, resource_ids=["route-1", "route-2"])
+add_synced_resources_to_edit_area(resource_ids=["route-1", "route-2"])
 ` + "```" + `
 - Check for resources in etcd that aren't being managed
 - Import resources you want to manage
@@ -417,13 +440,13 @@ add_synced_resources_to_edit_area(gateway_id=123, resource_ids=["route-1", "rout
 ### Step 3: Edit Resources
 ` + "```" + `
 # Create new resource
-create_resource(gateway_id=123, resource_type="route", name="my-route", config={...})
+create_resource(resource_type="route", name="my-route", config={...})
 
 # Update existing resource
-update_resource(gateway_id=123, resource_type="route", resource_id="route-1", config={...})
+update_resource(resource_type="route", resource_id="route-1", config={...})
 
 # Delete resource
-delete_resource(gateway_id=123, resource_type="route", resource_ids=["old-route"])
+delete_resource(resource_type="route", resource_ids=["old-route"])
 ` + "```" + `
 - Resources enter draft status (create_draft, update_draft, delete_draft)
 - Changes are NOT applied to APISIX yet
@@ -431,10 +454,10 @@ delete_resource(gateway_id=123, resource_type="route", resource_ids=["old-route"
 ### Step 4: Review Changes
 ` + "```" + `
 # Get change summary
-diff_resources(gateway_id=123)
+diff_resources()
 
 # Get detailed diff for specific resource
-diff_detail(gateway_id=123, resource_type="route", resource_id="route-1")
+diff_detail(resource_type="route", resource_id="route-1")
 ` + "```" + `
 - Review all pending changes
 - Check for potential issues
@@ -442,16 +465,10 @@ diff_detail(gateway_id=123, resource_type="route", resource_id="route-1")
 ### Step 5: Publish
 ` + "```" + `
 # Preview what will be published
-publish_preview(gateway_id=123)
+publish_preview()
 
-# Publish specific resources
-publish_resource(gateway_id=123, resource_type="route", resource_ids=["route-1"])
-
-# Or publish all
-publish_all(gateway_id=123)
 ` + "```" + `
-- Changes are applied to APISIX
-- Resources transition to success status
+- Publishing via MCP is disabled for safety. Please use the web UI to publish changes.
 
 ## Pre-Publish Checklist
 
@@ -539,4 +556,46 @@ const apiErrorDetailsDoc = `# API Error Details
 3. **Validate configs**: Use validate_resource_config before create/update
 4. **Check dependencies**: Ensure referenced resources exist
 5. **Publish in order**: Publish dependencies before dependents
+`
+
+const pluginPrecedenceDoc = `# Plugin Merging Precedence
+
+## Overview
+
+When the same plugin is configured both globally in a global rule and locally in an object (e.g. a route), both plugin instances are executed sequentially.
+
+However, if the same plugin is configured locally on multiple objects, such as on Route, Service, Consumer, Consumer Group, or Plugin Config, only one copy of configuration is used as each non-global plugin is only executed once.
+
+## Precedence Order
+
+This is because during execution, plugins configured in these objects are merged with respect to a specific order of precedence:
+
+` + "```" + `
+Consumer > Consumer Group > Route > Plugin Config > Service
+` + "```" + `
+
+If the same plugin has different configurations in different objects, the plugin configuration with the highest order of precedence during merging will be used.
+
+## Examples
+
+### Example 1: Rate Limiting
+If you configure the ` + "`limit-count`" + ` plugin on both a Route and a Service:
+- The Route's ` + "`limit-count`" + ` configuration will be used (Route has higher precedence than Service)
+
+### Example 2: Consumer Override
+If you configure ` + "`key-auth`" + ` on both a Consumer and a Route:
+- The Consumer's configuration will be used (Consumer has highest precedence)
+
+### Example 3: Global vs Local
+If you configure ` + "`prometheus`" + ` in a Global Rule AND on a Route:
+- Both configurations will execute (global plugins don't merge with local)
+- The global plugin executes first, then the route-level plugin
+
+## Best Practices
+
+1. **Use Service for defaults**: Configure plugins on Service as baseline defaults
+2. **Use Route for overrides**: Override specific plugins at the Route level when needed
+3. **Use Consumer for identity-based rules**: Configure auth and rate limits per consumer
+4. **Use Plugin Config for reusability**: Share common plugin configurations across routes
+5. **Use Global Rules carefully**: Only for plugins that should apply to all traffic
 `

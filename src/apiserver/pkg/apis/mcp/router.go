@@ -58,9 +58,11 @@ func RegisterMCPApi(path string, router *gin.RouterGroup) {
 		nil,
 	)
 
-	group := router.Group(path)
+	// Register routes with gateway_id in path
+	// Format: /api/v1/mcp/gateways/:gateway_id/
+	group := router.Group(path + "/gateways/:gateway_id")
 
-	// MCP auth middleware (Bearer token)
+	// MCP auth middleware (Bearer token + gateway_id validation)
 	group.Use(middleware.MCPAuth())
 
 	// StreamableHTTP endpoint (primary)
@@ -70,7 +72,7 @@ func RegisterMCPApi(path string, router *gin.RouterGroup) {
 	group.Any("/sse", wrapHTTPHandler(sseHandler))
 	group.Any("/sse/*path", wrapHTTPHandler(sseHandler))
 
-	logging.Infof("MCP API registered at %s", path)
+	logging.Infof("MCP API registered at %s/gateways/:gateway_id", path)
 }
 
 // wrapHTTPHandler wraps an http.Handler to work with gin

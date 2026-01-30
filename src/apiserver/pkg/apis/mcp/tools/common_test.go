@@ -28,7 +28,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
@@ -232,19 +231,11 @@ func TestToJSON(t *testing.T) {
 	}
 }
 
-func TestGetGatewayFromRequestRejectsMismatchedToken(t *testing.T) {
-	t.Parallel()
+// Note: TestGetGatewayFromRequestRejectsMismatchedToken was removed because
+// gateway_id validation is now done in the MCP auth middleware (mcp_auth.go).
+// The middleware validates that path gateway_id matches the token's gateway_id.
 
-	ctx := middleware.SetMCPAccessTokenInContext(context.Background(), &model.MCPAccessToken{
-		GatewayID: 1,
-	})
-
-	_, _, err := getGatewayFromRequest(ctx, 2)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "access token does not match gateway_id")
-}
-
-func TestGetGatewayFromRequestAcceptsMatchedToken(t *testing.T) {
+func TestGetGatewayFromContextReturnsGateway(t *testing.T) {
 	util.InitEmbedDb()
 
 	ctx := context.Background()
@@ -256,18 +247,22 @@ func TestGetGatewayFromRequestAcceptsMatchedToken(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, gateway.ID, 0)
 
-	ctxWithToken := middleware.SetMCPAccessTokenInContext(ctx, &model.MCPAccessToken{
-		GatewayID: gateway.ID,
-	})
+	// Set gateway info in context (as middleware would do)
+	ctxWithGateway := ginx.SetGatewayInfoToContext(ctx, gateway)
 
-	gotGateway, gotCtx, err := getGatewayFromRequest(ctxWithToken, gateway.ID)
+	gotGateway, err := getGatewayFromContext(ctxWithGateway)
 	assert.NoError(t, err)
 	assert.NotNil(t, gotGateway)
 	assert.Equal(t, gateway.ID, gotGateway.ID)
+}
 
-	ctxGateway := ginx.GetGatewayInfoFromContext(gotCtx)
-	assert.NotNil(t, ctxGateway)
-	assert.Equal(t, gateway.ID, ctxGateway.ID)
+func TestGetGatewayFromContextReturnsErrorWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	_, err := getGatewayFromContext(ctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "gateway not found in context")
 }
 
 func TestSuccessResult(t *testing.T) {

@@ -36,14 +36,6 @@ type MCPAccessTokenCreateRequest struct {
 	ExpiredAt   int64                `json:"expired_at" binding:"required"` // Unix timestamp
 }
 
-// MCPAccessTokenUpdateRequest MCP 访问令牌更新请求
-type MCPAccessTokenUpdateRequest struct {
-	Name        string               `json:"name" binding:"required,min=1,max=128"`
-	Description string               `json:"description" binding:"max=512"`
-	AccessScope model.MCPAccessScope `json:"access_scope" binding:"required,oneof=read write"`
-	ExpiredAt   int64                `json:"expired_at" binding:"required"` // Unix timestamp
-}
-
 // MCPAccessTokenOutputInfo MCP 访问令牌输出信息
 type MCPAccessTokenOutputInfo struct {
 	ID          int                  `json:"id"`

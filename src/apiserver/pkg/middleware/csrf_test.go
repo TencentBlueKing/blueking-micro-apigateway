@@ -614,7 +614,11 @@ func TestCSRF_RealWorldScenario(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// 模拟真实请求：PUT /api/v1/web/gateways/26/routes/bk.r.xxx/
 			reqBody := `{"config":{"methods":["GET","POST"],"uris":["aaaa"],"name":"route33"}}`
-			putReq, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/web/gateways/26/routes/bk.r.hQkvuSAAOG/", strings.NewReader(reqBody))
+			putReq, _ := http.NewRequest(
+				http.MethodPut,
+				ts.URL+"/api/v1/web/gateways/26/routes/bk.r.hQkvuSAAOG/",
+				strings.NewReader(reqBody),
+			)
 			putReq.Header.Set("Content-Type", "application/json")
 			putReq.Header.Set("X-CSRF-Token", csrfToken)
 			putReq.Header.Set("Origin", tc.origin)
@@ -812,7 +816,7 @@ func TestCSRF_JSONContentType(t *testing.T) {
 		c.JSON(http.StatusOK, gin.H{"token": token})
 	})
 	router.POST("/api/resource", func(c *gin.Context) {
-		var body map[string]interface{}
+		var body map[string]any
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -852,7 +856,7 @@ func TestCSRF_JSONContentType(t *testing.T) {
 	assert.Equal(t, http.StatusOK, postResp.StatusCode)
 
 	// 验证响应
-	var respBody map[string]interface{}
+	var respBody map[string]any
 	err = json.NewDecoder(postResp.Body).Decode(&respBody)
 	assert.NoError(t, err)
 	assert.NotNil(t, respBody["received"])

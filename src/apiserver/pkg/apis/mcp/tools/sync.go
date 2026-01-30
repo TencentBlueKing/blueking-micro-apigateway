@@ -40,10 +40,6 @@ func RegisterSyncTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID to sync (required)",
-				},
 				"resource_type": map[string]any{
 					"type": "string",
 					"description": "Optional: Only sync specific resource type. " +
@@ -51,7 +47,6 @@ func RegisterSyncTools(server *mcp.Server) {
 					"enum": ValidResourceTypes,
 				},
 			},
-			"required": []string{"gateway_id"},
 		},
 	}, syncFromEtcdHandler)
 
@@ -63,10 +58,6 @@ func RegisterSyncTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type to list. " + ResourceTypeDescription(),
@@ -93,7 +84,7 @@ func RegisterSyncTools(server *mcp.Server) {
 					"maximum":     100,
 				},
 			},
-			"required": []string{"gateway_id", "resource_type"},
+			"required": []string{"resource_type"},
 		},
 	}, listSyncedResourceHandler)
 
@@ -105,17 +96,13 @@ func RegisterSyncTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_ids": map[string]any{
 					"type":        "array",
 					"items":       map[string]any{"type": "string"},
 					"description": "Array of resource IDs to import (required). Use IDs from list_synced_resource.",
 				},
 			},
-			"required": []string{"gateway_id", "resource_ids"},
+			"required": []string{"resource_ids"},
 		},
 	}, addSyncedResourcesToEditAreaHandler)
 }
@@ -123,14 +110,10 @@ func RegisterSyncTools(server *mcp.Server) {
 // syncFromEtcdHandler handles the sync_from_etcd tool call
 func syncFromEtcdHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 
-	if gatewayID == 0 {
-		return errorResult(fmt.Errorf("gateway_id is required")), nil
-	}
-
-	gateway, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -162,7 +145,7 @@ func syncFromEtcdHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Ca
 	// Build result
 	result := map[string]any{
 		"message":       "Sync completed successfully",
-		"gateway_id":    gatewayID,
+		"gateway_id":    gateway.ID,
 		"gateway_name":  gateway.Name,
 		"synced_counts": counts,
 	}
@@ -173,23 +156,19 @@ func syncFromEtcdHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Ca
 // listSyncedResourceHandler handles the list_synced_resource tool call
 func listSyncedResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	name := getStringParamFromArgs(args, "name", "")
 	status := getStringParamFromArgs(args, "status", "")
 	page := getIntParamFromArgs(args, "page", 1)
 	pageSize := getIntParamFromArgs(args, "page_size", 20)
 
-	if gatewayID == 0 {
-		return errorResult(fmt.Errorf("gateway_id is required")), nil
-	}
-
 	resourceType, err := parseResourceType(resourceTypeStr)
 	if err != nil {
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -206,7 +185,7 @@ func listSyncedResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*
 	// Query synced data
 	var syncedData []*model.GatewaySyncData
 	query := database.Client().WithContext(ctx).
-		Where("gateway_id = ? AND type = ?", gatewayID, resourceType.String())
+		Where("gateway_id = ? AND type = ?", gateway.ID, resourceType.String())
 
 	if name != "" {
 		query = query.Where("name LIKE ?", "%"+name+"%")
@@ -243,15 +222,20 @@ func listSyncedResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*
 
 // addSyncedResourcesToEditAreaHandler handles the add_synced_resources_to_edit_area tool call
 func addSyncedResourcesToEditAreaHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
-	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
-
-	if gatewayID == 0 || len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("gateway_id and resource_ids are required")), nil
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
 	}
 
-	_, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	args := parseArguments(req)
+	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
+
+	if len(resourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_ids is required")), nil
+	}
+
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -259,7 +243,7 @@ func addSyncedResourcesToEditAreaHandler(ctx context.Context, req *mcp.CallToolR
 	// Get synced resources by IDs
 	var syncedResources []*model.GatewaySyncData
 	err = database.Client().WithContext(ctx).
-		Where("gateway_id = ? AND id IN ?", gatewayID, resourceIDs).
+		Where("gateway_id = ? AND id IN ?", gateway.ID, resourceIDs).
 		Find(&syncedResources).Error
 	if err != nil {
 		return errorResult(err), nil

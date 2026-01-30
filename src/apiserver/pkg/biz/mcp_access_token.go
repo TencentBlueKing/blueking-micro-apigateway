@@ -23,7 +23,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"strconv"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -32,6 +35,8 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // MCPAccessTokenErrors 定义 MCP 访问令牌相关的错误
@@ -42,10 +47,89 @@ var (
 	ErrMCPGatewayNotSupported = errors.New("gateway does not support MCP (requires APISIX 3.13.X)")
 	ErrMCPTokenNameExists     = errors.New("MCP access token name already exists")
 	ErrMCPInsufficientScope   = errors.New("insufficient access scope for this operation")
+	ErrMCPTokenLimitExceeded  = errors.New("maximum number of MCP access tokens per gateway exceeded (limit: 20)")
 )
 
 // MCPSupportedAPISIXVersion 支持 MCP 的 APISIX 版本
 const MCPSupportedAPISIXVersion = constant.APISIXVersion313
+
+// MaxMCPAccessTokensPerGateway 每个网关最大 MCP 访问令牌数量
+const MaxMCPAccessTokensPerGateway = 20
+
+// lastUsedUpdater handles batched updates for token last_used_at
+var (
+	lastUsedUpdateChan chan int
+	lastUsedPending    map[int]time.Time
+	lastUsedMu         sync.Mutex
+	lastUsedOnce       sync.Once
+)
+
+// initLastUsedUpdater initializes the background goroutine for batched lastUsedAt updates
+func initLastUsedUpdater() {
+	lastUsedOnce.Do(func() {
+		lastUsedUpdateChan = make(chan int, 1000)
+		lastUsedPending = make(map[int]time.Time)
+		go lastUsedUpdaterLoop()
+	})
+}
+
+// lastUsedUpdaterLoop runs the background loop that flushes lastUsedAt updates every 5 minutes
+func lastUsedUpdaterLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case tokenID := <-lastUsedUpdateChan:
+			lastUsedMu.Lock()
+			lastUsedPending[tokenID] = time.Now()
+			lastUsedMu.Unlock()
+		case <-ticker.C:
+			flushLastUsedUpdates()
+		}
+	}
+}
+
+// flushLastUsedUpdates writes all pending lastUsedAt updates to the database
+func flushLastUsedUpdates() {
+	lastUsedMu.Lock()
+	if len(lastUsedPending) == 0 {
+		lastUsedMu.Unlock()
+		return
+	}
+	// Copy and clear
+	pending := lastUsedPending
+	lastUsedPending = make(map[int]time.Time)
+	lastUsedMu.Unlock()
+
+	// Batch update
+	for tokenID, lastUsed := range pending {
+		err := database.Client().
+			Model(&model.MCPAccessToken{}).
+			Where("id = ?", tokenID).
+			Update("last_used_at", lastUsed).Error
+		if err != nil {
+			logging.Errorf(
+				"failed to batch update MCP token last_used_at for token ID %d: %v",
+				tokenID,
+				err,
+			)
+		}
+	}
+	logging.Infof("flushed %d MCP token last_used_at updates", len(pending))
+}
+
+// QueueLastUsedUpdate queues a token ID for batched lastUsedAt update
+func QueueLastUsedUpdate(tokenID int) {
+	initLastUsedUpdater()
+	select {
+	case lastUsedUpdateChan <- tokenID:
+		// Successfully queued
+	default:
+		// Channel full, skip this update (not critical)
+		logging.Warnf("lastUsedUpdateChan full, skipping update for token ID %d", tokenID)
+	}
+}
 
 // GenerateMCPToken 生成随机的 MCP 访问令牌（32字节 = 64字符十六进制）
 func GenerateMCPToken() (string, error) {
@@ -141,6 +225,15 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 		return ErrMCPTokenInvalidScope
 	}
 
+	// 检查是否超过最大令牌数量限制
+	count, err := CountMCPAccessTokensByGateway(ctx, token.GatewayID)
+	if err != nil {
+		return err
+	}
+	if count >= MaxMCPAccessTokensPerGateway {
+		return ErrMCPTokenLimitExceeded
+	}
+
 	// 检查名称是否已存在
 	exists, err := MCPAccessTokenNameExists(ctx, token.GatewayID, token.Name, 0)
 	if err != nil {
@@ -169,28 +262,6 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 	token.Token = plainToken
 
 	return nil
-}
-
-// UpdateMCPAccessToken 更新 MCP 访问令牌
-func UpdateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) error {
-	// 验证访问范围
-	if !token.AccessScope.IsValid() {
-		return ErrMCPTokenInvalidScope
-	}
-
-	// 检查名称是否已存在（排除自身）
-	exists, err := MCPAccessTokenNameExists(ctx, token.GatewayID, token.Name, token.ID)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return ErrMCPTokenNameExists
-	}
-
-	return database.Client().WithContext(ctx).
-		Model(token).
-		Select("name", "description", "access_scope", "expired_at", "updater", "updated_at").
-		Updates(token).Error
 }
 
 // DeleteMCPAccessToken 删除 MCP 访问令牌
@@ -255,12 +326,9 @@ func ValidateMCPAccessToken(ctx context.Context, tokenStr string) (*model.MCPAcc
 		return nil, nil, err
 	}
 
-	// 更新最后使用时间（异步，不阻塞请求）
-	go func() {
-		if err := UpdateMCPAccessTokenLastUsed(context.Background(), token.ID); err != nil {
-			logging.Errorf("failed to update MCP token last_used_at for token ID %d: %v", token.ID, err)
-		}
-	}()
+	// Queue lastUsedAt update for batched processing (every 5 minutes)
+	// This avoids frequent DB updates on every request
+	QueueLastUsedUpdate(token.ID)
 
 	return token, gateway, nil
 }
@@ -290,4 +358,93 @@ func CountMCPAccessTokensByGateway(ctx context.Context, gatewayID int) (int64, e
 		Where("gateway_id = ?", gatewayID).
 		Count(&count).Error
 	return count, err
+}
+
+// AddMCPAccessTokenAuditLog adds audit log for MCP access token operations
+func AddMCPAccessTokenAuditLog(
+	ctx context.Context,
+	operationType constant.OperationType,
+	token *model.MCPAccessToken,
+) error {
+	if token == nil {
+		return nil
+	}
+	gateway := ginx.GetGatewayInfoFromContext(ctx)
+	if gateway == nil {
+		return errors.New("gateway not found in context")
+	}
+
+	config, err := buildMCPAccessTokenAuditConfig(token)
+	if err != nil {
+		return err
+	}
+
+	var dataBefore []model.BatchOperationData
+	var dataAfter []model.BatchOperationData
+	tokenID := strconv.Itoa(token.ID)
+	if operationType != constant.OperationTypeCreate {
+		dataBefore = append(dataBefore, model.BatchOperationData{
+			ID:     tokenID,
+			Status: "",
+			Config: config,
+		})
+	}
+	if operationType != constant.OperationTypeDelete {
+		dataAfter = append(dataAfter, model.BatchOperationData{
+			ID:     tokenID,
+			Status: "",
+			Config: config,
+		})
+	}
+
+	dataBeforeRaw, err := json.Marshal(dataBefore)
+	if err != nil {
+		return err
+	}
+	dataAfterRaw, err := json.Marshal(dataAfter)
+	if err != nil {
+		return err
+	}
+
+	operationAuditLog := &model.OperationAuditLog{
+		GatewayID:     gateway.ID,
+		ResourceType:  constant.Gateway,
+		OperationType: operationType,
+		ResourceIDs:   tokenID,
+		DataBefore:    dataBeforeRaw,
+		DataAfter:     dataAfterRaw,
+		Operator:      ginx.GetUserIDFromContext(ctx),
+	}
+	if ginx.GetTx(ctx) != nil {
+		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+	}
+	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+}
+
+func buildMCPAccessTokenAuditConfig(token *model.MCPAccessToken) (json.RawMessage, error) {
+	var lastUsedAt *int64
+	if token.LastUsedAt != nil {
+		ts := token.LastUsedAt.Unix()
+		lastUsedAt = &ts
+	}
+
+	payload := map[string]any{
+		"id":           token.ID,
+		"gateway_id":   token.GatewayID,
+		"name":         token.Name,
+		"description":  token.Description,
+		"access_scope": token.AccessScope,
+		"expired_at":   token.ExpiredAt.Unix(),
+		"last_used_at": lastUsedAt,
+		"created_at":   token.CreatedAt.Unix(),
+		"updated_at":   token.UpdatedAt.Unix(),
+		"creator":      token.Creator,
+		"updater":      token.Updater,
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

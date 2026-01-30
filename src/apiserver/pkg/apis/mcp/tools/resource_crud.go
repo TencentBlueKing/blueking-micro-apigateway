@@ -42,10 +42,6 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID to list resources from (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type. " + ResourceTypeDescription(),
@@ -72,7 +68,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 					"maximum":     100,
 				},
 			},
-			"required": []string{"gateway_id", "resource_type"},
+			"required": []string{"resource_type"},
 		},
 	}, listResourceHandler)
 
@@ -83,10 +79,6 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type. " + ResourceTypeDescription(),
@@ -97,7 +89,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 					"description": "The resource ID to retrieve (required)",
 				},
 			},
-			"required": []string{"gateway_id", "resource_type", "resource_id"},
+			"required": []string{"resource_type", "resource_id"},
 		},
 	}, getResourceHandler)
 
@@ -108,10 +100,6 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type to create. " + ResourceTypeDescription(),
@@ -126,7 +114,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 					"description": "Resource configuration object following APISIX schema (required)",
 				},
 			},
-			"required": []string{"gateway_id", "resource_type", "name", "config"},
+			"required": []string{"resource_type", "name", "config"},
 		},
 	}, createResourceHandler)
 
@@ -137,10 +125,6 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type. " + ResourceTypeDescription(),
@@ -159,7 +143,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 					"description": "New resource configuration (required)",
 				},
 			},
-			"required": []string{"gateway_id", "resource_type", "resource_id", "config"},
+			"required": []string{"resource_type", "resource_id", "config"},
 		},
 	}, updateResourceHandler)
 
@@ -171,10 +155,6 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type. " + ResourceTypeDescription(),
@@ -186,7 +166,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 					"description": "Array of resource IDs to delete (required)",
 				},
 			},
-			"required": []string{"gateway_id", "resource_type", "resource_ids"},
+			"required": []string{"resource_type", "resource_ids"},
 		},
 	}, deleteResourceHandler)
 
@@ -198,10 +178,6 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type. " + ResourceTypeDescription(),
@@ -213,7 +189,7 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 					"description": "Array of resource IDs to revert (required)",
 				},
 			},
-			"required": []string{"gateway_id", "resource_type", "resource_ids"},
+			"required": []string{"resource_type", "resource_ids"},
 		},
 	}, revertResourceHandler)
 }
@@ -221,24 +197,19 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 // listResourceHandler handles the list_resource tool call
 func listResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	name := getStringParamFromArgs(args, "name", "")
 	status := getStringParamFromArgs(args, "status", "")
 	page := getIntParamFromArgs(args, "page", 1)
 	pageSize := getIntParamFromArgs(args, "page_size", 20)
 
-	if gatewayID == 0 {
-		return errorResult(fmt.Errorf("gateway_id is required")), nil
-	}
-
 	resourceType, err := parseResourceType(resourceTypeStr)
 	if err != nil {
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
-	if err != nil {
+	// Gateway is already set in context by middleware
+	if _, err := getGatewayFromContext(ctx); err != nil {
 		return errorResult(err), nil
 	}
 
@@ -277,12 +248,11 @@ func listResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Ca
 // getResourceHandler handles the get_resource tool call
 func getResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceID := getStringParamFromArgs(args, "resource_id", "")
 
-	if gatewayID == 0 || resourceID == "" {
-		return errorResult(fmt.Errorf("gateway_id and resource_id are required")), nil
+	if resourceID == "" {
+		return errorResult(fmt.Errorf("resource_id is required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -290,8 +260,8 @@ func getResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Cal
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
-	if err != nil {
+	// Gateway is already set in context by middleware
+	if _, err := getGatewayFromContext(ctx); err != nil {
 		return errorResult(err), nil
 	}
 
@@ -305,8 +275,12 @@ func getResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Cal
 
 // createResourceHandler handles the create_resource tool call
 func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
+	}
+
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	name := getStringParamFromArgs(args, "name", "")
 	config, err := getObjectParamFromArgs(args, "config")
@@ -314,8 +288,8 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	if gatewayID == 0 || name == "" {
-		return errorResult(fmt.Errorf("gateway_id and name are required")), nil
+	if name == "" {
+		return errorResult(fmt.Errorf("name is required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -323,7 +297,8 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	gateway, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -368,8 +343,12 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 // updateResourceHandler handles the update_resource tool call
 func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
+	}
+
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceID := getStringParamFromArgs(args, "resource_id", "")
 	config, err := getObjectParamFromArgs(args, "config")
@@ -377,8 +356,8 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	if gatewayID == 0 || resourceID == "" || len(config) == 0 {
-		return errorResult(fmt.Errorf("gateway_id, resource_id, and config are required")), nil
+	if resourceID == "" || len(config) == 0 {
+		return errorResult(fmt.Errorf("resource_id and config are required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -386,8 +365,8 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
-	if err != nil {
+	// Gateway is already set in context by middleware
+	if _, err := getGatewayFromContext(ctx); err != nil {
 		return errorResult(err), nil
 	}
 
@@ -419,13 +398,17 @@ func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 // deleteResourceHandler handles the delete_resource tool call
 func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
+	}
+
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
 
-	if gatewayID == 0 || len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("gateway_id and resource_ids are required")), nil
+	if len(resourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_ids is required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -433,8 +416,8 @@ func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
-	if err != nil {
+	// Gateway is already set in context by middleware
+	if _, err := getGatewayFromContext(ctx); err != nil {
 		return errorResult(err), nil
 	}
 
@@ -473,13 +456,17 @@ func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 // revertResourceHandler handles the revert_resource tool call
 func revertResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
+	}
+
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
 
-	if gatewayID == 0 || len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("gateway_id and resource_ids are required")), nil
+	if len(resourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_ids is required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -487,8 +474,8 @@ func revertResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
-	if err != nil {
+	// Gateway is already set in context by middleware
+	if _, err := getGatewayFromContext(ctx); err != nil {
 		return errorResult(err), nil
 	}
 

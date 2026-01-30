@@ -21,10 +21,35 @@ package mcp
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/mcp/prompts"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/mcp/resources"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/mcp/tools"
 )
+
+// registerTools registers all MCP tools
+func registerTools(server *mcp.Server) {
+	// Resource CRUD tools
+	tools.RegisterResourceCRUDTools(server)
+
+	// Sync tools
+	tools.RegisterSyncTools(server)
+
+	// Diff tools
+	tools.RegisterDiffTools(server)
+
+	// Publish tools
+	tools.RegisterPublishTools(server)
+
+	// Schema tools
+	tools.RegisterSchemaTools(server)
+}
 
 // registerResources registers all MCP resources
 func registerResources(server *mcp.Server) {
 	resources.RegisterDocumentationResources(server)
+}
+
+// registerPrompts registers all MCP prompts
+func registerPrompts(server *mcp.Server) {
+	prompts.RegisterWorkflowPrompts(server)
 }

@@ -38,10 +38,6 @@ func RegisterPublishTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Filter by resource type (optional). " + ResourceTypeDescription(),
@@ -53,67 +49,56 @@ func RegisterPublishTools(server *mcp.Server) {
 					"description": "Filter by specific resource IDs (optional)",
 				},
 			},
-			"required": []string{"gateway_id"},
 		},
 	}, publishPreviewHandler)
 
-	// publish_resource
-	server.AddTool(&mcp.Tool{
-		Name: "publish_resource",
-		Description: "Publish specific resources to etcd/APISIX. " +
-			"Applies the changes from the edit area to the data plane.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type to publish. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-				"resource_ids": map[string]any{
-					"type":        "array",
-					"items":       map[string]any{"type": "string"},
-					"description": "Array of resource IDs to publish (required)",
-				},
-			},
-			"required": []string{"gateway_id", "resource_type", "resource_ids"},
-		},
-	}, publishResourceHandler)
+	// NOTE: publish_resource and publish_all are commented out for safety.
+	// Publishing directly via MCP is dangerous for production environments.
+	// Users should use the web UI or API for publishing operations.
 
-	// publish_all
-	server.AddTool(&mcp.Tool{
-		Name: "publish_all",
-		Description: "Publish all pending changes (draft resources) to etcd/APISIX. " +
-			"Convenience tool for publishing all modified resources at once.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
-			},
-			"required": []string{"gateway_id"},
-		},
-	}, publishAllHandler)
+	// // publish_resource
+	// server.AddTool(&mcp.Tool{
+	// 	Name: "publish_resource",
+	// 	Description: "Publish specific resources to etcd/APISIX. " +
+	// 		"Applies the changes from the edit area to the data plane.",
+	// 	InputSchema: map[string]any{
+	// 		"type": "object",
+	// 		"properties": map[string]any{
+	// 			"resource_type": map[string]any{
+	// 				"type":        "string",
+	// 				"description": "Resource type to publish. " + ResourceTypeDescription(),
+	// 				"enum":        ValidResourceTypes,
+	// 			},
+	// 			"resource_ids": map[string]any{
+	// 				"type":        "array",
+	// 				"items":       map[string]any{"type": "string"},
+	// 				"description": "Array of resource IDs to publish (required)",
+	// 			},
+	// 		},
+	// 		"required": []string{"resource_type", "resource_ids"},
+	// 	},
+	// }, publishResourceHandler)
+
+	// // publish_all
+	// server.AddTool(&mcp.Tool{
+	// 	Name: "publish_all",
+	// 	Description: "Publish all pending changes (draft resources) to etcd/APISIX. " +
+	// 		"Convenience tool for publishing all modified resources at once.",
+	// 	InputSchema: map[string]any{
+	// 		"type": "object",
+	// 		"properties": map[string]any{},
+	// 	},
+	// }, publishAllHandler)
 }
 
 // publishPreviewHandler handles the publish_preview tool call
 func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
 
-	if gatewayID == 0 {
-		return errorResult(fmt.Errorf("gateway_id is required")), nil
-	}
-
-	_, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -135,7 +120,7 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 	// Get pending changes for each resource type
 	preview := map[string]any{
-		"gateway_id":   gatewayID,
+		"gateway_id":   gateway.ID,
 		"create_draft": []map[string]any{},
 		"update_draft": []map[string]any{},
 		"delete_draft": []map[string]any{},
@@ -209,14 +194,19 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 }
 
 // publishResourceHandler handles the publish_resource tool call
+// NOTE: This handler is not currently registered for safety reasons.
 func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
+	}
+
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
 
-	if gatewayID == 0 || resourceTypeStr == "" || len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("gateway_id, resource_type, and resource_ids are required")), nil
+	if resourceTypeStr == "" || len(resourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_type and resource_ids are required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -224,7 +214,8 @@ func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 		return errorResult(err), nil
 	}
 
-	gateway, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -237,7 +228,7 @@ func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 
 	return successResult(map[string]any{
 		"message":         "Resources published successfully",
-		"gateway_id":      gatewayID,
+		"gateway_id":      gateway.ID,
 		"resource_type":   resourceTypeStr,
 		"published_ids":   resourceIDs,
 		"published_count": len(resourceIDs),
@@ -245,15 +236,15 @@ func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp
 }
 
 // publishAllHandler handles the publish_all tool call
+// NOTE: This handler is not currently registered for safety reasons.
 func publishAllHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
-
-	if gatewayID == 0 {
-		return errorResult(fmt.Errorf("gateway_id is required")), nil
+	// Check write scope
+	if err := CheckWriteScope(ctx); err != nil {
+		return errorResult(err), nil
 	}
 
-	gateway, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -304,7 +295,7 @@ func publishAllHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 
 	return successResult(map[string]any{
 		"message":           "All draft resources published",
-		"gateway_id":        gatewayID,
+		"gateway_id":        gateway.ID,
 		"total_published":   totalPublished,
 		"published_by_type": publishedCounts,
 	}), nil

@@ -26,6 +26,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
@@ -122,6 +123,15 @@ func MCPAccessTokenCreate(c *gin.Context) {
 			ginx.ConflictJSONResponse(c, err)
 			return
 		}
+		if errors.Is(err, biz.ErrMCPTokenLimitExceeded) {
+			ginx.BadRequestErrorJSONResponse(c, err)
+			return
+		}
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+
+	if err := biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeCreate, token); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -166,74 +176,6 @@ func MCPAccessTokenGet(c *gin.Context) {
 	ginx.SuccessJSONResponse(c, serializer.MCPAccessTokenToOutputInfo(token))
 }
 
-// MCPAccessTokenUpdate 更新 MCP 访问令牌
-//
-//	@ID			mcp_access_token_update
-//	@Summary	更新 MCP 访问令牌
-//	@Accept		json
-//	@Produce	json
-//	@Tags		webapi.mcp_access_token
-//	@Param		gateway_id	path	int										true	"网关 ID"	@Param	token_id	path	int	true	"令牌 ID"
-//	@Param		request		body	serializer.MCPAccessTokenUpdateRequest	true	"更新参数"
-//	@Success	204
-//	@Router		/api/v1/web/gateways/{gateway_id}/mcp/tokens/{token_id}/ [put]
-func MCPAccessTokenUpdate(c *gin.Context) {
-	var pathParam serializer.MCPAccessTokenPathParam
-	if err := c.ShouldBindUri(&pathParam); err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
-		return
-	}
-
-	var req serializer.MCPAccessTokenUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
-		return
-	}
-
-	// 检查网关是否支持 MCP
-	gateway := ginx.GetGatewayInfo(c)
-	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
-		ginx.ForbiddenJSONResponse(c, err)
-		return
-	}
-
-	// 验证过期时间
-	expiredAt := time.Unix(req.ExpiredAt, 0)
-	if expiredAt.Before(time.Now()) {
-		ginx.BadRequestErrorJSONResponse(c, errors.New("expired_at must be in the future"))
-		return
-	}
-
-	// 检查令牌是否存在
-	token, err := biz.GetMCPAccessTokenByGatewayAndID(c.Request.Context(), pathParam.GatewayID, pathParam.TokenID)
-	if err != nil {
-		if errors.Is(err, biz.ErrMCPTokenNotFound) {
-			ginx.NotFoundJSONResponse(c, err)
-			return
-		}
-		ginx.SystemErrorJSONResponse(c, err)
-		return
-	}
-
-	// 更新令牌
-	token.Name = req.Name
-	token.Description = req.Description
-	token.AccessScope = req.AccessScope
-	token.ExpiredAt = expiredAt
-	token.Updater = ginx.GetUserID(c)
-
-	if err := biz.UpdateMCPAccessToken(c.Request.Context(), token); err != nil {
-		if errors.Is(err, biz.ErrMCPTokenNameExists) {
-			ginx.ConflictJSONResponse(c, err)
-			return
-		}
-		ginx.SystemErrorJSONResponse(c, err)
-		return
-	}
-
-	ginx.SuccessNoContentResponse(c)
-}
-
 // MCPAccessTokenDelete 删除 MCP 访问令牌
 //
 //	@ID			mcp_access_token_delete
@@ -259,7 +201,7 @@ func MCPAccessTokenDelete(c *gin.Context) {
 	}
 
 	// 检查令牌是否属于该网关
-	_, err := biz.GetMCPAccessTokenByGatewayAndID(c.Request.Context(), pathParam.GatewayID, pathParam.TokenID)
+	token, err := biz.GetMCPAccessTokenByGatewayAndID(c.Request.Context(), pathParam.GatewayID, pathParam.TokenID)
 	if err != nil {
 		if errors.Is(err, biz.ErrMCPTokenNotFound) {
 			ginx.NotFoundJSONResponse(c, err)
@@ -270,6 +212,11 @@ func MCPAccessTokenDelete(c *gin.Context) {
 	}
 
 	if err := biz.DeleteMCPAccessToken(c.Request.Context(), pathParam.TokenID); err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+
+	if err := biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeDelete, token); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}

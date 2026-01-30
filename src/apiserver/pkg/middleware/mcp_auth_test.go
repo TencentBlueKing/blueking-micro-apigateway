@@ -20,7 +20,6 @@ package middleware
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,69 +27,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
-func TestIsWriteOperation(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		method   string
-		expected bool
-	}{
-		{
-			name:     "POST is write operation",
-			method:   http.MethodPost,
-			expected: true,
-		},
-		{
-			name:     "PUT is write operation",
-			method:   http.MethodPut,
-			expected: true,
-		},
-		{
-			name:     "PATCH is write operation",
-			method:   http.MethodPatch,
-			expected: true,
-		},
-		{
-			name:     "DELETE is write operation",
-			method:   http.MethodDelete,
-			expected: true,
-		},
-		{
-			name:     "GET is not write operation",
-			method:   http.MethodGet,
-			expected: false,
-		},
-		{
-			name:     "HEAD is not write operation",
-			method:   http.MethodHead,
-			expected: false,
-		},
-		{
-			name:     "OPTIONS is not write operation",
-			method:   http.MethodOptions,
-			expected: false,
-		},
-		{
-			name:     "CONNECT is not write operation",
-			method:   http.MethodConnect,
-			expected: false,
-		},
-		{
-			name:     "TRACE is not write operation",
-			method:   http.MethodTrace,
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := isWriteOperation(tt.method)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
+// Note: TestIsWriteOperation was removed because write operation detection
+// is now done at the tool handler level using tool names instead of HTTP methods.
+// See pkg/apis/mcp/tools/common.go for IsWriteTool() and CheckWriteScope().
 
 func TestMCPTokenContextKey(t *testing.T) {
 	t.Parallel()

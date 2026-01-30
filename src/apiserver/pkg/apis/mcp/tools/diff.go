@@ -39,10 +39,6 @@ func RegisterDiffTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type": "string",
 					"description": "Filter by resource type (optional). " +
@@ -54,7 +50,6 @@ func RegisterDiffTools(server *mcp.Server) {
 					"description": "Filter by specific resource ID (optional)",
 				},
 			},
-			"required": []string{"gateway_id"},
 		},
 	}, diffResourcesHandler)
 
@@ -66,10 +61,6 @@ func RegisterDiffTools(server *mcp.Server) {
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"gateway_id": map[string]any{
-					"type":        "integer",
-					"description": "The gateway ID (required)",
-				},
 				"resource_type": map[string]any{
 					"type":        "string",
 					"description": "Resource type. " + ResourceTypeDescription(),
@@ -80,7 +71,7 @@ func RegisterDiffTools(server *mcp.Server) {
 					"description": "The resource ID to get diff for (required)",
 				},
 			},
-			"required": []string{"gateway_id", "resource_type", "resource_id"},
+			"required": []string{"resource_type", "resource_id"},
 		},
 	}, diffDetailHandler)
 }
@@ -88,15 +79,11 @@ func RegisterDiffTools(server *mcp.Server) {
 // diffResourcesHandler handles the diff_resources tool call
 func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceID := getStringParamFromArgs(args, "resource_id", "")
 
-	if gatewayID == 0 {
-		return errorResult(fmt.Errorf("gateway_id is required")), nil
-	}
-
-	_, ctx, err := getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -136,7 +123,7 @@ func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.C
 	summary := buildDiffSummary(allDiffs)
 
 	result := map[string]any{
-		"gateway_id": gatewayID,
+		"gateway_id": gateway.ID,
 		"summary":    summary,
 		"details":    allDiffs,
 	}
@@ -147,12 +134,11 @@ func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.C
 // diffDetailHandler handles the diff_detail tool call
 func diffDetailHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := parseArguments(req)
-	gatewayID := getIntParamFromArgs(args, "gateway_id", 0)
 	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
 	resourceID := getStringParamFromArgs(args, "resource_id", "")
 
-	if gatewayID == 0 || resourceTypeStr == "" || resourceID == "" {
-		return errorResult(fmt.Errorf("gateway_id, resource_type, and resource_id are required")), nil
+	if resourceTypeStr == "" || resourceID == "" {
+		return errorResult(fmt.Errorf("resource_type and resource_id are required")), nil
 	}
 
 	resourceType, err := parseResourceType(resourceTypeStr)
@@ -160,7 +146,8 @@ func diffDetailHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 		return errorResult(err), nil
 	}
 
-	_, ctx, err = getGatewayFromRequest(ctx, gatewayID)
+	// Gateway is already set in context by middleware
+	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
 		return errorResult(err), nil
 	}
@@ -172,7 +159,7 @@ func diffDetailHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 	}
 
 	result := map[string]any{
-		"gateway_id":    gatewayID,
+		"gateway_id":    gateway.ID,
 		"resource_type": resourceTypeStr,
 		"resource_id":   resourceID,
 		"diff":          diffDetail,

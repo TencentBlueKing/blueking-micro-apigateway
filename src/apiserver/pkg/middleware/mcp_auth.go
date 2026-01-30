@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -43,8 +44,28 @@ const (
 )
 
 // MCPAuth middleware for MCP API authentication using Bearer token
+// It also validates the gateway_id from the URL path matches the token's gateway_id
 func MCPAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Extract gateway_id from URL path
+		gatewayIDStr := c.Param("gateway_id")
+		if gatewayIDStr == "" {
+			log.ErrorFWithContext(c.Request.Context(), "MCP auth: missing gateway_id in path")
+			abortWithMCPError(c, http.StatusBadRequest, "missing gateway_id in path")
+			return
+		}
+
+		pathGatewayID, err := strconv.Atoi(gatewayIDStr)
+		if err != nil || pathGatewayID <= 0 {
+			log.ErrorFWithContext(
+				c.Request.Context(),
+				"MCP auth: invalid gateway_id in path: %s",
+				gatewayIDStr,
+			)
+			abortWithMCPError(c, http.StatusBadRequest, "invalid gateway_id in path")
+			return
+		}
+
 		// Extract Bearer token from Authorization header
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -79,21 +100,21 @@ func MCPAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Check access scope based on HTTP method
-		requireWrite := isWriteOperation(c.Request.Method)
-		if err := biz.CheckMCPAccessScope(token, requireWrite); err != nil {
+		// Validate that the path gateway_id matches the token's gateway_id
+		if token.GatewayID != pathGatewayID {
 			log.ErrorFWithContext(
 				c.Request.Context(),
-				"MCP auth: insufficient scope for %s",
-				c.Request.Method,
+				"MCP auth: gateway_id mismatch - path: %d, token: %d",
+				pathGatewayID,
+				token.GatewayID,
 			)
-			abortWithMCPError(
-				c,
-				http.StatusForbidden,
-				"insufficient access scope: write permission required",
-			)
+			abortWithMCPError(c, http.StatusForbidden, "token does not match the specified gateway")
 			return
 		}
+
+		// Note: Access scope check is now done at the tool handler level
+		// based on tool name instead of HTTP method, since MCP uses POST for all tool calls.
+		// See pkg/apis/mcp/tools/common.go CheckWriteScope()
 
 		// Set gateway info in context
 		ginx.SetGatewayInfo(c, gateway)
@@ -135,16 +156,6 @@ func abortWithMCPError(c *gin.Context, statusCode int, message string) {
 			"message": message,
 		},
 	})
-}
-
-// isWriteOperation checks if the HTTP method is a write operation
-func isWriteOperation(method string) bool {
-	switch method {
-	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-		return true
-	default:
-		return false
-	}
 }
 
 // GetMCPAccessToken retrieves the MCP access token from the context

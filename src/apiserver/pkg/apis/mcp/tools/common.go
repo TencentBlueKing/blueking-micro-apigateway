@@ -63,21 +63,60 @@ var ValidAPISIXVersions = []string{
 	string(constant.APISIXVersion313),
 }
 
-// getGatewayFromRequest retrieves the gateway info and sets it in context
-func getGatewayFromRequest(ctx context.Context, gatewayID int) (*model.Gateway, context.Context, error) {
-	if token := middleware.GetMCPAccessTokenFromContext(ctx); token != nil && token.GatewayID != gatewayID {
-		return nil, ctx, fmt.Errorf("access token does not match gateway_id")
+// WriteToolNames defines MCP tools that require write access scope
+var WriteToolNames = map[string]bool{
+	"create_resource":                   true,
+	"update_resource":                   true,
+	"delete_resource":                   true,
+	"revert_resource":                   true,
+	"publish_resource":                  true,
+	"publish_all":                       true,
+	"add_synced_resources_to_edit_area": true,
+}
+
+// IsWriteTool checks if the given tool name requires write access
+func IsWriteTool(toolName string) bool {
+	return WriteToolNames[toolName]
+}
+
+// CheckWriteScope checks if the token has write scope for write tools
+// Returns an error if write access is required but not granted
+func CheckWriteScope(ctx context.Context) error {
+	token := middleware.GetMCPAccessTokenFromContext(ctx)
+	if token == nil {
+		return fmt.Errorf("no access token found in context")
+	}
+	if !token.CanWrite() {
+		return biz.ErrMCPInsufficientScope
+	}
+	return nil
+}
+
+// getGatewayFromContext retrieves the gateway info from context
+// First tries to get from context directly (set by middleware for Gin handlers)
+// If not found (MCP SDK uses its own context), fetches using the token's GatewayID
+func getGatewayFromContext(ctx context.Context) (*model.Gateway, error) {
+	// Try to get gateway from context first (works for Gin context)
+	gateway := ginx.GetGatewayInfoFromContext(ctx)
+	if gateway != nil {
+		return gateway, nil
 	}
 
-	gateway, err := biz.GetGateway(ctx, gatewayID)
+	// Fallback: get gateway ID from token and fetch from database
+	// This is needed because MCP SDK creates its own context that doesn't
+	// inherit from the HTTP request context
+	token := middleware.GetMCPAccessTokenFromContext(ctx)
+	if token == nil {
+		return nil, fmt.Errorf("gateway not found in context and no access token available")
+	}
+
+	// Fetch gateway from database using the token's gateway ID
+	gateway, err := biz.GetGateway(ctx, token.GatewayID)
 	if err != nil {
-		return nil, ctx, fmt.Errorf("gateway not found: %w", err)
+		return nil, fmt.Errorf("failed to get gateway: %w", err)
 	}
 
-	// Set gateway info in context for downstream functions
-	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
-
-	return gateway, ctx, nil
+	return gateway, nil
 }
 
 // parseResourceType converts string to APISIXResource type

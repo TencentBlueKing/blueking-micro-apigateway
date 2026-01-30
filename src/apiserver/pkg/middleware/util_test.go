@@ -92,9 +92,15 @@ func TestNormalizeOriginsForCORS(t *testing.T) {
 			expected: []string{"https://[::1]:8080", "https://[::1]:8080"},
 		},
 		{
-			name:     "real world case - bktencent",
-			origins:  []string{"https://dev-t.paas3-dev.bktencent.com:8888", "https://bk-micro-web.paas3-dev.bktencent.com"},
-			expected: []string{"https://dev-t.paas3-dev.bktencent.com:8888", "https://bk-micro-web.paas3-dev.bktencent.com"},
+			name: "real world case - bktencent",
+			origins: []string{
+				"https://dev-t.paas3-dev.bktencent.com:8888",
+				"https://bk-micro-web.paas3-dev.bktencent.com",
+			},
+			expected: []string{
+				"https://dev-t.paas3-dev.bktencent.com:8888",
+				"https://bk-micro-web.paas3-dev.bktencent.com",
+			},
 		},
 	}
 
@@ -128,9 +134,15 @@ func TestExtractHostsForCSRF(t *testing.T) {
 			expected: []string{"localhost:8080", "127.0.0.1:3000"},
 		},
 		{
-			name:     "full URLs with port",
-			origins:  []string{"https://dev-t.paas3-dev.bktencent.com:8888", "https://bk-micro-web.paas3-dev.bktencent.com"},
-			expected: []string{"dev-t.paas3-dev.bktencent.com:8888", "bk-micro-web.paas3-dev.bktencent.com"},
+			name: "full URLs with port",
+			origins: []string{
+				"https://dev-t.paas3-dev.bktencent.com:8888",
+				"https://bk-micro-web.paas3-dev.bktencent.com",
+			},
+			expected: []string{
+				"dev-t.paas3-dev.bktencent.com:8888",
+				"bk-micro-web.paas3-dev.bktencent.com",
+			},
 		},
 		{
 			name:     "host-only format (keep as is)",
@@ -200,8 +212,11 @@ func TestOriginNormalizationConsistency(t *testing.T) {
 		origins []string
 	}{
 		{
-			name:    "real world config",
-			origins: []string{"https://dev-t.paas3-dev.bktencent.com:8888", "https://bk-micro-web.paas3-dev.bktencent.com"},
+			name: "real world config",
+			origins: []string{
+				"https://dev-t.paas3-dev.bktencent.com:8888",
+				"https://bk-micro-web.paas3-dev.bktencent.com",
+			},
 		},
 		{
 			name:    "mixed formats",
@@ -219,7 +234,12 @@ func TestOriginNormalizationConsistency(t *testing.T) {
 			csrfOrigins := ExtractHostsForCSRF(tc.origins)
 
 			// 两个结果应该长度相同
-			assert.Equal(t, len(corsOrigins), len(csrfOrigins), "CORS and CSRF origins should have same length")
+			assert.Equal(
+				t,
+				len(corsOrigins),
+				len(csrfOrigins),
+				"CORS and CSRF origins should have same length",
+			)
 
 			// 对于非 * 的情况，CORS origin 应该包含对应的 CSRF origin
 			for i, corsOrigin := range corsOrigins {

@@ -109,17 +109,7 @@ func TestMCPAccessTokenCRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, token.ID, retrievedByToken.ID)
 
-	// 更新令牌
-	token.Name = "updated-token"
-	token.AccessScope = model.MCPAccessScopeWrite
-	err = UpdateMCPAccessToken(ctx, token)
-	assert.NoError(t, err)
-
-	// 验证更新
-	updated, err := GetMCPAccessToken(ctx, token.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, "updated-token", updated.Name)
-	assert.Equal(t, model.MCPAccessScopeWrite, updated.AccessScope)
+	// Note: UpdateMCPAccessToken was removed - tokens should be deleted and recreated
 
 	// 列出令牌
 	tokens, err := ListMCPAccessTokens(ctx, gateway.ID)

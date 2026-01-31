@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
@@ -342,7 +343,15 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 	// Inject name into config so ToResourceModel.GetName() picks it up
 	nameKey := model.GetResourceNameKey(resourceType)
-	config, _ = sjson.SetBytes(config, nameKey, name)
+	config, err = sjson.SetBytes(config, nameKey, name)
+	if err != nil {
+		return errorResult(fmt.Errorf("failed to inject name into config: %w", err)), nil
+	}
+
+	// Verify name was successfully injected
+	if !gjson.GetBytes(config, nameKey).Exists() {
+		return errorResult(fmt.Errorf("name field not found in config after injection")), nil
+	}
 
 	// Create resource model
 	resource := model.ResourceCommonModel{

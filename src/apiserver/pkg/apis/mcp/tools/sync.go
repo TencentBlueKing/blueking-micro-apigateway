@@ -211,10 +211,11 @@ func listSyncedResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*
 	managedIDSet := make(map[string]bool)
 	if len(resourceIDs) > 0 {
 		dbResources, err := biz.BatchGetResources(ctx, resourceType, resourceIDs)
-		if err == nil {
-			for _, dbRes := range dbResources {
-				managedIDSet[dbRes.ID] = true
-			}
+		if err != nil {
+			return errorResult(fmt.Errorf("failed to check managed status: %w", err)), nil
+		}
+		for _, dbRes := range dbResources {
+			managedIDSet[dbRes.ID] = true
 		}
 	}
 

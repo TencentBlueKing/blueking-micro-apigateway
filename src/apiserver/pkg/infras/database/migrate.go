@@ -52,6 +52,7 @@ func RunMigrate() error {
 		model.GatewayCustomPluginSchema{},
 		model.GatewayResourceSchemaAssociation{},
 		model.StreamRoute{},
+		model.MCPAccessToken{},
 	)
 }
 

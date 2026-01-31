@@ -99,7 +99,7 @@ func (r ResourceCommonModel) GetName(resourceType constant.APISIXResource) strin
 func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResource) any {
 	switch resourceType {
 	case constant.Route:
-		return Route{
+		return &Route{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 			ServiceID:           r.GetServiceID(),
@@ -107,54 +107,54 @@ func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResourc
 			UpstreamID:          r.GetUpstreamID(),
 		}
 	case constant.Service:
-		return Service{
+		return &Service{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 			UpstreamID:          r.GetUpstreamID(),
 		}
 	case constant.Upstream:
-		return Upstream{
+		return &Upstream{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.Consumer:
-		return Consumer{
+		return &Consumer{
 			ResourceCommonModel: r,
 			Username:            r.GetName(resourceType),
 			GroupID:             r.GetGroupID(),
 		}
 	case constant.ConsumerGroup:
-		return ConsumerGroup{
+		return &ConsumerGroup{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.PluginConfig:
-		return PluginConfig{
+		return &PluginConfig{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.GlobalRule:
-		return GlobalRule{
+		return &GlobalRule{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.PluginMetadata:
-		return PluginMetadata{
+		return &PluginMetadata{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.Proto:
-		return Proto{
+		return &Proto{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.SSL:
-		return SSL{
+		return &SSL{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 		}
 	case constant.StreamRoute:
-		return StreamRoute{
+		return &StreamRoute{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
 			ServiceID:           r.GetServiceID(),

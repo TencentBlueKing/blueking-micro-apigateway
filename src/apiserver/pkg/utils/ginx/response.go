@@ -45,6 +45,9 @@ type SuccessResponse struct {
 	Data any `json:"data"`
 }
 
+// Response is an alias for SuccessResponse for Swagger documentation
+type Response = SuccessResponse
+
 // Error ...
 type Error struct {
 	Code    string `json:"code"`
@@ -68,6 +71,13 @@ func SuccessJSONResponse(c *gin.Context, data any) {
 // SuccessCreateResponse ...
 func SuccessCreateResponse(c *gin.Context) {
 	c.JSON(http.StatusCreated, nil)
+}
+
+// SuccessCreateJSONResponse returns 201 with data
+func SuccessCreateJSONResponse(c *gin.Context, data any) {
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Data: data,
+	})
 }
 
 // SuccessNoContentResponse ...

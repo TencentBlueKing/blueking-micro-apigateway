@@ -44,7 +44,9 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
 
 	//  csrf
-	group.Use(middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret, config.G.Service.AllowedOrigins))
+	group.Use(
+		middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret, config.G.Service.AllowedOrigins),
+	)
 	group.Use(middleware.CSRFToken(config.G.Service.AppCode, config.G.Service.CSRFCookieDomain))
 
 	// user auth
@@ -199,4 +201,11 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	gatewayGroup.POST("/publish/", handler.PublishResource)
 	gatewayGroup.POST("/publish/all/", handler.PublishResourceAll)
 	gatewayGroup.POST("/sync/", handler.ResourceSync)
+
+	// mcp access tokens
+	gatewayGroup.GET("/mcp/tokens/", handler.MCPAccessTokenList)
+	gatewayGroup.POST("/mcp/tokens/", handler.MCPAccessTokenCreate)
+	gatewayGroup.GET("/mcp/tokens/:token_id/", handler.MCPAccessTokenGet)
+	// Note: Update is not supported - tokens should be deleted and recreated
+	gatewayGroup.DELETE("/mcp/tokens/:token_id/", handler.MCPAccessTokenDelete)
 }

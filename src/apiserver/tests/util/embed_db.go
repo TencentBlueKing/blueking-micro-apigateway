@@ -87,6 +87,7 @@ func InitEmbedDb() {
 			model.GatewayCustomPluginSchema{},
 			model.GatewayResourceSchemaAssociation{},
 			model.StreamRoute{},
+			model.MCPAccessToken{},
 		}
 		for _, m := range models {
 			// 执行迁移

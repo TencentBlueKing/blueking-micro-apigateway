@@ -428,12 +428,13 @@ make integration-test
 make lint
 ```
 
-always run the commands before you finish your coding work, and fix the issues if any.
+always run the commands before you finish your coding work and before you push your code, and fix the issues if any.
 
 ## Local Tools Installed
 
 - `ag` and `grep` for command-line text search
 - `jq` for command-line JSON processing
+- `gh` for github cli tools
 
 ## Important Notes
 

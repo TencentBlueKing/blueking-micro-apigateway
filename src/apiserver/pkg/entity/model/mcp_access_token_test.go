@@ -86,7 +86,7 @@ func TestMCPAccessToken_CanRead(t *testing.T) {
 		},
 		{
 			name:     "write scope can read",
-			scope:    MCPAccessScopeWrite,
+			scope:    MCPAccessScopeReadWrite,
 			expected: true,
 		},
 		{
@@ -125,7 +125,7 @@ func TestMCPAccessToken_CanWrite(t *testing.T) {
 		},
 		{
 			name:     "write scope can write",
-			scope:    MCPAccessScopeWrite,
+			scope:    MCPAccessScopeReadWrite,
 			expected: true,
 		},
 		{
@@ -227,9 +227,9 @@ func TestMCPAccessScope_String(t *testing.T) {
 			expected: "read",
 		},
 		{
-			name:     "write scope",
-			scope:    MCPAccessScopeWrite,
-			expected: "write",
+			name:     "readwrite scope",
+			scope:    MCPAccessScopeReadWrite,
+			expected: "readwrite",
 		},
 		{
 			name:     "custom scope",
@@ -261,7 +261,7 @@ func TestMCPAccessScope_IsValid(t *testing.T) {
 		},
 		{
 			name:     "write is valid",
-			scope:    MCPAccessScopeWrite,
+			scope:    MCPAccessScopeReadWrite,
 			expected: true,
 		},
 		{
@@ -294,5 +294,5 @@ func TestMCPAccessScopeConstants(t *testing.T) {
 
 	// Verify the scope constants are defined correctly
 	assert.Equal(t, MCPAccessScope("read"), MCPAccessScopeRead)
-	assert.Equal(t, MCPAccessScope("write"), MCPAccessScopeWrite)
+	assert.Equal(t, MCPAccessScope("readwrite"), MCPAccessScopeReadWrite)
 }

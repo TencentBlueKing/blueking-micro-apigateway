@@ -50,8 +50,11 @@ var (
 	ErrMCPTokenLimitExceeded  = errors.New("maximum number of MCP access tokens per gateway exceeded (limit: 20)")
 )
 
-// MCPSupportedAPISIXVersion 支持 MCP 的 APISIX 版本
-const MCPSupportedAPISIXVersion = constant.APISIXVersion313
+// MCPSupportedAPISIXVersions 支持 MCP 的 APISIX 版本列表
+var MCPSupportedAPISIXVersions = []constant.APISIXVersion{
+	constant.APISIXVersion313,
+	// Add future versions here, e.g.: constant.APISIXVersion314,
+}
 
 // MaxMCPAccessTokensPerGateway 每个网关最大 MCP 访问令牌数量
 const MaxMCPAccessTokensPerGateway = 20
@@ -149,10 +152,13 @@ func HashMCPToken(token string) string {
 
 // CheckGatewayMCPSupport 检查网关是否支持 MCP
 func CheckGatewayMCPSupport(gateway *model.Gateway) error {
-	if gateway.GetAPISIXVersionX() != MCPSupportedAPISIXVersion {
-		return ErrMCPGatewayNotSupported
+	version := gateway.GetAPISIXVersionX()
+	for _, supported := range MCPSupportedAPISIXVersions {
+		if version == supported {
+			return nil
+		}
 	}
-	return nil
+	return ErrMCPGatewayNotSupported
 }
 
 // ListMCPAccessTokens 列出网关的所有 MCP 访问令牌
@@ -333,15 +339,6 @@ func ValidateMCPAccessToken(ctx context.Context, tokenStr string) (*model.MCPAcc
 	return token, gateway, nil
 }
 
-// UpdateMCPAccessTokenLastUsed 更新令牌最后使用时间
-func UpdateMCPAccessTokenLastUsed(ctx context.Context, id int) error {
-	now := time.Now()
-	return database.Client().WithContext(ctx).
-		Model(&model.MCPAccessToken{}).
-		Where("id = ?", id).
-		Update("last_used_at", now).Error
-}
-
 // CheckMCPAccessScope 检查令牌是否有足够的访问权限
 func CheckMCPAccessScope(token *model.MCPAccessToken, requireWrite bool) error {
 	if requireWrite && !token.CanWrite() {
@@ -361,6 +358,7 @@ func CountMCPAccessTokensByGateway(ctx context.Context, gatewayID int) (int64, e
 }
 
 // AddMCPAccessTokenAuditLog adds audit log for MCP access token operations
+// Note: The caller ignores errors from this function, so we log errors here
 func AddMCPAccessTokenAuditLog(
 	ctx context.Context,
 	operationType constant.OperationType,
@@ -371,11 +369,14 @@ func AddMCPAccessTokenAuditLog(
 	}
 	gateway := ginx.GetGatewayInfoFromContext(ctx)
 	if gateway == nil {
-		return errors.New("gateway not found in context")
+		err := errors.New("gateway not found in context")
+		logging.Warnf("failed to add MCP access token audit log: %v", err)
+		return err
 	}
 
 	config, err := buildMCPAccessTokenAuditConfig(token)
 	if err != nil {
+		logging.Warnf("failed to build MCP access token audit config: %v", err)
 		return err
 	}
 
@@ -399,10 +400,12 @@ func AddMCPAccessTokenAuditLog(
 
 	dataBeforeRaw, err := json.Marshal(dataBefore)
 	if err != nil {
+		logging.Warnf("failed to marshal dataBefore for MCP access token audit: %v", err)
 		return err
 	}
 	dataAfterRaw, err := json.Marshal(dataAfter)
 	if err != nil {
+		logging.Warnf("failed to marshal dataAfter for MCP access token audit: %v", err)
 		return err
 	}
 
@@ -416,9 +419,17 @@ func AddMCPAccessTokenAuditLog(
 		Operator:      ginx.GetUserIDFromContext(ctx),
 	}
 	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+		if err := ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog); err != nil {
+			logging.Warnf("failed to create MCP access token audit log: %v", err)
+			return err
+		}
+		return nil
 	}
-	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
+	if err := repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog); err != nil {
+		logging.Warnf("failed to create MCP access token audit log: %v", err)
+		return err
+	}
+	return nil
 }
 
 func buildMCPAccessTokenAuditConfig(token *model.MCPAccessToken) (json.RawMessage, error) {

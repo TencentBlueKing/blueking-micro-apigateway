@@ -155,7 +155,7 @@ func TestMCPAccessScope(t *testing.T) {
 
 	// 测试写入权限（包含读取）
 	writeToken := &model.MCPAccessToken{
-		AccessScope: model.MCPAccessScopeWrite,
+		AccessScope: model.MCPAccessScopeReadWrite,
 	}
 	assert.True(t, writeToken.CanRead())
 	assert.True(t, writeToken.CanWrite())

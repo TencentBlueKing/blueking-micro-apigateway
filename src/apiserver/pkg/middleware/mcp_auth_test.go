@@ -106,9 +106,9 @@ func TestMCPAccessScopeString(t *testing.T) {
 			expected: "read",
 		},
 		{
-			name:     "write scope string",
-			scope:    model.MCPAccessScopeWrite,
-			expected: "write",
+			name:     "readwrite scope string",
+			scope:    model.MCPAccessScopeReadWrite,
+			expected: "readwrite",
 		},
 	}
 
@@ -136,7 +136,7 @@ func TestMCPAccessScopeIsValid(t *testing.T) {
 		},
 		{
 			name:     "write scope is valid",
-			scope:    model.MCPAccessScopeWrite,
+			scope:    model.MCPAccessScopeReadWrite,
 			expected: true,
 		},
 		{

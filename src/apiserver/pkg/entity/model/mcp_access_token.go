@@ -28,8 +28,8 @@ type MCPAccessScope string
 const (
 	// MCPAccessScopeRead 只读权限：允许 GET 请求和 sync 操作
 	MCPAccessScopeRead MCPAccessScope = "read"
-	// MCPAccessScopeWrite 读写权限：允许所有操作包括 POST/PUT/DELETE
-	MCPAccessScopeWrite MCPAccessScope = "write"
+	// MCPAccessScopeReadWrite 读写权限：允许所有操作包括 POST/PUT/DELETE
+	MCPAccessScopeReadWrite MCPAccessScope = "readwrite"
 )
 
 // String 返回访问范围字符串
@@ -39,7 +39,7 @@ func (s MCPAccessScope) String() string {
 
 // IsValid 检查访问范围是否有效
 func (s MCPAccessScope) IsValid() bool {
-	return s == MCPAccessScopeRead || s == MCPAccessScopeWrite
+	return s == MCPAccessScopeRead || s == MCPAccessScopeReadWrite
 }
 
 // MCPAccessToken MCP 访问令牌表
@@ -67,12 +67,12 @@ func (t *MCPAccessToken) IsExpired() bool {
 
 // CanRead 检查是否有读权限
 func (t *MCPAccessToken) CanRead() bool {
-	return t.AccessScope == MCPAccessScopeRead || t.AccessScope == MCPAccessScopeWrite
+	return t.AccessScope == MCPAccessScopeRead || t.AccessScope == MCPAccessScopeReadWrite
 }
 
 // CanWrite 检查是否有写权限
 func (t *MCPAccessToken) CanWrite() bool {
-	return t.AccessScope == MCPAccessScopeWrite
+	return t.AccessScope == MCPAccessScopeReadWrite
 }
 
 // MaskedToken 返回掩码后的令牌（仅显示前8位和后4位）

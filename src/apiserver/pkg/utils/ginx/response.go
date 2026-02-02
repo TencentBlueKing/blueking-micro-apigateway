@@ -30,12 +30,13 @@ import (
 
 // BadRequestError ...
 const (
-	BadRequestError   = "BadRequest"
-	UnauthorizedError = "Unauthorized"
-	ForbiddenError    = "Forbidden"
-	NotFoundError     = "NotFound"
-	ConflictError     = "Conflict"
-	TooManyRequests   = "TooManyRequests"
+	BadRequestError     = "BadRequest"
+	UnauthorizedError   = "Unauthorized"
+	ForbiddenError      = "Forbidden"
+	NotFoundError       = "NotFound"
+	ConflictError       = "Conflict"
+	TooManyRequests     = "TooManyRequests"
+	NotImplementedError = "NotImplemented"
 
 	SystemError = "InternalServerError"
 )
@@ -154,6 +155,7 @@ var (
 	NotFoundJSONResponse        = NewErrorJSONResponse(NotFoundError, http.StatusNotFound)
 	ConflictJSONResponse        = NewErrorJSONResponse(ConflictError, http.StatusConflict)
 	TooManyRequestsJSONResponse = NewErrorJSONResponse(TooManyRequests, http.StatusTooManyRequests)
+	NotImplementedJSONResponse  = NewErrorJSONResponse(NotImplementedError, http.StatusNotImplemented)
 )
 
 // SystemErrorJSONResponse ...

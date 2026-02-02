@@ -50,7 +50,7 @@ func MCPAccessTokenList(c *gin.Context) {
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
 	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
-		ginx.ForbiddenJSONResponse(c, err)
+		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func MCPAccessTokenCreate(c *gin.Context) {
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
 	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
-		ginx.ForbiddenJSONResponse(c, err)
+		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
@@ -131,10 +131,8 @@ func MCPAccessTokenCreate(c *gin.Context) {
 		return
 	}
 
-	if err := biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeCreate, token); err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
-		return
-	}
+	// Audit log failure should not fail the response
+	_ = biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeCreate, token)
 
 	ginx.SuccessCreateJSONResponse(c, serializer.MCPAccessTokenToCreateOutputInfo(token))
 }
@@ -159,7 +157,7 @@ func MCPAccessTokenGet(c *gin.Context) {
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
 	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
-		ginx.ForbiddenJSONResponse(c, err)
+		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
@@ -196,7 +194,7 @@ func MCPAccessTokenDelete(c *gin.Context) {
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
 	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
-		ginx.ForbiddenJSONResponse(c, err)
+		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
@@ -216,10 +214,8 @@ func MCPAccessTokenDelete(c *gin.Context) {
 		return
 	}
 
-	if err := biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeDelete, token); err != nil {
-		ginx.SystemErrorJSONResponse(c, err)
-		return
-	}
+	// Audit log failure should not fail the response
+	_ = biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeDelete, token)
 
 	ginx.SuccessNoContentResponse(c)
 }

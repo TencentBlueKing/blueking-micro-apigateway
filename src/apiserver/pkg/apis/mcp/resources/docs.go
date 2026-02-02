@@ -385,28 +385,28 @@ BK Micro APIGateway uses a three-area model for managing APISIX configurations:
 ` + "```" + `
 ┌─────────────────────────────────────────────────────────────┐
 │                    APISIX/Etcd (Data Plane)                 │
-│                                                             │
-│  Current running configuration - changes take effect        │
-│  immediately                                                │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          │ ▲
-                  Sync    │ │  Publish
-                          ▼ │
-┌─────────────────────────────────────────────────────────────┐
-│                    Sync Area (gateway_sync_data)            │
-│                                                             │
-│  Read-only snapshot of etcd - updated periodically or       │
-│  manually via sync_from_etcd                                │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          │ ▲
-                 Import   │ │  Revert
-                          ▼ │
-┌─────────────────────────────────────────────────────────────┐
-│                    Edit Area (resource tables)              │
-│                                                             │
-│  User-editable drafts - changes are staged until published  │
+│                                                             │ <─────┐
+│  Current running configuration - changes take effect        │       │
+│  immediately                                                │       │
+└─────────────────────────┬───────────────────────────────────┘       │
+                          │                                           │
+                          │                                           │
+                  Sync    │                                           │
+                          ▼                                           │
+┌─────────────────────────────────────────────────────────────┐       │
+│                    Sync Area (gateway_sync_data)            │       │
+│                                                             │       │
+│  Read-only snapshot of etcd - updated periodically or       │       │
+│  manually via sync_from_etcd                                │       │
+└─────────────────────────┬───────────────────────────────────┘       │
+                          │                                           │
+                          │ ▲                                         │
+                 Import   │ │  Revert                                 │
+                          ▼ │                                         │
+┌─────────────────────────────────────────────────────────────┐       │
+│                    Edit Area (resource tables)              │       │
+│                                                             │       │
+│  User-editable drafts - changes are staged until published  │───────┘ Publish
 │  Resources have status: create_draft, update_draft,         │
 │  delete_draft, success                                      │
 └─────────────────────────────────────────────────────────────┘
@@ -418,7 +418,7 @@ BK Micro APIGateway uses a three-area model for managing APISIX configurations:
 2. **Import**: Copy unmanaged resources from sync area to edit area
 3. **Edit**: Make changes in the edit area (CRUD operations)
 4. **Diff**: Compare edit area with sync area to see pending changes
-5. **Publish**: Apply changes from edit area to etcd
+5. **Publish**: Apply changes from edit area to etcd directly
 
 ## Benefits
 

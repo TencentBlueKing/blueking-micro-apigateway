@@ -148,10 +148,13 @@ update_resource(resource_type="route", resource_id="route-1", config={...})
 delete_resource(resource_type="route", resource_ids=["old-route"])
 ` + "```" + `
 
+**Warning:**
+- Before deleting, check if the resource is referenced by other resources (e.g., ` + "`service_id`" + ` referenced by ` + "`route`" + `).
+- Referenced resources cannot be deleted directly. Remove the references first.
+
 **Tip:**
 - Use validate_resource_config to check configs before creating/updating.
-- Before update, should get the resource first, update the fields in ` + "`config`" + ` and put the whole
-  ` + "`config`" + ` into the request!
+- Before update, you MUST get the resource first using get_resource, then update the fields in ` + "`config`" + ` and put the WHOLE ` + "`config`" + ` into the request! Do NOT just update partial fields.
 
 ---
 
@@ -186,7 +189,7 @@ Note: Publishing via MCP is currently disabled for safety. Please use the web UI
 
 1. Always sync before making changes
 2. Review diffs before publishing
-3. When creating related resources, follow this order: Upstreams -> Services -> Routes
+3. When creating related resources (Check the Resource Relations), follow this order: Upstreams -> Services -> Routes
 4. Capture returned resource IDs and use them in subsequent create calls
 5. Test in staging environment first if possible
 6. Changes take effect immediately after publish

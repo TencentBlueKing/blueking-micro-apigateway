@@ -82,6 +82,18 @@ func initLogger(cfg *config.LogConfig) error {
 		return errors.Wrapf(err, "creating logger %s", loggerName)
 	}
 
+	// 初始化 MCP Logger
+	loggerName = "mcp"
+	if err := logging.InitLogger(loggerName, &logging.Options{
+		Level:             cfg.Level,
+		HandlerName:       lo.Ternary(writerName == "stdout", "json", "text"),
+		WriterName:        writerName,
+		WriterConfig:      map[string]string{"filename": filepath.Join(cfg.Dir, loggerName+".log")},
+		SentryReportLevel: cfg.SentryReportLevel,
+	}); err != nil {
+		return errors.Wrapf(err, "creating logger %s", loggerName)
+	}
+
 	return nil
 }
 

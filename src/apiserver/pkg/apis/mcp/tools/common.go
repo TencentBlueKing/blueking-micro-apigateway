@@ -59,6 +59,7 @@ var ValidResourceStatuses = []string{
 
 // ValidAPISIXVersions lists APISIX versions for schema validation tools.
 var ValidAPISIXVersions = []string{
+	string(constant.APISIXVersion311),
 	string(constant.APISIXVersion313),
 }
 

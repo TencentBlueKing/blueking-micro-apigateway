@@ -149,12 +149,15 @@ delete_resource(resource_type="route", resource_ids=["old-route"])
 ` + "```" + `
 
 **Warning:**
-- Before deleting, check if the resource is referenced by other resources (e.g., ` + "`service_id`" + ` referenced by ` + "`route`" + `).
+- Before deleting, check if the resource is referenced by other resources
+  (e.g., ` + "`service_id`" + ` referenced by ` + "`route`" + `).
 - Referenced resources cannot be deleted directly. Remove the references first.
 
 **Tip:**
 - Use validate_resource_config to check configs before creating/updating.
-- Before update, you MUST get the resource first using get_resource, then update the fields in ` + "`config`" + ` and put the WHOLE ` + "`config`" + ` into the request! Do NOT just update partial fields.
+- Before update, you MUST get the resource first using get_resource,
+  then update the fields in ` + "`config`" + ` and put the WHOLE ` + "`config`" + `
+  into the request! Do NOT just update partial fields.
 
 ---
 

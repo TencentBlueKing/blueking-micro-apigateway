@@ -835,7 +835,12 @@ func BatchCreateResources(
 	newSlice := reflect.MakeSlice(reflect.TypeOf(modelSlice).Elem(), 0, len(resources))
 	for _, resource := range resources {
 		resourceModel := resource.ToResourceModel(resourceType)
-		newSlice = reflect.Append(newSlice, reflect.ValueOf(resourceModel))
+		// ToResourceModel returns a pointer, so we need to dereference it
+		resourceValue := reflect.ValueOf(resourceModel)
+		if resourceValue.Kind() == reflect.Ptr {
+			resourceValue = resourceValue.Elem()
+		}
+		newSlice = reflect.Append(newSlice, resourceValue)
 	}
 	return database.Client().WithContext(ctx).Create(newSlice.Interface()).Error
 }

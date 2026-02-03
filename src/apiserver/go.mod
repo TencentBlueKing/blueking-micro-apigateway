@@ -3,6 +3,7 @@ module github.com/TencentBlueKing/blueking-micro-apigateway/apiserver
 go 1.25.5
 
 require (
+	filippo.io/csrf v0.2.1
 	github.com/agiledragon/gomonkey/v2 v2.13.0
 	github.com/apache/apisix-ingress-controller v1.8.3
 	github.com/bufbuild/protocompile v0.14.1
@@ -16,10 +17,10 @@ require (
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.29.0
 	github.com/go-resty/resty/v2 v2.16.5
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/gookit/goutil v0.7.0
-	github.com/gorilla/csrf v1.7.3
 	github.com/gwatts/gin-adapter v1.0.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/lib/pq v1.10.9
@@ -90,7 +91,6 @@ require (
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/spec v0.20.9 // indirect
 	github.com/go-openapi/swag v0.22.4 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.1 // indirect

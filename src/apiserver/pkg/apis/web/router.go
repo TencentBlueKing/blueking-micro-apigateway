@@ -44,7 +44,9 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
 
 	//  csrf
-	group.Use(middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret, config.G.Service.AllowedOrigins))
+	group.Use(
+		middleware.CSRF(config.G.Service.AppCode, config.G.Service.AppSecret, config.G.Service.AllowedOrigins),
+	)
 	group.Use(middleware.CSRFToken(config.G.Service.AppCode, config.G.Service.CSRFCookieDomain))
 
 	// user auth

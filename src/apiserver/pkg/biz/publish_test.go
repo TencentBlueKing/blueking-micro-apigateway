@@ -172,7 +172,10 @@ func TestPublishService(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishServices(tt.args.ctx, []string{tt.args.service.ID}); (err != nil) != tt.wantErr {
+			if err := PublishServices(
+				tt.args.ctx,
+				[]string{tt.args.service.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishService error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -238,7 +241,10 @@ func TestPublishUpstreams(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishUpstreams(tt.args.ctx, []string{tt.args.upstream.ID}); (err != nil) != tt.wantErr {
+			if err := PublishUpstreams(
+				tt.args.ctx,
+				[]string{tt.args.upstream.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishUpstream error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -304,7 +310,10 @@ func TestPublishConsumer(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishConsumers(tt.args.ctx, []string{tt.args.consumer.ID}); (err != nil) != tt.wantErr {
+			if err := PublishConsumers(
+				tt.args.ctx,
+				[]string{tt.args.consumer.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishConsumer error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -373,7 +382,10 @@ func TestPublishPluginConfigs(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishPluginConfigs(tt.args.ctx, []string{tt.args.pluginConfig.ID}); (err != nil) != tt.wantErr {
+			if err := PublishPluginConfigs(
+				tt.args.ctx,
+				[]string{tt.args.pluginConfig.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishPluginConfigs error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -440,7 +452,10 @@ func TestPublishGlobalRules(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishGlobalRules(tt.args.ctx, []string{tt.args.globalRule.ID}); (err != nil) != tt.wantErr {
+			if err := PublishGlobalRules(
+				tt.args.ctx,
+				[]string{tt.args.globalRule.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishGlobalRules error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -559,12 +574,18 @@ func TestPublishPluginMetadatas(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// 创建资源
-			if err := CreatePluginMetadata(tt.args.ctx, *tt.args.pluginMetadata); (err != nil) != tt.wantErr {
+			if err := CreatePluginMetadata(
+				tt.args.ctx,
+				*tt.args.pluginMetadata,
+			); (err != nil) != tt.wantErr {
 				t.Errorf("CreatePluginMetadata error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			// 发布资源
-			if err := PublishPluginMetadatas(tt.args.ctx, []string{tt.args.pluginMetadata.ID}); (err != nil) != tt.wantErr {
+			if err := PublishPluginMetadatas(
+				tt.args.ctx,
+				[]string{tt.args.pluginMetadata.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishPluginMetadatas error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -634,7 +655,10 @@ func TestPublishConsumerGroups(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishConsumerGroups(tt.args.ctx, []string{tt.args.consumerGroup.ID}); (err != nil) != tt.wantErr {
+			if err := PublishConsumerGroups(
+				tt.args.ctx,
+				[]string{tt.args.consumerGroup.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishConsumerGroups error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -766,7 +790,10 @@ func TestPublishStreamRoutes(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishStreamRoutes(tt.args.ctx, []string{tt.args.streamRoute.ID}); (err != nil) != tt.wantErr {
+			if err := PublishStreamRoutes(
+				tt.args.ctx,
+				[]string{tt.args.streamRoute.ID},
+			); (err != nil) != tt.wantErr {
 				t.Errorf("PublishStreamRoutes error = %v, wantErr %v", err, tt.wantErr)
 			}
 

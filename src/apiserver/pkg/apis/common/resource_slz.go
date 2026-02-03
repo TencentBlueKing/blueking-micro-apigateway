@@ -95,7 +95,10 @@ func ClassifyImportResourceInfo(
 					)
 				} else {
 					imp.Status = constant.UploadStatusUpdate
-					uploadOutput.Update[constant.Schema] = append(uploadOutput.Update[constant.Schema], imp)
+					uploadOutput.Update[constant.Schema] = append(
+						uploadOutput.Update[constant.Schema],
+						imp,
+					)
 				}
 				continue
 			}
@@ -105,7 +108,10 @@ func ClassifyImportResourceInfo(
 				uploadOutput.Add[imp.ResourceType] = append(uploadOutput.Add[imp.ResourceType], imp)
 			} else {
 				imp.Status = constant.UploadStatusUpdate
-				uploadOutput.Update[imp.ResourceType] = append(uploadOutput.Update[imp.ResourceType], imp)
+				uploadOutput.Update[imp.ResourceType] = append(
+					uploadOutput.Update[imp.ResourceType],
+					imp,
+				)
 			}
 		}
 	}

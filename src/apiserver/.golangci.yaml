@@ -52,15 +52,6 @@ linters:
       # Default: 1
       tab-width: 1
 
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - tests/integration/*.go
-      - tests/util/*.go
-      - tests/data/*.go
-      - examples$
 issues:
   uniq-by-line: false
   # Show only new issues: if there are unstaged changes or untracked files,
@@ -71,18 +62,11 @@ issues:
   #
   # Default: false
   new: false
-  # Show only new issues created after the best common ancestor (merge-base against HEAD).
-  # Default: ""
-  new-from-merge-base: master
-  # Show only new issues created after git revision `REV`.
-  # Default: ""
-  new-from-rev: HEAD
-  # Show only new issues created in git patch with set file path.
-  # Default: ""
-  new-from-patch: ""
-  # Show issues in any part of update files (requires new-from-rev or new-from-patch).
-  # Default: false
-  whole-files: true
+  # REMOVED: new-from-merge-base and new-from-rev were hiding all issues
+  # To only check new code, uncomment ONE of these:
+  # new-from-rev: origin/master  # Check only code different from origin/master
+  # new: true                    # Check only unstaged/untracked files or HEAD~
+
   # Fix found issues (if it's supported by the linter).
   # Default: false
   fix: true
@@ -131,14 +115,3 @@ formatters:
       # Split chained methods on the dots as opposed to the arguments.
       # Default: true
       chain-split-dots: false
-
-  exclusions:
-    warn-unused: true
-    generated: lax
-    paths:
-      - third_party$
-      - tests/integration/*.go
-      - tests/util/*.go
-      - tests/data/*.go
-      - builtin$
-      - examples$

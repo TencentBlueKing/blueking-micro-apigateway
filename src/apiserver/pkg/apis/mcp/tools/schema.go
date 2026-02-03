@@ -42,8 +42,8 @@ type GetResourceSchemaInput struct {
 // GetPluginSchemaInput is the input for the get_plugin_schema tool
 type GetPluginSchemaInput struct {
 	APISIXVersion string `json:"apisix_version" jsonschema:"APISIX version for schema (e.g., 3.11, 3.13)"`
-	PluginName    string `json:"plugin_name" jsonschema:"name of the plugin to get schema for (e.g., 'limit-req', 'proxy-rewrite', 'jwt-auth')"`
-	SchemaType    string `json:"schema_type,omitempty" jsonschema:"type of schema to retrieve (default: 'main'). One of: main, consumer, metadata"`
+	PluginName    string `json:"plugin_name" jsonschema:"plugin name (e.g., 'limit-req', 'proxy-rewrite', 'jwt-auth')"`
+	SchemaType    string `json:"schema_type,omitempty" jsonschema:"schema type: main, consumer, or metadata"`
 }
 
 // ValidateResourceConfigInput is the input for the validate_resource_config tool

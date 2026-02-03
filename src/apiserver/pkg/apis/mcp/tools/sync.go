@@ -39,21 +39,21 @@ import (
 
 // SyncFromEtcdInput is the input for the sync_from_etcd tool
 type SyncFromEtcdInput struct {
-	ResourceType string `json:"resource_type,omitempty" jsonschema:"optional: only sync specific resource type. If omitted, syncs all."`
+	ResourceType string `json:"resource_type,omitempty" jsonschema:"sync specific resource type (optional)"`
 }
 
 // ListSyncedResourceInput is the input for the list_synced_resource tool
 type ListSyncedResourceInput struct {
 	ResourceType string `json:"resource_type" jsonschema:"resource type to list"`
 	Name         string `json:"name,omitempty" jsonschema:"filter by resource name (optional, supports fuzzy match)"`
-	Status       string `json:"status,omitempty" jsonschema:"filter by sync status: managed (already in edit area) or unmanaged (only in sync area)"`
+	Status       string `json:"status,omitempty" jsonschema:"filter by sync status: managed or unmanaged"`
 	Page         int    `json:"page,omitempty" jsonschema:"page number (default: 1)"`
 	PageSize     int    `json:"page_size,omitempty" jsonschema:"number of items per page (default: 20, max: 100)"`
 }
 
 // AddSyncedResourcesToEditAreaInput is the input for the add_synced_resources_to_edit_area tool
 type AddSyncedResourcesToEditAreaInput struct {
-	ResourceIDs []string `json:"resource_ids" jsonschema:"array of resource IDs to import (required). Use IDs from list_synced_resource."`
+	ResourceIDs []string `json:"resource_ids" jsonschema:"resource IDs to import (from list_synced_resource)"`
 }
 
 // RegisterSyncTools registers all sync-related MCP tools

@@ -58,8 +58,8 @@ type GetResourceInput struct {
 // CreateResourceInput is the input for the create_resource tool
 type CreateResourceInput struct {
 	ResourceType string         `json:"resource_type" jsonschema:"resource type to create"`
-	Name         string         `json:"name" jsonschema:"resource name (required for most resource types, uses 'username' for consumer)"`
-	Config       map[string]any `json:"config" jsonschema:"resource configuration object following APISIX schema (required)"`
+	Name         string         `json:"name" jsonschema:"resource name (uses 'username' for consumer)"`
+	Config       map[string]any `json:"config" jsonschema:"resource configuration object following APISIX schema"`
 }
 
 // UpdateResourceInput is the input for the update_resource tool
@@ -447,7 +447,12 @@ func deleteResourceHandler(
 			}
 		} else {
 			// Others are marked as delete_draft
-			err = biz.UpdateResourceStatusWithAuditLog(ctx, resourceType, resourceID, constant.ResourceStatusDeleteDraft)
+			err = biz.UpdateResourceStatusWithAuditLog(
+				ctx,
+				resourceType,
+				resourceID,
+				constant.ResourceStatusDeleteDraft,
+			)
 			if err == nil {
 				markedCount++
 			}

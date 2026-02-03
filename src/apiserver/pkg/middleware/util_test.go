@@ -248,9 +248,13 @@ func TestOriginNormalizationConsistency(t *testing.T) {
 					assert.Equal(t, "*", csrfOrigin, "wildcard should be preserved")
 				} else {
 					// CORS origin 应该以 http:// 或 https:// 开头
-					assert.True(t,
-						strings.HasPrefix(corsOrigin, "http://") || strings.HasPrefix(corsOrigin, "https://"),
-						"CORS origin should have scheme: %s", corsOrigin)
+					assert.True(
+						t,
+						strings.HasPrefix(corsOrigin, "http://") ||
+							strings.HasPrefix(corsOrigin, "https://"),
+						"CORS origin should have scheme: %s",
+						corsOrigin,
+					)
 					// CORS origin 应该包含 CSRF origin（主机名部分）
 					assert.Contains(t, corsOrigin, csrfOrigin,
 						"CORS origin %s should contain CSRF origin %s", corsOrigin, csrfOrigin)

@@ -36,7 +36,7 @@ import (
 
 // DiffResourcesInput is the input for the diff_resources tool
 type DiffResourcesInput struct {
-	ResourceType string `json:"resource_type,omitempty" jsonschema:"filter by resource type (optional). If omitted, shows diff for all types."`
+	ResourceType string `json:"resource_type,omitempty" jsonschema:"filter by resource type (optional)"`
 	ResourceID   string `json:"resource_id,omitempty" jsonschema:"filter by specific resource ID (optional)"`
 }
 

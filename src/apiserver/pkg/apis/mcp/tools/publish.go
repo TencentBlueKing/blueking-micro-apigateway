@@ -29,28 +29,34 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// ============================================================================
+// Input Types for Publish Tools
+// ============================================================================
+
+// PublishPreviewInput is the input for the publish_preview tool
+type PublishPreviewInput struct {
+	ResourceType string   `json:"resource_type,omitempty" jsonschema:"filter by resource type (optional)"`
+	ResourceIDs  []string `json:"resource_ids,omitempty" jsonschema:"filter by specific resource IDs (optional)"`
+}
+
+// PublishResourceInput is the input for the publish_resource tool (currently disabled)
+type PublishResourceInput struct {
+	ResourceType string   `json:"resource_type" jsonschema:"resource type to publish"`
+	ResourceIDs  []string `json:"resource_ids" jsonschema:"array of resource IDs to publish (required)"`
+}
+
+// PublishAllInput is the input for the publish_all tool (currently disabled)
+// It has no required fields
+type PublishAllInput struct{}
+
 // RegisterPublishTools registers all publish-related MCP tools
 func RegisterPublishTools(server *mcp.Server) {
 	// publish_preview
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "publish_preview",
 		Description: "Preview pending changes before publishing. " +
-			"Shows what resources will be created, updated, or deleted in etcd/APISIX.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Filter by resource type (optional). " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-				"resource_ids": map[string]any{
-					"type":        "array",
-					"items":       map[string]any{"type": "string"},
-					"description": "Filter by specific resource IDs (optional)",
-				},
-			},
-		},
+			"Shows what resources will be created, updated, or deleted in etcd/APISIX." +
+			"Currently only list 2000 resources at most",
 	}, publishPreviewHandler)
 
 	// NOTE: publish_resource and publish_all are commented out for safety.
@@ -58,50 +64,30 @@ func RegisterPublishTools(server *mcp.Server) {
 	// Users should use the web UI or API for publishing operations.
 
 	// // publish_resource
-	// server.AddTool(&mcp.Tool{
+	// mcp.AddTool(server, &mcp.Tool{
 	// 	Name: "publish_resource",
 	// 	Description: "Publish specific resources to etcd/APISIX. " +
 	// 		"Applies the changes from the edit area to the data plane.",
-	// 	InputSchema: map[string]any{
-	// 		"type": "object",
-	// 		"properties": map[string]any{
-	// 			"resource_type": map[string]any{
-	// 				"type":        "string",
-	// 				"description": "Resource type to publish. " + ResourceTypeDescription(),
-	// 				"enum":        ValidResourceTypes,
-	// 			},
-	// 			"resource_ids": map[string]any{
-	// 				"type":        "array",
-	// 				"items":       map[string]any{"type": "string"},
-	// 				"description": "Array of resource IDs to publish (required)",
-	// 			},
-	// 		},
-	// 		"required": []string{"resource_type", "resource_ids"},
-	// 	},
 	// }, publishResourceHandler)
 
 	// // publish_all
-	// server.AddTool(&mcp.Tool{
+	// mcp.AddTool(server, &mcp.Tool{
 	// 	Name: "publish_all",
 	// 	Description: "Publish all pending changes (draft resources) to etcd/APISIX. " +
 	// 		"Convenience tool for publishing all modified resources at once.",
-	// 	InputSchema: map[string]any{
-	// 		"type": "object",
-	// 		"properties": map[string]any{},
-	// 	},
 	// }, publishAllHandler)
 }
 
 // publishPreviewHandler handles the publish_preview tool call
-func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
-
+func publishPreviewHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input PublishPreviewInput,
+) (*mcp.CallToolResult, any, error) {
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
@@ -109,10 +95,10 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 
 	// Build resource type list
 	var resourceTypes []constant.APISIXResource
-	if resourceTypeStr != "" {
-		resourceType, err := parseResourceType(resourceTypeStr)
+	if input.ResourceType != "" {
+		resourceType, err := parseResourceType(input.ResourceType)
 		if err != nil {
-			return errorResult(err), nil
+			return errorResult(err), nil, nil
 		}
 		resourceTypes = []constant.APISIXResource{resourceType}
 	} else {
@@ -147,7 +133,8 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 			string(constant.ResourceStatusDeleteDraft),
 		}
 
-		resources, _, err := biz.ListResourcesWithPagination(ctx, rt, "", draftStatuses, 0, 1000)
+		// TODO: currently the limit is 1000, if exceed the limit, we need to use a new solution to this tool.
+		resources, _, err := biz.ListResourcesWithPagination(ctx, rt, "", draftStatuses, 0, 2000)
 		if err != nil {
 			continue
 		}
@@ -159,9 +146,9 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 			}
 
 			// Filter by resource IDs if specified
-			if len(resourceIDs) > 0 {
+			if len(input.ResourceIDs) > 0 {
 				resID, _ := resMap["id"].(string)
-				if !contains(resourceIDs, resID) {
+				if !contains(input.ResourceIDs, resID) {
 					continue
 				}
 			}
@@ -203,64 +190,58 @@ func publishPreviewHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		"total":        len(createList) + len(updateList) + len(deleteList),
 	}
 
-	return successResult(preview), nil
+	return successResult(preview), nil, nil
 }
 
 //nolint:unused // Kept for future use when MCP publishing is enabled
-func publishResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check write scope
-	if err := CheckWriteScope(ctx); err != nil {
-		return errorResult(err), nil
+func publishResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input PublishResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.ResourceType == "" || len(input.ResourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_type and resource_ids are required")), nil, nil
 	}
 
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
-
-	if resourceTypeStr == "" || len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("resource_type and resource_ids are required")), nil
-	}
-
-	resourceType, err := parseResourceType(resourceTypeStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Publish resources
-	err = biz.PublishResourcesByType(ctx, gateway, resourceType, resourceIDs)
+	err = biz.PublishResourcesByType(ctx, gateway, resourceType, input.ResourceIDs)
 	if err != nil {
-		return errorResult(fmt.Errorf("publish failed: %w", err)), nil
+		return errorResult(fmt.Errorf("publish failed: %w", err)), nil, nil
 	}
 
 	return successResult(map[string]any{
 		"message":         "Resources published successfully",
 		"gateway_id":      gateway.ID,
-		"resource_type":   resourceTypeStr,
-		"published_ids":   resourceIDs,
-		"published_count": len(resourceIDs),
-	}), nil
+		"resource_type":   input.ResourceType,
+		"published_ids":   input.ResourceIDs,
+		"published_count": len(input.ResourceIDs),
+	}), nil, nil
 }
 
 //nolint:unused // Kept for future use when MCP publishing is enabled
-func publishAllHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check write scope
-	if err := CheckWriteScope(ctx); err != nil {
-		return errorResult(err), nil
-	}
-
+func publishAllHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input PublishAllInput,
+) (*mcp.CallToolResult, any, error) {
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
@@ -315,7 +296,7 @@ func publishAllHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Call
 		"gateway_id":        gateway.ID,
 		"total_published":   totalPublished,
 		"published_by_type": publishedCounts,
-	}), nil
+	}), nil, nil
 }
 
 // contains checks if a slice contains a string

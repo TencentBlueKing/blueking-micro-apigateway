@@ -112,9 +112,9 @@ func MCPAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Note: Access scope check is now done at the tool handler level
+		// Note: Access scope check is done by MCP receiving middleware
 		// based on tool name instead of HTTP method, since MCP uses POST for all tool calls.
-		// See pkg/apis/mcp/tools/common.go CheckWriteScope()
+		// See pkg/apis/mcp/tools/middleware.go WriteAccessMiddleware()
 
 		// Set gateway info in context
 		ginx.SetGatewayInfo(c, gateway)

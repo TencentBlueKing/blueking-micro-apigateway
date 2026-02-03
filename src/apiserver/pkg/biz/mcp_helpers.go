@@ -187,11 +187,44 @@ func UpdateResourceByTypeAndID(
 	}
 	reflect.ValueOf(newResourceModel).Elem().Set(resourceValue)
 
+	// Set name on the typed model if provided
+	if name != "" {
+		setResourceName(newResourceModel, resourceType, name)
+	}
+
 	// Update with full model struct (includes association fields)
 	return database.Client().WithContext(ctx).
 		Table(resourceTableMap[resourceType]).
 		Where("gateway_id = ? AND id = ?", gatewayID, resourceID).
 		Updates(newResourceModel).Error
+}
+
+// setResourceName sets the name/username field on a resource model based on resource type
+func setResourceName(resource any, resourceType constant.APISIXResource, name string) {
+	switch r := resource.(type) {
+	case *model.Route:
+		r.Name = name
+	case *model.Service:
+		r.Name = name
+	case *model.Upstream:
+		r.Name = name
+	case *model.Consumer:
+		r.Username = name
+	case *model.ConsumerGroup:
+		r.Name = name
+	case *model.PluginConfig:
+		r.Name = name
+	case *model.GlobalRule:
+		r.Name = name
+	case *model.PluginMetadata:
+		r.Name = name
+	case *model.Proto:
+		r.Name = name
+	case *model.SSL:
+		r.Name = name
+	case *model.StreamRoute:
+		r.Name = name
+	}
 }
 
 // PublishResourcesByType publishes resources to etcd using the existing PublishResource function

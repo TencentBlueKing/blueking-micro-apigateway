@@ -20,6 +20,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -28,216 +29,194 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
+// ============================================================================
+// Input Types for Schema Tools
+// ============================================================================
+
+// GetResourceSchemaInput is the input for the get_resource_schema tool
+type GetResourceSchemaInput struct {
+	APISIXVersion string `json:"apisix_version" jsonschema:"APISIX version for schema (e.g., 3.11, 3.13)"`
+	ResourceType  string `json:"resource_type" jsonschema:"resource type to get schema for"`
+}
+
+// GetPluginSchemaInput is the input for the get_plugin_schema tool
+type GetPluginSchemaInput struct {
+	APISIXVersion string `json:"apisix_version" jsonschema:"APISIX version for schema (e.g., 3.11, 3.13)"`
+	PluginName    string `json:"plugin_name" jsonschema:"name of the plugin to get schema for (e.g., 'limit-req', 'proxy-rewrite', 'jwt-auth')"`
+	SchemaType    string `json:"schema_type,omitempty" jsonschema:"type of schema to retrieve (default: 'main'). One of: main, consumer, metadata"`
+}
+
+// ValidateResourceConfigInput is the input for the validate_resource_config tool
+type ValidateResourceConfigInput struct {
+	APISIXVersion string         `json:"apisix_version" jsonschema:"APISIX version to validate against (e.g., 3.11, 3.13)"`
+	ResourceType  string         `json:"resource_type" jsonschema:"resource type"`
+	Config        map[string]any `json:"config" jsonschema:"the configuration object to validate"`
+}
+
+// ListPluginsInput is the input for the list_plugins tool
+// It has no required fields - plugins list is determined by the gateway's APISIX version and type
+type ListPluginsInput struct{}
+
 // RegisterSchemaTools registers all schema-related MCP tools
 func RegisterSchemaTools(server *mcp.Server) {
 	// get_resource_schema
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_resource_schema",
 		Description: "Get the JSON Schema for a specific APISIX resource type. " +
 			"Use this to understand the structure and validation rules.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"apisix_version": map[string]any{
-					"type":        "string",
-					"description": "APISIX version for schema. " + APISIXVersionDescription(),
-					"enum":        ValidAPISIXVersions,
-				},
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type to get schema for. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-			},
-			"required": []string{"apisix_version", "resource_type"},
-		},
 	}, getResourceSchemaHandler)
 
 	// get_plugin_schema
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_plugin_schema",
 		Description: "Get the JSON Schema for a specific APISIX plugin. Use this to understand plugin configuration options.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"apisix_version": map[string]any{
-					"type":        "string",
-					"description": "APISIX version for schema. " + APISIXVersionDescription(),
-					"enum":        ValidAPISIXVersions,
-				},
-				"plugin_name": map[string]any{
-					"type":        "string",
-					"description": "Name of the plugin to get schema for (e.g., 'limit-req', 'proxy-rewrite', 'jwt-auth')",
-				},
-				"schema_type": map[string]any{
-					"type":        "string",
-					"description": "Type of schema to retrieve (default: 'main')",
-					"enum":        []string{"main", "consumer", "metadata"},
-					"default":     "main",
-				},
-			},
-			"required": []string{"apisix_version", "plugin_name"},
-		},
 	}, getPluginSchemaHandler)
 
 	// validate_resource_config
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "validate_resource_config",
 		Description: "Validate a resource configuration against the APISIX schema. " +
 			"Use this to check if a configuration is valid before creating or updating.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"apisix_version": map[string]any{
-					"type":        "string",
-					"description": "APISIX version to validate against. " + APISIXVersionDescription(),
-					"enum":        ValidAPISIXVersions,
-				},
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-				"config": map[string]any{
-					"type":        "object",
-					"description": "The configuration object to validate",
-				},
-			},
-			"required": []string{"apisix_version", "resource_type", "config"},
-		},
 	}, validateResourceConfigHandler)
 
 	// list_plugins
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "list_plugins",
 		Description: "List available APISIX plugins for the current gateway. " +
 			"The plugin list is determined by the gateway's APISIX version and type.",
-		InputSchema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
-		},
 	}, listPluginsHandler)
 }
 
 // getResourceSchemaHandler handles the get_resource_schema tool call
-func getResourceSchemaHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	apisixVersionStr := getStringParamFromArgs(args, "apisix_version", "")
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-
-	if apisixVersionStr == "" || resourceTypeStr == "" {
-		return errorResult(fmt.Errorf("apisix_version and resource_type are required")), nil
+func getResourceSchemaHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input GetResourceSchemaInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.APISIXVersion == "" || input.ResourceType == "" {
+		return errorResult(fmt.Errorf("apisix_version and resource_type are required")), nil, nil
 	}
 
-	apisixVersion, err := parseAPISIXVersion(apisixVersionStr)
+	apisixVersion, err := parseAPISIXVersion(input.APISIXVersion)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
-	resourceType, err := parseResourceType(resourceTypeStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Get schema
 	schemaData := schema.GetResourceSchema(apisixVersion, resourceType.String())
 	if schemaData == nil {
-		return errorResult(fmt.Errorf("schema not found for resource type: %s", resourceTypeStr)), nil
+		return errorResult(fmt.Errorf("schema not found for resource type: %s", input.ResourceType)), nil, nil
 	}
 
 	return successResult(map[string]any{
-		"apisix_version": apisixVersionStr,
-		"resource_type":  resourceTypeStr,
+		"apisix_version": input.APISIXVersion,
+		"resource_type":  input.ResourceType,
 		"schema":         schemaData,
-	}), nil
+	}), nil, nil
 }
 
 // getPluginSchemaHandler handles the get_plugin_schema tool call
-func getPluginSchemaHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	apisixVersionStr := getStringParamFromArgs(args, "apisix_version", "")
-	pluginName := getStringParamFromArgs(args, "plugin_name", "")
-	schemaType := getStringParamFromArgs(args, "schema_type", "main")
-
-	if apisixVersionStr == "" || pluginName == "" {
-		return errorResult(fmt.Errorf("apisix_version and plugin_name are required")), nil
+func getPluginSchemaHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input GetPluginSchemaInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.APISIXVersion == "" || input.PluginName == "" {
+		return errorResult(fmt.Errorf("apisix_version and plugin_name are required")), nil, nil
 	}
 
-	apisixVersion, err := parseAPISIXVersion(apisixVersionStr)
+	apisixVersion, err := parseAPISIXVersion(input.APISIXVersion)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
+	}
+
+	// Apply default schema type
+	schemaType := input.SchemaType
+	if schemaType == "" {
+		schemaType = "main"
 	}
 
 	// Get plugin schema
-	schemaData := schema.GetPluginSchema(apisixVersion, pluginName, schemaType)
+	schemaData := schema.GetPluginSchema(apisixVersion, input.PluginName, schemaType)
 	if schemaData == nil {
-		return errorResult(fmt.Errorf("schema not found for plugin: %s", pluginName)), nil
+		return errorResult(fmt.Errorf("schema not found for plugin: %s", input.PluginName)), nil, nil
 	}
 
 	return successResult(map[string]any{
-		"apisix_version": apisixVersionStr,
-		"plugin_name":    pluginName,
+		"apisix_version": input.APISIXVersion,
+		"plugin_name":    input.PluginName,
 		"schema_type":    schemaType,
 		"schema":         schemaData,
-	}), nil
+	}), nil, nil
 }
 
 // validateResourceConfigHandler handles the validate_resource_config tool call
-func validateResourceConfigHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	apisixVersionStr := getStringParamFromArgs(args, "apisix_version", "")
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	config, err := getObjectParamFromArgs(args, "config")
-	if err != nil {
-		return errorResult(err), nil
+func validateResourceConfigHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input ValidateResourceConfigInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.APISIXVersion == "" || input.ResourceType == "" || input.Config == nil {
+		return errorResult(fmt.Errorf("apisix_version, resource_type, and config are required")), nil, nil
 	}
 
-	if apisixVersionStr == "" || resourceTypeStr == "" || len(config) == 0 {
-		return errorResult(fmt.Errorf("apisix_version, resource_type, and config are required")), nil
+	apisixVersion, err := parseAPISIXVersion(input.APISIXVersion)
+	if err != nil {
+		return errorResult(err), nil, nil
 	}
 
-	apisixVersion, err := parseAPISIXVersion(apisixVersionStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
-	resourceType, err := parseResourceType(resourceTypeStr)
+	// Marshal config to JSON bytes for validation
+	configBytes, err := json.Marshal(input.Config)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
 	// Validate config
 	validator, err := schema.NewAPISIXSchemaValidator(apisixVersion, "main."+resourceType.String())
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to create validator: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to create validator: %w", err)), nil, nil
 	}
 
-	validationErr := validator.Validate(config)
+	validationErr := validator.Validate(configBytes)
 	if validationErr != nil {
 		// Validation failure is not a handler error - return success with valid=false
 		//nolint:nilerr // validation error is intentionally returned in success response
 		return successResult(map[string]any{
 			"valid":          false,
 			"message":        validationErr.Error(),
-			"apisix_version": apisixVersionStr,
-			"resource_type":  resourceTypeStr,
-		}), nil
+			"apisix_version": input.APISIXVersion,
+			"resource_type":  input.ResourceType,
+		}), nil, nil
 	}
 
 	return successResult(map[string]any{
 		"valid":          true,
 		"message":        "Configuration is valid",
-		"apisix_version": apisixVersionStr,
-		"resource_type":  resourceTypeStr,
-	}), nil
+		"apisix_version": input.APISIXVersion,
+		"resource_type":  input.ResourceType,
+	}), nil, nil
 }
 
 // listPluginsHandler handles the list_plugins tool call
-func listPluginsHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func listPluginsHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input ListPluginsInput,
+) (*mcp.CallToolResult, any, error) {
 	// Get gateway from context to determine version and type
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to get gateway: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to get gateway: %w", err)), nil, nil
 	}
 
 	// Use GetAPISIXVersionX() to properly convert version string to APISIXVersion type
@@ -247,7 +226,7 @@ func listPluginsHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Cal
 	// Get plugins list based on gateway's version and type
 	plugins, err := biz.GetPluginsList(ctx, apisixVersion, apisixType)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to get plugins: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to get plugins: %w", err)), nil, nil
 	}
 
 	return successResult(map[string]any{
@@ -255,5 +234,5 @@ func listPluginsHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.Cal
 		"apisix_type":    apisixType,
 		"plugins":        plugins,
 		"count":          len(plugins),
-	}), nil
+	}), nil, nil
 }

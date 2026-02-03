@@ -30,88 +30,75 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// ============================================================================
+// Input Types for Diff Tools
+// ============================================================================
+
+// DiffResourcesInput is the input for the diff_resources tool
+type DiffResourcesInput struct {
+	ResourceType string `json:"resource_type,omitempty" jsonschema:"filter by resource type (optional). If omitted, shows diff for all types."`
+	ResourceID   string `json:"resource_id,omitempty" jsonschema:"filter by specific resource ID (optional)"`
+}
+
+// DiffDetailInput is the input for the diff_detail tool
+type DiffDetailInput struct {
+	ResourceType string `json:"resource_type" jsonschema:"resource type"`
+	ResourceID   string `json:"resource_id" jsonschema:"the resource ID to get diff for (required)"`
+}
+
 // RegisterDiffTools registers all diff-related MCP tools
 func RegisterDiffTools(server *mcp.Server) {
 	// diff_resources
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "diff_resources",
 		Description: "Compare resources between the edit area and the sync snapshot. " +
 			"Shows what changes would be applied when publishing. " +
 			"The before_status is the current status of the resource in the edit area, " +
-			"and the after_status is the status of the resource after publishing. Not means status Change.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type": "string",
-					"description": "Filter by resource type (optional). " +
-						"If omitted, shows diff for all types. " + ResourceTypeDescription(),
-					"enum": ValidResourceTypes,
-				},
-				"resource_id": map[string]any{
-					"type":        "string",
-					"description": "Filter by specific resource ID (optional)",
-				},
-			},
-		},
+			"and the after_status is the status of the resource after publishing. " +
+			"If before_status and after_status differ, the resource's status will change after publishing.",
 	}, diffResourcesHandler)
 
 	// diff_detail
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "diff_detail",
 		Description: "Get detailed JSON diff for a single resource. " +
 			"Shows exact changes between edit area and sync snapshot.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-				"resource_id": map[string]any{
-					"type":        "string",
-					"description": "The resource ID to get diff for (required)",
-				},
-			},
-			"required": []string{"resource_type", "resource_id"},
-		},
 	}, diffDetailHandler)
 }
 
 // diffResourcesHandler handles the diff_resources tool call
-func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceID := getStringParamFromArgs(args, "resource_id", "")
-
+func diffResourcesHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input DiffResourcesInput,
+) (*mcp.CallToolResult, any, error) {
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	var resourceType constant.APISIXResource
-	if resourceTypeStr != "" {
-		resourceType, err = parseResourceType(resourceTypeStr)
+	if input.ResourceType != "" {
+		resourceType, err = parseResourceType(input.ResourceType)
 		if err != nil {
-			return errorResult(err), nil
+			return errorResult(err), nil, nil
 		}
 	}
 
 	// Get diff results - DiffResources returns results for all resource types
 	var idList []string
-	if resourceID != "" {
-		idList = []string{resourceID}
+	if input.ResourceID != "" {
+		idList = []string{input.ResourceID}
 	}
 
 	// Call DiffResources once - it returns results organized by resource type internally
-	diffResults, err := biz.DiffResources(ctx, resourceType, idList, "", nil, resourceID == "")
+	diffResults, err := biz.DiffResources(ctx, resourceType, idList, "", nil, input.ResourceID == "")
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to get diff: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to get diff: %w", err)), nil, nil
 	}
 
 	// Organize results by resource type
@@ -134,47 +121,47 @@ func diffResourcesHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.C
 		"details":    allDiffs,
 	}
 
-	return successResult(result), nil
+	return successResult(result), nil, nil
 }
 
 // diffDetailHandler handles the diff_detail tool call
-func diffDetailHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceID := getStringParamFromArgs(args, "resource_id", "")
-
-	if resourceTypeStr == "" || resourceID == "" {
-		return errorResult(fmt.Errorf("resource_type and resource_id are required")), nil
+func diffDetailHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input DiffDetailInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.ResourceType == "" || input.ResourceID == "" {
+		return errorResult(fmt.Errorf("resource_type and resource_id are required")), nil, nil
 	}
 
-	resourceType, err := parseResourceType(resourceTypeStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get detailed config diff
-	diffDetail, err := biz.GetResourceConfigDiffDetail(ctx, resourceType, resourceID)
+	diffDetail, err := biz.GetResourceConfigDiffDetail(ctx, resourceType, input.ResourceID)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to get diff detail: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to get diff detail: %w", err)), nil, nil
 	}
 
 	result := map[string]any{
 		"gateway_id":    gateway.ID,
-		"resource_type": resourceTypeStr,
-		"resource_id":   resourceID,
+		"resource_type": input.ResourceType,
+		"resource_id":   input.ResourceID,
 		"diff":          diffDetail,
 	}
 
-	return successResult(result), nil
+	return successResult(result), nil, nil
 }
 
 // buildDiffSummary builds a summary of diff results

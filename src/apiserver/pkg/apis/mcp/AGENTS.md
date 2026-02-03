@@ -21,7 +21,7 @@ gateway management as MCP tools, resources, and prompts.
 
 - MCP access tokens are issued and managed via Web APIs in `pkg/apis/web/handler/mcp_access_token.go`.
 - Tokens are stored as SHA-256 hashes and are shown once on creation.
-- Gateway support is restricted to APISIX `3.13.X` (`biz.MCPSupportedAPISIXVersion`).
+- Gateway support is restricted to APISIX `3.13.X` (`biz.MCPSupportedAPISIXVersions`).
 - Tool handlers enforce write access via `tools.CheckWriteScope()` in `tools/common.go`.
 
 ## MCP Tools

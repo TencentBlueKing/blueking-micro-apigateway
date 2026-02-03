@@ -32,7 +32,7 @@ type MCPAccessTokenPathParam struct {
 type MCPAccessTokenCreateRequest struct {
 	Name        string               `json:"name" binding:"required,min=1,max=128"`
 	Description string               `json:"description" binding:"max=512"`
-	AccessScope model.MCPAccessScope `json:"access_scope" binding:"required,oneof=read write"`
+	AccessScope model.MCPAccessScope `json:"access_scope" binding:"required,oneof=read readwrite"`
 	ExpiredAt   int64                `json:"expired_at" binding:"required"` // Unix timestamp
 }
 

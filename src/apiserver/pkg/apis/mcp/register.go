@@ -26,6 +26,14 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/mcp/tools"
 )
 
+// registerMiddleware registers MCP receiving middleware for common operations
+func registerMiddleware(server *mcp.Server) {
+	// GatewayContextMiddleware injects gateway info into context for all tool calls
+	server.AddReceivingMiddleware(tools.GatewayContextMiddleware)
+	// WriteAccessMiddleware enforces write scope for write tools
+	server.AddReceivingMiddleware(tools.WriteAccessMiddleware)
+}
+
 // registerTools registers all MCP tools
 func registerTools(server *mcp.Server) {
 	// Resource CRUD tools

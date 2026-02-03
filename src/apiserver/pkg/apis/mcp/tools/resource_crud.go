@@ -20,6 +20,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -35,101 +36,81 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
+// ============================================================================
+// Input Types for Resource CRUD Tools
+// ============================================================================
+
+// ListResourceInput is the input for the list_resource tool
+type ListResourceInput struct {
+	ResourceType string `json:"resource_type" jsonschema:"resource type to list"`
+	Name         string `json:"name,omitempty" jsonschema:"filter by resource name (optional, supports fuzzy match)"`
+	Status       string `json:"status,omitempty" jsonschema:"filter by resource status (optional)"`
+	Page         int    `json:"page,omitempty" jsonschema:"page number (default: 1)"`
+	PageSize     int    `json:"page_size,omitempty" jsonschema:"number of items per page (default: 20, max: 100)"`
+}
+
+// GetResourceInput is the input for the get_resource tool
+type GetResourceInput struct {
+	ResourceType string `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
+	ResourceID   string `json:"resource_id" jsonschema:"the resource ID to retrieve (required)"`
+}
+
+// CreateResourceInput is the input for the create_resource tool
+type CreateResourceInput struct {
+	ResourceType string         `json:"resource_type" jsonschema:"resource type to create"`
+	Name         string         `json:"name" jsonschema:"resource name (required for most resource types, uses 'username' for consumer)"`
+	Config       map[string]any `json:"config" jsonschema:"resource configuration object following APISIX schema (required)"`
+}
+
+// UpdateResourceInput is the input for the update_resource tool
+type UpdateResourceInput struct {
+	ResourceType string         `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
+	ResourceID   string         `json:"resource_id" jsonschema:"the resource ID to update (required)"`
+	Name         string         `json:"name,omitempty" jsonschema:"new resource name (optional)"`
+	Config       map[string]any `json:"config" jsonschema:"new resource configuration (required)"`
+}
+
+// DeleteResourceInput is the input for the delete_resource tool
+type DeleteResourceInput struct {
+	ResourceType string   `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
+	ResourceIDs  []string `json:"resource_ids" jsonschema:"array of resource IDs to delete (required)"`
+}
+
+// RevertResourceInput is the input for the revert_resource tool
+type RevertResourceInput struct {
+	ResourceType string   `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
+	ResourceIDs  []string `json:"resource_ids" jsonschema:"array of resource IDs to revert (required)"`
+}
+
 // RegisterResourceCRUDTools registers all resource CRUD tools
 func RegisterResourceCRUDTools(server *mcp.Server) {
 	// list_resource
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "list_resource",
 		Description: "List resources in the edit area with pagination and filtering. " +
 			"Returns resources managed by the gateway.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-				"name": map[string]any{
-					"type":        "string",
-					"description": "Filter by resource name (optional, supports fuzzy match)",
-				},
-				"status": map[string]any{
-					"type":        "string",
-					"description": "Filter by resource status (optional). " + StatusDescription(),
-					"enum":        ValidResourceStatuses,
-				},
-				"page": map[string]any{
-					"type":        "integer",
-					"description": "Page number (default: 1)",
-					"default":     1,
-				},
-				"page_size": map[string]any{
-					"type":        "integer",
-					"description": "Number of items per page (default: 20, max: 100)",
-					"default":     20,
-					"maximum":     100,
-				},
-			},
-			"required": []string{"resource_type"},
-		},
 	}, listResourceHandler)
 
 	// get_resource
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_resource",
 		Description: "Get detailed information about a specific resource including its full configuration. " +
 			"IMPORTANT: Both resource_type and resource_id are required. If a user only provides an ID, " +
 			"you MUST ask them to specify the resource_type (e.g., 'route', 'service', 'upstream', etc.) " +
 			"because the same ID format could belong to different resource types.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type": "string",
-					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
-						". If user only provides an ID without specifying the type, ask them which resource type it belongs to.",
-					"enum": ValidResourceTypes,
-				},
-				"resource_id": map[string]any{
-					"type":        "string",
-					"description": "The resource ID to retrieve (required)",
-				},
-			},
-			"required": []string{"resource_type", "resource_id"},
-		},
 	}, getResourceHandler)
 
 	// create_resource
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "create_resource",
 		Description: "Create a new resource in the edit area. The resource will be in 'create_draft' " +
 			"status until published. If you found create failed because of name conflict " +
 			"(Error 1062 (23000): Duplicate entry '1' for key 'route.idx_name'), " +
 			"JUST TELL USER TO CHANGE THE NAME AND TRY AGAIN, DO NOT TRY TO FIX IT FOR USER.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type":        "string",
-					"description": "Resource type to create. " + ResourceTypeDescription(),
-					"enum":        ValidResourceTypes,
-				},
-				"name": map[string]any{
-					"type":        "string",
-					"description": "Resource name (required for most resource types, uses 'username' for consumer)",
-				},
-				"config": map[string]any{
-					"type":        "object",
-					"description": "Resource configuration object following APISIX schema (required)",
-				},
-			},
-			"required": []string{"resource_type", "name", "config"},
-		},
 	}, createResourceHandler)
 
 	// update_resource
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "update_resource",
 		Description: "Update an existing resource. The resource status will change to 'update_draft' " +
 			"until published. If you update a resource, you should get the resource first, " +
@@ -137,34 +118,10 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 			"DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG. " +
 			"IMPORTANT: Both resource_type and resource_id are required. If a user only provides an ID, " +
 			"you MUST ask them to specify the resource_type.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type": "string",
-					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
-						". If user only provides an ID without specifying the type, ask them which resource type it belongs to.",
-					"enum": ValidResourceTypes,
-				},
-				"resource_id": map[string]any{
-					"type":        "string",
-					"description": "The resource ID to update (required)",
-				},
-				"name": map[string]any{
-					"type":        "string",
-					"description": "New resource name (optional)",
-				},
-				"config": map[string]any{
-					"type":        "object",
-					"description": "New resource configuration (required)",
-				},
-			},
-			"required": []string{"resource_type", "resource_id", "config"},
-		},
 	}, updateResourceHandler)
 
 	// delete_resource
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "delete_resource",
 		Description: "Mark resources for deletion. Resources in 'create_draft' status " +
 			"will be hard-deleted; others will be marked as 'delete_draft' until published. " +
@@ -172,167 +129,135 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 			"you MUST ask them to specify the resource_type. " +
 			"NOTE: This tool checks if resources are referenced by other resources before deletion. " +
 			"For example, a service referenced by routes cannot be deleted until those routes are deleted first.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type": "string",
-					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
-						". If user only provides IDs without specifying the type, ask them which resource type they belong to.",
-					"enum": ValidResourceTypes,
-				},
-				"resource_ids": map[string]any{
-					"type":        "array",
-					"items":       map[string]any{"type": "string"},
-					"description": "Array of resource IDs to delete (required)",
-				},
-			},
-			"required": []string{"resource_type", "resource_ids"},
-		},
 	}, deleteResourceHandler)
 
 	// revert_resource
-	server.AddTool(&mcp.Tool{
+	mcp.AddTool(server, &mcp.Tool{
 		Name: "revert_resource",
 		Description: "Revert resources to their synced snapshot state. " +
 			"Discards all local changes for the specified resources. " +
 			"IMPORTANT: Both resource_type and resource_ids are required. If a user only provides IDs, " +
 			"you MUST ask them to specify the resource_type.",
-		InputSchema: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"resource_type": map[string]any{
-					"type": "string",
-					"description": "Resource type (REQUIRED). " + ResourceTypeDescription() +
-						". If user only provides IDs without specifying the type, ask them which resource type they belong to.",
-					"enum": ValidResourceTypes,
-				},
-				"resource_ids": map[string]any{
-					"type":        "array",
-					"items":       map[string]any{"type": "string"},
-					"description": "Array of resource IDs to revert (required)",
-				},
-			},
-			"required": []string{"resource_type", "resource_ids"},
-		},
 	}, revertResourceHandler)
 }
 
 // listResourceHandler handles the list_resource tool call
-func listResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	name := getStringParamFromArgs(args, "name", "")
-	status := getStringParamFromArgs(args, "status", "")
-	page := getIntParamFromArgs(args, "page", 1)
-	pageSize := getIntParamFromArgs(args, "page_size", 20)
-
-	resourceType, err := parseResourceType(resourceTypeStr)
+func listResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input ListResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
-	// Calculate offset
-	offset := (page - 1) * pageSize
-	if offset < 0 {
-		offset = 0
+	// Apply defaults
+	page := input.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := input.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
 	}
 	if pageSize > 100 {
 		pageSize = 100
 	}
 
+	// Calculate offset
+	offset := (page - 1) * pageSize
+
 	// Build status filter
 	var statuses []string
-	if status != "" {
-		statuses = []string{status}
+	if input.Status != "" {
+		statuses = []string{input.Status}
 	}
 
 	// Use biz layer to list resources
-	resources, total, err := biz.ListResourcesWithPagination(ctx, resourceType, name, statuses, offset, pageSize)
+	resources, total, err := biz.ListResourcesWithPagination(
+		ctx,
+		resourceType,
+		input.Name,
+		statuses,
+		offset,
+		pageSize,
+	)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	result := map[string]any{
 		"total":         total,
 		"page":          page,
 		"page_size":     pageSize,
-		"resource_type": resourceTypeStr,
+		"resource_type": input.ResourceType,
 		"resources":     resources,
 	}
 
-	return successResult(result), nil
+	return successResult(result), nil, nil
 }
 
 // getResourceHandler handles the get_resource tool call
-func getResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceID := getStringParamFromArgs(args, "resource_id", "")
-
-	if resourceID == "" {
-		return errorResult(fmt.Errorf("resource_id is required")), nil
+func getResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input GetResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.ResourceID == "" {
+		return errorResult(fmt.Errorf("resource_id is required")), nil, nil
 	}
 
-	resourceType, err := parseResourceType(resourceTypeStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
-	resource, err := biz.GetResourceByID(ctx, resourceType, resourceID)
+	resource, err := biz.GetResourceByID(ctx, resourceType, input.ResourceID)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
-	return successResult(resource), nil
+	return successResult(resource), nil, nil
 }
 
 // createResourceHandler handles the create_resource tool call
-func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check write scope
-	if err := CheckWriteScope(ctx); err != nil {
-		return errorResult(err), nil
+func createResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input CreateResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.Name == "" {
+		return errorResult(fmt.Errorf("name is required")), nil, nil
 	}
 
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	name := getStringParamFromArgs(args, "name", "")
-	config, err := getObjectParamFromArgs(args, "config")
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
-	}
-
-	if name == "" {
-		return errorResult(fmt.Errorf("name is required")), nil
-	}
-
-	resourceType, err := parseResourceType(resourceTypeStr)
-	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
@@ -341,16 +266,22 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	// Generate resource ID
 	resourceID := idx.GenResourceID(resourceType)
 
+	// Marshal config to JSON bytes
+	config, err := json.Marshal(input.Config)
+	if err != nil {
+		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
+	}
+
 	// Inject name into config so ToResourceModel.GetName() picks it up
 	nameKey := model.GetResourceNameKey(resourceType)
-	config, err = sjson.SetBytes(config, nameKey, name)
+	config, err = sjson.SetBytes(config, nameKey, input.Name)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to inject name into config: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to inject name into config: %w", err)), nil, nil
 	}
 
 	// Verify name was successfully injected
 	if !gjson.GetBytes(config, nameKey).Exists() {
-		return errorResult(fmt.Errorf("name field not found in config after injection")), nil
+		return errorResult(fmt.Errorf("name field not found in config after injection")), nil, nil
 	}
 
 	// Create resource model
@@ -368,115 +299,113 @@ func createResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	// Convert to specific resource type and create
 	specificResource := resource.ToResourceModel(resourceType)
 	if specificResource == nil {
-		return errorResult(fmt.Errorf("unsupported resource type: %s", resourceTypeStr)), nil
+		return errorResult(fmt.Errorf("unsupported resource type: %s", input.ResourceType)), nil, nil
 	}
 
-	err = biz.CreateResource(ctx, resourceType, specificResource, name)
+	err = biz.CreateResource(ctx, resourceType, specificResource, input.Name)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	return successResult(map[string]any{
 		"message":       "Resource created successfully",
 		"resource_id":   resourceID,
-		"resource_type": resourceTypeStr,
+		"resource_type": input.ResourceType,
 		"status":        constant.ResourceStatusCreateDraft,
-	}), nil
+	}), nil, nil
 }
 
 // updateResourceHandler handles the update_resource tool call
-func updateResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check write scope
-	if err := CheckWriteScope(ctx); err != nil {
-		return errorResult(err), nil
+func updateResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input UpdateResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	if input.ResourceID == "" || input.Config == nil {
+		return errorResult(fmt.Errorf("resource_id and config are required")), nil, nil
 	}
 
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceID := getStringParamFromArgs(args, "resource_id", "")
-	name := getStringParamFromArgs(args, "name", "")
-	config, err := getObjectParamFromArgs(args, "config")
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
-	}
-
-	if resourceID == "" || len(config) == 0 {
-		return errorResult(fmt.Errorf("resource_id and config are required")), nil
-	}
-
-	resourceType, err := parseResourceType(resourceTypeStr)
-	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get the update status based on current status
-	updateStatus, err := biz.GetResourceUpdateStatus(ctx, resourceType, resourceID)
+	updateStatus, err := biz.GetResourceUpdateStatus(ctx, resourceType, input.ResourceID)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
+	}
+
+	// Marshal config to JSON bytes
+	config, err := json.Marshal(input.Config)
+	if err != nil {
+		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
 	// If name is provided, inject it into config using the correct key for the resource type
-	if name != "" {
+	if input.Name != "" {
 		nameKey := model.GetResourceNameKey(resourceType)
-		config, _ = sjson.SetBytes(config, nameKey, name)
+		config, _ = sjson.SetBytes(config, nameKey, input.Name)
 	}
 
 	// Use UpdateResourceByTypeAndID which properly handles name updates
-	err = biz.UpdateResourceByTypeAndID(ctx, resourceType, resourceID, name, datatypes.JSON(config), updateStatus)
+	err = biz.UpdateResourceByTypeAndID(
+		ctx,
+		resourceType,
+		input.ResourceID,
+		input.Name,
+		datatypes.JSON(config),
+		updateStatus,
+	)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	return successResult(map[string]any{
 		"message":       "Resource updated successfully",
-		"resource_id":   resourceID,
-		"resource_type": resourceTypeStr,
+		"resource_id":   input.ResourceID,
+		"resource_type": input.ResourceType,
 		"status":        updateStatus,
-	}), nil
+	}), nil, nil
 }
 
 // deleteResourceHandler handles the delete_resource tool call
-func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check write scope
-	if err := CheckWriteScope(ctx); err != nil {
-		return errorResult(err), nil
+func deleteResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input DeleteResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	if len(input.ResourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_ids is required")), nil, nil
 	}
 
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
-
-	if len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("resource_ids is required")), nil
-	}
-
-	resourceType, err := parseResourceType(resourceTypeStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Check if any of the resources are referenced by other resources
-	references, err := biz.CheckResourceReferences(ctx, resourceType, resourceIDs)
+	references, err := biz.CheckResourceReferences(ctx, resourceType, input.ResourceIDs)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to check resource references: %w", err)), nil
+		return errorResult(fmt.Errorf("failed to check resource references: %w", err)), nil, nil
 	}
 
 	// If any resources are referenced, return an error with details
@@ -497,13 +426,13 @@ func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		return errorResult(fmt.Errorf(
 			"cannot delete %s resources because they are referenced by other resources. "+
 				"You must delete the referencing resources first:\n%s",
-			resourceTypeStr, strings.Join(blockedResources, "\n"))), nil
+			input.ResourceType, strings.Join(blockedResources, "\n"))), nil, nil
 	}
 
 	deletedCount := 0
 	markedCount := 0
 
-	for _, resourceID := range resourceIDs {
+	for _, resourceID := range input.ResourceIDs {
 		// Get current resource to check status
 		resource, err := biz.GetResourceByID(ctx, resourceType, resourceID)
 		if err != nil {
@@ -529,41 +458,36 @@ func deleteResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 		"message":             "Delete operation completed",
 		"hard_deleted_count":  deletedCount,
 		"marked_delete_count": markedCount,
-		"resource_type":       resourceTypeStr,
-	}), nil
+		"resource_type":       input.ResourceType,
+	}), nil, nil
 }
 
 // revertResourceHandler handles the revert_resource tool call
-func revertResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check write scope
-	if err := CheckWriteScope(ctx); err != nil {
-		return errorResult(err), nil
+func revertResourceHandler(
+	ctx context.Context,
+	req *mcp.CallToolRequest,
+	input RevertResourceInput,
+) (*mcp.CallToolResult, any, error) {
+	if len(input.ResourceIDs) == 0 {
+		return errorResult(fmt.Errorf("resource_ids is required")), nil, nil
 	}
 
-	args := parseArguments(req)
-	resourceTypeStr := getStringParamFromArgs(args, "resource_type", "")
-	resourceIDs := getStringArrayParamFromArgs(args, "resource_ids")
-
-	if len(resourceIDs) == 0 {
-		return errorResult(fmt.Errorf("resource_ids is required")), nil
-	}
-
-	resourceType, err := parseResourceType(resourceTypeStr)
+	resourceType, err := parseResourceType(input.ResourceType)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Gateway is already set in context by middleware
 	gateway, err := getGatewayFromContext(ctx)
 	if err != nil {
-		return errorResult(err), nil
+		return errorResult(err), nil, nil
 	}
 
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	revertedCount := 0
-	for _, resourceID := range resourceIDs {
+	for _, resourceID := range input.ResourceIDs {
 		err := biz.RevertResource(ctx, resourceType, resourceID)
 		if err == nil {
 			revertedCount++
@@ -573,6 +497,6 @@ func revertResourceHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.
 	return successResult(map[string]any{
 		"message":        "Revert operation completed",
 		"reverted_count": revertedCount,
-		"resource_type":  resourceTypeStr,
-	}), nil
+		"resource_type":  input.ResourceType,
+	}), nil, nil
 }

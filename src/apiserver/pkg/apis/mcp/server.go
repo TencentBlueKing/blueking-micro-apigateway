@@ -43,6 +43,9 @@ func NewMCPServer(logger *slog.Logger) *mcp.Server {
 		},
 	)
 
+	// Register middleware first (for common operations like gateway context injection)
+	registerMiddleware(server)
+
 	// Register tools
 	registerTools(server)
 

@@ -14,7 +14,7 @@ LDFLAGS="-X github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/v
 .PHONY: init
 init:
 	## 安装 golangci-lint 二进制
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) v2.7.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) v2.8.0
 	## 安装 gofumpt 二进制
 	GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
 	## 安装 goimports-reviser 二进制

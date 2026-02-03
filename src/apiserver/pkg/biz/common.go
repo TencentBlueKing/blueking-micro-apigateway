@@ -835,7 +835,12 @@ func BatchCreateResources(
 	newSlice := reflect.MakeSlice(reflect.TypeOf(modelSlice).Elem(), 0, len(resources))
 	for _, resource := range resources {
 		resourceModel := resource.ToResourceModel(resourceType)
-		newSlice = reflect.Append(newSlice, reflect.ValueOf(resourceModel))
+		// ToResourceModel returns a pointer, so we need to dereference it
+		resourceValue := reflect.ValueOf(resourceModel)
+		if resourceValue.Kind() == reflect.Ptr {
+			resourceValue = resourceValue.Elem()
+		}
+		newSlice = reflect.Append(newSlice, resourceValue)
 	}
 	return database.Client().WithContext(ctx).Create(newSlice.Interface()).Error
 }
@@ -852,7 +857,12 @@ func UpdateResource(
 		return fmt.Errorf("unsupported resource type: %v", resourceType)
 	}
 	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
-	reflect.ValueOf(newResourceModel).Elem().Set(reflect.ValueOf(resource.ToResourceModel(resourceType)))
+	// ToResourceModel returns a pointer, so we need to dereference it
+	resourceValue := reflect.ValueOf(resource.ToResourceModel(resourceType))
+	if resourceValue.Kind() == reflect.Ptr {
+		resourceValue = resourceValue.Elem()
+	}
+	reflect.ValueOf(newResourceModel).Elem().Set(resourceValue)
 	return buildCommonDbQuery(ctx, resourceType).Where("id = ?", id).Updates(newResourceModel).Error
 }
 

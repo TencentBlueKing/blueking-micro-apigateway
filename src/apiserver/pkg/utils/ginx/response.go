@@ -30,12 +30,13 @@ import (
 
 // BadRequestError ...
 const (
-	BadRequestError   = "BadRequest"
-	UnauthorizedError = "Unauthorized"
-	ForbiddenError    = "Forbidden"
-	NotFoundError     = "NotFound"
-	ConflictError     = "Conflict"
-	TooManyRequests   = "TooManyRequests"
+	BadRequestError     = "BadRequest"
+	UnauthorizedError   = "Unauthorized"
+	ForbiddenError      = "Forbidden"
+	NotFoundError       = "NotFound"
+	ConflictError       = "Conflict"
+	TooManyRequests     = "TooManyRequests"
+	NotImplementedError = "NotImplemented"
 
 	SystemError = "InternalServerError"
 )
@@ -44,6 +45,9 @@ const (
 type SuccessResponse struct {
 	Data any `json:"data"`
 }
+
+// Response is an alias for SuccessResponse for Swagger documentation
+type Response = SuccessResponse
 
 // Error ...
 type Error struct {
@@ -68,6 +72,13 @@ func SuccessJSONResponse(c *gin.Context, data any) {
 // SuccessCreateResponse ...
 func SuccessCreateResponse(c *gin.Context) {
 	c.JSON(http.StatusCreated, nil)
+}
+
+// SuccessCreateJSONResponse returns 201 with data
+func SuccessCreateJSONResponse(c *gin.Context, data any) {
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Data: data,
+	})
 }
 
 // SuccessNoContentResponse ...
@@ -144,6 +155,7 @@ var (
 	NotFoundJSONResponse        = NewErrorJSONResponse(NotFoundError, http.StatusNotFound)
 	ConflictJSONResponse        = NewErrorJSONResponse(ConflictError, http.StatusConflict)
 	TooManyRequestsJSONResponse = NewErrorJSONResponse(TooManyRequests, http.StatusTooManyRequests)
+	NotImplementedJSONResponse  = NewErrorJSONResponse(NotImplementedError, http.StatusNotImplemented)
 )
 
 // SystemErrorJSONResponse ...

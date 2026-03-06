@@ -39,21 +39,22 @@ import (
 
 // SyncFromEtcdInput is the input for the sync_from_etcd tool
 type SyncFromEtcdInput struct {
-	ResourceType string `json:"resource_type,omitempty" jsonschema:"sync specific resource type (optional)"`
+	//nolint:lll // Keep optional scope behavior explicit in metadata.
+	ResourceType string `json:"resource_type,omitempty" jsonschema:"Optional APISIX resource type to sync; omit to sync all types."`
 }
 
 // ListSyncedResourceInput is the input for the list_synced_resource tool
 type ListSyncedResourceInput struct {
-	ResourceType string `json:"resource_type" jsonschema:"resource type to list"`
-	Name         string `json:"name,omitempty" jsonschema:"filter by resource name (optional, supports fuzzy match)"`
-	Status       string `json:"status,omitempty" jsonschema:"filter by sync status: managed or unmanaged"`
-	Page         int    `json:"page,omitempty" jsonschema:"page number (default: 1)"`
-	PageSize     int    `json:"page_size,omitempty" jsonschema:"number of items per page (default: 20, max: 100)"`
+	ResourceType string `json:"resource_type" jsonschema:"Required. APISIX resource type to list from sync snapshot."`
+	Name         string `json:"name,omitempty" jsonschema:"Optional name substring filter (fuzzy match)."`
+	Status       string `json:"status,omitempty" jsonschema:"Optional sync status filter: managed or unmanaged."`
+	Page         int    `json:"page,omitempty" jsonschema:"Optional page number. Default: 1."`
+	PageSize     int    `json:"page_size,omitempty" jsonschema:"Optional page size. Default: 20. Max: 100."`
 }
 
 // AddSyncedResourcesToEditAreaInput is the input for the add_synced_resources_to_edit_area tool
 type AddSyncedResourcesToEditAreaInput struct {
-	ResourceIDs []string `json:"resource_ids" jsonschema:"resource IDs to import (from list_synced_resource)"`
+	ResourceIDs []string `json:"resource_ids" jsonschema:"Required. Synced resource IDs returned by list_synced_resource."`
 }
 
 // RegisterSyncTools registers all sync-related MCP tools
@@ -61,22 +62,21 @@ func RegisterSyncTools(server *mcp.Server) {
 	// sync_from_etcd
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "sync_from_etcd",
-		Description: "Synchronize resources from etcd to the sync area (gateway_sync_data). " +
-			"Fetches the current state from the APISIX data plane.",
+		Description: "Sync resources from etcd/APISIX into the sync snapshot table (gateway_sync_data). " +
+			"Read-only to data plane; updates local sync area state.",
 	}, syncFromEtcdHandler)
 
 	// list_synced_resource
 	mcp.AddTool(server, &mcp.Tool{
-		Name: "list_synced_resource",
-		Description: "List resources synced from etcd (from the sync area). " +
-			"These are the resources currently deployed in APISIX.",
+		Name:        "list_synced_resource",
+		Description: "List resources in the sync snapshot with managed/unmanaged status, plus pagination/filtering.",
 	}, listSyncedResourceHandler)
 
 	// add_synced_resources_to_edit_area
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "add_synced_resources_to_edit_area",
-		Description: "Import synced resources from the sync area to the edit area. " +
-			"Copies resources from gateway_sync_data to their respective tables.",
+		Description: "Import synced resources into edit-area tables by resource_ids from list_synced_resource. " +
+			"Dependencies are imported automatically. Requires write scope.",
 	}, addSyncedResourcesToEditAreaHandler)
 }
 

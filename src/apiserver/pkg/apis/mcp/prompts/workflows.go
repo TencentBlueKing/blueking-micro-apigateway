@@ -31,8 +31,8 @@ func RegisterWorkflowPrompts(server *mcp.Server) {
 	// Standard Workflow
 	server.AddPrompt(&mcp.Prompt{
 		Name: "standard_workflow",
-		Description: "Complete workflow for syncing, editing, and publishing APISIX resources. " +
-			"Follow this workflow for safe and organized configuration management.",
+		Description: "Default safe workflow for APISIX change management: " +
+			"sync, import, edit, diff, preview, then publish via web UI/API.",
 	}, standardWorkflowHandler)
 
 	// NOTE: publish_checklist is commented out for safety.
@@ -46,12 +46,13 @@ func RegisterWorkflowPrompts(server *mcp.Server) {
 
 	// Troubleshoot Publish Error
 	server.AddPrompt(&mcp.Prompt{
-		Name:        "troubleshoot_publish_error",
-		Description: "Guide for diagnosing and fixing publish failures. Use this when a publish operation fails.",
+		Name: "troubleshoot_publish_error",
+		Description: "Step-by-step diagnosis workflow for publish failures, " +
+			"including schema, dependency, and environment checks.",
 		Arguments: []*mcp.PromptArgument{
 			{
 				Name:        "error_message",
-				Description: "The error message from the failed publish",
+				Description: "Optional raw error message from failed publish operation",
 				Required:    false,
 			},
 		},
@@ -59,18 +60,17 @@ func RegisterWorkflowPrompts(server *mcp.Server) {
 
 	// Resource Dependency Check
 	server.AddPrompt(&mcp.Prompt{
-		Name: "resource_dependency_check",
-		Description: "Check resource dependencies before performing operations. " +
-			"Use this before deleting or modifying resources.",
+		Name:        "resource_dependency_check",
+		Description: "Dependency safety checklist for update/delete operations on a specific resource.",
 		Arguments: []*mcp.PromptArgument{
 			{
 				Name:        "resource_type",
-				Description: "The resource type to check",
+				Description: "Required APISIX resource type for the target resource",
 				Required:    true,
 			},
 			{
 				Name:        "resource_id",
-				Description: "The resource ID to check",
+				Description: "Required resource ID for the target resource",
 				Required:    true,
 			},
 		},
@@ -78,129 +78,107 @@ func RegisterWorkflowPrompts(server *mcp.Server) {
 }
 
 func standardWorkflowHandler(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	content := `# Standard APISIX Configuration Workflow
+	content := `# Standard APISIX Change Workflow (MCP-Safe)
 
-Follow this workflow for safe and organized configuration management.
+Use this workflow by default when operating through MCP.
 
-Note: The gateway is determined by the MCP endpoint URL you connected to.
+## Hard Constraints
+
+1. Gateway context comes from the MCP endpoint URL
+   (` + "`/mcp/gateways/:gateway_id/`" + `). Do not pass ` + "`gateway_id`" + ` to tools.
+2. MCP publish tools are disabled. Use MCP for preparation/review, then publish in Web UI/OpenAPI.
+3. ` + "`update_resource`" + ` requires a full replacement ` + "`config`" + ` (no partial patch).
+4. Always provide both ` + "`resource_type`" + ` and ` + "`resource_id`" + ` for single-resource tools.
 
 ---
 
-## Phase 1: Synchronization
+## Step 1: Sync Latest Runtime State
 
-First, sync the latest state from etcd to ensure you're working with current data.
-
-**Action:**
 ` + "```" + `
 sync_from_etcd()
 ` + "```" + `
 
-**Verify:**
-- Check sync completed successfully
-- Note the resource counts returned
+Confirm the call succeeded and record returned counts.
 
 ---
 
-## Phase 2: Import (If Managing New Resources)
+## Step 2: Import Unmanaged Runtime Resources (Optional)
 
-If you need to manage resources that exist in etcd but aren't in the edit area:
+Use this when resources already exist in APISIX but are not managed in edit area.
 
-**List unmanaged resources:**
 ` + "```" + `
 list_synced_resource(resource_type="route", status="unmanaged")
-` + "```" + `
-
-**Import selected resources:**
-` + "```" + `
 add_synced_resources_to_edit_area(resource_ids=["id1", "id2"])
 ` + "```" + `
 
-**Note:** Dependencies are automatically imported.
+Dependencies are imported automatically.
 
 ---
 
-## Phase 3: Edit Resources
+## Step 3: Edit in Draft Area
 
-Make your configuration changes:
+### Create (dependency order)
 
-**Create new resource:**
-When creating related resources (upstream -> service -> route), capture and use the returned IDs:
 ` + "```" + `
-# Step 1: Create upstream first
-result = create_resource(resource_type="upstream", name="my-upstream", config={...})
-# Result contains: {"resource_id": "upstream-xxx", ...}
+# 1) Upstream
+u = create_resource(resource_type="upstream", name="my-upstream", config={...})
 
-# Step 2: Create service with upstream_id from step 1
-result = create_resource(resource_type="service", name="my-service", config={"upstream_id": "upstream-xxx", ...})
-# Result contains: {"resource_id": "service-yyy", ...}
+# 2) Service references upstream
+s = create_resource(resource_type="service", name="my-service", config={"upstream_id": u.resource_id, ...})
 
-# Step 3: Create route with service_id from step 2
-create_resource(resource_type="route", name="my-route", config={"service_id": "service-yyy", ...})
+# 3) Route references service
+create_resource(resource_type="route", name="my-route", config={"service_id": s.resource_id, ...})
 ` + "```" + `
 
-**Update existing resource:**
+### Update (full config replacement)
+
 ` + "```" + `
-update_resource(resource_type="route", resource_id="route-1", config={...})
+origin = get_resource(resource_type="route", resource_id="route-1")
+# Edit origin.config locally, then send full config back:
+update_resource(resource_type="route", resource_id="route-1", config={...full config...})
 ` + "```" + `
 
-**Delete resource:**
+### Delete
+
 ` + "```" + `
 delete_resource(resource_type="route", resource_ids=["old-route"])
 ` + "```" + `
 
-**Warning:**
-- Before deleting, check if the resource is referenced by other resources
-  (e.g., ` + "`service_id`" + ` referenced by ` + "`route`" + `).
-- Referenced resources cannot be deleted directly. Remove the references first.
-
-**Tip:**
-- Use validate_resource_config to check configs before creating/updating.
-- Before update, you MUST get the resource first using get_resource,
-  then update the fields in ` + "`config`" + ` and put the WHOLE ` + "`config`" + `
-  into the request! Do NOT just update partial fields.
+` + "`delete_resource`" + ` blocks unsafe deletes when dependencies exist.
 
 ---
 
-## Phase 4: Review Changes
+## Step 4: Validate and Review
 
-Before publishing, review all pending changes:
-
-**Get change summary:**
 ` + "```" + `
+validate_resource_config(apisix_version="3.13", resource_type="route", config={...})
 diff_resources()
-` + "```" + `
-
-**Get detailed diff for specific resource:**
-` + "```" + `
 diff_detail(resource_type="route", resource_id="route-1")
-` + "```" + `
-
-**Preview pending changes:**
-` + "```" + `
 publish_preview()
 ` + "```" + `
 
----
-
-## Phase 5: Publish
-
-Note: Publishing via MCP is currently disabled for safety. Please use the web UI to publish changes.
+Review summary counts and detailed diffs before publish.
 
 ---
 
-## Best Practices
+## Step 5: Publish Outside MCP
 
-1. Always sync before making changes
-2. Review diffs before publishing
-3. When creating related resources (Check the Resource Relations), follow this order: Upstreams -> Services -> Routes
-4. Capture returned resource IDs and use them in subsequent create calls
-5. Test in staging environment first if possible
-6. Changes take effect immediately after publish
-7. Currently the publish operation can only be done on the website, not from the MCP Server. This is for safety.
+Publish from Web UI/OpenAPI only. Then run ` + "`sync_from_etcd()`" + ` again to refresh MCP sync snapshot.
+
+---
+
+## Quick Safety Rules
+
+1. Sync before edit.
+2. Validate before create/update.
+3. Diff and preview before publish.
+4. Create dependencies before dependents (Upstream -> Service -> Route).
+5. Delete in reverse order (Route -> Service -> Upstream).
+6. Keep returned ` + "`resource_id`" + ` values and reuse them explicitly.
 `
 
 	return &mcp.GetPromptResult{
-		Description: "Standard workflow for APISIX configuration management",
+		Description: "Default safe workflow for APISIX changes through MCP",
 		Messages: []*mcp.PromptMessage{
 			{
 				Role:    "user",
@@ -323,132 +301,99 @@ func troubleshootPublishErrorHandler(ctx context.Context, req *mcp.GetPromptRequ
 		errorSection = "\n## Error: " + errorMessage + "\n"
 	}
 
-	content := `# Troubleshoot Publish Error
+	content := `# Troubleshoot Publish Failure
 ` + errorSection + `
----
+Use this checklist when publish fails in Web UI/OpenAPI.
 
-## Common Error Categories
+## Step 1: Reproduce and Capture Context
 
-### 1. Schema Validation Errors
-
-**Symptoms:**
-- "Additional property X is not allowed"
-- "Required property Y is missing"
-- "Type mismatch"
-
-**Solutions:**
-1. Check the resource schema:
-` + "```" + `
-get_resource_schema(apisix_version="3.13.X", resource_type="route")
-` + "```" + `
-
-2. Validate your config:
-` + "```" + `
-validate_resource_config(apisix_version="3.13.X", resource_type="route", config={...})
-` + "```" + `
-
-3. Remove unsupported fields for the APISIX version
+Record:
+1. Full error message
+2. Resource type + resource ID (if available)
+3. APISIX gateway version
+4. Approximate failure time
 
 ---
 
-### 2. Dependency Errors
+## Step 2: Refresh Local Snapshot
 
-**Symptoms:**
-- "Referenced service not found"
-- "Upstream does not exist"
-- "Plugin config not found"
-
-**Solutions:**
-1. Check if referenced resources exist in etcd
-2. When creating related resources, follow this order and capture IDs:
-   - Create upstream first, note the returned resource_id
-   - Create service with the upstream_id from step 1
-   - Create route with the service_id from step 2
-3. Publish dependencies before dependents (use web UI)
-
----
-
-### 3. Etcd Connection Errors
-
-**Symptoms:**
-- "Connection refused"
-- "Timeout"
-- "Authentication failed"
-
-**Solutions:**
-1. Check etcd connectivity (contact infrastructure team)
-2. Verify gateway etcd configuration
-3. Retry the publish operation
-
----
-
-### 4. Conflict Errors
-
-**Symptoms:**
-- "Resource already exists"
-- "Duplicate key"
-
-**Solutions:**
-1. Sync to get latest state:
 ` + "```" + `
 sync_from_etcd()
-` + "```" + `
-
-2. Check for conflicts in diff:
-` + "```" + `
 diff_resources()
+publish_preview()
 ` + "```" + `
 
-3. Resolve conflicts and retry
+This confirms your draft state and current runtime snapshot.
 
 ---
 
-## Diagnostic Steps
+## Step 3: Classify Error Quickly
 
-1. **Get current state:**
-` + "```" + `
-sync_from_etcd()
-` + "```" + `
+### A) Schema Validation
+Typical error text:
+- "additional property ... is not allowed"
+- "required property ... is missing"
+- "type mismatch"
 
-2. **Check pending changes:**
-` + "```" + `
-diff_resources()
-` + "```" + `
-
-3. **Review specific resource:**
+Checks:
 ` + "```" + `
 get_resource(resource_type="route", resource_id="...")
+get_resource_schema(apisix_version="3.13", resource_type="route")
+validate_resource_config(apisix_version="3.13", resource_type="route", config={...})
 ` + "```" + `
 
-4. **Validate configuration:**
-` + "```" + `
-validate_resource_config(apisix_version="3.13.X", resource_type="route", config={...})
-` + "```" + `
+### B) Dependency Missing
+Typical error text:
+- "service/upstream/plugin_config not found"
+
+Checks:
+1. Verify referenced IDs exist.
+2. Ensure dependency creation order was followed: Upstream -> Service -> Route.
+3. Publish dependencies first (outside MCP).
+
+### C) Data Conflict
+Typical error text:
+- "duplicate key"
+- "resource already exists"
+
+Checks:
+1. Re-sync (` + "`sync_from_etcd`" + `).
+2. Re-open resource with ` + "`get_resource`" + `.
+3. Re-apply change on top of latest state.
+
+### D) Infrastructure/Connectivity
+Typical error text:
+- etcd timeout/connection/auth failure
+
+Checks:
+1. Retry once.
+2. If persistent, escalate to platform/infrastructure owner.
 
 ---
 
-## Recovery Options
+## Step 4: Remediate Safely
 
-### Option 1: Fix and Retry
-1. Identify the issue from error message
-2. Update the resource to fix the issue
-3. Retry publish (via web UI)
+Option 1: Fix config and retry publish.
 
-### Option 2: Revert and Retry
-1. Revert the problematic resource:
+Option 2: Revert problematic draft, then re-apply:
 ` + "```" + `
 revert_resource(resource_type="route", resource_ids=["..."])
 ` + "```" + `
-2. Re-apply changes correctly
-3. Retry publish (via web UI)
 
-### Option 3: Skip Problematic Resource
-1. Publish other resources first
-2. Debug the problematic resource separately
+Option 3: Publish unaffected resources first, isolate failing resource for separate fix.
+
+---
+
+## Step 5: Post-Fix Validation
+
+Before retrying publish:
+1. ` + "`diff_resources()`" + ` shows expected changes only.
+2. ` + "`publish_preview()`" + ` contains no unintended resources.
+3. All changed resources pass ` + "`validate_resource_config`" + `.
 `
 
 	return &mcp.GetPromptResult{
-		Description: "Troubleshoot publish errors",
+		Description: "Publish failure diagnosis and recovery runbook",
 		Messages: []*mcp.PromptMessage{
 			{
 				Role:    "user",
@@ -470,130 +415,91 @@ func resourceDependencyCheckHandler(ctx context.Context, req *mcp.GetPromptReque
 		}
 	}
 
-	content := `# Resource Dependency Check
+	content := `# Resource Dependency Safety Check
 
-## Resource Details
-- **Resource Type:** ` + resourceType + `
-- **Resource ID:** ` + resourceID + `
+## Target
+- **resource_type**: ` + resourceType + `
+- **resource_id**: ` + resourceID + `
+
+Use this checklist before ` + "`update_resource`" + ` or ` + "`delete_resource`" + `.
 
 ---
 
-## Step 1: Get Resource Details
-
-First, retrieve the resource configuration:
+## Step 1: Load Current Resource
 
 ` + "```" + `
 get_resource(resource_type="` + resourceType + `", resource_id="` + resourceID + `")
 ` + "```" + `
 
----
-
-## Step 2: Check Dependencies (What This Resource Depends On)
-
-Based on resource type, check these references:
-
-### For Routes:
-- ` + "`service_id`" + `: Does the referenced service exist?
-- ` + "`upstream_id`" + `: Does the referenced upstream exist?
-- ` + "`plugin_config_id`" + `: Does the referenced plugin config exist?
-
-### For Services:
-- ` + "`upstream_id`" + `: Does the referenced upstream exist?
-
-### For Consumers:
-- ` + "`group_id`" + `: Does the referenced consumer group exist?
+Capture key references from config:
+` + "`service_id`" + `, ` + "`upstream_id`" + `, ` + "`plugin_config_id`" + `, ` + "`group_id`" + `.
 
 ---
 
-## Step 3: Check Dependents (What Depends On This Resource)
+## Step 2: Validate Outbound Dependencies
 
-Find resources that reference this resource:
+Check that referenced resources exist and are in expected state.
 
-### If Deleting an Upstream:
+Common references:
+1. Route -> service/upstream/plugin_config
+2. Service -> upstream
+3. Consumer -> consumer_group
+4. Stream Route -> service/upstream
+
+---
+
+## Step 3: Validate Inbound Dependents
+
+Identify what may break if this resource is changed or deleted.
+
+Quick scans:
 ` + "```" + `
-# Check if any routes reference this upstream
 list_resource(resource_type="route")
-# Look for upstream_id="` + resourceID + `" in results
-
-# Check if any services reference this upstream
 list_resource(resource_type="service")
-# Look for upstream_id="` + resourceID + `" in results
-` + "```" + `
-
-### If Deleting a Service:
-` + "```" + `
-# Check if any routes reference this service
-list_resource(resource_type="route")
-# Look for service_id="` + resourceID + `" in results
-` + "```" + `
-
-### If Deleting a Consumer Group:
-` + "```" + `
-# Check if any consumers reference this group
 list_resource(resource_type="consumer")
-# Look for group_id="` + resourceID + `" in results
+list_resource(resource_type="stream_route")
 ` + "```" + `
+
+Then filter locally for references to ` + "`resource_id`" + `.
 
 ---
 
-## Step 4: Impact Analysis
+## Step 4: Choose Safe Action
 
-### Before Deleting:
-1. List all dependents found above
-2. Decide how to handle each dependent:
-   - Update dependent to use different reference
-   - Delete dependent as well
-   - Keep dependent (will cause errors)
+### If deleting
+1. Remove or update dependents first.
+2. Then call:
+` + "```" + `
+delete_resource(resource_type="` + resourceType + `", resource_ids=["` + resourceID + `"])
+` + "```" + `
+3. If deletion is blocked, follow returned dependency error details.
 
-### Before Updating:
-1. Check if the update breaks dependent resources
-2. Especially if changing:
-   - ID (rare, usually not allowed)
-   - Structure/format that dependents rely on
+### If updating
+1. Update dependents if contract changes.
+2. Send full replacement config (not partial patch).
 
 ---
 
-## Resource Relationship Creation Pattern
-
-When creating related resources, follow this order and capture IDs:
+## Step 5: Re-check Publish Impact
 
 ` + "```" + `
-# Step 1: Create upstream first
-result = create_resource(resource_type="upstream", name="my-upstream", config={...})
-# Result contains: {"resource_id": "upstream-xxx", ...}
-
-# Step 2: Create service with upstream_id from step 1
-result = create_resource(resource_type="service", name="my-service", config={"upstream_id": "upstream-xxx", ...})
-# Result contains: {"resource_id": "service-yyy", ...}
-
-# Step 3: Create route with service_id from step 2
-create_resource(resource_type="route", name="my-route", config={"service_id": "service-yyy", ...})
+diff_resources(resource_type="` + resourceType + `")
+publish_preview(resource_type="` + resourceType + `")
 ` + "```" + `
+
+Proceed to publish in Web UI/OpenAPI after verification.
 
 ---
 
-## Best Practices
+## Recommended Ordering
 
-1. **Create order**: Create dependencies before dependents
-   - Upstreams before Services
-   - Services before Routes
-   - Capture and use returned resource IDs
-
-2. **Delete order**: Delete dependents before dependencies
-   - Routes before Services
-   - Services before Upstreams
-   - Consumers before Consumer Groups
-
-3. **Update order**: Update dependencies before dependents
-   - Upstreams before Services
-   - Services before Routes
-
-4. **Publish order**: Publish dependencies first (via web UI)
-   - Upstreams -> Services -> Routes
+1. Create: Upstream -> Service -> Route
+2. Delete: Route -> Service -> Upstream
+3. Publish: dependencies before dependents
 `
 
 	return &mcp.GetPromptResult{
-		Description: "Check resource dependencies before operations",
+		Description: "Dependency safety checklist for update/delete operations",
 		Messages: []*mcp.PromptMessage{
 			{
 				Role:    "user",

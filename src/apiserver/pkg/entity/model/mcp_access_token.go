@@ -44,10 +44,11 @@ func (s MCPAccessScope) IsValid() bool {
 
 // MCPAccessToken MCP 访问令牌表
 type MCPAccessToken struct {
-	ID          int            `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	GatewayID   int            `gorm:"column:gateway_id;type:int;not null;index:idx_gateway" json:"gateway_id"`
+	ID int `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	//nolint:lll // gorm index configuration keeps schema constraints explicit.
+	GatewayID   int            `gorm:"not null;index:idx_gateway;uniqueIndex:idx_gateway_name,priority:1" json:"gateway_id"`
 	Token       string         `gorm:"column:token;type:varchar(64);uniqueIndex:idx_token" json:"-"` // 不在 JSON 中返回完整 token
-	Name        string         `gorm:"column:name;type:varchar(128);not null" json:"name"`
+	Name        string         `gorm:"column:name;size:128;not null;uniqueIndex:idx_gateway_name,priority:2" json:"name"`
 	Description string         `gorm:"column:description;type:varchar(512)" json:"description"`
 	AccessScope MCPAccessScope `gorm:"column:access_scope;type:varchar(16);not null" json:"access_scope"`
 	ExpiredAt   time.Time      `gorm:"column:expired_at;type:datetime;not null" json:"expired_at"`
@@ -73,14 +74,6 @@ func (t *MCPAccessToken) CanRead() bool {
 // CanWrite 检查是否有写权限
 func (t *MCPAccessToken) CanWrite() bool {
 	return t.AccessScope == MCPAccessScopeReadWrite
-}
-
-// MaskedToken 返回掩码后的令牌（仅显示前8位和后4位）
-func (t *MCPAccessToken) MaskedToken() string {
-	if len(t.Token) <= 12 {
-		return "****"
-	}
-	return t.Token[:8] + "****" + t.Token[len(t.Token)-4:]
 }
 
 // UpdateLastUsed 更新最后使用时间

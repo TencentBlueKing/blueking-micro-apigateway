@@ -35,22 +35,24 @@ import (
 
 // GetResourceSchemaInput is the input for the get_resource_schema tool
 type GetResourceSchemaInput struct {
-	APISIXVersion string `json:"apisix_version" jsonschema:"APISIX version for schema (e.g., 3.11, 3.13)"`
-	ResourceType  string `json:"resource_type" jsonschema:"resource type to get schema for"`
+	APISIXVersion string `json:"apisix_version" jsonschema:"Required. APISIX schema version: 3.11 or 3.13."`
+	ResourceType  string `json:"resource_type" jsonschema:"Required. APISIX resource type."`
 }
 
 // GetPluginSchemaInput is the input for the get_plugin_schema tool
 type GetPluginSchemaInput struct {
-	APISIXVersion string `json:"apisix_version" jsonschema:"APISIX version for schema (e.g., 3.11, 3.13)"`
-	PluginName    string `json:"plugin_name" jsonschema:"plugin name (e.g., 'limit-req', 'proxy-rewrite', 'jwt-auth')"`
-	SchemaType    string `json:"schema_type,omitempty" jsonschema:"schema type: main, consumer, or metadata"`
+	APISIXVersion string `json:"apisix_version" jsonschema:"Required. APISIX schema version: 3.11 or 3.13."`
+	//nolint:lll // Keep common plugin examples in metadata for discoverability.
+	PluginName string `json:"plugin_name" jsonschema:"Required plugin name (for example: limit-req, proxy-rewrite, jwt-auth)."`
+	//nolint:lll // Keep valid schema scope values explicit for callers.
+	SchemaType string `json:"schema_type,omitempty" jsonschema:"Optional plugin schema scope: main(default), consumer, metadata."`
 }
 
 // ValidateResourceConfigInput is the input for the validate_resource_config tool
 type ValidateResourceConfigInput struct {
-	APISIXVersion string         `json:"apisix_version" jsonschema:"APISIX version to validate against (e.g., 3.11, 3.13)"`
-	ResourceType  string         `json:"resource_type" jsonschema:"resource type"`
-	Config        map[string]any `json:"config" jsonschema:"the configuration object to validate"`
+	APISIXVersion string         `json:"apisix_version" jsonschema:"Required. APISIX schema version: 3.11 or 3.13."`
+	ResourceType  string         `json:"resource_type" jsonschema:"Required. APISIX resource type."`
+	Config        map[string]any `json:"config" jsonschema:"Required. Resource config object to validate."`
 }
 
 // ListPluginsInput is the input for the list_plugins tool
@@ -62,28 +64,29 @@ func RegisterSchemaTools(server *mcp.Server) {
 	// get_resource_schema
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_resource_schema",
-		Description: "Get the JSON Schema for a specific APISIX resource type. " +
-			"Use this to understand the structure and validation rules.",
+		Description: "Return APISIX JSON schema for a resource type and schema version (3.11 or 3.13). " +
+			"Read-only helper for config design and validation.",
 	}, getResourceSchemaHandler)
 
 	// get_plugin_schema
 	mcp.AddTool(server, &mcp.Tool{
-		Name:        "get_plugin_schema",
-		Description: "Get the JSON Schema for a specific APISIX plugin. Use this to understand plugin configuration options.",
+		Name: "get_plugin_schema",
+		Description: "Return APISIX plugin schema by plugin_name and schema version (3.11 or 3.13). " +
+			"Supports main/consumer/metadata schema types.",
 	}, getPluginSchemaHandler)
 
 	// validate_resource_config
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "validate_resource_config",
-		Description: "Validate a resource configuration against the APISIX schema. " +
-			"Use this to check if a configuration is valid before creating or updating.",
+		Description: "Validate a resource config against APISIX schema for the specified version. " +
+			"Read-only check; does not create or update resources.",
 	}, validateResourceConfigHandler)
 
 	// list_plugins
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "list_plugins",
-		Description: "List available APISIX plugins for the current gateway. " +
-			"The plugin list is determined by the gateway's APISIX version and type.",
+		Description: "List plugins available to the current gateway based on its APISIX version and type. " +
+			"Read-only operation.",
 	}, listPluginsHandler)
 }
 
@@ -99,7 +102,7 @@ func getResourceSchemaHandler(
 
 	apisixVersion, err := parseAPISIXVersion(input.APISIXVersion)
 	if err != nil {
-		return errorResult(err), nil, nil
+		return errorResult(fmt.Errorf("%w. %s", err, APISIXVersionDescription())), nil, nil
 	}
 
 	resourceType, err := parseResourceType(input.ResourceType)
@@ -132,7 +135,7 @@ func getPluginSchemaHandler(
 
 	apisixVersion, err := parseAPISIXVersion(input.APISIXVersion)
 	if err != nil {
-		return errorResult(err), nil, nil
+		return errorResult(fmt.Errorf("%w. %s", err, APISIXVersionDescription())), nil, nil
 	}
 
 	// Apply default schema type
@@ -167,7 +170,7 @@ func validateResourceConfigHandler(
 
 	apisixVersion, err := parseAPISIXVersion(input.APISIXVersion)
 	if err != nil {
-		return errorResult(err), nil, nil
+		return errorResult(fmt.Errorf("%w. %s", err, APISIXVersionDescription())), nil, nil
 	}
 
 	resourceType, err := parseResourceType(input.ResourceType)

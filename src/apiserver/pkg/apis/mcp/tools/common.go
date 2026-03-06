@@ -179,5 +179,8 @@ func StatusDescription() string {
 
 // APISIXVersionDescription returns a description of valid APISIX versions
 func APISIXVersionDescription() string {
-	return fmt.Sprintf("One of: %s", strings.Join(ValidAPISIXVersions, ", "))
+	return fmt.Sprintf(
+		"One of: %s. Note: gateway-bound MCP operations require APISIX 3.13.X.",
+		strings.Join(ValidAPISIXVersions, ", "),
+	)
 }

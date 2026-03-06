@@ -36,14 +36,14 @@ import (
 
 // DiffResourcesInput is the input for the diff_resources tool
 type DiffResourcesInput struct {
-	ResourceType string `json:"resource_type,omitempty" jsonschema:"filter by resource type (optional)"`
-	ResourceID   string `json:"resource_id,omitempty" jsonschema:"filter by specific resource ID (optional)"`
+	ResourceType string `json:"resource_type,omitempty" jsonschema:"Optional resource type filter."`
+	ResourceID   string `json:"resource_id,omitempty" jsonschema:"Optional resource ID filter for scoped diff."`
 }
 
 // DiffDetailInput is the input for the diff_detail tool
 type DiffDetailInput struct {
-	ResourceType string `json:"resource_type" jsonschema:"resource type"`
-	ResourceID   string `json:"resource_id" jsonschema:"the resource ID to get diff for (required)"`
+	ResourceType string `json:"resource_type" jsonschema:"Required. APISIX resource type."`
+	ResourceID   string `json:"resource_id" jsonschema:"Required. Resource ID to get detailed diff for."`
 }
 
 // RegisterDiffTools registers all diff-related MCP tools
@@ -51,18 +51,14 @@ func RegisterDiffTools(server *mcp.Server) {
 	// diff_resources
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "diff_resources",
-		Description: "Compare resources between the edit area and the sync snapshot. " +
-			"Shows what changes would be applied when publishing. " +
-			"The before_status is the current status of the resource in the edit area, " +
-			"and the after_status is the status of the resource after publishing. " +
-			"If before_status and after_status differ, the resource's status will change after publishing.",
+		Description: "Compare edit area vs sync snapshot and return pending publish impact by resource type. " +
+			"Includes before_status/after_status transition hints for each change.",
 	}, diffResourcesHandler)
 
 	// diff_detail
 	mcp.AddTool(server, &mcp.Tool{
-		Name: "diff_detail",
-		Description: "Get detailed JSON diff for a single resource. " +
-			"Shows exact changes between edit area and sync snapshot.",
+		Name:        "diff_detail",
+		Description: "Return field-level JSON diff for one resource between edit area and sync snapshot.",
 	}, diffDetailHandler)
 }
 

@@ -20,10 +20,14 @@ package middleware
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
@@ -56,6 +60,20 @@ func TestHandleMCPAuthError(t *testing.T) {
 
 	// Verify the function signature exists
 	_ = handleMCPAuthError
+}
+
+func TestHandleMCPAuthErrorGatewayNotSupported(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/mcp/gateways/1/", nil)
+
+	handleMCPAuthError(c, biz.ErrMCPGatewayNotSupported)
+
+	assert.Equal(t, http.StatusNotImplemented, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "gateway does not support MCP")
 }
 
 func TestGetMCPAccessToken(t *testing.T) {

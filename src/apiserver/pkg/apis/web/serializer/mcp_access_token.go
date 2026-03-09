@@ -49,8 +49,7 @@ type MCPAccessTokenOutputInfo struct {
 	UpdatedAt   int64                `json:"updated_at"`   // Unix timestamp
 	Creator     string               `json:"creator"`
 	Updater     string               `json:"updater"`
-	MaskedToken string               `json:"masked_token"` // 掩码后的令牌
-	IsExpired   bool                 `json:"is_expired"`   // 是否已过期
+	IsExpired   bool                 `json:"is_expired"` // 是否已过期
 }
 
 // MCPAccessTokenCreateOutputInfo MCP 访问令牌创建输出信息（包含完整令牌）
@@ -82,7 +81,6 @@ func MCPAccessTokenToOutputInfo(token *model.MCPAccessToken) MCPAccessTokenOutpu
 		UpdatedAt:   token.UpdatedAt.Unix(),
 		Creator:     token.Creator,
 		Updater:     token.Updater,
-		MaskedToken: token.MaskedToken(),
 		IsExpired:   token.IsExpired(),
 	}
 }

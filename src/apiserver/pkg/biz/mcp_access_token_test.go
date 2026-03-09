@@ -20,6 +20,10 @@ package biz
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,6 +31,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
@@ -277,18 +282,178 @@ func TestMCPAccessTokenScopeValidation(t *testing.T) {
 	assert.ErrorIs(t, err, ErrMCPTokenInvalidScope)
 }
 
-func TestMaskedToken(t *testing.T) {
-	// 测试正常长度令牌
-	token := &model.MCPAccessToken{
-		Token: "abcdefgh12345678ijklmnop90qrstuv",
-	}
-	masked := token.MaskedToken()
-	assert.Equal(t, "abcdefgh****stuv", masked)
+func TestCreateMCPAccessTokenConcurrentSameNameCollision(t *testing.T) {
+	util.InitEmbedDb()
+	ctx := context.Background()
 
-	// 测试短令牌
-	shortToken := &model.MCPAccessToken{
-		Token: "short",
+	gateway := &model.Gateway{
+		Name:          fmt.Sprintf("test-gateway-concurrent-name-%d", time.Now().UnixNano()),
+		APISIXVersion: string(constant.APISIXVersion313),
 	}
-	masked = shortToken.MaskedToken()
-	assert.Equal(t, "****", masked)
+	err := CreateGateway(ctx, gateway)
+	assert.NoError(t, err)
+
+	const workers = 8
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	var successCount int32
+	var nameConflictCount int32
+	var otherErrCount int32
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+
+			token := &model.MCPAccessToken{
+				GatewayID:   gateway.ID,
+				Name:        "same-name-token",
+				AccessScope: model.MCPAccessScopeRead,
+				ExpiredAt:   time.Now().Add(24 * time.Hour),
+				BaseModel: model.BaseModel{
+					Creator: fmt.Sprintf("tester-%d", idx),
+					Updater: fmt.Sprintf("tester-%d", idx),
+				},
+			}
+			createErr := CreateMCPAccessToken(ctx, token)
+			if createErr == nil {
+				atomic.AddInt32(&successCount, 1)
+				return
+			}
+			if errors.Is(createErr, ErrMCPTokenNameExists) {
+				atomic.AddInt32(&nameConflictCount, 1)
+				return
+			}
+			atomic.AddInt32(&otherErrCount, 1)
+		}(i)
+	}
+
+	close(start)
+	wg.Wait()
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&successCount))
+	assert.Equal(t, int32(workers-1), atomic.LoadInt32(&nameConflictCount))
+	assert.Equal(t, int32(0), atomic.LoadInt32(&otherErrCount))
+}
+
+func TestCreateMCPAccessTokenConcurrentLimitCollision(t *testing.T) {
+	util.InitEmbedDb()
+	ctx := context.Background()
+
+	gateway := &model.Gateway{
+		Name:          fmt.Sprintf("test-gateway-concurrent-limit-%d", time.Now().UnixNano()),
+		APISIXVersion: string(constant.APISIXVersion313),
+	}
+	err := CreateGateway(ctx, gateway)
+	assert.NoError(t, err)
+
+	// Pre-fill near the cap.
+	for i := 0; i < MaxMCPAccessTokensPerGateway-1; i++ {
+		token := &model.MCPAccessToken{
+			GatewayID:   gateway.ID,
+			Name:        fmt.Sprintf("prefill-%d", i),
+			AccessScope: model.MCPAccessScopeRead,
+			ExpiredAt:   time.Now().Add(24 * time.Hour),
+			BaseModel: model.BaseModel{
+				Creator: "tester",
+				Updater: "tester",
+			},
+		}
+		err = CreateMCPAccessToken(ctx, token)
+		assert.NoError(t, err)
+	}
+
+	const workers = 6
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	var successCount int32
+	var limitErrCount int32
+	var otherErrCount int32
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			<-start
+
+			token := &model.MCPAccessToken{
+				GatewayID:   gateway.ID,
+				Name:        fmt.Sprintf("limit-race-%d", idx),
+				AccessScope: model.MCPAccessScopeRead,
+				ExpiredAt:   time.Now().Add(24 * time.Hour),
+				BaseModel: model.BaseModel{
+					Creator: fmt.Sprintf("tester-%d", idx),
+					Updater: fmt.Sprintf("tester-%d", idx),
+				},
+			}
+			createErr := CreateMCPAccessToken(ctx, token)
+			if createErr == nil {
+				atomic.AddInt32(&successCount, 1)
+				return
+			}
+			if errors.Is(createErr, ErrMCPTokenLimitExceeded) {
+				atomic.AddInt32(&limitErrCount, 1)
+				return
+			}
+			atomic.AddInt32(&otherErrCount, 1)
+		}(i)
+	}
+
+	close(start)
+	wg.Wait()
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&successCount))
+	assert.Equal(t, int32(workers-1), atomic.LoadInt32(&limitErrCount))
+	assert.Equal(t, int32(0), atomic.LoadInt32(&otherErrCount))
+
+	total, err := CountMCPAccessTokensByGateway(ctx, gateway.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(MaxMCPAccessTokensPerGateway), total)
+}
+
+func BenchmarkListMCPAccessTokens(b *testing.B) {
+	benchSizes := []int{10, 100, 500}
+	for _, size := range benchSizes {
+		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
+			util.InitEmbedDb()
+			ctx := context.Background()
+
+			gateway := &model.Gateway{
+				Name:          fmt.Sprintf("bench-list-gateway-%d-%d", size, time.Now().UnixNano()),
+				APISIXVersion: string(constant.APISIXVersion313),
+			}
+			err := CreateGateway(ctx, gateway)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			for i := 0; i < size; i++ {
+				token := &model.MCPAccessToken{
+					GatewayID: gateway.ID,
+					Token: HashMCPToken(
+						fmt.Sprintf("bench-token-plain-%d-%d", gateway.ID, i),
+					),
+					Name:        fmt.Sprintf("bench-token-%d", i),
+					AccessScope: model.MCPAccessScopeRead,
+					ExpiredAt:   time.Now().Add(24 * time.Hour),
+					BaseModel: model.BaseModel{
+						Creator: "bench",
+						Updater: "bench",
+					},
+				}
+				if err := database.Client().WithContext(ctx).Create(token).Error; err != nil {
+					b.Fatal(err)
+				}
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_, err := ListMCPAccessTokens(ctx, gateway.ID)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
 }

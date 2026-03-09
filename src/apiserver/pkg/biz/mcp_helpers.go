@@ -138,15 +138,18 @@ func RevertResource(
 	}
 
 	// Update resource with synced config
-	err = database.Client().WithContext(ctx).
+	result := database.Client().WithContext(ctx).
 		Table(resourceTableMap[resourceType]).
 		Where("gateway_id = ? AND id = ?", gatewayID, resourceID).
 		Updates(map[string]any{
 			"config": syncedData.Config,
 			"status": constant.ResourceStatusSuccess,
-		}).Error
-	if err != nil {
-		return fmt.Errorf("failed to revert resource: %w", err)
+		})
+	if result.Error != nil {
+		return fmt.Errorf("failed to revert resource: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("resource not found in edit area: %s", resourceID)
 	}
 
 	return nil

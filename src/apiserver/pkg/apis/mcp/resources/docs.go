@@ -31,7 +31,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/resource_types",
 		Name:        "APISIX Resource Types",
-		Description: "Documentation for all supported APISIX resource types",
+		Description: "Reference for supported APISIX resource types, key fields, and identifiers.",
 		MIMEType:    "text/markdown",
 	}, resourceTypesHandler)
 
@@ -39,7 +39,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/resource_relations",
 		Name:        "Resource Relations",
-		Description: "Documentation for resource dependencies and relationships",
+		Description: "Reference for resource dependency graph, import order, and delete safety constraints.",
 		MIMEType:    "text/markdown",
 	}, resourceRelationsHandler)
 
@@ -47,7 +47,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/state_machine",
 		Name:        "Resource State Machine",
-		Description: "Documentation for resource status transitions",
+		Description: "Reference for resource lifecycle states and legal transitions.",
 		MIMEType:    "text/markdown",
 	}, stateMachineHandler)
 
@@ -55,7 +55,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/three_area_model",
 		Name:        "Three Area Model",
-		Description: "Documentation for the Edit/Sync/Publish area model",
+		Description: "Reference for Etcd, sync area, and edit area responsibilities and data flow.",
 		MIMEType:    "text/markdown",
 	}, threeAreaModelHandler)
 
@@ -63,7 +63,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/publish_workflow",
 		Name:        "Publish Workflow",
-		Description: "Documentation for the publishing workflow",
+		Description: "Reference workflow for safe changes: sync, edit, diff, preview, then publish outside MCP.",
 		MIMEType:    "text/markdown",
 	}, publishWorkflowHandler)
 
@@ -71,7 +71,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/api_error_details",
 		Name:        "API Error Details",
-		Description: "Documentation for common API errors and solutions",
+		Description: "Reference for MCP API errors, HTTP status mapping, and common remediation steps.",
 		MIMEType:    "text/markdown",
 	}, apiErrorDetailsHandler)
 
@@ -79,7 +79,7 @@ func RegisterDocumentationResources(server *mcp.Server) {
 	server.AddResource(&mcp.Resource{
 		URI:         "bk-apisix://docs/plugin_precedence",
 		Name:        "Plugin Merging Precedence",
-		Description: "Documentation for how plugins are merged when configured on multiple objects",
+		Description: "Reference for plugin merge precedence across consumer/group/route/plugin_config/service scopes.",
 		MIMEType:    "text/markdown",
 	}, pluginPrecedenceHandler)
 }
@@ -144,6 +144,12 @@ func pluginPrecedenceHandler(ctx context.Context, req *mcp.ReadResourceRequest) 
 const resourceTypesDoc = `# APISIX Resource Types
 
 BK Micro APIGateway manages the following APISIX resource types:
+
+## MCP Operation Notes
+
+- Gateway context is selected by MCP endpoint path (` + "`/mcp/gateways/:gateway_id/`" + `).
+- Gateway-bound MCP operations require APISIX ` + "`3.13.X`" + `.
+- MCP supports ` + "`publish_preview`" + ` only; actual publish is done in Web UI/OpenAPI.
 
 ## Core Concepts
 
@@ -288,6 +294,7 @@ When publishing, resources are published in dependency order to ensure reference
 Before deleting a resource, check if it's referenced by other resources:
 - Deleting an Upstream that's referenced by a Route will cause the Route to fail
 - Use diff_resources to check for potential issues
+- ` + "`delete_resource`" + ` performs dependency checks and returns blocking references when deletion is unsafe
 `
 
 const stateMachineDoc = `# Resource State Machine
@@ -418,7 +425,7 @@ BK Micro APIGateway uses a three-area model for managing APISIX configurations:
 2. **Import**: Copy unmanaged resources from sync area to edit area
 3. **Edit**: Make changes in the edit area (CRUD operations)
 4. **Diff**: Compare edit area with sync area to see pending changes
-5. **Publish**: Apply changes from edit area to etcd directly
+5. **Publish**: Review with ` + "`publish_preview`" + ` in MCP, then publish via Web UI/OpenAPI
 
 ## Benefits
 
@@ -430,147 +437,104 @@ BK Micro APIGateway uses a three-area model for managing APISIX configurations:
 
 const publishWorkflowDoc = `# Publish Workflow
 
-## Standard Workflow
+This server follows a prepare-and-review model in MCP:
+- Prepare drafts with CRUD/sync tools
+- Review impact with diff/preview tools
+- Publish outside MCP (Web UI/OpenAPI)
 
-### Step 1: Sync from Etcd
+## Step 1: Sync Runtime Snapshot
 ` + "```" + `
 sync_from_etcd()
 ` + "```" + `
-- Fetches current state from APISIX/etcd
-- Updates the sync area with latest data
-- Check sync result to confirm resource counts
 
-### Step 2: Import New Resources (if needed)
+## Step 2: Import Existing Runtime Resources (Optional)
 ` + "```" + `
-# List unmanaged resources
 list_synced_resource(resource_type="route", status="unmanaged")
-
-# Import to edit area
 add_synced_resources_to_edit_area(resource_ids=["route-1", "route-2"])
 ` + "```" + `
-- Check for resources in etcd that aren't being managed
-- Import resources you want to manage
-- Dependencies are automatically imported
 
-### Step 3: Edit Resources
+## Step 3: Edit Draft Resources
 ` + "```" + `
-# Create new resource
 create_resource(resource_type="route", name="my-route", config={...})
-
-# Update existing resource
-update_resource(resource_type="route", resource_id="route-1", config={...})
-
-# Delete resource
+get_resource(resource_type="route", resource_id="route-1")
+update_resource(resource_type="route", resource_id="route-1", config={...full config...})
 delete_resource(resource_type="route", resource_ids=["old-route"])
 ` + "```" + `
-- Resources enter draft status (create_draft, update_draft, delete_draft)
-- Changes are NOT applied to APISIX yet
 
-### Step 4: Review Changes
+## Step 4: Validate and Review
 ` + "```" + `
-# Get change summary
+validate_resource_config(apisix_version="3.13", resource_type="route", config={...})
 diff_resources()
-
-# Get detailed diff for specific resource
 diff_detail(resource_type="route", resource_id="route-1")
-` + "```" + `
-- Review all pending changes
-- Check for potential issues
-
-### Step 5: Publish
-` + "```" + `
-# Preview what will be published
 publish_preview()
-
 ` + "```" + `
-- Publishing via MCP is disabled for safety. Please use the web UI to publish changes.
+
+## Step 5: Publish Outside MCP
+
+MCP publish tools are intentionally disabled.
+Publish in Web UI/OpenAPI, then run:
+` + "```" + `
+sync_from_etcd()
+` + "```" + `
 
 ## Pre-Publish Checklist
 
-✅ **Data Sync**
-- [ ] Executed latest sync (sync_from_etcd)
-- [ ] Sync completed within last 5 minutes
-
-✅ **Change Review**
-- [ ] Reviewed diff_resources summary
-- [ ] Confirmed create count
-- [ ] Confirmed update count
-- [ ] Confirmed delete count
-
-✅ **Dependency Check**
-- [ ] Referenced Services/Upstreams exist or being published together
-- [ ] Deleted resources won't break other resources
-
-✅ **Configuration Validation**
-- [ ] Configs match target APISIX version schema
-- [ ] Plugin configurations are correct
-
-⚠️ **Risk Awareness**
-- Changes take effect immediately in production
-- Consider testing in a staging environment first
+1. Latest sync completed successfully.
+2. All changed resources validated against schema.
+3. Dependency order is safe (create: Upstream -> Service -> Route).
+4. ` + "`diff_resources`" + ` and ` + "`publish_preview`" + ` match expected change scope.
+5. Blast radius and rollback plan are documented.
 `
 
 const apiErrorDetailsDoc = `# API Error Details
 
-## Authentication Errors
-
-### 401 Unauthorized
-- **Missing Authorization header**: MCP requests require Bearer token authentication
-- **Invalid token**: The provided token doesn't exist in the database
-- **Token format error**: Use format: ` + "`Authorization: Bearer <token>`" + `
-
-### 403 Forbidden
-- **Token expired**: The MCP access token has passed its expiration date
-- **Insufficient scope**: Token has ` + "`read`" + ` scope but operation requires ` + "`write`" + `
-- **Gateway not supported**: Gateway's APISIX version is not 3.13.X (MCP only supports 3.13)
-
-## Resource Errors
-
-### 404 Not Found
-- **Resource not found**: The specified resource_id doesn't exist
-- **Gateway not found**: The specified gateway_id doesn't exist
-
-### 409 Conflict
-- **Name already exists**: Resource name is already used in the gateway
-- **Duplicate resource**: Attempting to create a resource that already exists
+## Authentication and Authorization (HTTP Layer)
 
 ### 400 Bad Request
-- **Invalid resource type**: Use one of: route, service, upstream, consumer, consumer_group,
-  plugin_config, global_rule, plugin_metadata, proto, ssl, stream_route
-- **Invalid status**: Use one of: create_draft, update_draft, delete_draft, success
-- **Missing required field**: Check the tool's required parameters
-- **Invalid config**: Configuration doesn't match APISIX schema
+- Missing or invalid ` + "`gateway_id`" + ` in URL path
 
-## Schema Validation Errors
+### 401 Unauthorized
+- Missing ` + "`Authorization`" + ` header
+- Invalid bearer token format (must be ` + "`Authorization: Bearer <token>`" + `)
+- Token not found
 
-### Common Schema Errors
-- **Additional property not allowed**: Config contains fields not in the APISIX schema
-- **Required property missing**: A required field is not provided
-- **Type mismatch**: Field value doesn't match expected type
+### 403 Forbidden
+- Token expired
+- Token does not match gateway in request path
 
-### Version-Specific Errors
-- **Name field not supported**: Some resources (consumer_group, stream_route) don't support
-  ` + "`name`" + ` field in APISIX 3.11
-- Check APISIXVersion-specific field support
+### 501 Not Implemented
+- Gateway APISIX version does not support MCP (requires ` + "`3.13.X`" + `)
 
-## Publish Errors
+## Common Tool-Level Validation Errors
 
-### Etcd Connection Errors
-- **Connection refused**: Cannot connect to etcd
-- **Timeout**: Etcd operation timed out
-- **Authentication failed**: Etcd credentials are incorrect
+### Invalid input
+- Missing required argument (for example ` + "`resource_type`" + `)
+- Invalid enum value (resource type, status, schema type)
+- Invalid JSON shape for ` + "`config`" + `
+- Insufficient scope for write tool call
 
-### Publish Validation Errors
-- **Schema validation failed**: Config doesn't match the strict etcd schema
-- **Dependency missing**: Referenced resource (service_id, upstream_id) doesn't exist in etcd
+### Schema validation failures
+- Additional property not allowed
+- Required property missing
+- Type mismatch
 
-## Best Practices
+### Dependency and conflict failures
+- Referenced resource does not exist
+- Resource is still referenced by dependents (delete blocked)
+- Duplicate name/key conflict
 
-1. **Always sync before publishing**: Ensure you have the latest state
-2. **Use diff before publish**: Review changes before applying
-3. **Validate configs**: Use validate_resource_config before create/update
-4. **Check dependencies**: Ensure referenced resources exist
-5. **Publish in order**: Publish dependencies before dependents
+## Troubleshooting Sequence
+
+1. ` + "`sync_from_etcd()`" + `
+2. ` + "`diff_resources()`" + `
+3. ` + "`get_resource(...)`" + ` for failing resource
+4. ` + "`validate_resource_config(...)`" + `
+5. ` + "`publish_preview()`" + ` before external publish
+
+## Notes
+
+- MCP publish tools are disabled by design; publish is performed via Web UI/OpenAPI.
+- Schema tools support versions ` + "`3.11`" + ` and ` + "`3.13`" + `.
 `
 
 const pluginPrecedenceDoc = `# Plugin Merging Precedence

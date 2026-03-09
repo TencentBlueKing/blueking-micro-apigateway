@@ -149,55 +149,6 @@ func TestMCPAccessToken_CanWrite(t *testing.T) {
 	}
 }
 
-func TestMCPAccessToken_MaskedToken(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		token    string
-		expected string
-	}{
-		{
-			name:     "normal length token",
-			token:    "abcdefgh12345678ijklmnop90qrstuv",
-			expected: "abcdefgh****stuv",
-		},
-		{
-			name:     "64 char token (standard)",
-			token:    "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2",
-			expected: "a1b2c3d4****e1f2",
-		},
-		{
-			name:     "short token",
-			token:    "short",
-			expected: "****",
-		},
-		{
-			name:     "exactly 12 chars",
-			token:    "123456789012",
-			expected: "****",
-		},
-		{
-			name:     "13 chars (just over threshold)",
-			token:    "1234567890123",
-			expected: "12345678****0123",
-		},
-		{
-			name:     "empty token",
-			token:    "",
-			expected: "****",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			token := &MCPAccessToken{Token: tt.token}
-			assert.Equal(t, tt.expected, token.MaskedToken())
-		})
-	}
-}
-
 func TestMCPAccessToken_UpdateLastUsed(t *testing.T) {
 	t.Parallel()
 

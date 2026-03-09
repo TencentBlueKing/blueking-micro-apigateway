@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +66,7 @@ var (
 	lastUsedPending    map[int]time.Time
 	lastUsedMu         sync.Mutex
 	lastUsedOnce       sync.Once
+	tokenCreateLocks   sync.Map // map[gatewayID]*sync.Mutex
 )
 
 // initLastUsedUpdater initializes the background goroutine for batched lastUsedAt updates
@@ -231,24 +233,6 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 		return ErrMCPTokenInvalidScope
 	}
 
-	// 检查是否超过最大令牌数量限制
-	count, err := CountMCPAccessTokensByGateway(ctx, token.GatewayID)
-	if err != nil {
-		return err
-	}
-	if count >= MaxMCPAccessTokensPerGateway {
-		return ErrMCPTokenLimitExceeded
-	}
-
-	// 检查名称是否已存在
-	exists, err := MCPAccessTokenNameExists(ctx, token.GatewayID, token.Name, 0)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return ErrMCPTokenNameExists
-	}
-
 	// 生成令牌
 	plainToken, err := GenerateMCPToken()
 	if err != nil {
@@ -259,7 +243,33 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 	hashedToken := HashMCPToken(plainToken)
 	token.Token = hashedToken
 
-	if err := database.Client().WithContext(ctx).Create(token).Error; err != nil {
+	createLock := getTokenCreateLock(token.GatewayID)
+	createLock.Lock()
+	defer createLock.Unlock()
+
+	// In-process gateway lock + transaction to avoid concurrent count/create races.
+	if err := database.Client().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 检查是否超过最大令牌数量限制
+		var count int64
+		if err := tx.WithContext(ctx).
+			Model(&model.MCPAccessToken{}).
+			Where("gateway_id = ?", token.GatewayID).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= MaxMCPAccessTokensPerGateway {
+			return ErrMCPTokenLimitExceeded
+		}
+
+		if err := tx.WithContext(ctx).Create(token).Error; err != nil {
+			if isDuplicateGatewayTokenNameErr(err) {
+				return ErrMCPTokenNameExists
+			}
+			return err
+		}
+
+		return nil
+	}); err != nil {
 		return err
 	}
 
@@ -268,6 +278,23 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 	token.Token = plainToken
 
 	return nil
+}
+
+func getTokenCreateLock(gatewayID int) *sync.Mutex {
+	lock, _ := tokenCreateLocks.LoadOrStore(gatewayID, &sync.Mutex{})
+	return lock.(*sync.Mutex)
+}
+
+func isDuplicateGatewayTokenNameErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "idx_gateway_name") ||
+		strings.Contains(msg, "mcp_access_token.gateway_id, mcp_access_token.name")
 }
 
 // DeleteMCPAccessToken 删除 MCP 访问令牌
@@ -285,9 +312,13 @@ func DeleteMCPAccessToken(ctx context.Context, id int) error {
 
 // DeleteMCPAccessTokenByGateway 删除网关下的所有 MCP 访问令牌
 func DeleteMCPAccessTokenByGateway(ctx context.Context, gatewayID int) error {
-	return database.Client().WithContext(ctx).
+	err := database.Client().WithContext(ctx).
 		Where("gateway_id = ?", gatewayID).
 		Delete(&model.MCPAccessToken{}).Error
+	if err == nil {
+		tokenCreateLocks.Delete(gatewayID)
+	}
+	return err
 }
 
 // MCPAccessTokenNameExists 检查 MCP 访问令牌名称是否已存在

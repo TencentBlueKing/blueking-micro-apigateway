@@ -42,44 +42,78 @@ import (
 
 // ListResourceInput is the input for the list_resource tool
 type ListResourceInput struct {
-	ResourceType string `json:"resource_type" jsonschema:"resource type to list"`
-	Name         string `json:"name,omitempty" jsonschema:"filter by resource name (optional, supports fuzzy match)"`
-	Status       string `json:"status,omitempty" jsonschema:"filter by resource status (optional)"`
-	Page         int    `json:"page,omitempty" jsonschema:"page number (default: 1)"`
-	PageSize     int    `json:"page_size,omitempty" jsonschema:"number of items per page (default: 20, max: 100)"`
+	ResourceType string `json:"resource_type" jsonschema:"Required. APISIX resource type to list."`
+	Name         string `json:"name,omitempty" jsonschema:"Optional name substring filter (consumer uses username)."`
+	//nolint:lll // Keep allowed status values explicit for MCP clients.
+	Status   string `json:"status,omitempty" jsonschema:"Optional status filter: create_draft|update_draft|delete_draft|success."`
+	Page     int    `json:"page,omitempty" jsonschema:"Optional page number. Default: 1."`
+	PageSize int    `json:"page_size,omitempty" jsonschema:"Optional page size. Default: 20. Max: 100."`
 }
 
 // GetResourceInput is the input for the get_resource tool
 type GetResourceInput struct {
-	ResourceType string `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
-	ResourceID   string `json:"resource_id" jsonschema:"the resource ID to retrieve (required)"`
+	ResourceType string `json:"resource_type" jsonschema:"Required. APISIX resource type used to resolve resource_id."`
+	ResourceID   string `json:"resource_id" jsonschema:"Required. Resource ID to retrieve."`
 }
 
 // CreateResourceInput is the input for the create_resource tool
 type CreateResourceInput struct {
-	ResourceType string         `json:"resource_type" jsonschema:"resource type to create"`
-	Name         string         `json:"name" jsonschema:"resource name (uses 'username' for consumer)"`
-	Config       map[string]any `json:"config" jsonschema:"resource configuration object following APISIX schema"`
+	ResourceType string         `json:"resource_type" jsonschema:"Required. APISIX resource type to create."`
+	Name         string         `json:"name" jsonschema:"Required. Resource name (consumer maps this to username)."`
+	Config       map[string]any `json:"config" jsonschema:"Required. Full resource config object following APISIX schema."`
 }
 
 // UpdateResourceInput is the input for the update_resource tool
 type UpdateResourceInput struct {
-	ResourceType string         `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
-	ResourceID   string         `json:"resource_id" jsonschema:"the resource ID to update (required)"`
-	Name         string         `json:"name,omitempty" jsonschema:"new resource name (optional)"`
-	Config       map[string]any `json:"config" jsonschema:"new resource configuration (required)"`
+	ResourceType string `json:"resource_type" jsonschema:"Required. APISIX resource type."`
+	ResourceID   string `json:"resource_id" jsonschema:"Required. Resource ID to update."`
+	Name         string `json:"name,omitempty" jsonschema:"Optional new resource name."`
+	//nolint:lll // Clarify that patch-style updates are not supported.
+	Config map[string]any `json:"config" jsonschema:"Required full config replacement; partial patch updates are not supported."`
 }
 
 // DeleteResourceInput is the input for the delete_resource tool
 type DeleteResourceInput struct {
-	ResourceType string   `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
-	ResourceIDs  []string `json:"resource_ids" jsonschema:"array of resource IDs to delete (required)"`
+	ResourceType string   `json:"resource_type" jsonschema:"Required. APISIX resource type."`
+	ResourceIDs  []string `json:"resource_ids" jsonschema:"Required. Resource IDs to delete."`
 }
 
 // RevertResourceInput is the input for the revert_resource tool
 type RevertResourceInput struct {
-	ResourceType string   `json:"resource_type" jsonschema:"resource type (REQUIRED)"`
-	ResourceIDs  []string `json:"resource_ids" jsonschema:"array of resource IDs to revert (required)"`
+	ResourceType string   `json:"resource_type" jsonschema:"Required. APISIX resource type."`
+	ResourceIDs  []string `json:"resource_ids" jsonschema:"Required. Resource IDs to revert."`
+}
+
+type batchOperationFailure struct {
+	ResourceID string `json:"resource_id"`
+	Stage      string `json:"stage"`
+	Error      string `json:"error"`
+}
+
+func buildBatchOperationResult(
+	message string,
+	resourceType string,
+	totalRequested int,
+	successCount int,
+	extraCounts map[string]int,
+	failedItems []batchOperationFailure,
+) map[string]any {
+	if failedItems == nil {
+		failedItems = []batchOperationFailure{}
+	}
+	result := map[string]any{
+		"message":         message,
+		"total_requested": totalRequested,
+		"success_count":   successCount,
+		"failed_count":    len(failedItems),
+		"partial_success": len(failedItems) > 0,
+		"failed_items":    failedItems,
+		"resource_type":   resourceType,
+	}
+	for key, value := range extraCounts {
+		result[key] = value
+	}
+	return result
 }
 
 // RegisterResourceCRUDTools registers all resource CRUD tools
@@ -87,57 +121,44 @@ func RegisterResourceCRUDTools(server *mcp.Server) {
 	// list_resource
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "list_resource",
-		Description: "List resources in the edit area with pagination and filtering. " +
-			"Returns resources managed by the gateway.",
+		Description: "List resources from the edit area with pagination and optional name/status filters. " +
+			"Read-only operation.",
 	}, listResourceHandler)
 
 	// get_resource
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_resource",
-		Description: "Get detailed information about a specific resource including its full configuration. " +
-			"IMPORTANT: Both resource_type and resource_id are required. If a user only provides an ID, " +
-			"you MUST ask them to specify the resource_type (e.g., 'route', 'service', 'upstream', etc.) " +
-			"because the same ID format could belong to different resource types.",
+		Description: "Get a single resource by resource_type and resource_id, including full config. " +
+			"Use this before update_resource to build a complete replacement config.",
 	}, getResourceHandler)
 
 	// create_resource
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "create_resource",
-		Description: "Create a new resource in the edit area. The resource will be in 'create_draft' " +
-			"status until published. If you found create failed because of name conflict " +
-			"(Error 1062 (23000): Duplicate entry '1' for key 'route.idx_name'), " +
-			"JUST TELL USER TO CHANGE THE NAME AND TRY AGAIN, DO NOT TRY TO FIX IT FOR USER.",
+		Description: "Create a new resource in the edit area. Result status is create_draft until publish via web UI/API. " +
+			"Requires write scope. Name conflicts must be resolved by choosing a different name.",
 	}, createResourceHandler)
 
 	// update_resource
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "update_resource",
-		Description: "Update an existing resource. The resource status will change to 'update_draft' " +
-			"until published. If you update a resource, you should get the resource first, " +
-			"and modify the fields then update. " +
-			"DO NOT ONLY UPDATE PART OF FIELDS IN CONFIG, YOU SHOULD UPDATE THE WHOLE CONFIG. " +
-			"IMPORTANT: Both resource_type and resource_id are required. If a user only provides an ID, " +
-			"you MUST ask them to specify the resource_type.",
+		Description: "Replace an existing resource config in the edit area (full config required; no partial patch). " +
+			"Status transitions to update_draft unless still create_draft. Requires write scope.",
 	}, updateResourceHandler)
 
 	// delete_resource
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "delete_resource",
-		Description: "Mark resources for deletion. Resources in 'create_draft' status " +
-			"will be hard-deleted; others will be marked as 'delete_draft' until published. " +
-			"IMPORTANT: Both resource_type and resource_ids are required. If a user only provides IDs, " +
-			"you MUST ask them to specify the resource_type. " +
-			"NOTE: This tool checks if resources are referenced by other resources before deletion. " +
-			"For example, a service referenced by routes cannot be deleted until those routes are deleted first.",
+		Description: "Delete resources by ID. create_draft resources are hard-deleted; " +
+			"published resources are marked delete_draft. " +
+			"Performs dependency checks and blocks unsafe deletes. Requires write scope.",
 	}, deleteResourceHandler)
 
 	// revert_resource
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "revert_resource",
-		Description: "Revert resources to their synced snapshot state. " +
-			"Discards all local changes for the specified resources. " +
-			"IMPORTANT: Both resource_type and resource_ids are required. If a user only provides IDs, " +
-			"you MUST ask them to specify the resource_type.",
+		Description: "Revert resources to the last synced snapshot state (gateway_sync_data), discarding local drafts. " +
+			"Requires write scope.",
 	}, revertResourceHandler)
 }
 
@@ -431,11 +452,17 @@ func deleteResourceHandler(
 
 	deletedCount := 0
 	markedCount := 0
+	failedItems := make([]batchOperationFailure, 0)
 
 	for _, resourceID := range input.ResourceIDs {
 		// Get current resource to check status
 		resource, err := biz.GetResourceByID(ctx, resourceType, resourceID)
 		if err != nil {
+			failedItems = append(failedItems, batchOperationFailure{
+				ResourceID: resourceID,
+				Stage:      "get",
+				Error:      err.Error(),
+			})
 			continue
 		}
 
@@ -444,6 +471,12 @@ func deleteResourceHandler(
 			err = biz.BatchDeleteResourceByIDs(ctx, resourceType, []string{resourceID})
 			if err == nil {
 				deletedCount++
+			} else {
+				failedItems = append(failedItems, batchOperationFailure{
+					ResourceID: resourceID,
+					Stage:      "delete",
+					Error:      err.Error(),
+				})
 			}
 		} else {
 			// Others are marked as delete_draft
@@ -455,16 +488,28 @@ func deleteResourceHandler(
 			)
 			if err == nil {
 				markedCount++
+			} else {
+				failedItems = append(failedItems, batchOperationFailure{
+					ResourceID: resourceID,
+					Stage:      "mark_delete",
+					Error:      err.Error(),
+				})
 			}
 		}
 	}
 
-	return successResult(map[string]any{
-		"message":             "Delete operation completed",
-		"hard_deleted_count":  deletedCount,
-		"marked_delete_count": markedCount,
-		"resource_type":       input.ResourceType,
-	}), nil, nil
+	successCount := deletedCount + markedCount
+	return successResult(buildBatchOperationResult(
+		"Delete operation completed",
+		input.ResourceType,
+		len(input.ResourceIDs),
+		successCount,
+		map[string]int{
+			"hard_deleted_count":  deletedCount,
+			"marked_delete_count": markedCount,
+		},
+		failedItems,
+	)), nil, nil
 }
 
 // revertResourceHandler handles the revert_resource tool call
@@ -492,16 +537,28 @@ func revertResourceHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	revertedCount := 0
+	failedItems := make([]batchOperationFailure, 0)
 	for _, resourceID := range input.ResourceIDs {
 		err := biz.RevertResource(ctx, resourceType, resourceID)
 		if err == nil {
 			revertedCount++
+		} else {
+			failedItems = append(failedItems, batchOperationFailure{
+				ResourceID: resourceID,
+				Stage:      "revert",
+				Error:      err.Error(),
+			})
 		}
 	}
 
-	return successResult(map[string]any{
-		"message":        "Revert operation completed",
-		"reverted_count": revertedCount,
-		"resource_type":  input.ResourceType,
-	}), nil, nil
+	return successResult(buildBatchOperationResult(
+		"Revert operation completed",
+		input.ResourceType,
+		len(input.ResourceIDs),
+		revertedCount,
+		map[string]int{
+			"reverted_count": revertedCount,
+		},
+		failedItems,
+	)), nil, nil
 }

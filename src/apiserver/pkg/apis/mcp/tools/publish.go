@@ -35,14 +35,14 @@ import (
 
 // PublishPreviewInput is the input for the publish_preview tool
 type PublishPreviewInput struct {
-	ResourceType string   `json:"resource_type,omitempty" jsonschema:"filter by resource type (optional)"`
-	ResourceIDs  []string `json:"resource_ids,omitempty" jsonschema:"filter by specific resource IDs (optional)"`
+	ResourceType string   `json:"resource_type,omitempty" jsonschema:"Optional resource type filter for preview."`
+	ResourceIDs  []string `json:"resource_ids,omitempty" jsonschema:"Optional resource ID filter for preview."`
 }
 
 // PublishResourceInput is the input for the publish_resource tool (currently disabled)
 type PublishResourceInput struct {
-	ResourceType string   `json:"resource_type" jsonschema:"resource type to publish"`
-	ResourceIDs  []string `json:"resource_ids" jsonschema:"array of resource IDs to publish (required)"`
+	ResourceType string   `json:"resource_type" jsonschema:"Required. APISIX resource type to publish."`
+	ResourceIDs  []string `json:"resource_ids" jsonschema:"Required. Resource IDs to publish."`
 }
 
 // PublishAllInput is the input for the publish_all tool (currently disabled)
@@ -54,9 +54,8 @@ func RegisterPublishTools(server *mcp.Server) {
 	// publish_preview
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "publish_preview",
-		Description: "Preview pending changes before publishing. " +
-			"Shows what resources will be created, updated, or deleted in etcd/APISIX." +
-			"Currently only list 2000 resources at most",
+		Description: "Preview pending draft changes (create/update/delete) that would be published. " +
+			"Read-only preview. Actual publish via MCP is disabled. Returns up to 2000 resources per query.",
 	}, publishPreviewHandler)
 
 	// NOTE: publish_resource and publish_all are commented out for safety.
@@ -66,14 +65,14 @@ func RegisterPublishTools(server *mcp.Server) {
 	// // publish_resource
 	// mcp.AddTool(server, &mcp.Tool{
 	// 	Name: "publish_resource",
-	// 	Description: "Publish specific resources to etcd/APISIX. " +
+	// 	Description: "Publish specific resources to etcd/APISIX. Requires write scope. " +
 	// 		"Applies the changes from the edit area to the data plane.",
 	// }, publishResourceHandler)
 
 	// // publish_all
 	// mcp.AddTool(server, &mcp.Tool{
 	// 	Name: "publish_all",
-	// 	Description: "Publish all pending changes (draft resources) to etcd/APISIX. " +
+	// 	Description: "Publish all pending draft changes to etcd/APISIX. Requires write scope. " +
 	// 		"Convenience tool for publishing all modified resources at once.",
 	// }, publishAllHandler)
 }

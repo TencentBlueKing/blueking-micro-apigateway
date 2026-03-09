@@ -375,16 +375,33 @@ Write to etcd → APISIX
 
 **Go Version Requirement**: Go 1.25.5+
 
-check go version first,
+Always confirm Go version before build/test/lint.
 
-- if `src/apiserver/.envrc` is present, try to use it(source the file first).
-- or try to use `/root/.gvm/gos/go1.25.5/bin/go` if the first one is not present.
-- or ask the user to provide
+Use this order strictly (stop when one works):
+
+1. If you are already in `src/apiserver`, use local `.envrc` first:
 
 ```shell
-# Check Go version
+# from src/apiserver
+[ -f .envrc ] && source .envrc
+go version
+which go
+```
+
+2. If `.envrc` is missing or does not provide Go 1.25.5+, use explicit Go binary:
+
+```shell
+/root/.gvm/gos/go1.25.5/bin/go version
+```
+
+If you need `go` command (for `make test`, `make lint`, etc.), prepend PATH in the same shell:
+
+```shell
+export PATH=/root/.gvm/gos/go1.25.5/bin:$PATH
 go version
 ```
+
+3. If both methods fail, ask the user to provide the correct Go toolchain path.
 
 There is a @Makefile in the `src/apiserver` directory, you can use it to build and test the project.
 

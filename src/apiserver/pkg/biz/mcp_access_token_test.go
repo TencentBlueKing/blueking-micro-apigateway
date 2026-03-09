@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -50,6 +51,50 @@ func TestGenerateMCPToken(t *testing.T) {
 	for _, c := range token1 {
 		assert.True(t, (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'),
 			"Token should only contain hex characters")
+	}
+}
+
+func TestMaskToken(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		expected string
+	}{
+		{
+			name:     "standard 64-char hex token",
+			token:    "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			expected: "abcdef" + strings.Repeat("*", 52) + "567890",
+		},
+		{
+			name:     "exactly 12 chars",
+			token:    "abcdef123456",
+			expected: "abcdef123456",
+		},
+		{
+			name:     "short token under 12 chars",
+			token:    "abc",
+			expected: "***",
+		},
+		{
+			name:     "empty token",
+			token:    "",
+			expected: "",
+		},
+		{
+			name:     "13 chars",
+			token:    "abcdef1234567",
+			expected: "abcdef*234567",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := MaskToken(tt.token)
+			assert.Equal(t, tt.expected, result)
+			if len(tt.token) >= 12 {
+				assert.True(t, strings.HasPrefix(result, tt.token[:6]))
+				assert.True(t, strings.HasSuffix(result, tt.token[len(tt.token)-6:]))
+			}
+		})
 	}
 }
 
@@ -99,6 +144,8 @@ func TestMCPAccessTokenCRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Greater(t, token.ID, 0)
 	assert.Len(t, token.Token, 64) // Plain token returned
+	assert.NotEmpty(t, token.MaskedToken)
+	assert.Equal(t, MaskToken(token.Token), token.MaskedToken)
 
 	// 保存原始令牌用于后续查询
 	plainToken := token.Token
@@ -108,6 +155,7 @@ func TestMCPAccessTokenCRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, token.Name, retrieved.Name)
 	assert.Equal(t, token.AccessScope, retrieved.AccessScope)
+	assert.Equal(t, token.MaskedToken, retrieved.MaskedToken)
 
 	// 按令牌字符串获取（验证哈希查询）
 	retrievedByToken, err := GetMCPAccessTokenByToken(ctx, plainToken)
@@ -429,11 +477,11 @@ func BenchmarkListMCPAccessTokens(b *testing.B) {
 			}
 
 			for i := 0; i < size; i++ {
+				plainToken := fmt.Sprintf("bench-token-plain-%d-%d-padding-to-64chars-abcdefghij1234567", gateway.ID, i)
 				token := &model.MCPAccessToken{
-					GatewayID: gateway.ID,
-					Token: HashMCPToken(
-						fmt.Sprintf("bench-token-plain-%d-%d", gateway.ID, i),
-					),
+					GatewayID:   gateway.ID,
+					Token:       HashMCPToken(plainToken),
+					MaskedToken: MaskToken(plainToken),
 					Name:        fmt.Sprintf("bench-token-%d", i),
 					AccessScope: model.MCPAccessScopeRead,
 					ExpiredAt:   time.Now().Add(24 * time.Hour),

@@ -239,9 +239,10 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 		return err
 	}
 
-	// 存储哈希值到数据库
+	// 存储哈希值和掩码令牌到数据库
 	hashedToken := HashMCPToken(plainToken)
 	token.Token = hashedToken
+	token.MaskedToken = MaskToken(plainToken)
 
 	createLock := getTokenCreateLock(token.GatewayID)
 	createLock.Lock()
@@ -463,6 +464,15 @@ func AddMCPAccessTokenAuditLog(
 	return nil
 }
 
+// MaskToken returns a masked version of the token, showing first 6 and last 6 characters.
+// For tokens shorter than 12 characters, the entire token is masked.
+func MaskToken(token string) string {
+	if len(token) < 12 {
+		return strings.Repeat("*", len(token))
+	}
+	return token[:6] + strings.Repeat("*", len(token)-12) + token[len(token)-6:]
+}
+
 func buildMCPAccessTokenAuditConfig(token *model.MCPAccessToken) (json.RawMessage, error) {
 	var lastUsedAt *int64
 	if token.LastUsedAt != nil {
@@ -482,6 +492,7 @@ func buildMCPAccessTokenAuditConfig(token *model.MCPAccessToken) (json.RawMessag
 		"updated_at":   token.UpdatedAt.Unix(),
 		"creator":      token.Creator,
 		"updater":      token.Updater,
+		"masked_token": token.MaskedToken,
 	}
 
 	data, err := json.Marshal(payload)

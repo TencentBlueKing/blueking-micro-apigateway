@@ -48,6 +48,7 @@ type MCPAccessToken struct {
 	//nolint:lll // gorm index configuration keeps schema constraints explicit.
 	GatewayID   int            `gorm:"not null;index:idx_gateway;uniqueIndex:idx_gateway_name,priority:1" json:"gateway_id"`
 	Token       string         `gorm:"column:token;type:varchar(64);uniqueIndex:idx_token" json:"-"` // 不在 JSON 中返回完整 token
+	MaskedToken string         `gorm:"column:masked_token;type:varchar(80)" json:"masked_token"`
 	Name        string         `gorm:"column:name;size:128;not null;uniqueIndex:idx_gateway_name,priority:2" json:"name"`
 	Description string         `gorm:"column:description;type:varchar(512)" json:"description"`
 	AccessScope MCPAccessScope `gorm:"column:access_scope;type:varchar(16);not null" json:"access_scope"`

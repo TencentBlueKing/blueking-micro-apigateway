@@ -41,6 +41,7 @@ type MCPAccessTokenOutputInfo struct {
 	ID          int                  `json:"id"`
 	GatewayID   int                  `json:"gateway_id"`
 	Name        string               `json:"name"`
+	MaskedToken string               `json:"masked_token"`
 	Description string               `json:"description"`
 	AccessScope model.MCPAccessScope `json:"access_scope"`
 	ExpiredAt   int64                `json:"expired_at"`   // Unix timestamp
@@ -73,6 +74,7 @@ func MCPAccessTokenToOutputInfo(token *model.MCPAccessToken) MCPAccessTokenOutpu
 		ID:          token.ID,
 		GatewayID:   token.GatewayID,
 		Name:        token.Name,
+		MaskedToken: token.MaskedToken,
 		Description: token.Description,
 		AccessScope: token.AccessScope,
 		ExpiredAt:   token.ExpiredAt.Unix(),

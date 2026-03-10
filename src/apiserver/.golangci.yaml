@@ -100,6 +100,7 @@ linters:
         - G505
       confidence: medium
   exclusions:
+    generated: lax
     rules:
       # MCP docs contain embedded long markdown/code blocks by design.
       - path: pkg/apis/mcp/resources/docs.go
@@ -122,8 +123,9 @@ issues:
   # new: true                    # Check only unstaged/untracked files or HEAD~
 
   # Fix found issues (if it's supported by the linter).
+  # Keep false so CI lint is non-mutating.
   # Default: false
-  fix: true
+  fix: false
 
 formatters:
   enable:
@@ -131,6 +133,10 @@ formatters:
     - goimports
     - golines
     - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - pkg/apis/mcp/resources/docs.go
   settings:
     gofmt:
       # Simplify code: gofmt with `-s` option.

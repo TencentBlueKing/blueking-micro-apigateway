@@ -30,8 +30,8 @@ jobs:
         run: make vet
         working-directory: src/apiserver
 
-      - name: Lint
-        run: make init && make lint
+      - name: Lint (no autofix)
+        run: make init && make vet && ./bin/golangci-lint run
         working-directory: src/apiserver
 
       - name: Aqua Security Trivy

@@ -70,7 +70,7 @@ vet:
 
 .PHONY: lint
 lint: fmt vet
-	$(GOLINTER) run
+	$(GOLINTER) run --fix
 
 .PHONY: mock
 mock:

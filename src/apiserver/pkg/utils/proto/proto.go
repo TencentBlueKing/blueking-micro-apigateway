@@ -29,9 +29,9 @@ import (
 
 // ParseContent 解析 proto content 是否有语法错误
 func ParseContent(name, content string) error {
-	_, err := parser.Parse(fmt.Sprintf("%s.proto", name), strings.NewReader(content), reporter.NewHandler(nil))
+	_, err := parser.Parse(name+".proto", strings.NewReader(content), reporter.NewHandler(nil))
 	if err != nil {
-		return fmt.Errorf("无法解析 proto 内容: %v", err)
+		return fmt.Errorf("无法解析 proto 内容: %w", err)
 	}
 	return nil
 }

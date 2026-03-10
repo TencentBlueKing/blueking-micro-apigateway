@@ -21,7 +21,7 @@ package jsonx
 
 import (
 	"encoding/json"
-	"fmt"
+	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/tidwall/gjson"
@@ -155,13 +155,13 @@ func RemoveEmptyObjectsAndArrays(jsonStr string) (string, error) {
 				if (updatedElemResult.IsObject() && len(updatedElemResult.Map()) == 0) ||
 					(updatedElemResult.IsArray() && len(updatedElemResult.Array()) == 0) {
 					// 删除空元素
-					jsonStr, err = sjson.Delete(jsonStr, fmt.Sprintf("%d", i))
+					jsonStr, err = sjson.Delete(jsonStr, strconv.Itoa(i))
 					if err != nil {
 						return "", err
 					}
 				} else {
 					// 更新非空元素
-					jsonStr, err = sjson.SetRaw(jsonStr, fmt.Sprintf("%d", i), updatedElem)
+					jsonStr, err = sjson.SetRaw(jsonStr, strconv.Itoa(i), updatedElem)
 					if err != nil {
 						return "", err
 					}

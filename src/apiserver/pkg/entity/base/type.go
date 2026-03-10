@@ -40,12 +40,12 @@ func (l *LabelMap) UnmarshalJSON(value []byte) error {
 		if len(labels) > 0 {
 			labelList := make(LabelMap)
 			for _, label := range labels {
-				splitLabel := strings.Split(fmt.Sprintf("%v", label), ",")
-				for _, l := range splitLabel {
+				splitLabel := strings.SplitSeq(label, ",")
+				for l := range splitLabel {
 					if l == "" {
 						continue
 					}
-					labelData := strings.Split(fmt.Sprintf("%v", l), ":")
+					labelData := strings.Split(l, ":")
 					if len(labelData) != 2 {
 						return fmt.Errorf("[%s] 标签无效", l)
 					}
@@ -54,7 +54,7 @@ func (l *LabelMap) UnmarshalJSON(value []byte) error {
 					if _, ok := labelList[key]; !ok {
 						labelList[key] = []string{}
 					}
-					labelList[key] = append(labelList[key], fmt.Sprint(val))
+					labelList[key] = append(labelList[key], val)
 				}
 			}
 			*l = labelList

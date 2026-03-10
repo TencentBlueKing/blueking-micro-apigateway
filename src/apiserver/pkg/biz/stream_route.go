@@ -170,7 +170,7 @@ func BatchDeleteStreamRoutes(ctx context.Context, ids []string) error {
 	// Execute the operation within a transaction
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
 		// Set the transaction context for the operation
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// Add audit logs for the deletion operation
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.StreamRoute, ids)
 		if err != nil {
@@ -236,7 +236,7 @@ func BatchRevertStreamRoutes(ctx context.Context, syncDataList []*model.GatewayS
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.StreamRoute, ids, afterResources)
 		if err != nil {

@@ -178,7 +178,7 @@ func (g *Gateway) CopyAndMaskPassword() Gateway {
 		if len(pwd) >= 6 {
 			gateway.EtcdConfig.Password = fmt.Sprintf("%s****%s", pwd[:3], pwd[len(pwd)-3:])
 		} else {
-			gateway.EtcdConfig.Password = fmt.Sprintf("%s****", pwd[:3])
+			gateway.EtcdConfig.Password = pwd[:3] + "****"
 		}
 	}
 	return gateway

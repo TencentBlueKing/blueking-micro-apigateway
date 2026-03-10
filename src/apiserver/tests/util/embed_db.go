@@ -61,7 +61,7 @@ func InitEmbedDb() {
 			panic(err)
 		}
 		// 注册到所有操作后的回调
-		db.Callback().Raw().After("*").Register("collect_sql", func(d *gorm.DB) {
+		_ = db.Callback().Raw().After("*").Register("collect_sql", func(d *gorm.DB) {
 			if sql := d.Statement.SQL.String(); sql != "" {
 				fmt.Printf("[DEBUG] Captured SQL: %s\n", sql)
 				collectedSQL = append(collectedSQL, sql)

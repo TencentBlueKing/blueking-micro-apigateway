@@ -20,6 +20,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -45,7 +46,7 @@ func HandlePanic(additionalHandlers ...func(any)) {
 }
 
 func handlePanic(r any) {
-	if r == http.ErrAbortHandler {
+	if err, ok := r.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 		return
 	}
 	const size = 32 << 10

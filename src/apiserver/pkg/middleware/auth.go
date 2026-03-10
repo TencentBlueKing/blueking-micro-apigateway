@@ -57,7 +57,9 @@ func UserAuth(authBackend account.AuthBackend) gin.HandlerFunc {
 		session := sessions.Default(c)
 		if userToken.Value == session.Get(config.G.Service.UserTokenKey) {
 			// 从 session 获取用户信息并注入到 context
-			ginx.SetUserID(c, session.Get(string(constant.UserIDKey)).(string))
+			if uid, ok := session.Get(string(constant.UserIDKey)).(string); ok {
+				ginx.SetUserID(c, uid)
+			}
 			c.Next()
 			return
 		}

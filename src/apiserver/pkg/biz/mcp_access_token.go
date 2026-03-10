@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -155,10 +156,8 @@ func HashMCPToken(token string) string {
 // CheckGatewayMCPSupport 检查网关是否支持 MCP
 func CheckGatewayMCPSupport(gateway *model.Gateway) error {
 	version := gateway.GetAPISIXVersionX()
-	for _, supported := range MCPSupportedAPISIXVersions {
-		if version == supported {
-			return nil
-		}
+	if slices.Contains(MCPSupportedAPISIXVersions, version) {
+		return nil
 	}
 	return ErrMCPGatewayNotSupported
 }
@@ -283,7 +282,7 @@ func CreateMCPAccessToken(ctx context.Context, token *model.MCPAccessToken) erro
 
 func getTokenCreateLock(gatewayID int) *sync.Mutex {
 	lock, _ := tokenCreateLocks.LoadOrStore(gatewayID, &sync.Mutex{})
-	return lock.(*sync.Mutex)
+	return lock.(*sync.Mutex) //nolint:forcetypeassert // LoadOrStore always stores *sync.Mutex
 }
 
 func isDuplicateGatewayTokenNameErr(err error) bool {

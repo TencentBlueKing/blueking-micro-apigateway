@@ -91,7 +91,7 @@ func truncateAndInitialize(db *gorm.DB) error {
 	// 开启事务
 	tx := db.Begin()
 	if tx.Error != nil {
-		return fmt.Errorf("failed to begin transaction: %v", tx.Error)
+		return fmt.Errorf("failed to begin transaction: %w", tx.Error)
 	}
 	// defer 事务回滚
 	defer func() {
@@ -109,14 +109,14 @@ func truncateAndInitialize(db *gorm.DB) error {
 	var tables []string
 	if err := tx.Raw("SHOW TABLES").Scan(&tables).Error; err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to get table names: %v", err)
+		return fmt.Errorf("failed to get table names: %w", err)
 	}
 
 	// 执行 TRUNCATE
 	for _, table := range tables {
 		if err := tx.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", table)).Error; err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to truncate table %s: %v", table, err)
+			return fmt.Errorf("failed to truncate table %s: %w", table, err)
 		}
 	}
 
@@ -124,7 +124,7 @@ func truncateAndInitialize(db *gorm.DB) error {
 	sqlFileContent, err := os.ReadFile(envx.Get("DEMO_SQL_FILE_PATH", "./bk-apisix-init.sql"))
 	if err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to read sql file: %v", err)
+		return fmt.Errorf("failed to read sql file: %w", err)
 	}
 
 	// 使用 bufio.Scanner 按分号分隔 SQL 语句
@@ -135,30 +135,30 @@ func truncateAndInitialize(db *gorm.DB) error {
 		if strings.TrimSpace(sqlStatement) != "" {
 			if err := tx.Exec(sqlStatement).Error; err != nil {
 				tx.Rollback()
-				return fmt.Errorf("failed to execute sql statement: %v", err)
+				return fmt.Errorf("failed to execute sql statement: %w", err)
 			}
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to scan sql statements: %v", err)
+		return fmt.Errorf("failed to scan sql statements: %w", err)
 	}
 
 	gateway, err := biz.GetGateway(context.Background(), 1)
 	if err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to get gateway: %v", err)
+		return fmt.Errorf("failed to get gateway: %w", err)
 	}
 	ctx := context.WithValue(context.Background(), constant.GatewayInfoKey, gateway)
 	// 进行发布
 	if err := biz.PublishAllResource(ctx, 1); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to publish all resources: %v", err)
+		return fmt.Errorf("failed to publish all resources: %w", err)
 	}
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %v", err)
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	log.Info("Database initialization completed successfully.")
 	return nil

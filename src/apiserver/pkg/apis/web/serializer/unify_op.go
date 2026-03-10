@@ -104,7 +104,10 @@ func OperationTypeToResourceStatus(operationType []constant.OperationType) []con
 
 // CheckResourceDiffOperationType 校验操作类型
 func CheckResourceDiffOperationType(fl validator.FieldLevel) bool {
-	value := fl.Field().Interface().([]constant.OperationType)
+	value, ok := fl.Field().Interface().([]constant.OperationType)
+	if !ok {
+		return false
+	}
 	resourceDiffOperationTypeMap := map[constant.OperationType]bool{
 		constant.OperationTypeUpdate: true,
 		constant.OperationTypeCreate: true,

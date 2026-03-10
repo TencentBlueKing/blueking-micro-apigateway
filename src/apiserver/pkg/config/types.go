@@ -37,7 +37,7 @@ type Config struct {
 	MysqlConfig *MysqlConfig
 	// 业务配置
 	Biz BizConfig
-	// Crypto Crypto 配置
+	// Crypto
 	Crypto Crypto
 	// 蓝鲸各平台地址
 	BkPlatUrlConfig BkPlatUrlConfig

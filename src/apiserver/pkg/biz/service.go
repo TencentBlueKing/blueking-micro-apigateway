@@ -170,7 +170,7 @@ func ExistsService(ctx context.Context, id string) bool {
 func BatchDeleteServices(ctx context.Context, ids []string) error {
 	u := repo.Service
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Service, ids)
 		if err != nil {
 			return err
@@ -244,7 +244,7 @@ func BatchRevertServices(ctx context.Context, syncDataList []*model.GatewaySyncD
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Service, ids, afterResources)
 		if err != nil {

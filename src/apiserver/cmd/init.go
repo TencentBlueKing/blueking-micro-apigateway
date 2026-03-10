@@ -33,7 +33,7 @@ import (
 
 func initLogger(cfg *config.LogConfig) error {
 	// 自动创建日志目录
-	if err := os.MkdirAll(cfg.Dir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(cfg.Dir, 0o750); err != nil {
 		// 只有当错误不是 “目录已存在” 时，需要抛出错误
 		if !os.IsExist(err) {
 			return errors.Wrapf(err, "creating log dir %s", cfg.Dir)

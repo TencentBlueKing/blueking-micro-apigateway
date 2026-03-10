@@ -52,7 +52,7 @@ func NewEtcdPublisher(ctx context.Context, gatewayInfo *model.Gateway) (*EtcdPub
 	etcdStore, err := storage.NewEtcdStorage(gatewayInfo.EtcdConfig.EtcdConfig)
 	if err != nil {
 		log.ErrorFWithContext(ctx, "init etcd failed: %s", err)
-		return nil, fmt.Errorf("init etcd failed: %s", err)
+		return nil, fmt.Errorf("init etcd failed: %w", err)
 	}
 	return &EtcdPublisher{
 		ctx:         ctx,

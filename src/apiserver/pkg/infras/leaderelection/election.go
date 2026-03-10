@@ -125,7 +125,7 @@ func (ele *EtcdLeaderElector) checkLeadership() {
 			go ele.run()
 			return
 		case <-ele.ctx.Done():
-			ele.session.Close()
+			ele.session.Close() //nolint:errcheck
 			close(ele.closeCh)
 			ele.leading = false
 			ele.running = false

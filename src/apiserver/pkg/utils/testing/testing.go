@@ -21,6 +21,7 @@ package testing
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 
@@ -30,6 +31,6 @@ import (
 // CreateTestContextWithDefaultRequest ...
 func CreateTestContextWithDefaultRequest(w *httptest.ResponseRecorder) *gin.Context {
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request, _ = http.NewRequest("POST", "/", new(bytes.Buffer))
+	ctx.Request, _ = http.NewRequestWithContext(context.Background(), http.MethodPost, "/", new(bytes.Buffer))
 	return ctx
 }

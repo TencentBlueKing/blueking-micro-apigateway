@@ -132,7 +132,7 @@ func QueryPluginMetadatas(ctx context.Context, param map[string]any) ([]*model.P
 func BatchDeletePluginMetadatas(ctx context.Context, ids []string) error {
 	u := repo.PluginMetadata
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.PluginMetadata, ids)
 		if err != nil {
 			return err
@@ -199,7 +199,7 @@ func BatchRevertPluginMetadatas(ctx context.Context, syncDataList []*model.Gatew
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.PluginMetadata, ids, afterResources)
 		if err != nil {

@@ -95,7 +95,11 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	parseConfig, _ := json.Marshal(sslInfo)
+	parseConfig, err := json.Marshal(sslInfo)
+	if err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
 	req.Config, err = jsonx.MergeJson(parseConfig, req.Config)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
@@ -154,7 +158,11 @@ func SSLUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	parseConfig, _ := json.Marshal(sslInfo)
+	parseConfig, err := json.Marshal(sslInfo)
+	if err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
 	req.Config, err = jsonx.MergeJson(parseConfig, req.Config)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)

@@ -105,7 +105,7 @@ func CheckResourceStatus(fl validator.FieldLevel) bool {
 	if value == "" {
 		return true
 	}
-	for _, v := range strings.Split(value, ",") {
+	for v := range strings.SplitSeq(value, ",") {
 		if v == "" {
 			continue
 		}

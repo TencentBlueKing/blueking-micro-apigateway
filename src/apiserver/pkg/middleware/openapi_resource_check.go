@@ -174,7 +174,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				ginx.BadRequestErrorJSONResponse(
 					c,
 					fmt.Errorf(
-						"NewAPISIXJsonSchemaValidator failed, resource config:%s validate failed, err: %v",
+						"NewAPISIXJsonSchemaValidator failed, resource config:%s validate failed, err: %w",
 						configRaw,
 						err,
 					),
@@ -185,7 +185,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
 				ginx.BadRequestErrorJSONResponse(
 					c,
-					fmt.Errorf("resource config:%s validate failed, err: %v",
+					fmt.Errorf("resource config:%s validate failed, err: %w",
 						configRaw, err),
 				)
 				c.Abort()

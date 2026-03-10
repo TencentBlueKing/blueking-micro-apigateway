@@ -189,7 +189,7 @@ func QueryRoutes(ctx context.Context, param map[string]any) ([]*model.Route, err
 func BatchDeleteRoutes(ctx context.Context, ids []string) error {
 	u := repo.Route
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Route, ids)
 		if err != nil {
 			return err
@@ -266,7 +266,7 @@ func BatchRevertRoutes(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Route, ids, afterResources)
 		if err != nil {

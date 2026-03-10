@@ -63,8 +63,8 @@ func GetVersionLog() ([]VersionInfo, error) {
 	mdFileDatePattern := regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 	mdFileVersionPattern := regexp.MustCompile(`[vV]\d+\.\d+\.\d+`)
 	var versionLogs []VersionInfo
-	logs := strings.Split(text, "---")
-	for _, log := range logs {
+	logs := strings.SplitSeq(text, "---")
+	for log := range logs {
 		parts := strings.Split(strings.TrimSpace(log), "\n")
 		if len(parts) < 2 {
 			continue // Skip logs that don't have enough parts

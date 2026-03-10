@@ -294,10 +294,7 @@ func BatchUpdateResourceStatus(
 
 	// 分批处理大量 IDs
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
-		end := i + constant.DBConditionIDMaxLength
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+constant.DBConditionIDMaxLength, len(ids))
 		batchIDs := ids[i:end]
 		query = buildCommonDbQuery(ctx, resourceType)
 		err := query.Where("id IN (?)", batchIDs).Updates(map[string]any{
@@ -354,10 +351,7 @@ func BatchGetResources(
 
 	// 正确分批次逻辑：每个批次使用新的查询实例
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
-		end := i + constant.DBConditionIDMaxLength
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+constant.DBConditionIDMaxLength, len(ids))
 		batchIDs := ids[i:end]
 		// 关键点：每个批次创建新查询，避免条件叠加
 		batchQuery := buildCommonDbQuery(ctx, resourceType)
@@ -642,10 +636,7 @@ func GetResourceByIDs(
 
 	// 分批处理大量 IDs
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
-		end := i + constant.DBConditionIDMaxLength
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+constant.DBConditionIDMaxLength, len(ids))
 
 		batchIDs := ids[i:end]
 		var batchRes []model.ResourceCommonModel
@@ -684,10 +675,7 @@ func DeleteResourceByIDs(
 
 	// 分批次删除（避免条件叠加）
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
-		end := i + constant.DBConditionIDMaxLength
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+constant.DBConditionIDMaxLength, len(ids))
 		batchIDs := ids[i:end]
 		// 关键点：每个批次创建新查询
 		if err := BatchDeleteResourceByIDs(
@@ -717,10 +705,7 @@ func GetSchemaByIDs(
 
 	// 分批处理大量 IDs
 	for i := 0; i < len(ids); i += constant.DBConditionIDMaxLength {
-		end := i + constant.DBConditionIDMaxLength
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+constant.DBConditionIDMaxLength, len(ids))
 
 		batchIDs := ids[i:end]
 		var batchRes []model.GatewayCustomPluginSchema
@@ -891,8 +876,8 @@ func ParseOrderByExprList(
 ) []field.Expr {
 	var orderByExprs []field.Expr
 
-	sortConditions := strings.Split(orderBy, ",")
-	for _, condition := range sortConditions {
+	sortConditions := strings.SplitSeq(orderBy, ",")
+	for condition := range sortConditions {
 		parts := strings.Split(condition, ":")
 		if len(parts) != 2 {
 			continue
@@ -979,7 +964,7 @@ func ValidateResource(
 				return err
 			}
 			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
-				return fmt.Errorf("resource config:%s validate failed, err: %v",
+				return fmt.Errorf("resource config:%s validate failed, err: %w",
 					r.Config, err)
 			}
 
@@ -1026,7 +1011,7 @@ func ValidateResource(
 func FormatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
 	switch resourceType {
 	case constant.Route:
-		routes := resources.([]*model.Route)
+		routes := resources.([]*model.Route) //nolint:forcetypeassert
 		routeDetails := make([]string, 0, len(routes))
 		for _, route := range routes {
 			routeDetails = append(
@@ -1036,7 +1021,7 @@ func FormatResourceIDNameList(resources any, resourceType constant.APISIXResourc
 		}
 		return routeDetails
 	case constant.Upstream:
-		upstreams := resources.([]*model.Upstream)
+		upstreams := resources.([]*model.Upstream) //nolint:forcetypeassert
 		upstreamDetails := make([]string, 0, len(upstreams))
 		for _, upstream := range upstreams {
 			upstreamDetails = append(
@@ -1046,7 +1031,7 @@ func FormatResourceIDNameList(resources any, resourceType constant.APISIXResourc
 		}
 		return upstreamDetails
 	case constant.Consumer:
-		consumers := resources.([]*model.Consumer)
+		consumers := resources.([]*model.Consumer) //nolint:forcetypeassert
 		consumerDetails := make([]string, 0, len(consumers))
 		for _, consumer := range consumers {
 			consumerDetails = append(
@@ -1056,7 +1041,7 @@ func FormatResourceIDNameList(resources any, resourceType constant.APISIXResourc
 		}
 		return consumerDetails
 	case constant.Service:
-		services := resources.([]*model.Service)
+		services := resources.([]*model.Service) //nolint:forcetypeassert
 		serviceDetails := make([]string, 0, len(services))
 		for _, service := range services {
 			serviceDetails = append(
@@ -1066,7 +1051,7 @@ func FormatResourceIDNameList(resources any, resourceType constant.APISIXResourc
 		}
 		return serviceDetails
 	case constant.StreamRoute:
-		streamRoutes := resources.([]*model.StreamRoute)
+		streamRoutes := resources.([]*model.StreamRoute) //nolint:forcetypeassert
 		streamRouteDetails := make([]string, 0, len(streamRoutes))
 		for _, streamRoute := range streamRoutes {
 			streamRouteDetails = append(

@@ -43,7 +43,7 @@ func CalcFib(n float64) (int, error) {
 
 	task := model.Task{
 		Name:      "CalcFib",
-		Args:      []byte(fmt.Sprintf("{\"n\": %d}", nInt)),
+		Args:      fmt.Appendf(nil, "{\"n\": %d}", nInt),
 		StartedAt: time.Now(),
 	}
 	if err := database.Client().Create(&task).Error; err != nil {

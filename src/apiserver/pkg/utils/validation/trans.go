@@ -91,7 +91,7 @@ func registerTranslator(tag, msg string) validator.RegisterTranslationsFunc {
 func translate(trans ut.Translator, fe validator.FieldError) string {
 	msg, err := trans.T(fe.Tag(), fe.Field(), fmt.Sprintf("%s", fe.Value()))
 	if err != nil {
-		panic(fe.(error).Error())
+		panic(fe.Error())
 	}
 	return msg
 }
@@ -108,9 +108,11 @@ func removeTopStruct(fields map[string]string) map[string]string {
 func TranslateToString(validateErrs validator.ValidationErrors) string {
 	errorMap := removeTopStruct(validateErrs.Translate(Trans))
 	res := ""
+	var resSb111 strings.Builder
 	for _, value := range errorMap {
-		res += value + ". "
+		resSb111.WriteString(value + ". ")
 	}
+	res += resSb111.String()
 	return res
 }
 
@@ -120,7 +122,7 @@ func GetEnumTransMsgFromUint8KeyMap(enum map[uint8]string, onlyValue bool) strin
 	var enumItem []string
 	for key, value := range enum {
 		if onlyValue {
-			enumItem = append(enumItem, fmt.Sprintf("%v", value))
+			enumItem = append(enumItem, value)
 		} else {
 			enumItem = append(enumItem, fmt.Sprintf("%v-(%v)", key, value))
 		}
@@ -134,7 +136,7 @@ func GetEnumTransMsgFromStringKeyMap(enum map[string]string, onlyValue bool) str
 	var enumItem []string
 	for key, value := range enum {
 		if onlyValue {
-			enumItem = append(enumItem, fmt.Sprintf("%v", value))
+			enumItem = append(enumItem, value)
 		} else {
 			enumItem = append(enumItem, fmt.Sprintf("%v-(%v)", key, value))
 		}

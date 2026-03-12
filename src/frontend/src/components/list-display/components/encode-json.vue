@@ -22,6 +22,11 @@
     class="encode-json"
   >
     <pre v-dompurify-html="highlightJson(JSON.stringify(config, null, 4))" />
+    <Copy
+      class="default-c pointer"
+      v-if="isCopy"
+      @click="() => handleCopy(JSON.stringify(config, null, 4))"
+    />
   </div>
   <div v-else>--</div>
 </template>
@@ -29,12 +34,18 @@
 <script lang="ts" setup>
 import highlightJs from 'highlight.js';
 import 'highlight.js/styles/github.css';
+import { Copy } from 'bkui-vue/lib/icon';
+import { handleCopy } from '@/common/util';
 
 interface IProps {
   config: object | null
+  isCopy?: boolean
 }
 
-const { config } = defineProps<IProps>();
+const {
+  config,
+  isCopy = false,
+} = defineProps<IProps>();
 
 const highlightJson = (value: string) => {
   if (!value) {
@@ -50,8 +61,14 @@ const highlightJson = (value: string) => {
   height: 100%;
   background: #FAFBFD;
   padding: 8px 0px;
+  position: relative;
   pre {
     white-space: pre-wrap;
+  }
+  .default-c {
+    position: absolute;
+    right: 4px;
+    top: 6px;
   }
 }
 </style>

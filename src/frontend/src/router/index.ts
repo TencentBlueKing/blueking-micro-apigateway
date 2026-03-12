@@ -34,6 +34,7 @@ import gatewaySyncDataRoutes from '@/router/gateway-sync-data';
 import importExportRoutes from '@/router/import-export';
 import auditRoutes from '@/router/audit';
 import basicInfoRoutes from '@/router/basic-info';
+import mcpRoutes from '@/router/mcp';
 
 const Gateway = () => import(/* webpackChunkName: "Gateway" */ '@/views/gateway/gateway.vue');
 
@@ -69,6 +70,7 @@ const routes: RouteRecordRaw[] = [
       ...publishRoutes,
       ...auditRoutes,
       ...basicInfoRoutes,
+      ...mcpRoutes,
     ],
   },
 ];

@@ -154,4 +154,8 @@ export const RESOURCE_INTRODUCTION: Record<string, { text: string, docLink: stri
     text: 'Stream Route 在传输层运行，处理基于 TCP 和 UDP 协议的流式流量。TCP 用于许多应用程序和服务，如 LDAP、MySQL 和 RTMP。UDP 用于许多流行的非事务性应用程序，如 DNS、syslog 和 RADIUS。',
     docLink: 'https://apisix.apache.org/zh/docs/apisix/stream-proxy/',
   },
+  mcp: {
+    text: '管理 MCP 协议访问令牌，用于 MCP 客户端（如 Claude Desktop、Cursor 等）接入网关。令牌创建后仅展示一次，请妥善保存。',
+    docLink: '',
+  },
 };

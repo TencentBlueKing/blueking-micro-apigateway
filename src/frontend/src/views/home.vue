@@ -30,16 +30,18 @@
           unique-open
         >
           <bk-menu-group v-for="menuGroup in menuGroups" :key="menuGroup.name" :name="menuGroup.name">
-            <bk-menu-item
-              v-for="menu in menuGroup.menus"
-              :key="menu.name"
-              @click="handleMenuItemClick(menu)"
-            >
-              <template #icon>
-                <i :class="['icon apigateway-icon', `icon-ag-${menu.icon}`]"></i>
-              </template>
-              <div>{{ menu.title }}</div>
-            </bk-menu-item>
+            <template v-for="menu in menuGroup.menus">
+              <bk-menu-item
+                v-if="menu.enabled"
+                :key="menu.name"
+                @click="handleMenuItemClick(menu)"
+              >
+                <template #icon>
+                  <i :class="['icon apigateway-icon', `icon-ag-${menu.icon}`]"></i>
+                </template>
+                <div>{{ menu.title }}</div>
+              </bk-menu-item>
+            </template>
           </bk-menu-group>
         </bk-menu>
       </template>
@@ -309,6 +311,13 @@ const menuGroups = ref<IMenuGroup[]>([
     name: t('其他'),
     menus: [
       {
+        title: 'MCP',
+        name: 'MCP',
+        routeName: 'mcp',
+        icon: 'permission',
+        enabled: common.curGatewayData?.apisix?.version?.indexOf('3.13.') !== -1,
+      },
+      {
         title: t('审计日志'),
         name: 'Audit',
         routeName: 'audit',
@@ -353,11 +362,29 @@ const setGatewayDetail = async () => {
   common.setCurGatewayData(curGatewayData);
 };
 
+const findMenuByRouteName = (routeName: string) => {
+  for (const group of menuGroups.value) {
+    for (const menu of group.menus) {
+      if (menu.routeName === routeName) {
+        return menu;
+      }
+    }
+  }
+  return null;
+};
+
 watch(() => route.params.gatewayId, async () => {
   const _gatewayId = Number(route.params.gatewayId as unknown);
   gatewayId.value = _gatewayId;
   common.setGatewayId(_gatewayId);
   await setGatewayDetail();
+}, { immediate: true });
+
+watch(() => common.curGatewayData, () => {
+  const menu = findMenuByRouteName(route.name as string);
+  if (menu && !menu.enabled) {
+    router.push({ name: 'root' });
+  }
 }, { immediate: true });
 
 const handleMenuItemClick = (menu: IMenu) => {

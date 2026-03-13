@@ -16,10 +16,23 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-export * from './common';
-export * from './gateway';
-export * from './component';
-export * from './store';
-export * from './audit';
-export * from './stream-route';
-export * from './mcp';
+/*
+* MCP Access Token 管理(MCP)页面的路由配置
+*  */
+
+import i18n from '@/i18n';
+
+const { t } = i18n.global;
+const MCP = () => import(/* webpackChunkName: "MCP" */ '@/views/mcp/mcp.vue');
+
+export default [
+  {
+    path: 'mcp',
+    name: 'mcp',
+    component: MCP,
+    meta: {
+      headerTitle: t('MCP Access Token 管理'),
+      menuKey: 'MCP',
+    },
+  },
+];

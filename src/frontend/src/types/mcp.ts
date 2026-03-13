@@ -16,10 +16,19 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-export * from './common';
-export * from './gateway';
-export * from './component';
-export * from './store';
-export * from './audit';
-export * from './stream-route';
-export * from './mcp';
+export interface IMcpToken {
+  id?: number;
+  gateway_id?: number;
+  name?: string;
+  masked_token?: string;
+  token?: string;
+  description?: string;
+  access_scope?: string;
+  expired_at?: number;
+  last_used_at?: number | null;
+  created_at?: number;
+  updated_at?: number;
+  creator?: string;
+  updater?: string;
+  is_expired?: boolean;
+}

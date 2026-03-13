@@ -190,7 +190,7 @@ func InsertSyncedResources(
 	// 分类同步
 	var err error
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err = insertSyncedResourcesModel(ctx, typeSyncedItemMap, status, true)
 		if err != nil {
 			return err
@@ -217,60 +217,64 @@ func insertSyncedResourcesModel(
 				return err
 			}
 		}
+		// type is guaranteed by SyncedResourceToAPISIXResource per resourceType
 		resourceList := SyncedResourceToAPISIXResource(resourceType, itemList, status)
 		switch resourceType {
 		case constant.Route:
-			err = BatchCreateRoutes(ctx, resourceList.([]*model.Route))
+			err = BatchCreateRoutes(ctx, resourceList.([]*model.Route)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.Service:
-			err = BatchCreateServices(ctx, resourceList.([]*model.Service))
+			err = BatchCreateServices(ctx, resourceList.([]*model.Service)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.Upstream:
-			err = BatchCreateUpstreams(ctx, resourceList.([]*model.Upstream))
+			err = BatchCreateUpstreams(ctx, resourceList.([]*model.Upstream)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.PluginConfig:
+			//nolint:forcetypeassert
 			err = BatchCreatePluginConfigs(ctx, resourceList.([]*model.PluginConfig))
 			if err != nil {
 				return err
 			}
 		case constant.PluginMetadata:
+			//nolint:forcetypeassert
 			err = batchCreatePluginMetadatas(ctx, resourceList.([]*model.PluginMetadata))
 			if err != nil {
 				return err
 			}
 		case constant.Consumer:
-			err = BatchCreateConsumers(ctx, resourceList.([]*model.Consumer))
+			err = BatchCreateConsumers(ctx, resourceList.([]*model.Consumer)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.ConsumerGroup:
+			//nolint:forcetypeassert
 			err = BatchCreateConsumerGroups(ctx, resourceList.([]*model.ConsumerGroup))
 			if err != nil {
 				return err
 			}
 		case constant.GlobalRule:
-			err := BatchCreateGlobalRules(ctx, resourceList.([]*model.GlobalRule))
+			err = BatchCreateGlobalRules(ctx, resourceList.([]*model.GlobalRule)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.SSL:
-			err = BatchCreateSSL(ctx, resourceList.([]*model.SSL))
+			err = BatchCreateSSL(ctx, resourceList.([]*model.SSL)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.Proto:
-			err = BatchCreateProtos(ctx, resourceList.([]*model.Proto))
+			err = BatchCreateProtos(ctx, resourceList.([]*model.Proto)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
 		case constant.StreamRoute:
-			err = BatchCreateStreamRoutes(ctx, resourceList.([]*model.StreamRoute))
+			err = BatchCreateStreamRoutes(ctx, resourceList.([]*model.StreamRoute)) //nolint:forcetypeassert
 			if err != nil {
 				return err
 			}
@@ -290,7 +294,7 @@ func UploadResources(
 	// 分类同步
 	var err error
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 先删除再插入
 		for resourceType, itemList := range updateTypeResourcesTypeMap {
 			var ids []string
@@ -474,7 +478,9 @@ func (s *UnifyOp) SyncerRun(ctx context.Context) {
 	minDelay := 1
 	maxDelay := 300
 	ticker := time.NewTicker(config.G.Biz.SyncInterval +
-		time.Second*time.Duration(rand.Intn(maxDelay-minDelay+1)+minDelay))
+		time.Second*time.Duration(
+			rand.Intn(maxDelay-minDelay+1)+minDelay, //nolint:gosec // G404: non-security random for jitter
+		))
 	for range ticker.C {
 		// prefix 可能会更新，再查一次
 		gatewayInfo, err := GetGateway(ctx, s.gatewayInfo.ID)
@@ -578,10 +584,7 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 		// Execute deletes in batches
 		if len(resourcesToDelete) > 0 {
 			for i := 0; i < len(resourcesToDelete); i += 500 {
-				end := i + 500
-				if end > len(resourcesToDelete) {
-					end = len(resourcesToDelete)
-				}
+				end := min(i+500, len(resourcesToDelete))
 				batch := resourcesToDelete[i:end]
 				_, err = tx.GatewaySyncData.WithContext(ctx).
 					Where(u.AutoID.In(batch...)).

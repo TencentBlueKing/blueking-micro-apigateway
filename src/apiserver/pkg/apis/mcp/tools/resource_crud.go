@@ -183,10 +183,7 @@ func listResourceHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Apply defaults
-	page := input.Page
-	if page < 1 {
-		page = 1
-	}
+	page := max(input.Page, 1)
 	pageSize := input.PageSize
 	if pageSize <= 0 {
 		pageSize = 20

@@ -20,8 +20,6 @@
 package web
 
 import (
-	"fmt"
-
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -41,7 +39,7 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 		Path:   "/",
 		MaxAge: int(config.G.Service.SessionCookieAge.Seconds()),
 	})
-	group.Use(sessions.Sessions(fmt.Sprintf("%s-session", config.G.Service.AppCode), store))
+	group.Use(sessions.Sessions(config.G.Service.AppCode+"-session", store))
 
 	//  csrf
 	group.Use(

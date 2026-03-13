@@ -315,8 +315,12 @@ func EtcdExport(c *gin.Context) {
 		return
 	}
 	// response json
-	fileData, _ := json.MarshalIndent(outputs, "", "    ")
-	fileName := fmt.Sprintf("%s_export_etcd_resources.json", ginx.GetGatewayInfo(c).Name)
+	fileData, err := json.MarshalIndent(outputs, "", "    ")
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	fileName := ginx.GetGatewayInfo(c).Name + "_export_etcd_resources.json"
 	ginx.SuccessFileResponse(c, "text/plain", fileData, fileName)
 }
 
@@ -355,7 +359,10 @@ func handExportEtcdResources(
 			"schema":  schema.Schema,
 			"example": schema.Example,
 		}
-		schemaInfoBytes, _ := json.Marshal(schemaInfo)
+		schemaInfoBytes, err := json.Marshal(schemaInfo)
+		if err != nil {
+			return nil, fmt.Errorf("marshal schema info failed: %w", err)
+		}
 		schemaInfoList = append(schemaInfoList, serializer.ResourceInfo{
 			ResourceType: constant.Schema,
 			Name:         name,
@@ -411,7 +418,7 @@ func ResourceUpload(c *gin.Context) {
 	err = biz.ValidateResource(c.Request.Context(), indexResult.ResourceTypeMap, indexResult.AllResourceIdList,
 		indexResult.AllSchemaMap)
 	if err != nil {
-		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %v", err))
+		ginx.SystemErrorJSONResponse(c, fmt.Errorf("resource validate failed, err: %w", err))
 		return
 	}
 	// 分类整理资源输出信息

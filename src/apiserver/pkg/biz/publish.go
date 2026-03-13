@@ -818,7 +818,10 @@ func putRoutes(ctx context.Context, routeIDs []string) error {
 		if route.PluginConfigID != "" {
 			pluginConfigIDs = append(pluginConfigIDs, route.PluginConfigID)
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal route base info failed: %w", marshalErr)
+		}
 		route.Config, err = jsonx.MergeJson(route.Config, baseConfig)
 		if err != nil {
 			return err
@@ -883,7 +886,10 @@ func putServices(ctx context.Context, serviceIDs []string) error {
 		}
 		if service.UpstreamID != "" {
 			upstreamIDs = append(upstreamIDs, service.UpstreamID)
-			baseConfig, _ := json.Marshal(baseInfo)
+			baseConfig, marshalErr := json.Marshal(baseInfo)
+			if marshalErr != nil {
+				return fmt.Errorf("marshal service base info failed: %w", marshalErr)
+			}
 			service.Config, err = jsonx.MergeJson(service.Config, baseConfig)
 			if err != nil {
 				return err
@@ -934,7 +940,10 @@ func putUpstreams(ctx context.Context, upstreamIDs []string) error {
 			CreateTime: upstream.CreatedAt.Unix(),
 			UpdateTime: upstream.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal upstream base info failed: %w", marshalErr)
+		}
 		upstream.Config, err = jsonx.MergeJson(upstream.Config, baseConfig)
 		if err != nil {
 			return err
@@ -992,7 +1001,10 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 			CreateTime: pluginConfig.CreatedAt.Unix(),
 			UpdateTime: pluginConfig.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal plugin config base info failed: %w", marshalErr)
+		}
 		pluginConfig.Config, err = jsonx.MergeJson(pluginConfig.Config, baseConfig)
 
 		// Version-aware field cleanup: only remove fields that are invalid for this APISIX version
@@ -1048,7 +1060,10 @@ func putPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) error {
 			CreateTime: pluginMetadata.CreatedAt.Unix(),
 			UpdateTime: pluginMetadata.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal plugin metadata base info failed: %w", marshalErr)
+		}
 		pluginMetadata.Config, err = jsonx.MergeJson(pluginMetadata.Config, baseConfig)
 		if err != nil {
 			return err
@@ -1097,7 +1112,10 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 		if consumer.GroupID != "" {
 			consumerGroupIDs = append(consumerGroupIDs, consumer.GroupID)
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal consumer base info failed: %w", marshalErr)
+		}
 		consumer.Config, err = jsonx.MergeJson(consumer.Config, baseConfig)
 
 		// Version-aware field cleanup: consumer uses username as identifier, id should always be removed
@@ -1161,7 +1179,10 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 			CreateTime: consumerGroup.CreatedAt.Unix(),
 			UpdateTime: consumerGroup.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal consumer group base info failed: %w", marshalErr)
+		}
 		consumerGroup.Config, err = jsonx.MergeJson(consumerGroup.Config, baseConfig)
 
 		// Version-aware field cleanup: consumer_group requires id in schema
@@ -1219,7 +1240,10 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 			CreateTime: globalRule.CreatedAt.Unix(),
 			UpdateTime: globalRule.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal global rule base info failed: %w", marshalErr)
+		}
 		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
 
 		// Version-aware field cleanup: global_rule never supports name in any version
@@ -1276,7 +1300,10 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 			CreateTime: pb.CreatedAt.Unix(),
 			UpdateTime: pb.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal proto base info failed: %w", marshalErr)
+		}
 		pb.Config, err = jsonx.MergeJson(pb.Config, baseConfig)
 		if err != nil {
 			return err
@@ -1329,7 +1356,10 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 			CreateTime: ssl.CreatedAt.Unix(),
 			UpdateTime: ssl.UpdatedAt.Unix(),
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal ssl base info failed: %w", marshalErr)
+		}
 		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
 		if err != nil {
 			return err
@@ -1397,7 +1427,10 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 		if sr.ServiceID != "" {
 			serviceIDs = append(serviceIDs, sr.ServiceID)
 		}
-		baseConfig, _ := json.Marshal(baseInfo)
+		baseConfig, marshalErr := json.Marshal(baseInfo)
+		if marshalErr != nil {
+			return fmt.Errorf("marshal stream route base info failed: %w", marshalErr)
+		}
 		sr.Config, err = jsonx.MergeJson(sr.Config, baseConfig)
 
 		// Version-aware field cleanup: stream_route name is only supported in 3.13+

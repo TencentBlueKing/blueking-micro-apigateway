@@ -240,8 +240,8 @@ func sortResults(results []*serializer.SyncDataOutputInfo, orderBy string) []*se
 	if orderBy == "" {
 		return results
 	}
-	sortConditions := strings.Split(orderBy, ",")
-	for _, condition := range sortConditions {
+	sortConditions := strings.SplitSeq(orderBy, ",")
+	for condition := range sortConditions {
 		parts := strings.Split(condition, ":")
 		if len(parts) != 2 {
 			continue

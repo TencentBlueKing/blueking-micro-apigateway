@@ -137,11 +137,11 @@ func HandleUploadResources(
 	}
 	err = biz.ValidateResource(ctx, resourceTypeAddMap, allResourceIdMap, allSchemaMap)
 	if err != nil {
-		return nil, fmt.Errorf("add resources validate failed, err: %v", err)
+		return nil, fmt.Errorf("add resources validate failed, err: %w", err)
 	}
 	err = biz.ValidateResource(ctx, resourceTypeUpdateMap, allResourceIdMap, allSchemaMap)
 	if err != nil {
-		return nil, fmt.Errorf("updated resources validate failed, err: %v", err)
+		return nil, fmt.Errorf("updated resources validate failed, err: %w", err)
 	}
 	return &HandlerResourceResult{
 		AddResourceTypeMap:    resourceTypeAddMap,
@@ -180,7 +180,10 @@ func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []*Re
 		} else {
 			updatedSchemaMap[schemaInfo.Name] = schemaModel
 		}
-		schemaRaw, _ := json.Marshal(schemaModel.Schema)
+		schemaRaw, err := json.Marshal(schemaModel.Schema)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("marshal schema failed: %w", err)
+		}
 		var schemaMap map[string]any
 		_ = json.Unmarshal(schemaRaw, &schemaMap)
 		existsPluginSchemaMap[schemaInfo.Name] = schemaMap
@@ -263,7 +266,7 @@ func handleResources(
 		}
 		allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
 		if err != nil {
-			return nil, fmt.Errorf("get exist resources failed, err: %v", err)
+			return nil, fmt.Errorf("get exist resources failed, err: %w", err)
 		}
 		allResourceMap := make(map[string]model.ResourceCommonModel)
 		for _, resource := range allResourceList {
@@ -287,7 +290,7 @@ func handleResources(
 							json.RawMessage(result.Raw),
 						)
 						if err != nil {
-							return nil, fmt.Errorf("set config failed, err: %v", err)
+							return nil, fmt.Errorf("set config failed, err: %w", err)
 						}
 					}
 				}

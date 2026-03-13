@@ -156,7 +156,7 @@ func QueryConsumers(ctx context.Context, param map[string]any) ([]*model.Consume
 func BatchDeleteConsumers(ctx context.Context, ids []string) error {
 	u := repo.Consumer
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Consumer, ids)
 		if err != nil {
 			return err
@@ -225,7 +225,7 @@ func BatchRevertConsumers(ctx context.Context, syncDataList []*model.GatewaySync
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Consumer, ids, afterResources)
 		if err != nil {

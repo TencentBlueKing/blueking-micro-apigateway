@@ -151,10 +151,7 @@ func listSyncedResourceHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Apply defaults
-	page := input.Page
-	if page < 1 {
-		page = 1
-	}
+	page := max(input.Page, 1)
 	pageSize := input.PageSize
 	if pageSize <= 0 {
 		pageSize = 20
@@ -242,17 +239,8 @@ func listSyncedResourceHandler(
 
 	// Apply pagination on filtered results
 	total := len(filteredResources)
-	offset := (page - 1) * pageSize
-	if offset < 0 {
-		offset = 0
-	}
-	if offset > total {
-		offset = total
-	}
-	end := offset + pageSize
-	if end > total {
-		end = total
-	}
+	offset := min(max((page-1)*pageSize, 0), total)
+	end := min(offset+pageSize, total)
 
 	pagedResources := filteredResources[offset:end]
 

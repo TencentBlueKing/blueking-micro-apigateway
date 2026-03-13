@@ -477,7 +477,11 @@ func BenchmarkListMCPAccessTokens(b *testing.B) {
 			}
 
 			for i := 0; i < size; i++ {
-				plainToken := fmt.Sprintf("bench-token-plain-%d-%d-padding-to-64chars-abcdefghij1234567", gateway.ID, i)
+				plainToken := fmt.Sprintf(
+					"bench-token-plain-%d-%d-padding-to-64chars-abcdefghij1234567",
+					gateway.ID,
+					i,
+				)
 				token := &model.MCPAccessToken{
 					GatewayID:   gateway.ID,
 					Token:       HashMCPToken(plainToken),

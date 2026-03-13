@@ -90,7 +90,7 @@ func initEtcdClient(etcdConf base.EtcdConfig) (*clientv3.Client, error) {
 			err = AuthFailedError
 		}
 		log.Errorf("init etcd failed: %s", err)
-		return nil, fmt.Errorf("etcd 初始化失败: %s", err)
+		return nil, fmt.Errorf("etcd 初始化失败: %w", err)
 	}
 	return cli, nil
 }
@@ -113,7 +113,7 @@ func (e *EtcdV3Storage) Get(ctx context.Context, key string) (string, error) {
 	resp, err := e.client.Get(ctx, fmt.Sprintf("%s/%s", e.prefix, key))
 	if err != nil {
 		log.Errorf("etcd get failed: %s", err)
-		return "", fmt.Errorf("etcd get failed: %s", err)
+		return "", fmt.Errorf("etcd get failed: %w", err)
 	}
 	if resp.Count == 0 {
 		log.Warnf("key: %s is not found", key)
@@ -147,12 +147,9 @@ func (e *EtcdV3Storage) txnMultiOperate(ctx context.Context, ops []clientv3.Op) 
 	if length%bulkOperateSize > 0 {
 		count += 1
 	}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		start := i * bulkOperateSize
-		end := start + bulkOperateSize
-		if end > length {
-			end = length
-		}
+		end := min(start+bulkOperateSize, length)
 		err := e.txnOperate(ctx, ops[start:end])
 		if err != nil {
 			return err
@@ -167,7 +164,7 @@ func (e *EtcdV3Storage) List(ctx context.Context, key string) ([]KeyValuePair, e
 	resp, err := e.client.Get(ctx, key, clientv3.WithPrefix())
 	if err != nil {
 		log.Errorf("etcd get failed: %s", err)
-		return nil, fmt.Errorf("etcd get failed: %s", err)
+		return nil, fmt.Errorf("etcd get failed: %w", err)
 	}
 	var ret []KeyValuePair
 	for i := range resp.Kvs {
@@ -199,7 +196,7 @@ func (e *EtcdV3Storage) Create(ctx context.Context, key, val string) error {
 	_, err := e.client.Put(ctx, fmt.Sprintf("%s/%s", e.prefix, key), val)
 	if err != nil {
 		log.Errorf("etcd put failed: %s", err)
-		return fmt.Errorf("etcd put failed: %s", err)
+		return fmt.Errorf("etcd put failed: %w", err)
 	}
 	return nil
 }
@@ -209,7 +206,7 @@ func (e *EtcdV3Storage) Update(ctx context.Context, key, val string) error {
 	_, err := e.client.Put(ctx, fmt.Sprintf("%s/%s", e.prefix, key), val)
 	if err != nil {
 		log.Errorf("etcd put failed: %s", err)
-		return fmt.Errorf("etcd put failed: %s", err)
+		return fmt.Errorf("etcd put failed: %w", err)
 	}
 	return nil
 }

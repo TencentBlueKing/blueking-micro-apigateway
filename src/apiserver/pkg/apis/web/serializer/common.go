@@ -69,7 +69,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(), "main."+resourceType)
 	if err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %v",
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
 		logging.Errorf("new schema validator failed, err: %v", err)
 		return false
@@ -86,7 +86,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	// 配置校验
 	customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
 	if err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %v",
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
 		logging.Errorf("get customize plugin schema map failed, err: %v", err)
 		return false
@@ -96,12 +96,12 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		constant.APISIXResource(
 			resourceType,
 		),
-		"main."+string(resourceType),
+		"main."+resourceType,
 		customizePluginSchemaMap,
 		constant.DATABASE,
 	)
 	if err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %v",
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
 		logging.Errorf("new schema config validator failed, err: %v", err)
 		return false
@@ -128,9 +128,12 @@ func CheckLabel(label string) (base.LabelMap, error) {
 		return nil, nil
 	}
 	r := &GatewayLabelRequest{Label: base.LabelMap{"label": []string{label}}}
-	b, _ := json.Marshal(r)
+	b, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
 	var result GatewayLabelRequest
-	err := json.Unmarshal(b, &result)
+	err = json.Unmarshal(b, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +145,7 @@ func PaginateResults(total, offset, limit int) (int, int) {
 	if offset >= total {
 		return 0, 0
 	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
+	end := min(offset+limit, total)
 	return offset, end
 }
 

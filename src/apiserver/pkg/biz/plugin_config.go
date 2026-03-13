@@ -160,7 +160,7 @@ func ExistsPluginConfig(ctx context.Context, id string) bool {
 func BatchDeletePluginConfigs(ctx context.Context, ids []string) error {
 	u := repo.PluginConfig
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.PluginConfig, ids)
 		if err != nil {
 			return err
@@ -227,7 +227,7 @@ func BatchRevertPluginConfigs(ctx context.Context, syncDataList []*model.Gateway
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.PluginConfig, ids, afterResources)
 		if err != nil {

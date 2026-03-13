@@ -165,7 +165,7 @@ func ExistsUpstream(ctx context.Context, id string) bool {
 func BatchDeleteUpstreams(ctx context.Context, ids []string) error {
 	u := repo.Upstream
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Upstream, ids)
 		if err != nil {
 			return err
@@ -234,7 +234,7 @@ func BatchRevertUpstreams(ctx context.Context, syncDataList []*model.GatewaySync
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Upstream, ids, afterResources)
 		if err != nil {

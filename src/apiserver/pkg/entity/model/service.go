@@ -27,7 +27,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
-// Service Service 资源表
+// Service is the APISIX service resource model.
 type Service struct {
 	Name                string                 `gorm:"column:name;type:varchar(255);uniqueIndex:idx_name"` // service_name
 	UpstreamID          string                 `gorm:"column:upstream_id;type:varchar(255)"`               // upstream_id

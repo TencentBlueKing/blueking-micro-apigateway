@@ -19,7 +19,6 @@
 package account
 
 import (
-	"fmt"
 	"time"
 
 	resty "github.com/go-resty/resty/v2"
@@ -35,12 +34,12 @@ type BkTokenAuthBackend struct{}
 
 // GetLoginUrl 获取登录地址
 func (b BkTokenAuthBackend) GetLoginUrl() string {
-	return fmt.Sprintf("%s/plain/", config.G.BkPlatUrlConfig.BkLogin)
+	return config.G.BkPlatUrlConfig.BkLogin + "/plain/"
 }
 
 // GetUserInfo 获取用户信息
 func (b BkTokenAuthBackend) GetUserInfo(token string) (*UserInfo, error) {
-	url := fmt.Sprintf("%s/accounts/get_user/", config.G.BkPlatUrlConfig.BkLogin)
+	url := config.G.BkPlatUrlConfig.BkLogin + "/accounts/get_user/"
 
 	client := resty.New().SetLogger(slogresty.New()).SetTimeout(10 * time.Second)
 
@@ -64,7 +63,11 @@ func (b BkTokenAuthBackend) GetUserInfo(token string) (*UserInfo, error) {
 	if !ok {
 		return nil, errors.Errorf("failed to get user info from %s, response data not json format", url)
 	}
-	return &UserInfo{ID: data["username"].(string)}, nil
+	username, ok := data["username"].(string)
+	if !ok {
+		return nil, errors.Errorf("failed to get user info from %s, username not string", url)
+	}
+	return &UserInfo{ID: username}, nil
 }
 
 var _ AuthBackend = (*BkTokenAuthBackend)(nil)

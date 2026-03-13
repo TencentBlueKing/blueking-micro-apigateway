@@ -21,6 +21,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -86,7 +87,7 @@ func NewWebServerCmd() *cobra.Command {
 				Handler: router.New(logging.GetLogger("gin")),
 			}
 			go func() {
-				if err = srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				if err = srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					logging.Fatalf("Start server failed: %s", err)
 				}
 			}()

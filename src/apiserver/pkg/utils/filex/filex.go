@@ -33,7 +33,7 @@ func ReadFileToObject(fileHeader *multipart.FileHeader, obj any) error {
 	if err != nil {
 		return errors.Wrap(err, "open file failed")
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 	buf := new(bytes.Buffer)
 	_, err = buf.ReadFrom(file)
 	if err != nil {

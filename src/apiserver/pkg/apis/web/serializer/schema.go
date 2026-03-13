@@ -106,11 +106,11 @@ func CheckPluginSchemaAndExample(schema, example json.RawMessage) error {
 	}
 	s, err := gojsonschema.NewSchema(gojsonschema.NewStringLoader(string(schemaRaw)))
 	if err != nil {
-		return fmt.Errorf("实例化 schema 失败: %s", err)
+		return fmt.Errorf("实例化 schema 失败: %w", err)
 	}
 	ret, err := s.Validate(gojsonschema.NewBytesLoader(exampleRaw))
 	if err != nil {
-		return fmt.Errorf("插件示例验证失败: %s", err)
+		return fmt.Errorf("插件示例验证失败: %w", err)
 	}
 	if !ret.Valid() {
 		errString := buffer.Buffer{}

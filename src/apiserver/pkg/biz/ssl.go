@@ -209,7 +209,7 @@ func BatchRevertSSLs(ctx context.Context, syncDataList []*model.GatewaySyncData)
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.SSL, ids, afterResources)
 		if err != nil {
@@ -250,7 +250,7 @@ func ExistsSSL(ctx context.Context, id string) bool {
 func BatchDeleteSSL(ctx context.Context, ids []string) error {
 	u := repo.SSL
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.SSL, ids)
 		if err != nil {
 			return err

@@ -19,6 +19,7 @@
 package ginx
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -133,7 +134,8 @@ func NewErrorJSONResponse(
 		if vErr != nil && vErr.Err != nil {
 			err = vErr.Err
 		}
-		validateErr, ok := err.(validator.ValidationErrors)
+		var validateErr validator.ValidationErrors
+		ok := errors.As(err, &validateErr)
 		if ok {
 			BaseErrorJSONResponse(
 				c,
@@ -165,7 +167,8 @@ func SystemErrorJSONResponse(c *gin.Context, err error) {
 	if vErr != nil && vErr.Err != nil {
 		err = vErr.Err
 	}
-	validateErr, ok := err.(validator.ValidationErrors)
+	var validateErr validator.ValidationErrors
+	ok := errors.As(err, &validateErr)
 	if ok {
 		BaseErrorJSONResponse(
 			c,

@@ -132,7 +132,10 @@ func CheckAPISIXType(fl validator.FieldLevel) bool {
 
 // CheckEtcdEndPoints 校验 etcd 地址
 func CheckEtcdEndPoints(fl validator.FieldLevel) bool {
-	endPoints := fl.Field().Interface().(base.EndpointList)
+	endPoints, ok := fl.Field().Interface().(base.EndpointList)
+	if !ok {
+		return false
+	}
 	for _, endpoint := range endPoints {
 		if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 			return false
@@ -166,7 +169,10 @@ func EtcdConfigCheckValidation(ctx context.Context, sl validator.StructLevel) {
 	if ginx.GetGatewayInfoFromContext(ctx) != nil && ginx.GetGatewayInfoFromContext(ctx).ID != 0 {
 		return
 	}
-	etcdConfig := sl.Current().Interface().(EtcdConfig)
+	etcdConfig, ok := sl.Current().Interface().(EtcdConfig)
+	if !ok {
+		return
+	}
 	switch etcdConfig.EtcdSchemaType {
 	case constant.HTTPS:
 		if etcdConfig.EtcdCertCert == "" || etcdConfig.EtcdCertKey == "" || etcdConfig.EtcdCACert == "" {
@@ -214,10 +220,10 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 	if err != nil {
 		return "", "", err
 	}
-	defer etcdStore.GetClient().Close()
+	defer etcdStore.GetClient().Close() //nolint:errcheck
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	res, err := etcdStore.List(ctx, fmt.Sprintf("%s/data_plane/server_info", etcdStoreConfig.Prefix))
+	res, err := etcdStore.List(ctx, etcdStoreConfig.Prefix+"/data_plane/server_info")
 	if err != nil && !errors.Is(err, storage.KeyNotFoundError) {
 		return "", "", err
 	}

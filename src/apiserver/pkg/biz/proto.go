@@ -139,7 +139,7 @@ func QueryProtos(ctx context.Context, param map[string]any) ([]*model.Proto, err
 func BatchDeleteProtos(ctx context.Context, ids []string) error {
 	u := repo.Proto
 	err := repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		err := AddDeleteResourceByIDAuditLog(ctx, constant.Proto, ids)
 		if err != nil {
 			return err
@@ -201,7 +201,7 @@ func BatchRevertProtos(ctx context.Context, syncDataList []*model.GatewaySyncDat
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.Proto, ids, afterResources)
 		if err != nil {

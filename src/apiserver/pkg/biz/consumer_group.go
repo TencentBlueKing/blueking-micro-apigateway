@@ -223,7 +223,7 @@ func BatchRevertConsumerGroups(ctx context.Context, syncDataList []*model.Gatewa
 		}
 	}
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
-		ctx = ginx.SetTx(ctx, tx)
+		ctx := ginx.SetTx(ctx, tx)
 		// 添加撤销的审计日志
 		err = WrapBatchRevertResourceAddAuditLog(ctx, constant.ConsumerGroup, ids, afterResources)
 		if err != nil {

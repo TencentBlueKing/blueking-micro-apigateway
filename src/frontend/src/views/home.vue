@@ -30,18 +30,22 @@
           unique-open
         >
           <bk-menu-group v-for="menuGroup in menuGroups" :key="menuGroup.name" :name="menuGroup.name">
-            <template v-for="menu in menuGroup.menus">
-              <bk-menu-item
-                v-if="menu.enabled"
-                :key="menu.name"
-                @click="handleMenuItemClick(menu)"
-              >
-                <template #icon>
-                  <i :class="['icon apigateway-icon', `icon-ag-${menu.icon}`]"></i>
-                </template>
-                <div>{{ menu.title }}</div>
-              </bk-menu-item>
-            </template>
+            <bk-menu-item
+              v-for="menu in menuGroup.menus"
+              :key="menu.name"
+              :disabled="!menu.enabled"
+              :class="{ 'is-disabled': !menu.enabled }"
+              v-bk-tooltips="{
+                disabled: menu.enabled,
+                content: t('MCP 功能只支持 APISIX 3.13.x 及以上的版本'),
+              }"
+              @click="handleMenuItemClick(menu)"
+            >
+              <template #icon>
+                <i :class="['icon apigateway-icon', `icon-ag-${menu.icon}`]"></i>
+              </template>
+              <div>{{ menu.title }}</div>
+            </bk-menu-item>
           </bk-menu-group>
         </bk-menu>
       </template>
@@ -315,7 +319,12 @@ const menuGroups = ref<IMenuGroup[]>([
         name: 'MCP',
         routeName: 'mcp',
         icon: 'permission',
-        enabled: common.curGatewayData?.apisix?.version?.indexOf('3.13.') !== -1,
+        enabled: (() => {
+          const version = common.curGatewayData?.apisix?.version;
+          if (!version) return false;
+          const parts = version.split('.').map(Number);
+          return parts[0] > 3 || (parts[0] === 3 && parts[1] >= 13);
+        })(),
       },
       {
         title: t('审计日志'),
@@ -362,17 +371,6 @@ const setGatewayDetail = async () => {
   common.setCurGatewayData(curGatewayData);
 };
 
-const findMenuByRouteName = (routeName: string) => {
-  for (const group of menuGroups.value) {
-    for (const menu of group.menus) {
-      if (menu.routeName === routeName) {
-        return menu;
-      }
-    }
-  }
-  return null;
-};
-
 watch(() => route.params.gatewayId, async () => {
   const _gatewayId = Number(route.params.gatewayId as unknown);
   gatewayId.value = _gatewayId;
@@ -380,14 +378,8 @@ watch(() => route.params.gatewayId, async () => {
   await setGatewayDetail();
 }, { immediate: true });
 
-watch(() => common.curGatewayData, () => {
-  const menu = findMenuByRouteName(route.name as string);
-  if (menu && !menu.enabled) {
-    router.push({ name: 'root' });
-  }
-}, { immediate: true });
-
 const handleMenuItemClick = (menu: IMenu) => {
+  if (!menu.enabled) return;
   router.push({ name: menu.routeName });
 };
 
@@ -514,6 +506,15 @@ common.setPlugins();
 
         &:hover {
           background: #f0f1f5;
+        }
+
+        &.is-disabled {
+          color: #c4c6cc;
+          cursor: not-allowed;
+
+          &:hover {
+            background: transparent;
+          }
         }
       }
 

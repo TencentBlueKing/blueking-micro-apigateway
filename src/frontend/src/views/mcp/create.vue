@@ -178,8 +178,10 @@ const newToken = ref<{
 });
 const mcpServers = computed(() => ({
   mcpServers: {
+    网关名: `bk-apisix-${common.gatewayName}`,
     'bk-apisix': {
-      url: `${BK_DASHBOARD_URL}/mcp/gateways/${common.gatewayId}`,
+      url: `${BK_DASHBOARD_URL.replace('/web', '')}/mcp/gateways/${common.gatewayId}`,
+      type: 'streamableHttp',
       headers: {
         Authorization: `Bearer ${newToken.value?.data?.token}`,
       },

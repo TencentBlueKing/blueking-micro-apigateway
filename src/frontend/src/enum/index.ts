@@ -155,7 +155,7 @@ export const RESOURCE_INTRODUCTION: Record<string, { text: string, docLink: stri
     docLink: 'https://apisix.apache.org/zh/docs/apisix/stream-proxy/',
   },
   mcp: {
-    text: '管理 MCP 协议访问令牌，用于 MCP 客户端（如 Claude Desktop、Cursor 等）接入网关。令牌创建后仅展示一次，请妥善保存。',
+    text: '管理 MCP 协议访问令牌，用于 MCP 客户端（如 Claude Desktop、Cursor 等）管理微网关资源。令牌创建后仅展示一次，请妥善保存。',
     docLink: '',
   },
 };

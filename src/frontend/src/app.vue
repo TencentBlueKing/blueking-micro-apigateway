@@ -276,7 +276,7 @@ watch(
       userLoaded.value = true;
     } catch (e: any) {
       console.error(e);
-      if (e?.code !== 'Unauthorized') {
+      if (e?.message && JSON.parse(e.message)?.error?.code !== 'Unauthorized') {
         Message('获取用户信息或功能权限失败，请检查后再试');
       }
     }

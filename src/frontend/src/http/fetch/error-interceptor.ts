@@ -56,7 +56,7 @@ export default (errorData: any, config: IFetchConfig) => {
   }
   // 全局捕获错误给出提示
   if (config.globalError) {
-    if (error?.code !== 'Unauthorized' && !useCommon()?.noGlobalError) {
+    if ((error?.message && JSON.parse(error.message)?.error?.code !== 'Unauthorized') && !useCommon()?.noGlobalError) {
       Message({ theme: 'error', message: error?.message || 'Error' });
     }
   }

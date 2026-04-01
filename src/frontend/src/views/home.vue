@@ -154,7 +154,7 @@
 </template>
 
 <script lang="ts" setup>
-import { IGatewayItem, IMenu, IMenuGroup } from '@/types';
+import { IGatewayItem, IMenu } from '@/types';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { computed, ref, watch } from 'vue';
@@ -180,7 +180,7 @@ const {
 } = useGetApiList({ name: '' });
 
 const homeViewKey = ref(uniqueId());
-const menuGroups = ref<IMenuGroup[]>([
+const menuGroups = computed(() => [
   {
     name: t('基础资源'),
     menus: [

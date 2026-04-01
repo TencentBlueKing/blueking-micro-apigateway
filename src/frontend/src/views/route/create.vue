@@ -159,7 +159,8 @@
                   @change="handleUpstreamSelect"
                 >
                   <bk-option
-                    id="__none__" :disabled="formModel.service_id === '__none__'"
+                    id="__none__"
+                    :disabled="formModel.service_id === '__none__'"
                     :name="t('不选择（仅在已绑定了服务时可用）')"
                   />
                   <bk-option id="__config__" :name="t('手动填写（会覆盖绑定服务的配置）')" />

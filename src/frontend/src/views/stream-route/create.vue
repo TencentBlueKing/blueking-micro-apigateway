@@ -20,38 +20,38 @@
   <div>
     <main class="page-content-wrapper">
       <div>
-        <BkForm ref="form-ref" :model="formModel" :rules="rules" class="form-element">
-          <FormCard>
+        <bk-form ref="form-ref" :model="formModel" :rules="rules" class="form-element">
+          <form-card>
             <template #title>{{ t('基本信息') }}</template>
             <div>
-              <BkFormItem :label="t('名称')" class="form-item" property="name" required>
-                <BkInput v-model="formModel.name" clearable />
-              </BkFormItem>
-              <BkFormItem :label="t('描述')" class="form-item" property="desc">
-                <BkInput v-model="routeConfig.desc" clearable />
-              </BkFormItem>
+              <bk-form-item :label="t('名称')" class="form-item" property="name" required>
+                <bk-input v-model="formModel.name" clearable />
+              </bk-form-item>
+              <bk-form-item :label="t('描述')" class="form-item" property="desc">
+                <bk-input v-model="routeConfig.desc" clearable />
+              </bk-form-item>
             </div>
-          </FormCard>
-        </BkForm>
+          </form-card>
+        </bk-form>
 
-        <BkForm :model="routeConfig" class="form-element" style="margin-bottom: 16px;">
+        <bk-form :model="routeConfig" class="form-element" style="margin-bottom: 16px;">
           <div class="prev-card-attachment">
-            <BkFormItem :label="t('标签')" style="margin-bottom: 0;">
-              <FormLabelsNew ref="labels-form-new" :labels="routeConfig.labels" />
-            </BkFormItem>
+            <bk-form-item :label="t('标签')" style="margin-bottom: 0;">
+              <form-labels-new ref="labels-form-new" :labels="routeConfig.labels" />
+            </bk-form-item>
 
-            <BkFormItem :label="t('绑定服务')" class="form-item">
-              <SelectService
+            <bk-form-item :label="t('绑定服务')" class="form-item">
+              <select-service
                 v-model="formModel.service_id"
                 :check-disabled="formModel.service_id === '__none__'"
                 @change="handleServiceChange"
               >
-                <BkOption id="__none__" :name="t('不绑定服务')" />
-              </SelectService>
-            </BkFormItem>
+                <bk-option id="__none__" :name="t('不绑定服务')" />
+              </select-service>
+            </bk-form-item>
 
-            <BkFormItem :label="t('上游地址')">
-              <FormRemoteAddressNew
+            <bk-form-item :label="t('上游地址')">
+              <form-remote-address-new
                 ref="remote-addr-form"
                 :addrs="routeConfig.remote_addrs"
                 :show-add-icon="false"
@@ -59,11 +59,11 @@
                 <template #tooltips>
                   {{ t('发出请求的客户端地址。') }}
                 </template>
-              </FormRemoteAddressNew>
-            </BkFormItem>
+              </form-remote-address-new>
+            </bk-form-item>
 
-            <BkFormItem :label="t('服务器地址')">
-              <FormRemoteAddressNew
+            <bk-form-item :label="t('服务器地址')">
+              <form-remote-address-new
                 ref="server-addr-form"
                 :addrs="routeConfig.server_addrs"
                 :show-add-icon="false"
@@ -71,11 +71,11 @@
                 <template #tooltips>
                   {{ t('接受 Stream Route 连接的 APISIX 服务器的地址。') }}
                 </template>
-              </FormRemoteAddressNew>
-            </BkFormItem>
+              </form-remote-address-new>
+            </bk-form-item>
 
-            <BkFormItem :label="t('服务器端口')" class="form-item w120">
-              <BkInput
+            <bk-form-item :label="t('服务器端口')" class="form-item w120">
+              <bk-input
                 v-model="routeConfig.server_port"
                 type="number"
                 :min="0"
@@ -85,33 +85,33 @@
               <div class="form-item-tip">
                 {{ t('接受 Stream Route 连接的 APISIX 服务器的端口。') }}
               </div>
-            </BkFormItem>
+            </bk-form-item>
           </div>
-        </BkForm>
+        </bk-form>
 
-        <FormCard>
+        <form-card>
           <template #title>{{ t('上游服务') }}</template>
           <div>
-            <BkForm class="form-element">
-              <BkFormItem :label="t('选择上游服务')" class="form-item">
-                <SelectUpstream
+            <bk-form class="form-element">
+              <bk-form-item :label="t('选择上游服务')" class="form-item">
+                <select-upstream
                   v-model="formModel.upstream_id"
                   :check-disabled="!formModel.upstream_id
                     || ['__config__', '__none__'].includes(formModel.upstream_id)"
                   @change="handleUpstreamSelect"
                 >
-                  <BkOption
+                  <bk-option
                     id="__none__"
                     :disabled="['__none__'].includes(formModel.service_id)"
                     :name="t('不选择（仅在已绑定了服务时可用）')"
                   />
-                  <BkOption
+                  <bk-option
                     id="__config__"
                     :name="t('手动填写（会覆盖绑定服务的配置）')"
                   />
-                </SelectUpstream>
-              </BkFormItem>
-            </BkForm>
+                </select-upstream>
+              </bk-form-item>
+            </bk-form>
 
             <!--  upstream 配置  -->
             <form-upstream
@@ -123,36 +123,36 @@
               :desc-and-labels="false"
             />
           </div>
-        </FormCard>
+        </form-card>
 
         <!--  插件 配置  -->
-        <FormCard>
+        <form-card>
           <template #title>{{ t('插件') }}</template>
           <template #subTitle>{{ t('可直接使用插件组，或逐个添加插件，也可组合使用') }}</template>
           <div>
-            <BkForm class="form-element">
-              <BkFormItem :label="t('插件')" class="form-item">
-                <ButtonIcon
+            <bk-form class="form-element">
+              <bk-form-item :label="t('插件')" class="form-item">
+                <button-icon
                   icon-color="#3a84ff"
                   style="background: #f0f5ff;border-color: transparent;border-radius: 2px;color:#3a84ff;"
                   @click="isPluginConfigManageSliderVisible = true"
                 >
                   {{ t('添加插件') }}
-                </ButtonIcon>
-              </BkFormItem>
-            </BkForm>
+                </button-icon>
+              </bk-form-item>
+            </bk-form>
             <div style="margin-left: 150px;">
-              <ManagePluginConfigNew
+              <manage-plugin-config-new
                 v-model="enabledPluginList"
                 v-model:is-show="isPluginConfigManageSliderVisible"
                 :plugin-query="{ kind: 'stream' }"
               />
             </div>
           </div>
-        </FormCard>
+        </form-card>
       </div>
     </main>
-    <FormPageFooter
+    <form-page-footer
       @cancel="handleCancelClick"
       @submit="handleSubmit"
     />
@@ -293,7 +293,7 @@ watch(() => route.params.id, async (id: string | null) => {
     }
 
     if (remoteUpstream) {
-      upstream.value = remoteUpstream;
+      upstream.value = { ...upstream.value, ...remoteUpstream };
 
       if (remoteUpstream.service_name && remoteUpstream.discovery_type) {
         flags.value.upstreamType = 'service_discovery';

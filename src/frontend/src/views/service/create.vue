@@ -243,7 +243,7 @@ watch(() => route.params.id, async (id: unknown) => {
     }
 
     if (config.upstream) {
-      upstream.value = config.upstream;
+      upstream.value = { ...upstream.value, ...config.upstream };
 
       if (config.upstream.service_name && config.upstream.discovery_type) {
         flags.value.upstreamType = 'service_discovery';
@@ -259,6 +259,11 @@ watch(() => route.params.id, async (id: unknown) => {
       }
 
       ssl_id.value = config.upstream.tls?.client_cert_id || '';
+    }
+
+    // 这个服务没有配置 upstream 的话，选择框的选项应为“不选择”
+    if (!upstream_id && !config.upstream) {
+      upstreamId.value = '__bind-id__';
     }
 
     if (config.plugins) {

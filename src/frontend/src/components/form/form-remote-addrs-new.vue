@@ -66,7 +66,7 @@ import { isEmpty } from 'lodash-es';
 
 interface IProps {
   addrs?: string[];
-  showAddIcon?: true
+  showAddIcon?: boolean
 }
 
 const { addrs = [''], showAddIcon = true } = defineProps<IProps>();

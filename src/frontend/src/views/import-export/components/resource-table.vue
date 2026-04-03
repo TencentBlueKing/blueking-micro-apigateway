@@ -1,16 +1,25 @@
 <template>
   <div style="padding-bottom: 12px;">
-    <bk-table :columns="columns" :data="data" :pagination="pagination" row-key="resource_id" />
+    <bk-table :columns="columns" :data="data" :pagination="pagination" row-key="resource_id">
+      <template #empty>
+        <TableEmpty
+          :type="tableEmptyType"
+          @clear-filter="handleClearFilterKey"
+        />
+      </template>
+    </bk-table>
   </div>
 </template>
 
 <script lang="tsx" setup>
 import { RESOURCE_CN_MAP } from '@/enum';
 import { useI18n } from 'vue-i18n';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import TableEmpty from '@/components/table-empty.vue';
 
 interface IProps {
   type: 'add' | 'update' | 'uncheck'
+  keywords?: string
 }
 
 interface IRow {
@@ -26,11 +35,12 @@ const data = defineModel<IRow[]>('data', {
   default: [],
 });
 
-const { type } = defineProps<IProps>();
+const { type, keywords } = defineProps<IProps>();
 
 const emit = defineEmits<{
   'uncheck': [row: IRow]
   'recover': [row: IRow]
+  'clear-filter': []
 }>();
 
 const { t } = useI18n();
@@ -41,6 +51,8 @@ const pagination = ref({
   count: data.value.length,
   showLimit: false,
 });
+
+const tableEmptyType = ref<'empty' | 'search-empty'>('empty');
 
 const columns = computed(() => [
   {
@@ -85,6 +97,23 @@ const columns = computed(() => [
     ),
   },
 ]);
+
+const updateTableEmptyConfig = () => {
+  if (keywords) {
+    tableEmptyType.value = 'search-empty';
+  } else {
+    tableEmptyType.value = 'empty';
+  }
+};
+
+watch(() => keywords, () => {
+  updateTableEmptyConfig();
+}, { immediate: true });
+
+const handleClearFilterKey = () => {
+  emit('clear-filter');
+  updateTableEmptyConfig();
+};
 
 const handleRecover = (row: IRow) => {
   emit('recover', row);

@@ -83,7 +83,12 @@
           <template #content>
             <div>
               <!--  新增资源 table  -->
-              <resource-table :data="tableDataToAdd" type="update" @uncheck="(row) => handleUncheck(row, 'add')" />
+              <resource-table
+                :data="tableDataToAdd"
+                type="update"
+                :keywords="filterInputAdd"
+                @clear-filter="() => handleClearFilter('add')"
+                @uncheck="(row) => handleUncheck(row, 'add')" />
             </div>
           </template>
         </bk-collapse-panel>
@@ -131,6 +136,8 @@
               <resource-table
                 :data="tableDataToUpdate"
                 type="update"
+                :keywords="filterInputUpdate"
+                @clear-filter="() => handleClearFilter('update')"
                 @uncheck="(row) => handleUncheck(row, 'update')"
               />
             </div>
@@ -269,6 +276,16 @@ const handleUncheck = (row: IRow, source?: 'add' | 'update') => {
     ...row,
     __source__: source,
   });
+};
+
+const handleClearFilter = (type: 'add' | 'update') => {
+  if (type === 'add') {
+    filterInputAddClone.value = '';
+    filterInputAdd.value = '';
+  } else if (type === 'update') {
+    filterInputUpdateClone.value = '';
+    filterInputUpdate.value = '';
+  }
 };
 
 defineExpose({

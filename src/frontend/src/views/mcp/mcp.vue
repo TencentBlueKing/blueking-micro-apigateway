@@ -197,9 +197,9 @@ const columns: PrimaryTableProps['columns'] = [
           trigger="click"
           onConfirm={() => handleDel(row as IMcpToken)}
         >
-          <bk-button text theme="danger">
+          <bk-button text theme="danger" disabled={isReadonlyGateway.value}>
               { t('删除') }
-            </bk-button>
+          </bk-button>
         </bk-pop-confirm>
         </>
       );

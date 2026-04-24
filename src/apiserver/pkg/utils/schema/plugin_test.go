@@ -19,9 +19,13 @@
 package schema
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
@@ -85,4 +89,96 @@ func TestGetPlugins(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPluginExamplesMatchSchema(t *testing.T) {
+	versions := []constant.APISIXVersion{
+		constant.APISIXVersion311,
+		constant.APISIXVersion313,
+	}
+
+	type exampleCase struct {
+		schemaType string
+		scope      string
+		example    map[string]any
+	}
+
+	for _, version := range versions {
+		plugins, err := GetPlugins(constant.APISIXTypeAPISIX, version)
+		if !assert.NoError(t, err) {
+			continue
+		}
+
+		for _, plugin := range plugins {
+			mainSchemaType := ""
+			if plugin.ProxyType == "stream" {
+				mainSchemaType = "stream"
+			}
+
+			cases := []exampleCase{
+				{
+					schemaType: mainSchemaType,
+					scope:      "main",
+					example:    plugin.Example,
+				},
+				{
+					schemaType: "consumer",
+					scope:      "consumer",
+					example:    plugin.ConsumerExample,
+				},
+				{
+					schemaType: "metadata",
+					scope:      "metadata",
+					example:    plugin.MetadataExample,
+				},
+			}
+
+			for _, tc := range cases {
+				if tc.example == nil {
+					continue
+				}
+
+				testName := fmt.Sprintf("%s/%s/%s", version, plugin.Name, tc.scope)
+				t.Run(testName, func(t *testing.T) {
+					schemaValue := GetPluginSchema(version, plugin.Name, tc.schemaType)
+					if schemaValue == nil {
+						t.Fatalf(
+							"schema not found for plugin %q scope %q in version %s",
+							plugin.Name,
+							tc.scope,
+							version,
+						)
+						return
+					}
+
+					schemaBytes, err := json.Marshal(schemaValue)
+					assert.NoError(t, err)
+
+					s, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaBytes))
+					assert.NoError(t, err)
+
+					result, err := s.Validate(gojsonschema.NewGoLoader(tc.example))
+					assert.NoError(t, err)
+					assert.Truef(
+						t,
+						result.Valid(),
+						"schema validation errors: %s",
+						strings.Join(flattenSchemaErrors(result.Errors()), "; "),
+					)
+				})
+			}
+		}
+	}
+}
+
+func flattenSchemaErrors(errors []gojsonschema.ResultError) []string {
+	if len(errors) == 0 {
+		return nil
+	}
+
+	messages := make([]string, 0, len(errors))
+	for _, err := range errors {
+		messages = append(messages, err.String())
+	}
+	return messages
 }

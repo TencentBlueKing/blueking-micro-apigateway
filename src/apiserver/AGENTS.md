@@ -447,6 +447,8 @@ make lint
 
 always run the commands before you finish your coding work and before you push your code, and fix the issues if any.
 
+If the change only touches Markdown documentation files (for example `*.md`), you can skip `make lint` and `make test`.
+
 ## Local Tools Installed
 
 - `ag` and `grep` for command-line text search

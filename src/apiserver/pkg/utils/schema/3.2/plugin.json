@@ -683,12 +683,6 @@
     }
   },
   {
-    "name": "server-info",
-    "type": "general",
-    "hidden": true,
-    "example": {}
-  },
-  {
     "name": "serverless-post-function",
     "type": "serverless",
     "example": {

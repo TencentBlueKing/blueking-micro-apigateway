@@ -1980,9 +1980,6 @@
       "version": 0.1,
       "priority": 508,
       "schema": {
-        "encrypt_fields": [
-          "sasl.password"
-        ],
         "properties": {
           "sasl": {
             "properties": {
@@ -2483,9 +2480,6 @@
       "schema": {
         "$comment": "this is a mark for our injected plugin schema",
         "type": "object",
-        "encrypt_fields": [
-          "token"
-        ],
         "properties": {
           "event_code": {
             "description": "Lago billable metric's code for associating an event to a specifiedbillable item",
@@ -2808,9 +2802,6 @@
       "schema": {
         "$comment": "this is a mark for our injected plugin schema",
         "type": "object",
-        "encrypt_fields": [
-          "auth.password"
-        ],
         "oneOf": [
           {
             "required": [
@@ -3976,9 +3967,6 @@
               "port"
             ]
           }
-        ],
-        "encrypt_fields": [
-          "clickhouse.password"
         ]
       },
       "schema": {
@@ -4295,9 +4283,6 @@
       "schema": {
         "$comment": "this is a mark for our injected plugin schema",
         "type": "object",
-        "encrypt_fields": [
-          "auth_config.private_key"
-        ],
         "oneOf": [
           {
             "required": [
@@ -4581,9 +4566,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "access_key_secret"
-        ],
         "required": [
           "host",
           "port",
@@ -5120,9 +5102,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "required": [
           "nameserver_list",
           "topic"
@@ -5493,9 +5472,6 @@
       "schema": {
         "$comment": "this is a mark for our injected plugin schema",
         "type": "object",
-        "encrypt_fields": [
-          "password"
-        ],
         "oneOf": [
           {
             "required": [
@@ -5764,9 +5740,6 @@
             "type": "boolean"
           }
         },
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "required": [
           "cls_host",
           "cls_topic",
@@ -6076,9 +6049,6 @@
       "schema": {
         "$comment": "this is a mark for our injected plugin schema",
         "type": "object",
-        "encrypt_fields": [
-          "service_token"
-        ],
         "properties": {
           "action": {
             "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
@@ -7357,9 +7327,6 @@
             "type": "integer"
           }
         },
-        "encrypt_fields": [
-          "key"
-        ],
         "required": [
           "key"
         ]
@@ -8047,10 +8014,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "client_secret",
-          "client_rsa_private_key"
-        ],
         "required": [
           "client_id",
           "client_secret",
@@ -8198,9 +8161,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "client_secret"
-        ],
         "required": [
           "callback_url",
           "endpoint_addr",
@@ -8438,9 +8398,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "title": "work with consumer object",
         "required": [
           "key_id",
@@ -8508,9 +8465,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "password"
-        ],
         "title": "work with consumer object",
         "required": [
           "username",
@@ -8624,9 +8578,6 @@
             "type": "integer"
           }
         },
-        "encrypt_fields": [
-          "secret"
-        ],
         "dependencies": {
           "algorithm": {
             "oneOf": [
@@ -8723,10 +8674,6 @@
       },
       "priority": 2509,
       "consumer_schema": {
-        "encrypt_fields": [
-          "key",
-          "secret"
-        ],
         "properties": {
           "key": {
             "type": "string"
@@ -8811,9 +8758,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "key"
-        ],
         "type": "object"
       },
       "type": "auth"
@@ -9409,9 +9353,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "client_secret"
-        ],
         "required": [
           "client_id"
         ]

@@ -4148,9 +4148,6 @@
       "priority": 2980,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "key"
-        ],
         "properties": {
           "expires": {
             "type": "integer",
@@ -4513,10 +4510,6 @@
       "priority": 2599,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "client_secret",
-          "client_rsa_private_key"
-        ],
         "properties": {
           "authorization_params": {
             "type": "object",
@@ -4893,9 +4886,6 @@
       "priority": 2559,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "client_secret"
-        ],
         "properties": {
           "_meta": {
             "type": "object",
@@ -5086,9 +5076,6 @@
             "minLength": 1
           }
         },
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "required": [
           "key_id",
           "secret_key"
@@ -5182,9 +5169,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "password"
-        ],
         "required": [
           "username",
           "password"
@@ -5299,9 +5283,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "secret"
-        ],
         "required": [
           "key"
         ]
@@ -5372,10 +5353,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "key",
-          "secret"
-        ],
         "required": [
           "key",
           "secret"
@@ -5441,9 +5418,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "key"
-        ],
         "required": [
           "key"
         ]
@@ -5863,9 +5837,6 @@
       "priority": 2000,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "client_secret"
-        ],
         "allOf": [
           {
             "anyOf": [
@@ -7746,9 +7717,6 @@
       "priority": -1901,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "service_token"
-        ],
         "properties": {
           "package": {
             "type": "string",
@@ -9531,10 +9499,7 @@
             ]
           }
         },
-        "$comment": "this is a mark for our injected plugin schema",
-        "encrypt_fields": [
-          "sasl.password"
-        ]
+        "$comment": "this is a mark for our injected plugin schema"
       }
     },
     "grpc-transcode": {
@@ -10126,9 +10091,6 @@
       },
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "auth.password"
-        ],
         "properties": {
           "inactive_timeout": {
             "type": "integer",
@@ -11258,9 +11220,6 @@
               "port"
             ]
           }
-        ],
-        "encrypt_fields": [
-          "clickhouse.password"
         ]
       },
       "schema": {
@@ -11694,10 +11653,7 @@
             "default": "google-cloud-logging"
           }
         },
-        "$comment": "this is a mark for our injected plugin schema",
-        "encrypt_fields": [
-          "auth_config.private_key"
-        ]
+        "$comment": "this is a mark for our injected plugin schema"
       }
     },
     "sls-logger": {
@@ -11713,9 +11669,6 @@
       "version": 0.1,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "access_key_secret"
-        ],
         "properties": {
           "port": {
             "type": "integer"
@@ -12214,9 +12167,6 @@
       },
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "properties": {
           "inactive_timeout": {
             "type": "integer",
@@ -12834,10 +12784,7 @@
             "default": false
           }
         },
-        "$comment": "this is a mark for our injected plugin schema",
-        "encrypt_fields": [
-          "password"
-        ]
+        "$comment": "this is a mark for our injected plugin schema"
       }
     },
     "tencent-cloud-cls": {
@@ -12853,9 +12800,6 @@
       },
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "properties": {
           "inactive_timeout": {
             "type": "integer",

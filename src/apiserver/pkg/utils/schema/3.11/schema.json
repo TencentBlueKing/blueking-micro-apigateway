@@ -7883,8 +7883,11 @@
             "default": 3000
           },
           "authorization": {
-            "service_token": {
-              "type": "string"
+            "type": "object",
+            "properties": {
+              "service_token": {
+                "type": "string"
+              }
             }
           },
           "keepalive": {

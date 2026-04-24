@@ -171,6 +171,40 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 	}
 }
 
+func TestOpenFunctionAuthorizationSchemaShape(t *testing.T) {
+	schemaValue := GetPluginSchema(constant.APISIXVersion313, "openfunction", "")
+
+	schemaMap, ok := schemaValue.(map[string]any)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	properties, ok := schemaMap["properties"].(map[string]any)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	authorization, ok := properties["authorization"].(map[string]any)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	assert.Equal(t, "object", authorization["type"])
+	assert.NotContains(t, authorization, "service_token")
+
+	authProperties, ok := authorization["properties"].(map[string]any)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	serviceToken, ok := authProperties["service_token"].(map[string]any)
+	if !assert.True(t, ok) {
+		return
+	}
+
+	assert.Equal(t, "string", serviceToken["type"])
+}
+
 func flattenSchemaErrors(errors []gojsonschema.ResultError) []string {
 	if len(errors) == 0 {
 		return nil

@@ -10912,9 +10912,12 @@
             "type": "integer"
           },
           "authorization": {
-            "service_token": {
-              "type": "string"
-            }
+            "properties": {
+              "service_token": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           }
         },
         "$comment": "this is a mark for our injected plugin schema",

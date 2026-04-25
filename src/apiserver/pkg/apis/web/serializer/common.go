@@ -56,10 +56,16 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	resourceType := constant.APISIXResource(fl.Param())
-	rawConfig = injectGeneratedIDForValidation(rawConfig, resourceType, fl.Parent().FieldByName("ID").String())
 	// Keep both forms here: typed resourceType is used by enum-based helpers, while some schema helpers still need
 	// the plain string name.
 	resourceTypeName := resourceType.String()
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	rawConfig = injectGeneratedIDForValidation(
+		rawConfig,
+		resourceType,
+		gatewayInfo.GetAPISIXVersionX(),
+		fl.Parent().FieldByName("ID").String(),
+	)
 	resourceIdentification := schema.GetResourceIdentification(rawConfig)
 	if resourceIdentification == "" {
 		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
@@ -70,7 +76,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 			resourceIdentification,
 		)
 	}
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(
 		gatewayInfo.GetAPISIXVersionX(),
@@ -125,9 +130,10 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 func injectGeneratedIDForValidation(
 	rawConfig json.RawMessage,
 	resourceType constant.APISIXResource,
+	version constant.APISIXVersion,
 	resourceID string,
 ) json.RawMessage {
-	if !constant.ResourceRequiresIDInSchema(resourceType) || resourceID == "" {
+	if !constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) || resourceID == "" {
 		return rawConfig
 	}
 	if gjson.GetBytes(rawConfig, "id").Exists() {

@@ -52,7 +52,8 @@ func GlobalRuleCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	// global_rule schema requires config.id, but that ID is assigned by the server. Bind first so validation sees the
+	// global_rule schema requires config.id, but that ID is assigned by the server. Bind first so validation sees
+	// the
 	// real generated ID instead of forcing clients to send a placeholder value.
 	req.ID = idx.GenResourceID(constant.GlobalRule)
 	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {

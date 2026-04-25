@@ -52,6 +52,14 @@ func TestInjectGeneratedIDForValidation(t *testing.T) {
 			wantConfig:   `{"plugins":{},"id":"pc-generated-id"}`,
 		},
 		{
+			name:         "inject generated id for global rule",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion313,
+			resourceID:   "gr-generated-id",
+			rawConfig:    json.RawMessage(`{"plugins":{"ip-restriction":{}}}`),
+			wantConfig:   `{"plugins":{"ip-restriction":{}},"id":"gr-generated-id"}`,
+		},
+		{
 			name:         "do not inject id for old consumer group schema",
 			resourceType: constant.ConsumerGroup,
 			version:      constant.APISIXVersion33,
@@ -93,6 +101,55 @@ func TestInjectGeneratedIDForValidation(t *testing.T) {
 
 			if !reflect.DeepEqual(gotObj, wantObj) {
 				t.Fatalf("unexpected config: got %s want %s", string(got), tt.wantConfig)
+			}
+		})
+	}
+}
+
+func TestShouldInjectResourceNameForValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		want         bool
+	}{
+		{
+			name:         "inject consumer username",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
+			want:         true,
+		},
+		{
+			name:         "inject route name",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion311,
+			want:         true,
+		},
+		{
+			name:         "do not inject ssl name",
+			resourceType: constant.SSL,
+			version:      constant.APISIXVersion313,
+			want:         false,
+		},
+		{
+			name:         "do not inject proto name on old schema",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion311,
+			want:         false,
+		},
+		{
+			name:         "inject proto name on 3.13",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion313,
+			want:         true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldInjectResourceNameForValidation(tt.resourceType, tt.version)
+			if got != tt.want {
+				t.Fatalf("unexpected result: got %v want %v", got, tt.want)
 			}
 		})
 	}

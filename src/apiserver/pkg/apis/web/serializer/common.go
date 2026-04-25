@@ -70,11 +70,13 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	if resourceIdentification == "" {
 		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
 		resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
-		rawConfig, _ = sjson.SetBytes(
-			rawConfig,
-			model.GetResourceNameKey(resourceType),
-			resourceIdentification,
-		)
+		if shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
+			rawConfig, _ = sjson.SetBytes(
+				rawConfig,
+				model.GetResourceNameKey(resourceType),
+				resourceIdentification,
+			)
+		}
 	}
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(
@@ -141,6 +143,14 @@ func injectGeneratedIDForValidation(
 	}
 	rawConfig, _ = sjson.SetBytes(rawConfig, "id", resourceID)
 	return rawConfig
+}
+
+func shouldInjectResourceNameForValidation(
+	resourceType constant.APISIXResource,
+	version constant.APISIXVersion,
+) bool {
+	return resourceType == constant.Consumer ||
+		constant.ResourceSupportsNameFieldForVersion(resourceType, version)
 }
 
 func getResourceNameByResourceType(resourceType string, fl validator.FieldLevel) string {

@@ -31,7 +31,7 @@ import (
 
 // PluginConfigInfo PluginConf 基本信息
 type PluginConfigInfo struct {
-	ID     string          `json:"id"`                                                                // 资源apisix资源id
+	ID     string          `json:"-"`                                                                 // 资源apisix资源id
 	Name   string          `json:"name" binding:"required" validate:"pluginConfigName"`               // PluginConf名称
 	Config json.RawMessage `json:"config" validate:"apisixConfig=plugin_config" swaggertype:"object"` // 配置数据(json格式)
 }

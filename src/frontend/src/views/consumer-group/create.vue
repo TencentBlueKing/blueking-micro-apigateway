@@ -147,6 +147,20 @@ const consumerGroupId = computed(() => {
   return route.params.id as string;
 });
 
+// APISIX consumer_group schema requires config.id, but create requests do not have that value on the client side.
+// Keep edit mode strict, and only relax create-mode AJV by removing the local "id" requirement. The real ID is
+// generated and validated by the backend before persistence.
+const getSchemaForValidation = () => {
+  if (isEditMode.value || !Array.isArray(schema.value.required)) {
+    return schema.value;
+  }
+
+  return {
+    ...schema.value,
+    required: schema.value.required.filter((field: string) => field !== 'id'),
+  };
+};
+
 watch(() => route.params.id, async (id: unknown) => {
   if (id) {
     const response = await getConsumerGroup({ id } as { id: string });
@@ -209,7 +223,7 @@ const handleSubmit = async () => {
       config = filterEmpty(config, ['plugins']);
     }
 
-    const schemaValidate = ajv.compile(schema.value);
+    const schemaValidate = ajv.compile(getSchemaForValidation());
 
     if (schemaValidate(config)) {
       const data = {

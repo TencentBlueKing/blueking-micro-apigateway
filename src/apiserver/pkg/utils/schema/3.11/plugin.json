@@ -1,10 +1,5 @@
 [
   {
-    "name": "ai",
-    "type": "general",
-    "example": {}
-  },
-  {
     "name": "ai-prompt-decorator",
     "type": "AI",
     "example": {
@@ -282,9 +277,9 @@
     "example": {
       "query": "query GetUser($id: ID!) { user(id: $id) { name email } }",
       "operation_name": "GetUser",
-      "variables": {
-        "id": "123"
-      }
+      "variables": [
+        "id"
+      ]
     }
   },
   {
@@ -345,12 +340,6 @@
       },
       "inactive_timeout": 1
     }
-  },
-  {
-    "name": "example-plugin",
-    "type": "general",
-    "hidden": true,
-    "example": {}
   },
   {
     "name": "ext-plugin-post-req",
@@ -437,6 +426,7 @@
     "type": "observability",
     "example": {
       "auth_config": {
+        "client_email": "service-account@example.iam.gserviceaccount.com",
         "private_key": "your_private_key",
         "project_id": "your_project_id",
         "token_uri": "https://oauth2.googleapis.com/token"
@@ -478,18 +468,18 @@
     "name": "hmac-auth",
     "type": "authentication",
     "example": {
-      "access_key": "your_access_key",
-      "secret_key": "your_secret_key"
+      "allowed_algorithms": [
+        "hmac-sha256"
+      ],
+      "clock_skew": 300,
+      "signed_headers": [
+        "date",
+        "@request-target"
+      ]
     },
     "consumer_example": {
-      "access_key": "user-key",
-      "secret_key": "my-secret-key",
-      "clock_skew": 0,
-      "signed_headers": [
-        "User-Agent",
-        "Accept-Language",
-        "x-custom-a"
-      ]
+      "key_id": "user-key",
+      "secret_key": "my-secret-key"
     }
   },
   {
@@ -519,11 +509,6 @@
         "client_ip": "$remote_addr"
       }
     }
-  },
-  {
-    "name": "inspect",
-    "type": "observability",
-    "example": {}
   },
   {
     "name": "ip-restriction",
@@ -613,7 +598,8 @@
       "conn": 100,
       "burst": 20,
       "default_conn_delay": 0.1,
-      "key": "remote_addr"
+      "key": "remote_addr",
+      "policy": "local"
     }
   },
   {
@@ -622,7 +608,8 @@
     "example": {
       "count": 100,
       "time_window": 60,
-      "key": "remote_addr"
+      "key": "remote_addr",
+      "policy": "local"
     }
   },
   {
@@ -631,14 +618,9 @@
     "example": {
       "rate": 100,
       "burst": 20,
-      "key": "remote_addr"
+      "key": "remote_addr",
+      "policy": "local"
     }
-  },
-  {
-    "name": "log-rotate",
-    "type": "observability",
-    "hidden": true,
-    "example": {}
   },
   {
     "name": "loggly",
@@ -703,12 +685,6 @@
         }
       ]
     }
-  },
-  {
-    "name": "node-status",
-    "type": "observability",
-    "hidden": true,
-    "example": {}
   },
   {
     "name": "opa",
@@ -893,12 +869,6 @@
     }
   },
   {
-    "name": "server-info",
-    "type": "general",
-    "hidden": true,
-    "example": {}
-  },
-  {
     "name": "serverless-post-function",
     "type": "serverless",
     "example": {
@@ -1046,9 +1016,6 @@
     "example": {
       "allowlist": [
         "Mozilla/5.0"
-      ],
-      "denylist": [
-        "BadUserAgent"
       ],
       "bypass_missing": false,
       "message": "User agent not allowed"

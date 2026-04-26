@@ -133,6 +133,20 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 
 		// Resources that added name in 3.13
 		{
+			name:         "consumer_group does NOT support name in 3.2",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion32,
+			expected:     false,
+			reason:       "consumer_group name not supported in 3.2",
+		},
+		{
+			name:         "consumer_group does NOT support name in 3.3",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion33,
+			expected:     false,
+			reason:       "consumer_group name not supported in 3.3",
+		},
+		{
 			name:         "consumer_group does NOT support name in 3.11",
 			resourceType: constant.ConsumerGroup,
 			version:      constant.APISIXVersion311,
@@ -375,6 +389,80 @@ func TestResourceRequiresIDInSchema(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := constant.ResourceRequiresIDInSchema(tt.resourceType)
+			assert.Equal(t, tt.expected, result, tt.reason)
+		})
+	}
+}
+
+func TestResourceRequiresIDInSchemaForVersion(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		expected     bool
+		reason       string
+	}{
+		{
+			name:         "consumer_group does not require id in 3.2",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion32,
+			expected:     false,
+			reason:       "consumer_group still uses the old group_name schema in 3.2",
+		},
+		{
+			name:         "consumer_group does not require id in 3.3",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion33,
+			expected:     false,
+			reason:       "consumer_group still uses the old group_name schema in 3.3",
+		},
+		{
+			name:         "consumer_group requires id in 3.11",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion311,
+			expected:     true,
+			reason:       "consumer_group id became required in 3.11",
+		},
+		{
+			name:         "plugin_config does not require id in 3.3",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion33,
+			expected:     false,
+			reason:       "plugin_config id is optional in 3.3",
+		},
+		{
+			name:         "plugin_config requires id in 3.11",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion311,
+			expected:     true,
+			reason:       "plugin_config id became required in 3.11",
+		},
+		{
+			name:         "global_rule does not require id in 3.2",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion32,
+			expected:     false,
+			reason:       "global_rule id is optional in 3.2",
+		},
+		{
+			name:         "global_rule requires id in 3.13",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion313,
+			expected:     true,
+			reason:       "global_rule id is required in 3.13",
+		},
+		{
+			name:         "route never requires id",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion313,
+			expected:     false,
+			reason:       "route schema does not require id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := constant.ResourceRequiresIDInSchemaForVersion(tt.resourceType, tt.version)
 			assert.Equal(t, tt.expected, result, tt.reason)
 		})
 	}

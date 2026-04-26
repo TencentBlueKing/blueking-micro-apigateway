@@ -148,7 +148,8 @@ watch(() => route.params.id, async (id: unknown) => {
     formModel.value = rest;
     formModel.value.username = rest.username || rest.name;
     formModel.value.group_id = rest.group_id || config.group_id;
-    const { plugins, ...restConfig } = config;
+    // consumer.id is server-owned and is injected back on save; keeping it here breaks strict 3.13 schema validation.
+    const { plugins, id: _id, ...restConfig } = config;
     consumer.value = restConfig;
 
     if (plugins) {
@@ -194,6 +195,8 @@ const handleSubmit = async () => {
       plugins,
       username: formModel.value.username,
     };
+
+    delete config.id;
 
     if (formModel.value.group_id) {
       Object.assign(config, { group_id: formModel.value.group_id });

@@ -157,6 +157,13 @@ const rules = {
     { required: true, message: t('私钥不能为空'), trigger: 'blur' },
     { validator: (value: string) => value.length >= 128, message: t('私钥内容至少需要128个字符'), trigger: 'change' },
   ],
+  snis: [
+    {
+      validator: (value: string[]) => value.every(sni => /^\*?[0-9a-zA-Z-._[\]:]+$/.test(sni)),
+      message: t('SNIS 仅支持字母、数字、-、_、.、:、[]，且 * 只能出现在开头'),
+      trigger: 'change',
+    },
+  ],
 };
 
 const sslId = computed(() => {

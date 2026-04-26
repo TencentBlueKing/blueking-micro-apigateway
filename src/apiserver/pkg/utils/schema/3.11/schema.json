@@ -4148,9 +4148,6 @@
       "priority": 2980,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "key"
-        ],
         "properties": {
           "expires": {
             "type": "integer",
@@ -4513,10 +4510,6 @@
       "priority": 2599,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "client_secret",
-          "client_rsa_private_key"
-        ],
         "properties": {
           "authorization_params": {
             "type": "object",
@@ -4893,9 +4886,6 @@
       "priority": 2559,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "client_secret"
-        ],
         "properties": {
           "_meta": {
             "type": "object",
@@ -5086,9 +5076,6 @@
             "minLength": 1
           }
         },
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "required": [
           "key_id",
           "secret_key"
@@ -5182,9 +5169,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "password"
-        ],
         "required": [
           "username",
           "password"
@@ -5299,9 +5283,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "secret"
-        ],
         "required": [
           "key"
         ]
@@ -5372,10 +5353,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "key",
-          "secret"
-        ],
         "required": [
           "key",
           "secret"
@@ -5441,9 +5418,6 @@
             "type": "string"
           }
         },
-        "encrypt_fields": [
-          "key"
-        ],
         "required": [
           "key"
         ]
@@ -5863,9 +5837,6 @@
       "priority": 2000,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "client_secret"
-        ],
         "allOf": [
           {
             "anyOf": [
@@ -7746,9 +7717,6 @@
       "priority": -1901,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "service_token"
-        ],
         "properties": {
           "package": {
             "type": "string",
@@ -7883,8 +7851,11 @@
             "default": 3000
           },
           "authorization": {
-            "service_token": {
-              "type": "string"
+            "type": "object",
+            "properties": {
+              "service_token": {
+                "type": "string"
+              }
             }
           },
           "keepalive": {
@@ -9528,10 +9499,7 @@
             ]
           }
         },
-        "$comment": "this is a mark for our injected plugin schema",
-        "encrypt_fields": [
-          "sasl.password"
-        ]
+        "$comment": "this is a mark for our injected plugin schema"
       }
     },
     "grpc-transcode": {
@@ -10123,9 +10091,6 @@
       },
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "auth.password"
-        ],
         "properties": {
           "inactive_timeout": {
             "type": "integer",
@@ -10900,6 +10865,638 @@
         ]
       }
     },
+    "batch-requests": {
+      "version": 0.1,
+      "priority": 4010,
+      "scope": "global",
+      "metadata_schema": {
+        "type": "object",
+        "properties": {
+          "max_body_size": {
+            "description": "max pipeline body size in bytes",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "default": 1048576
+          }
+        }
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
+      }
+    },
+    "dubbo-proxy": {
+      "version": 0.1,
+      "priority": 507,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "service_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "service_version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+"
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1
+          },
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "required": [
+          "service_name",
+          "service_version"
+        ]
+      }
+    },
+    "error-log-logger": {
+      "version": 0.1,
+      "priority": 1091,
+      "scope": "global",
+      "metadata_schema": {
+        "type": "object",
+        "properties": {
+          "tcp": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tls": {
+                "type": "boolean",
+                "default": false
+              },
+              "tls_server_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "host",
+              "port"
+            ]
+          },
+          "skywalking": {
+            "type": "object",
+            "properties": {
+              "endpoint_addr": {
+                "type": "string",
+                "pattern": "^[^\\/]+:\\/\\/([\\da-zA-Z.-]+|\\[[\\da-fA-F:]+\\])(:\\d+)?",
+                "default": "http://127.0.0.1:12900/v3/logs"
+              },
+              "service_name": {
+                "type": "string",
+                "default": "APISIX"
+              },
+              "service_instance_name": {
+                "type": "string",
+                "default": "APISIX Service Instance"
+              }
+            }
+          },
+          "clickhouse": {
+            "type": "object",
+            "properties": {
+              "endpoint_addr": {
+                "type": "string",
+                "pattern": "^[^\\/]+:\\/\\/([\\da-zA-Z.-]+|\\[[\\da-fA-F:]+\\])(:\\d+)?",
+                "default": "http://127.0.0.1:8123"
+              },
+              "user": {
+                "type": "string",
+                "default": "default"
+              },
+              "password": {
+                "type": "string",
+                "default": ""
+              },
+              "database": {
+                "type": "string",
+                "default": ""
+              },
+              "logtable": {
+                "type": "string",
+                "default": ""
+              }
+            },
+            "required": [
+              "endpoint_addr",
+              "user",
+              "password",
+              "database",
+              "logtable"
+            ]
+          },
+          "kafka": {
+            "type": "object",
+            "properties": {
+              "brokers": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "type": "string",
+                      "description": "the host of kafka broker"
+                    },
+                    "port": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535,
+                      "description": "the port of kafka broker"
+                    },
+                    "sasl_config": {
+                      "type": "object",
+                      "description": "sasl config",
+                      "properties": {
+                        "mechanism": {
+                          "type": "string",
+                          "default": "PLAIN",
+                          "enum": [
+                            "PLAIN"
+                          ]
+                        },
+                        "user": {
+                          "type": "string",
+                          "description": "user"
+                        },
+                        "password": {
+                          "type": "string",
+                          "description": "password"
+                        }
+                      },
+                      "required": [
+                        "user",
+                        "password"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "host",
+                    "port"
+                  ]
+                },
+                "uniqueItems": true
+              },
+              "kafka_topic": {
+                "type": "string"
+              },
+              "producer_type": {
+                "type": "string",
+                "default": "async",
+                "enum": [
+                  "async",
+                  "sync"
+                ]
+              },
+              "required_acks": {
+                "type": "integer",
+                "default": 1,
+                "enum": [
+                  0,
+                  1,
+                  -1
+                ]
+              },
+              "key": {
+                "type": "string"
+              },
+              "cluster_name": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1
+              },
+              "meta_refresh_interval": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 30
+              }
+            },
+            "required": [
+              "brokers",
+              "kafka_topic"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "default": "error-log-logger"
+          },
+          "level": {
+            "type": "string",
+            "default": "WARN",
+            "enum": [
+              "STDERR",
+              "EMERG",
+              "ALERT",
+              "CRIT",
+              "ERR",
+              "ERROR",
+              "WARN",
+              "NOTICE",
+              "INFO",
+              "DEBUG"
+            ]
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "keepalive": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 30
+          },
+          "batch_max_size": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1000
+          },
+          "max_retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "retry_delay": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+          },
+          "buffer_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60
+          },
+          "inactive_timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "skywalking"
+            ]
+          },
+          {
+            "required": [
+              "tcp"
+            ]
+          },
+          {
+            "required": [
+              "clickhouse"
+            ]
+          },
+          {
+            "required": [
+              "kafka"
+            ]
+          },
+          {
+            "required": [
+              "host",
+              "port"
+            ]
+          }
+        ]
+      },
+      "schema": {
+        "type": "object",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
+      }
+    },
+    "log-rotate": {
+      "version": 0.1,
+      "priority": 100,
+      "scope": "global",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
+      }
+    },
+    "node-status": {
+      "version": 0.1,
+      "priority": 1000,
+      "scope": "global",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
+      }
+    },
+    "opentelemetry": {
+      "version": 0.1,
+      "priority": 12009,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sampler": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": [
+                  "always_on",
+                  "always_off",
+                  "trace_id_ratio",
+                  "parent_base"
+                ],
+                "title": "sampling strategy",
+                "default": "always_off"
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "fraction": {
+                    "type": "number",
+                    "title": "trace_id_ratio fraction",
+                    "default": 0
+                  },
+                  "root": {
+                    "type": "object",
+                    "title": "parent_base root sampler",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "enum": [
+                          "always_on",
+                          "always_off",
+                          "trace_id_ratio"
+                        ],
+                        "title": "sampling strategy",
+                        "default": "always_off"
+                      },
+                      "options": {
+                        "type": "object",
+                        "properties": {
+                          "fraction": {
+                            "type": "number",
+                            "title": "trace_id_ratio fraction parameter",
+                            "default": 0
+                          }
+                        },
+                        "default": {
+                          "fraction": 0
+                        }
+                      }
+                    },
+                    "default": {
+                      "name": "always_off",
+                      "options": {
+                        "fraction": 0
+                      }
+                    }
+                  }
+                },
+                "default": {
+                  "fraction": 0,
+                  "root": {
+                    "name": "always_off"
+                  }
+                }
+              }
+            },
+            "default": {
+              "name": "always_off",
+              "options": {
+                "fraction": 0,
+                "root": {
+                  "name": "always_off"
+                }
+              }
+            }
+          },
+          "additional_attributes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additional_header_prefix_attributes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
+      }
+    },
+    "skywalking": {
+      "version": 0.1,
+      "priority": 12010,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sample_ratio": {
+            "type": "number",
+            "minimum": 0.00001,
+            "maximum": 1,
+            "default": 1
+          },
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
+      }
+    },
     "google-cloud-logging": {
       "version": 0.1,
       "priority": 407,
@@ -11056,10 +11653,7 @@
             "default": "google-cloud-logging"
           }
         },
-        "$comment": "this is a mark for our injected plugin schema",
-        "encrypt_fields": [
-          "auth_config.private_key"
-        ]
+        "$comment": "this is a mark for our injected plugin schema"
       }
     },
     "sls-logger": {
@@ -11075,9 +11669,6 @@
       "version": 0.1,
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "access_key_secret"
-        ],
         "properties": {
           "port": {
             "type": "integer"
@@ -11576,9 +12167,6 @@
       },
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "properties": {
           "inactive_timeout": {
             "type": "integer",
@@ -12196,10 +12784,7 @@
             "default": false
           }
         },
-        "$comment": "this is a mark for our injected plugin schema",
-        "encrypt_fields": [
-          "password"
-        ]
+        "$comment": "this is a mark for our injected plugin schema"
       }
     },
     "tencent-cloud-cls": {
@@ -12215,9 +12800,6 @@
       },
       "schema": {
         "type": "object",
-        "encrypt_fields": [
-          "secret_key"
-        ],
         "properties": {
           "inactive_timeout": {
             "type": "integer",

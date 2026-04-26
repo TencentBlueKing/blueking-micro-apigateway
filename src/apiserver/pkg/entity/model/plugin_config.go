@@ -103,8 +103,8 @@ func (p *PluginConfig) HandleConfig() (err error) {
 	return err
 }
 
-// AfterFind hydrates read-time config using authoritative plugin-config columns.
+// AfterFind restores read-time config using authoritative plugin-config columns.
 func (p *PluginConfig) AfterFind(tx *gorm.DB) (err error) {
-	p.Config, err = hydrateResourceConfigForRead(constant.PluginConfig, p.Config, p.ID, p.Name, nil)
+	p.Config, err = restoreResourceConfigForRead(constant.PluginConfig, p.Config, p.ID, p.Name, nil)
 	return err
 }

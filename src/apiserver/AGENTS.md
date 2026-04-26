@@ -309,23 +309,34 @@ The `specs/001-config-validation-refactor/` feature reshapes validation around o
 The old mental model of "request validation first, then `HandleConfig()` fills in the real payload later" is no longer the primary path. The current runtime flow is request draft preparation plus payload building in `pkg/resourcecodec/`.
 
 ```mermaid
-flowchart TD
-    Web["Web serializer<br/>CheckAPISIXConfig()"] --> Prepare["resourcecodec.PrepareRequestDraft()<br/>resolve identity, reject conflicts,<br/>strip echoed server-owned fields"]
-    Open["OpenAPI middleware<br/>OpenAPIResourceCheck()"] --> Prepare
-    Import["Import validation<br/>biz.ValidateResource()"] --> Prepare
+flowchart LR
+    Req["External Input<br/>Web / OpenAPI / Import"] --> Draft["ResourceDraft<br/>resolved identity + stripped ConfigSpec"]
 
-    Prepare --> Draft["ResourceDraft<br/>shared internal draft"]
-    Draft --> BuildDB["resourcecodec.BuildRequestPayload(DATABASE)"]
-    BuildDB --> RequestSchema["APISIX schema + JSON schema<br/>before persistence"]
+    Draft --> DBValidate["BuildRequestPayload(DATABASE)<br/>schema validation payload"]
+    DBValidate --> Schema["APISIX schema + JSON schema<br/>before persistence"]
 
-    Draft --> Storage["resourcecodec.BuildStorageConfig()<br/>shape config for storage/update code"]
-    Storage --> Rows[(resource tables)]
+    Draft --> OAStore["OpenAPI path<br/>BuildStorageConfig()"]
+    Draft --> WebStore["Web path<br/>handler builds typed model<br/>from request fields + config"]
+    Draft --> ImportStore["Import path<br/>sync data / model fields updated<br/>from draft identity"]
 
-    Rows --> Stored["resourcecodec.PrepareStoredDraft()<br/>rebuild draft from authoritative columns<br/>plus stored config"]
-    Stored --> BuildETCD["resourcecodec.BuildStoredPayload(ETCD)"]
-    BuildETCD --> PublishValidate["EtcdPublisher.Validate()<br/>ValidateBuiltPayloadShape()<br/>+ JSON schema ETCD"]
-    PublishValidate --> Etcd[(etcd / APISIX)]
+    OAStore --> CommonModel["ResourceCommonModel / typed model"]
+    WebStore --> CommonModel
+    ImportStore --> CommonModel
+
+    CommonModel --> Hooks["GORM model hooks<br/>HandleConfig(): strip storage echoes"]
+    Hooks --> DB[("DB row<br/>columns authoritative<br/>config stores stripped spec")]
+
+    DB --> StoredDraft["PrepareStoredDraft()<br/>rebuild draft from row"]
+    StoredDraft --> ETCDBuild["BuildStoredPayload(ETCD)<br/>publish payload"]
+    ETCDBuild --> PublishValidate["ValidateBuiltPayloadShape()<br/>+ ETCD JSON schema"]
+    PublishValidate --> ETCD[("etcd / APISIX")]
 ```
+
+Important distinction:
+
+- `BuildRequestPayload(DATABASE)` is the request-time validation shape, not the object written directly to MySQL.
+- Persistence still goes through DB-facing models (`ResourceCommonModel` and concrete resource models), then `HandleConfig()` strips echoed storage fields before write.
+- Publish later rebuilds a fresh `ETCD` payload from the stored row rather than reusing the request-side `BuiltPayload`.
 
 OpenAPI create has one extra optimization: `pkg/middleware/openapi_resource_check.go` caches resolved drafts in Gin context, and `pkg/apis/open/serializer/resource.go` reuses them in `ToCommonResourceWithDrafts()` so create does not need to resolve identity twice.
 

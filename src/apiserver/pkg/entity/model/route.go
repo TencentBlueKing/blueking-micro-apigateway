@@ -115,9 +115,9 @@ func (r *Route) HandleConfig() (err error) {
 	return err
 }
 
-// AfterFind hydrates read-time config using authoritative route columns.
+// AfterFind restores read-time config using authoritative route columns.
 func (r *Route) AfterFind(tx *gorm.DB) (err error) {
-	r.Config, err = hydrateResourceConfigForRead(constant.Route, r.Config, r.ID, r.Name, map[string]string{
+	r.Config, err = restoreResourceConfigForRead(constant.Route, r.Config, r.ID, r.Name, map[string]string{
 		"service_id":       r.ServiceID,
 		"upstream_id":      r.UpstreamID,
 		"plugin_config_id": r.PluginConfigID,

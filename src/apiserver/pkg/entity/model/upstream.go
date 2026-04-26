@@ -93,9 +93,9 @@ func (u *Upstream) HandleConfig() (err error) {
 	return err
 }
 
-// AfterFind hydrates read-time config using authoritative upstream columns.
+// AfterFind restores read-time config using authoritative upstream columns.
 func (u *Upstream) AfterFind(tx *gorm.DB) (err error) {
-	u.Config, err = hydrateResourceConfigForRead(constant.Upstream, u.Config, u.ID, u.Name, map[string]string{
+	u.Config, err = restoreResourceConfigForRead(constant.Upstream, u.Config, u.ID, u.Name, map[string]string{
 		"tls.client_cert_id": u.SSLID,
 	})
 	return err

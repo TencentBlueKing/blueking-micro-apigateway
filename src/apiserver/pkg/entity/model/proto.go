@@ -104,8 +104,8 @@ func (p *Proto) HandleConfig() (err error) {
 	return nil
 }
 
-// AfterFind hydrates read-time config using authoritative proto columns.
+// AfterFind restores read-time config using authoritative proto columns.
 func (p *Proto) AfterFind(tx *gorm.DB) (err error) {
-	p.Config, err = hydrateResourceConfigForRead(constant.Proto, p.Config, p.ID, p.Name, nil)
+	p.Config, err = restoreResourceConfigForRead(constant.Proto, p.Config, p.ID, p.Name, nil)
 	return err
 }

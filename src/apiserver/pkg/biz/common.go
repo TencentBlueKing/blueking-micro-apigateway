@@ -206,34 +206,34 @@ func buildCommonResourceReadQuery(
 	return query
 }
 
-func hydrateCommonResourceRead(
+func restoreCommonResourceRead(
 	resourceType constant.APISIXResource,
 	resource *model.ResourceCommonModel,
 ) error {
 	if resource == nil {
 		return nil
 	}
-	return resource.HydrateConfigForRead(resourceType)
+	return resource.RestoreConfigForRead(resourceType)
 }
 
-func hydrateCommonResourceReadList(
+func restoreCommonResourceReadList(
 	resourceType constant.APISIXResource,
 	resources []*model.ResourceCommonModel,
 ) error {
 	for _, resource := range resources {
-		if err := hydrateCommonResourceRead(resourceType, resource); err != nil {
+		if err := restoreCommonResourceRead(resourceType, resource); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func hydrateCommonResourceReadValues(
+func restoreCommonResourceReadValues(
 	resourceType constant.APISIXResource,
 	resources []model.ResourceCommonModel,
 ) error {
 	for i := range resources {
-		if err := resources[i].HydrateConfigForRead(resourceType); err != nil {
+		if err := resources[i].RestoreConfigForRead(resourceType); err != nil {
 			return err
 		}
 	}
@@ -450,7 +450,7 @@ func BatchGetResources(
 		if err != nil {
 			return nil, err
 		}
-		return res, hydrateCommonResourceReadList(resourceType, res)
+		return res, restoreCommonResourceReadList(resourceType, res)
 	}
 
 	// 直接查询短列表
@@ -459,7 +459,7 @@ func BatchGetResources(
 		if err != nil {
 			return nil, err
 		}
-		return res, hydrateCommonResourceReadList(resourceType, res)
+		return res, restoreCommonResourceReadList(resourceType, res)
 	}
 
 	// 正确分批次逻辑：每个批次使用新的查询实例
@@ -475,7 +475,7 @@ func BatchGetResources(
 		res = append(res, batchRes...)
 	}
 
-	return res, hydrateCommonResourceReadList(resourceType, res)
+	return res, restoreCommonResourceReadList(resourceType, res)
 }
 
 // GetResourcesLabels 获取资源标签
@@ -545,7 +545,7 @@ func GetResourceByID(
 	if err != nil {
 		return res, err
 	}
-	return res, res.HydrateConfigForRead(resourceType)
+	return res, res.RestoreConfigForRead(resourceType)
 }
 
 // IsResourceConfigChanged 判断资源配置是否发生变化
@@ -745,7 +745,7 @@ func GetResourceByIDs(
 		if err != nil {
 			return nil, err
 		}
-		return res, hydrateCommonResourceReadValues(resourceType, res)
+		return res, restoreCommonResourceReadValues(resourceType, res)
 	}
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
@@ -753,7 +753,7 @@ func GetResourceByIDs(
 		if err != nil {
 			return nil, err
 		}
-		return res, hydrateCommonResourceReadValues(resourceType, res)
+		return res, restoreCommonResourceReadValues(resourceType, res)
 	}
 
 	// 分批处理大量 IDs
@@ -772,7 +772,7 @@ func GetResourceByIDs(
 		res = append(res, batchRes...)
 	}
 
-	return res, hydrateCommonResourceReadValues(resourceType, res)
+	return res, restoreCommonResourceReadValues(resourceType, res)
 }
 
 // DeleteResourceByIDs 根据 ids 删除资源
@@ -860,7 +860,7 @@ func QueryResource(
 	if err != nil {
 		return nil, err
 	}
-	return res, hydrateCommonResourceReadList(resourceType, res)
+	return res, restoreCommonResourceReadList(resourceType, res)
 }
 
 // LabelConditionList 标签查询条件列表

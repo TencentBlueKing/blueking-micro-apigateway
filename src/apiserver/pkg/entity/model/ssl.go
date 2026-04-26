@@ -124,8 +124,8 @@ func (s *SSL) HandleConfig() (err error) {
 	return nil
 }
 
-// AfterFind hydrates read-time config using authoritative ssl columns.
+// AfterFind restores read-time config using authoritative ssl columns.
 func (s *SSL) AfterFind(tx *gorm.DB) (err error) {
-	s.Config, err = hydrateResourceConfigForRead(constant.SSL, s.Config, s.ID, s.Name, nil)
+	s.Config, err = restoreResourceConfigForRead(constant.SSL, s.Config, s.ID, s.Name, nil)
 	return err
 }

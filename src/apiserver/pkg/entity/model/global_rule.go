@@ -103,8 +103,8 @@ func (g *GlobalRule) HandleConfig() (err error) {
 	return err
 }
 
-// AfterFind hydrates read-time config using authoritative global-rule columns.
+// AfterFind restores read-time config using authoritative global-rule columns.
 func (g *GlobalRule) AfterFind(tx *gorm.DB) (err error) {
-	g.Config, err = hydrateResourceConfigForRead(constant.GlobalRule, g.Config, g.ID, g.Name, nil)
+	g.Config, err = restoreResourceConfigForRead(constant.GlobalRule, g.Config, g.ID, g.Name, nil)
 	return err
 }

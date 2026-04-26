@@ -110,9 +110,9 @@ func (s *StreamRoute) HandleConfig() (err error) {
 	return err
 }
 
-// AfterFind hydrates read-time config using authoritative stream-route columns.
+// AfterFind restores read-time config using authoritative stream-route columns.
 func (s *StreamRoute) AfterFind(tx *gorm.DB) (err error) {
-	s.Config, err = hydrateResourceConfigForRead(constant.StreamRoute, s.Config, s.ID, s.Name, map[string]string{
+	s.Config, err = restoreResourceConfigForRead(constant.StreamRoute, s.Config, s.ID, s.Name, map[string]string{
 		"service_id":  s.ServiceID,
 		"upstream_id": s.UpstreamID,
 	})

@@ -92,7 +92,7 @@ func stripResourceConfigForStorage(
 	return updated, nil
 }
 
-func hydrateResourceConfigForRead(
+func restoreResourceConfigForRead(
 	resourceType constant.APISIXResource,
 	config datatypes.JSON,
 	resourceID string,
@@ -133,9 +133,9 @@ func hydrateResourceConfigForRead(
 	return updated, nil
 }
 
-// HydrateConfigForRead reconstitutes the historical read-time config shape from authoritative columns.
-func (r *ResourceCommonModel) HydrateConfigForRead(resourceType constant.APISIXResource) error {
-	config, err := hydrateResourceConfigForRead(
+// RestoreConfigForRead reconstitutes the historical read-time config shape from authoritative columns.
+func (r *ResourceCommonModel) RestoreConfigForRead(resourceType constant.APISIXResource) error {
+	config, err := restoreResourceConfigForRead(
 		resourceType,
 		r.Config,
 		r.ID,

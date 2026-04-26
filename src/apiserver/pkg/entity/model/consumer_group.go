@@ -104,8 +104,8 @@ func (c *ConsumerGroup) HandleConfig() (err error) {
 	return err
 }
 
-// AfterFind hydrates read-time config using authoritative consumer-group columns.
+// AfterFind restores read-time config using authoritative consumer-group columns.
 func (c *ConsumerGroup) AfterFind(tx *gorm.DB) (err error) {
-	c.Config, err = hydrateResourceConfigForRead(constant.ConsumerGroup, c.Config, c.ID, c.Name, nil)
+	c.Config, err = restoreResourceConfigForRead(constant.ConsumerGroup, c.Config, c.ID, c.Name, nil)
 	return err
 }

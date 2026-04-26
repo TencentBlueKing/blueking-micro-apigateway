@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // PluginConfig  plugin_config 表
@@ -101,21 +99,12 @@ func (p *PluginConfig) AddAuditLog(tx *gorm.DB, operation constant.OperationType
 
 // HandleConfig 处理配置
 func (p *PluginConfig) HandleConfig() (err error) {
-	p.Config, err = sjson.SetBytes(p.Config, "id", p.ID)
-	if err != nil {
-		return err
-	}
+	p.Config, err = stripResourceConfigForStorage(constant.PluginConfig, p.Config)
+	return err
+}
 
-	if p.Name != "" {
-		p.Config, err = sjson.SetBytes(p.Config, "name", p.Name)
-		if err != nil {
-			return err
-		}
-	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(p.Config))
-	if err == nil {
-		p.Config = []byte(config)
-	}
-	return nil
+// AfterFind hydrates read-time config using authoritative plugin-config columns.
+func (p *PluginConfig) AfterFind(tx *gorm.DB) (err error) {
+	p.Config, err = hydrateResourceConfigForRead(constant.PluginConfig, p.Config, p.ID, p.Name, nil)
+	return err
 }

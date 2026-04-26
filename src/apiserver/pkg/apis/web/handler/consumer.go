@@ -51,7 +51,12 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers/ [post]
 func ConsumerCreate(c *gin.Context) {
 	var req serializer.ConsumerInfo
-	if err := validation.BindAndValidate(c, &req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	req.ID = idx.GenResourceID(constant.Consumer)
+	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -59,7 +64,7 @@ func ConsumerCreate(c *gin.Context) {
 		Username: req.Name,
 		GroupID:  req.GroupID,
 		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Consumer), // todo: generate
+			ID:        req.ID,
 			GatewayID: ginx.GetGatewayInfo(c).ID,
 			Config:    datatypes.JSON(req.Config),
 			Status:    constant.ResourceStatusCreateDraft,

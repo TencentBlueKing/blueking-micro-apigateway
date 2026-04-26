@@ -25,11 +25,19 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id, name, and upstream_id into the Config", func() {
+		It("should strip echoed id, name, and upstream_id from stored Config", func() {
 			err := service.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
+			err = json.Unmarshal(service.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap).NotTo(HaveKey("id"))
+			Expect(configMap).NotTo(HaveKey("name"))
+			Expect(configMap).NotTo(HaveKey("upstream_id"))
+
+			err = service.AfterFind(nil)
+			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(service.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))
@@ -70,6 +78,15 @@ var _ = Describe("Service", func() {
 			err = json.Unmarshal(service.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap).NotTo(HaveKey("upstream_id"))
+		})
+
+		It("should preserve name and upstream from typed fields even when config omits them", func() {
+			service.ResourceCommonModel.NameValue = "typed-service-name"
+			service.ResourceCommonModel.UpstreamIDValue = "typed-upstream-id"
+
+			typedService := service.ResourceCommonModel.ToResourceModel("service").(*model.Service)
+			Expect(typedService.Name).To(Equal("typed-service-name"))
+			Expect(typedService.UpstreamID).To(Equal("typed-upstream-id"))
 		})
 	})
 })

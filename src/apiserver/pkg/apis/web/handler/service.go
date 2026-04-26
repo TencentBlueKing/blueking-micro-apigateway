@@ -50,7 +50,12 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/services/ [post]
 func ServiceCreate(c *gin.Context) {
 	var req serializer.ServiceInfo
-	if err := validation.BindAndValidate(c, &req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	req.ID = idx.GenResourceID(constant.Service)
+	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -58,7 +63,7 @@ func ServiceCreate(c *gin.Context) {
 		Name:       req.Name,
 		UpstreamID: req.UpstreamID,
 		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Service),
+			ID:        req.ID,
 			GatewayID: ginx.GetGatewayInfo(c).ID,
 			Config:    datatypes.JSON(req.Config),
 			Status:    constant.ResourceStatusCreateDraft,

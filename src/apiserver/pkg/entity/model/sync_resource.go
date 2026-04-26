@@ -35,11 +35,17 @@ type GatewaySyncData struct {
 	ID        string `gorm:"column:id;type:varchar(255);uniqueIndex:idx_resource_unique"` // apisix 资源 ID
 	GatewayID int    `gorm:"column:gateway_id;uniqueIndex:idx_resource_unique"`           // 对应网关 ID
 	// apisix 资源类型：route/service/upstream
-	Type        constant.APISIXResource `gorm:"column:type;type:varchar(32);uniqueIndex:idx_resource_unique"`
-	Config      datatypes.JSON          `gorm:"column:config;type:json"` // etcd raw config
-	ModRevision int                     `gorm:"column:mod_revision"`     // 更新版本
-	CreatedAt   time.Time               `json:"createdAt"`               // 创建时间
-	UpdatedAt   time.Time               `json:"updatedAt"`               // 更新时间
+	Type                constant.APISIXResource `gorm:"column:type;type:varchar(32);uniqueIndex:idx_resource_unique"`
+	Config              datatypes.JSON          `gorm:"column:config;type:json"` // etcd raw config
+	ModRevision         int                     `gorm:"column:mod_revision"`     // 更新版本
+	CreatedAt           time.Time               `json:"createdAt"`               // 创建时间
+	UpdatedAt           time.Time               `json:"updatedAt"`               // 更新时间
+	NameValue           string                  `gorm:"column:name_value;->" json:"-"`
+	ServiceIDValue      string                  `gorm:"column:service_id_value;->" json:"-"`
+	UpstreamIDValue     string                  `gorm:"column:upstream_id_value;->" json:"-"`
+	PluginConfigIDValue string                  `gorm:"column:plugin_config_id_value;->" json:"-"`
+	GroupIDValue        string                  `gorm:"column:group_id_value;->" json:"-"`
+	SSLIDValue          string                  `gorm:"column:ssl_id_value;->" json:"-"`
 }
 
 // GetResourceKey 获取资源 key
@@ -53,26 +59,41 @@ func (g GatewaySyncData) GetResourceKey() string {
 
 // GetServiceID 获取 service id
 func (g GatewaySyncData) GetServiceID() string {
+	if g.ServiceIDValue != "" {
+		return g.ServiceIDValue
+	}
 	return gjson.GetBytes(g.Config, "service_id").String()
 }
 
 // GetUpstreamID 获取 upstream id
 func (g GatewaySyncData) GetUpstreamID() string {
+	if g.UpstreamIDValue != "" {
+		return g.UpstreamIDValue
+	}
 	return gjson.GetBytes(g.Config, "upstream_id").String()
 }
 
 // GetPluginConfigID 获取 plugin config id
 func (g GatewaySyncData) GetPluginConfigID() string {
+	if g.PluginConfigIDValue != "" {
+		return g.PluginConfigIDValue
+	}
 	return gjson.GetBytes(g.Config, "plugin_config_id").String()
 }
 
 // GetGroupID 获取 group id
 func (g GatewaySyncData) GetGroupID() string {
+	if g.GroupIDValue != "" {
+		return g.GroupIDValue
+	}
 	return gjson.GetBytes(g.Config, "group_id").String()
 }
 
 // GetName 获取 name
 func (g GatewaySyncData) GetName() string {
+	if g.NameValue != "" {
+		return g.NameValue
+	}
 	return gjson.GetBytes(g.Config, GetResourceNameKey(g.Type)).String()
 }
 
@@ -83,11 +104,17 @@ func (g *GatewaySyncData) SetName(name string) {
 
 // GetConfigID 获取 config id
 func (g GatewaySyncData) GetConfigID() string {
+	if g.Type == constant.PluginMetadata && g.NameValue != "" {
+		return g.NameValue
+	}
 	return gjson.GetBytes(g.Config, "id").String()
 }
 
 // GetSSLID 获取 ssl id
 func (g GatewaySyncData) GetSSLID() string {
+	if g.SSLIDValue != "" {
+		return g.SSLIDValue
+	}
 	return gjson.GetBytes(g.Config, "tls.client_cert_id").String()
 }
 

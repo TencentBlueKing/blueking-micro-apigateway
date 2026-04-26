@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // Route 路由资源表
@@ -113,48 +111,16 @@ func (r *Route) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 
 // HandleConfig 处理特殊字段
 func (r *Route) HandleConfig() (err error) {
-	r.Config, err = sjson.SetBytes(r.Config, "id", r.ID)
-	if err != nil {
-		return err
-	}
+	r.Config, err = stripResourceConfigForStorage(constant.Route, r.Config)
+	return err
+}
 
-	if r.Name != "" {
-		r.Config, err = sjson.SetBytes(r.Config, "name", r.Name)
-		if err != nil {
-			return err
-		}
-	}
-
-	if r.ServiceID != "" {
-		r.Config, err = sjson.SetBytes(r.Config, "service_id", r.ServiceID)
-		if err != nil {
-			return err
-		}
-	} else {
-		r.Config, _ = sjson.DeleteBytes(r.Config, "service_id")
-	}
-
-	if r.PluginConfigID != "" {
-		r.Config, err = sjson.SetBytes(r.Config, "plugin_config_id", r.PluginConfigID)
-		if err != nil {
-			return err
-		}
-	} else {
-		r.Config, _ = sjson.DeleteBytes(r.Config, "plugin_config_id")
-	}
-
-	if r.UpstreamID != "" {
-		r.Config, err = sjson.SetBytes(r.Config, "upstream_id", r.UpstreamID)
-		if err != nil {
-			return err
-		}
-	} else {
-		r.Config, _ = sjson.DeleteBytes(r.Config, "upstream_id")
-	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(r.Config))
-	if err == nil {
-		r.Config = []byte(config)
-	}
-	return nil
+// AfterFind hydrates read-time config using authoritative route columns.
+func (r *Route) AfterFind(tx *gorm.DB) (err error) {
+	r.Config, err = hydrateResourceConfigForRead(constant.Route, r.Config, r.ID, r.Name, map[string]string{
+		"service_id":       r.ServiceID,
+		"upstream_id":      r.UpstreamID,
+		"plugin_config_id": r.PluginConfigID,
+	})
+	return err
 }

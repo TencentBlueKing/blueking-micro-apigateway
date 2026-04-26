@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // GlobalRule 表示数据库中的 global_rule 表
@@ -101,21 +99,12 @@ func (g *GlobalRule) AddAuditLog(tx *gorm.DB, operation constant.OperationType) 
 
 // HandleConfig 处理 config
 func (g *GlobalRule) HandleConfig() (err error) {
-	g.Config, err = sjson.SetBytes(g.Config, "id", g.ID)
-	if err != nil {
-		return err
-	}
+	g.Config, err = stripResourceConfigForStorage(constant.GlobalRule, g.Config)
+	return err
+}
 
-	if g.Name != "" {
-		g.Config, err = sjson.SetBytes(g.Config, "name", g.Name)
-		if err != nil {
-			return err
-		}
-	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(g.Config))
-	if err == nil {
-		g.Config = []byte(config)
-	}
-	return nil
+// AfterFind hydrates read-time config using authoritative global-rule columns.
+func (g *GlobalRule) AfterFind(tx *gorm.DB) (err error) {
+	g.Config, err = hydrateResourceConfigForRead(constant.GlobalRule, g.Config, g.ID, g.Name, nil)
+	return err
 }

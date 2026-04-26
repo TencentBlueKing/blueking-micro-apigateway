@@ -49,7 +49,12 @@ import (
 func RouteCreate(c *gin.Context) {
 	var req serializer.RouteInfo
 
-	if err := validation.BindAndValidate(c, &req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	req.ID = idx.GenResourceID(constant.Route)
+	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -60,7 +65,7 @@ func RouteCreate(c *gin.Context) {
 		UpstreamID:     req.UpstreamID,
 		PluginConfigID: req.PluginConfigID,
 		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Route),
+			ID:        req.ID,
 			GatewayID: ginx.GetGatewayInfo(c).ID,
 			Config:    datatypes.JSON(req.Config),
 			Status:    constant.ResourceStatusCreateDraft,

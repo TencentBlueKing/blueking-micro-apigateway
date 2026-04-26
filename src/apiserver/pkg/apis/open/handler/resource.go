@@ -31,6 +31,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -79,7 +80,12 @@ func ResourceBatchCreate(c *gin.Context) {
 			errors.New("resource name is duplicated with existing"))
 		return
 	}
-	resources := req.ToCommonResource(ginx.GetGatewayInfo(c).ID, ginx.GetResourceType(c))
+	resolvedDrafts, _ := middleware.GetOpenAPIRequestDrafts(c)
+	resources := req.ToCommonResourceWithDrafts(
+		ginx.GetGatewayInfo(c).ID,
+		ginx.GetResourceType(c),
+		resolvedDrafts,
+	)
 	// 批量创建资源
 	err = biz.BatchCreateResources(c.Request.Context(), ginx.GetResourceType(c), resources)
 	if err != nil {

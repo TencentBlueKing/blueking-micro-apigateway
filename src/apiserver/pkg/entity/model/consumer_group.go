@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // ConsumerGroup 表示数据库中的 consumer_group 表
@@ -102,21 +100,12 @@ func (c *ConsumerGroup) AddAuditLog(tx *gorm.DB, operation constant.OperationTyp
 
 // HandleConfig 处理 config
 func (c *ConsumerGroup) HandleConfig() (err error) {
-	c.Config, err = sjson.SetBytes(c.Config, "id", c.ID)
-	if err != nil {
-		return err
-	}
+	c.Config, err = stripResourceConfigForStorage(constant.ConsumerGroup, c.Config)
+	return err
+}
 
-	if c.Name != "" {
-		c.Config, err = sjson.SetBytes(c.Config, "name", c.Name)
-		if err != nil {
-			return err
-		}
-	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(c.Config))
-	if err == nil {
-		c.Config = []byte(config)
-	}
-	return nil
+// AfterFind hydrates read-time config using authoritative consumer-group columns.
+func (c *ConsumerGroup) AfterFind(tx *gorm.DB) (err error) {
+	c.Config, err = hydrateResourceConfigForRead(constant.ConsumerGroup, c.Config, c.ID, c.Name, nil)
+	return err
 }

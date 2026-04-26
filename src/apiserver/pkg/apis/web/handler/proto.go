@@ -48,14 +48,19 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos/ [post]
 func ProtoCreate(c *gin.Context) {
 	var req serializer.ProtoInfo
-	if err := validation.BindAndValidate(c, &req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	req.ID = idx.GenResourceID(constant.Proto)
+	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	proto := model.Proto{
 		Name: req.Name,
 		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Proto),
+			ID:        req.ID,
 			GatewayID: ginx.GetGatewayInfo(c).ID,
 			Config:    datatypes.JSON(req.Config),
 			Status:    constant.ResourceStatusCreateDraft,

@@ -32,14 +32,13 @@ import (
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
 
-	"github.com/tidwall/sjson"
-
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
@@ -64,6 +63,61 @@ var resourceTableMap = map[constant.APISIXResource]string{
 	constant.Proto:          model.Proto{}.TableName(),
 	constant.SSL:            model.SSL{}.TableName(),
 	constant.StreamRoute:    model.StreamRoute{}.TableName(),
+}
+
+var resourceCommonSelectMap = map[constant.APISIXResource]string{
+	constant.Route: buildResourceCommonSelectClause(
+		model.Route{}.TableName(),
+		"name AS name_value",
+		"service_id AS service_id_value",
+		"upstream_id AS upstream_id_value",
+		"plugin_config_id AS plugin_config_id_value",
+	),
+	constant.Service: buildResourceCommonSelectClause(
+		model.Service{}.TableName(),
+		"name AS name_value",
+		"upstream_id AS upstream_id_value",
+	),
+	constant.Upstream: buildResourceCommonSelectClause(
+		model.Upstream{}.TableName(),
+		"name AS name_value",
+		"ssl_id AS ssl_id_value",
+	),
+	constant.Consumer: buildResourceCommonSelectClause(
+		model.Consumer{}.TableName(),
+		"username AS name_value",
+		"group_id AS group_id_value",
+	),
+	constant.ConsumerGroup: buildResourceCommonSelectClause(
+		model.ConsumerGroup{}.TableName(),
+		"name AS name_value",
+	),
+	constant.PluginConfig: buildResourceCommonSelectClause(
+		model.PluginConfig{}.TableName(),
+		"name AS name_value",
+	),
+	constant.GlobalRule: buildResourceCommonSelectClause(
+		model.GlobalRule{}.TableName(),
+		"name AS name_value",
+	),
+	constant.PluginMetadata: buildResourceCommonSelectClause(
+		model.PluginMetadata{}.TableName(),
+		"name AS name_value",
+	),
+	constant.Proto: buildResourceCommonSelectClause(
+		model.Proto{}.TableName(),
+		"name AS name_value",
+	),
+	constant.SSL: buildResourceCommonSelectClause(
+		model.SSL{}.TableName(),
+		"name AS name_value",
+	),
+	constant.StreamRoute: buildResourceCommonSelectClause(
+		model.StreamRoute{}.TableName(),
+		"name AS name_value",
+		"service_id AS service_id_value",
+		"upstream_id AS upstream_id_value",
+	),
 }
 
 var resourceModelSliceMap = map[constant.APISIXResource]any{
@@ -123,6 +177,14 @@ func (l Labels) Value() (driver.Value, error) {
 	return json.Marshal(l)
 }
 
+func buildResourceCommonSelectClause(table string, projections ...string) string {
+	columns := []string{table + ".*"}
+	for _, projection := range projections {
+		columns = append(columns, table+"."+projection)
+	}
+	return strings.Join(columns, ", ")
+}
+
 // buildCommonDbQuery 获取通用查询
 // 该查询会根据网关 ID 进行过滤，确保只能查询当前网关下的资源
 func buildCommonDbQuery(
@@ -131,6 +193,51 @@ func buildCommonDbQuery(
 ) *gorm.DB {
 	return database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
 		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
+}
+
+func buildCommonResourceReadQuery(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+) *gorm.DB {
+	query := buildCommonDbQuery(ctx, resourceType)
+	if selectClause, ok := resourceCommonSelectMap[resourceType]; ok {
+		return query.Select(selectClause)
+	}
+	return query
+}
+
+func hydrateCommonResourceRead(
+	resourceType constant.APISIXResource,
+	resource *model.ResourceCommonModel,
+) error {
+	if resource == nil {
+		return nil
+	}
+	return resource.HydrateConfigForRead(resourceType)
+}
+
+func hydrateCommonResourceReadList(
+	resourceType constant.APISIXResource,
+	resources []*model.ResourceCommonModel,
+) error {
+	for _, resource := range resources {
+		if err := hydrateCommonResourceRead(resourceType, resource); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func hydrateCommonResourceReadValues(
+	resourceType constant.APISIXResource,
+	resources []model.ResourceCommonModel,
+) error {
+	for i := range resources {
+		if err := resources[i].HydrateConfigForRead(resourceType); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // BatchDeleteResourceByIDs 事务批量删除资源
@@ -335,18 +442,24 @@ func BatchGetResources(
 	ids []string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := buildCommonDbQuery(ctx, resourceType)
+	query := buildCommonResourceReadQuery(ctx, resourceType)
 
 	// 空 IDs 直接返回
 	if len(ids) == 0 {
 		err := query.Find(&res).Error
-		return res, err
+		if err != nil {
+			return nil, err
+		}
+		return res, hydrateCommonResourceReadList(resourceType, res)
 	}
 
 	// 直接查询短列表
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := query.Where("id IN (?)", ids).Find(&res).Error
-		return res, err
+		if err != nil {
+			return nil, err
+		}
+		return res, hydrateCommonResourceReadList(resourceType, res)
 	}
 
 	// 正确分批次逻辑：每个批次使用新的查询实例
@@ -354,7 +467,7 @@ func BatchGetResources(
 		end := min(i+constant.DBConditionIDMaxLength, len(ids))
 		batchIDs := ids[i:end]
 		// 关键点：每个批次创建新查询，避免条件叠加
-		batchQuery := buildCommonDbQuery(ctx, resourceType)
+		batchQuery := buildCommonResourceReadQuery(ctx, resourceType)
 		var batchRes []*model.ResourceCommonModel
 		if err := batchQuery.Where("id IN (?)", batchIDs).Find(&batchRes).Error; err != nil {
 			return nil, err
@@ -362,7 +475,7 @@ func BatchGetResources(
 		res = append(res, batchRes...)
 	}
 
-	return res, nil
+	return res, hydrateCommonResourceReadList(resourceType, res)
 }
 
 // GetResourcesLabels 获取资源标签
@@ -427,9 +540,12 @@ func GetResourceByID(
 	resourceType constant.APISIXResource, id string,
 ) (model.ResourceCommonModel, error) {
 	var res model.ResourceCommonModel
-	query := buildCommonDbQuery(ctx, resourceType)
+	query := buildCommonResourceReadQuery(ctx, resourceType)
 	err := query.Where("id = ?", id).Take(&res).Error
-	return res, err
+	if err != nil {
+		return res, err
+	}
+	return res, res.HydrateConfigForRead(resourceType)
 }
 
 // IsResourceConfigChanged 判断资源配置是否发生变化
@@ -623,15 +739,21 @@ func GetResourceByIDs(
 	ids []string,
 ) ([]model.ResourceCommonModel, error) {
 	var res []model.ResourceCommonModel
-	query := buildCommonDbQuery(ctx, resourceType)
+	query := buildCommonResourceReadQuery(ctx, resourceType)
 	if len(ids) == 0 {
 		err := query.Find(&res).Error
-		return res, err
+		if err != nil {
+			return nil, err
+		}
+		return res, hydrateCommonResourceReadValues(resourceType, res)
 	}
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
 		err := query.Where("id IN ?", ids).Find(&res).Error
-		return res, err
+		if err != nil {
+			return nil, err
+		}
+		return res, hydrateCommonResourceReadValues(resourceType, res)
 	}
 
 	// 分批处理大量 IDs
@@ -640,7 +762,7 @@ func GetResourceByIDs(
 
 		batchIDs := ids[i:end]
 		var batchRes []model.ResourceCommonModel
-		query = buildCommonDbQuery(ctx, resourceType)
+		query = buildCommonResourceReadQuery(ctx, resourceType)
 		err := query.Where("id IN ?", batchIDs).
 			Find(&batchRes).Error
 		if err != nil {
@@ -650,7 +772,7 @@ func GetResourceByIDs(
 		res = append(res, batchRes...)
 	}
 
-	return res, nil
+	return res, hydrateCommonResourceReadValues(resourceType, res)
 }
 
 // DeleteResourceByIDs 根据 ids 删除资源
@@ -730,12 +852,15 @@ func QueryResource(
 	name string,
 ) ([]*model.ResourceCommonModel, error) {
 	var res []*model.ResourceCommonModel
-	query := buildCommonDbQuery(ctx, resourceType).Where(params)
+	query := buildCommonResourceReadQuery(ctx, resourceType).Where(params)
 	if name != "" {
 		query = query.Where(model.GetResourceNameKey(resourceType)+" LIKE ?", "%"+name+"%")
 	}
 	err := query.Find(&res).Error
-	return res, err
+	if err != nil {
+		return nil, err
+	}
+	return res, hydrateCommonResourceReadList(resourceType, res)
 }
 
 // LabelConditionList 标签查询条件列表
@@ -763,7 +888,7 @@ func DuplicatedResourceName(
 	name string,
 ) bool {
 	var res []*model.ResourceCommonModel
-	d := buildCommonDbQuery(ctx, resourceType).Where(
+	d := buildCommonResourceReadQuery(ctx, resourceType).Where(
 		getQueryNameParams(ctx, resourceType, []string{name}))
 	if id != "" {
 		d = d.Not("id = ?", id)
@@ -901,26 +1026,19 @@ func ParseOrderByExprList(
 	return orderByExprs
 }
 
-// BuildConfigRawForValidation 构建配置用于验证
-// FIXME: maybe we should refactor this to `remove` the Name from the r.Config totally,
-// FIXME: instead of hack in validation
+// BuildConfigRawForValidation 保留历史 import-style cleanup 语义，主要用于回归测试。
+// 运行时的 Web/OpenAPI/import 校验已统一走 request canonicalization + DATABASE materialization。
 func BuildConfigRawForValidation(
 	configRaw string,
 	resourceType constant.APISIXResource,
 	apisixVersion constant.APISIXVersion,
 ) json.RawMessage {
-	configRawForValidationBytes := make([]byte, len(configRaw))
-	copy(configRawForValidationBytes, configRaw)
-	configRawForValidation := json.RawMessage(configRawForValidationBytes)
-
-	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id", apisixVersion) {
-		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "id")
-	}
-	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "name", apisixVersion) {
-		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "name")
-	}
-
-	return configRawForValidation
+	return resourcecodec.PrepareValidationPayload(resourcecodec.ValidationInput{
+		Source:       resourcecodec.SourceImport,
+		ResourceType: resourceType,
+		Version:      apisixVersion,
+		Config:       json.RawMessage(configRaw),
+	})
 }
 
 // ValidateResource 校验资源
@@ -947,11 +1065,23 @@ func ValidateResource(
 		}
 		// Validate each resource instance
 		for _, r := range resource {
-			configRawForValidation := BuildConfigRawForValidation(
-				string(r.Config),
-				resourceType,
-				gatewayInfo.GetAPISIXVersionX(),
-			)
+			draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceImport,
+				Operation:    constant.OperationImport,
+				GatewayID:    gatewayInfo.ID,
+				ResourceType: resourceType,
+				Version:      gatewayInfo.GetAPISIXVersionX(),
+				PathID:       r.ID,
+				Config:       json.RawMessage(r.Config),
+			})
+			if err != nil {
+				return err
+			}
+			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			if err != nil {
+				return err
+			}
+			configRawForValidation := materialized.Payload
 
 			// Validate resource against schema
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {

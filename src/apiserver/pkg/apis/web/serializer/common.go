@@ -24,14 +24,12 @@ import (
 	"fmt"
 
 	validator "github.com/go-playground/validator/v10"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
@@ -56,27 +54,36 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	resourceType := constant.APISIXResource(fl.Param())
-	// Keep both forms here: typed resourceType is used by enum-based helpers, while some schema helpers still need
-	// the plain string name.
 	resourceTypeName := resourceType.String()
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	rawConfig = injectGeneratedIDForValidation(
-		rawConfig,
-		resourceType,
-		gatewayInfo.GetAPISIXVersionX(),
-		fl.Parent().FieldByName("ID").String(),
-	)
+	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+		Source:       resourcecodec.SourceWeb,
+		Operation:    webValidationOperation(fl),
+		GatewayID:    gatewayInfo.ID,
+		ResourceType: resourceType,
+		Version:      gatewayInfo.GetAPISIXVersionX(),
+		PathID:       fl.Parent().FieldByName("ID").String(),
+		OuterName:    getResourceNameByResourceType(resourceTypeName, fl),
+		OuterFields:  webValidationOuterFields(resourceTypeName, fl),
+		Config:       rawConfig,
+	})
+	if err != nil {
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
+		return false
+	}
+	// Request-time validation now targets the canonical DATABASE projection, not raw echoed config fields.
+	materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+	if err != nil {
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
+		return false
+	}
+	rawConfig = materialized.Payload
 	resourceIdentification := schema.GetResourceIdentification(rawConfig)
 	if resourceIdentification == "" {
-		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
-		resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
-		if shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
-			rawConfig, _ = sjson.SetBytes(
-				rawConfig,
-				model.GetResourceNameKey(resourceType),
-				resourceIdentification,
-			)
-		}
+		resourceIdentification = draft.Identity.NameValue
+	}
+	if resourceIdentification == "" {
+		resourceIdentification = draft.Identity.ResourceID
 	}
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(
@@ -88,10 +95,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 			resourceIdentification, err)
 		logging.Errorf("new schema validator failed, err: %v", err)
 		return false
-	}
-	// metadata 校验需要带上插件 name
-	if resourceTypeName == constant.PluginMetadata.String() {
-		rawConfig, _ = sjson.SetBytes(rawConfig, "id", fl.Parent().FieldByName("Name").String())
 	}
 	if err = schemaValidator.Validate(rawConfig); err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
@@ -127,37 +130,49 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	return true
 }
 
-// injectGeneratedIDForValidation injects the server-generated resource ID into config only for validation time.
-// This keeps create requests client-friendly while still satisfying schemas whose config requires "id".
-func injectGeneratedIDForValidation(
-	rawConfig json.RawMessage,
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	resourceID string,
-) json.RawMessage {
-	if !constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) || resourceID == "" {
-		return rawConfig
-	}
-	if gjson.GetBytes(rawConfig, "id").Exists() {
-		return rawConfig
-	}
-	rawConfig, _ = sjson.SetBytes(rawConfig, "id", resourceID)
-	return rawConfig
-}
-
-func shouldInjectResourceNameForValidation(
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-) bool {
-	return resourceType == constant.Consumer ||
-		constant.ResourceSupportsNameFieldForVersion(resourceType, version)
-}
-
 func getResourceNameByResourceType(resourceType string, fl validator.FieldLevel) string {
 	if resourceType == constant.Consumer.String() {
 		return fl.Parent().FieldByName("Username").String()
 	}
 	return fl.Parent().FieldByName("Name").String()
+}
+
+func webValidationOuterFields(resourceType string, fl validator.FieldLevel) map[string]any {
+	fields := map[string]any{}
+	if id := fl.Parent().FieldByName("ID").String(); id != "" {
+		fields["id"] = id
+	}
+	for _, fieldName := range []string{"ServiceID", "UpstreamID", "PluginConfigID", "GroupID"} {
+		value := fl.Parent().FieldByName(fieldName).String()
+		if value == "" {
+			continue
+		}
+		switch fieldName {
+		case "ServiceID":
+			fields["service_id"] = value
+		case "UpstreamID":
+			if resourceType == constant.Upstream.String() {
+				fields["tls.client_cert_id"] = value
+			} else {
+				fields["upstream_id"] = value
+			}
+		case "PluginConfigID":
+			fields["plugin_config_id"] = value
+		case "GroupID":
+			fields["group_id"] = value
+		}
+	}
+	if sslID := fl.Parent().FieldByName("SSLID").String(); sslID != "" {
+		fields["tls.client_cert_id"] = sslID
+	}
+	return fields
+}
+
+func webValidationOperation(fl validator.FieldLevel) constant.OperationType {
+	if fl.Parent().FieldByName("ID").String() != "" {
+		return constant.OperationTypeUpdate
+	}
+	return constant.OperationTypeCreate
 }
 
 // CheckLabel 校验 label

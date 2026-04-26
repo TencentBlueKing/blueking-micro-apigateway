@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"testing"
 
 	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/golang/mock/gomock"
@@ -40,6 +41,78 @@ const (
 	validateError    = "validate error"
 	batchCreateError = "batch create error"
 )
+
+func TestEtcdPublisherValidate(t *testing.T) {
+	t.Parallel()
+
+	patches := gomonkey.ApplyFunc(GetCustomizePluginSchemaMap, func(context.Context, int) map[string]any {
+		return map[string]any{}
+	})
+	defer patches.Reset()
+
+	publisher := &EtcdPublisher{
+		ctx: context.Background(),
+		gatewayInfo: &model.Gateway{
+			ID:            1,
+			APISIXVersion: "3.11.0",
+		},
+	}
+
+	t.Run("valid route payload passes ETCD validation", func(t *testing.T) {
+		err := publisher.Validate(constant.Route, json.RawMessage(`{
+			"id":"route-id",
+			"name":"route-a",
+			"uris":["/test"],
+			"methods":["GET"],
+			"upstream":{
+				"type":"roundrobin",
+				"nodes":[{"host":"127.0.0.1","port":80,"weight":1}],
+				"scheme":"http"
+			}
+		}`))
+		assert.NoError(t, err)
+	})
+
+	t.Run("invalid extra field fails ETCD validation", func(t *testing.T) {
+		err := publisher.Validate(constant.Route, json.RawMessage(`{
+			"id":"route-id",
+			"name":"route-a",
+			"invalid_field":true,
+			"uris":["/test"],
+			"methods":["GET"],
+			"upstream":{
+				"type":"roundrobin",
+				"nodes":[{"host":"127.0.0.1","port":80,"weight":1}],
+				"scheme":"http"
+			}
+		}`))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "schema 验证失败")
+	})
+
+	t.Run("consumer payload rejects database-only id before etcd write", func(t *testing.T) {
+		err := publisher.Validate(constant.Consumer, json.RawMessage(`{
+			"id":"consumer-id",
+			"username":"consumer-a",
+			"plugins":{"key-auth":{"key":"token-a"}}
+		}`))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "schema 验证失败")
+	})
+
+	t.Run("ssl payload rejects internal validity fields before etcd write", func(t *testing.T) {
+		err := publisher.Validate(constant.SSL, json.RawMessage(`{
+			"id":"ssl-id",
+			"snis":["example.com"],
+			"cert":"-----BEGIN CERTIFICATE-----\\nMIIC\\n-----END CERTIFICATE-----",
+			"key":"-----BEGIN PRIVATE KEY-----\\nMIIC\\n-----END PRIVATE KEY-----",
+			"validity_start":1,
+			"validity_end":2
+		}`))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "schema 验证失败")
+	})
+}
 
 var ctx context.Context
 

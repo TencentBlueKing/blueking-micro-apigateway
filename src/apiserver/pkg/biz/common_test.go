@@ -19,20 +19,243 @@
 package biz
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 	"gorm.io/gen/field"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
+	utiltesting "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/testing"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
+
+func TestBuildConfigRawForValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		config       string
+		want         string
+	}{
+		{
+			name:         "keep route id and name for 3.11",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion311,
+			config:       `{"id":"route-id","name":"route-a","uris":["/test"]}`,
+			want:         `{"id":"route-id","name":"route-a","uris":["/test"]}`,
+		},
+		{
+			name:         "remove consumer id",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
+			config:       `{"id":"consumer-id","username":"consumer-a"}`,
+			want:         `{"username":"consumer-a"}`,
+		},
+		{
+			name:         "remove consumer group name on 3.11",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion311,
+			config:       `{"id":"cg-id","name":"group-a","plugins":{}}`,
+			want:         `{"id":"cg-id","plugins":{}}`,
+		},
+		{
+			name:         "keep consumer group name on 3.13",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
+			config:       `{"id":"cg-id","name":"group-a","plugins":{}}`,
+			want:         `{"id":"cg-id","name":"group-a","plugins":{}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildConfigRawForValidation(tt.config, tt.resourceType, tt.version)
+			assert.JSONEq(t, tt.want, string(got))
+			assert.JSONEq(t, tt.config, tt.config)
+		})
+	}
+}
+
+func TestValidateResourceAssociatedResourceMissing(t *testing.T) {
+	t.Parallel()
+
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), data.Gateway1WithBkAPISIX())
+	resources := map[constant.APISIXResource][]*model.GatewaySyncData{
+		constant.Route: {
+			{
+				Type: constant.Route,
+				ID:   "route-id",
+				Config: datatypes.JSON(`{
+					"name":"route-a",
+					"uris":["/test"],
+					"methods":["GET"],
+					"service_id":"missing-service"
+				}`),
+			},
+		},
+	}
+
+	err := ValidateResource(ctx, resources, map[string]struct{}{}, map[string]any{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "associated service [id:missing-service] not found")
+}
+
+func TestPrepareValidationPayloadImportParity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		config       string
+		want         string
+	}{
+		{
+			name:         "consumer import removes id like legacy import validation",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
+			config:       `{"id":"consumer-id","username":"demo"}`,
+			want:         `{"username":"demo"}`,
+		},
+		{
+			name:         "consumer group import keeps id but drops name on 3.11",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion311,
+			config:       `{"id":"cg-id","name":"group-a","plugins":{}}`,
+			want:         `{"id":"cg-id","plugins":{}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resourcecodec.PrepareValidationPayload(resourcecodec.ValidationInput{
+				Source:       resourcecodec.SourceImport,
+				ResourceType: tt.resourceType,
+				Version:      tt.version,
+				Config:       json.RawMessage(tt.config),
+			})
+			assert.JSONEq(t, tt.want, string(got))
+		})
+	}
+}
+
+func TestImportCanonicalParity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		resourceID   string
+		config       string
+		want         string
+	}{
+		{
+			name:         "plugin metadata import keeps derived id and removes unsupported name for validation",
+			resourceType: constant.PluginMetadata,
+			version:      constant.APISIXVersion313,
+			resourceID:   "stored-plugin-metadata-id",
+			config:       `{"id":"jwt-auth","name":"jwt-auth","key":"value"}`,
+			want:         `{"id":"jwt-auth","key":"value"}`,
+		},
+		{
+			name:         "stream route import keeps name only on 3.13",
+			resourceType: constant.StreamRoute,
+			version:      constant.APISIXVersion313,
+			resourceID:   "stream-route-id",
+			config:       `{"name":"stream-a","remote_addr":"127.0.0.1","server_port":9100,"upstream":{"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}}`,
+			want:         `{"id":"stream-route-id","name":"stream-a","remote_addr":"127.0.0.1","server_port":9100,"upstream":{"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}}`,
+		},
+		{
+			name:         "stream route import drops name on 3.11",
+			resourceType: constant.StreamRoute,
+			version:      constant.APISIXVersion311,
+			resourceID:   "stream-route-id",
+			config:       `{"name":"stream-a","remote_addr":"127.0.0.1","server_port":9100,"upstream":{"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}}`,
+			want:         `{"id":"stream-route-id","remote_addr":"127.0.0.1","server_port":9100,"upstream":{"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceImport,
+				Operation:    constant.OperationImport,
+				GatewayID:    1001,
+				ResourceType: tt.resourceType,
+				Version:      tt.version,
+				PathID:       tt.resourceID,
+				Config:       json.RawMessage(tt.config),
+			})
+			assert.NoError(t, err)
+
+			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			assert.NoError(t, err)
+			assert.JSONEq(t, tt.want, string(materialized.Payload))
+		})
+	}
+}
+
+func TestHistoricalImportValidationFixtures(t *testing.T) {
+	t.Parallel()
+
+	for _, fixture := range utiltesting.HistoricalValidationFixtures() {
+		fixture := fixture.Clone()
+		t.Run(fixture.Name, func(t *testing.T) {
+			draft := resourcecodec.DraftFromStoredRow(resourcecodec.StoredRowInput{
+				GatewayID:    gatewayInfo.ID,
+				ResourceType: fixture.ResourceType,
+				Version:      fixture.Version,
+				ResourceID:   fixture.Stored.ID,
+				NameKey:      historicalFixtureNameKey(fixture.ResourceType),
+				NameValue:    fixture.Stored.Name,
+				Associations: historicalFixtureAssociations(fixture.Stored),
+				Config:       fixture.Stored.Config,
+			})
+
+			materialized, err := resourcecodec.MaterializeStoredDraft(draft, constant.DATABASE)
+			assert.NoError(t, err)
+			assert.JSONEq(t, string(fixture.DatabaseConfig), string(materialized.Payload))
+		})
+	}
+}
+
+func historicalFixtureNameKey(resourceType constant.APISIXResource) string {
+	if resourceType == constant.Consumer {
+		return "username"
+	}
+	return "name"
+}
+
+func historicalFixtureAssociations(stored utiltesting.StoredResourceFixture) map[string]string {
+	associations := map[string]string{}
+	if stored.ServiceID != "" {
+		associations["service_id"] = stored.ServiceID
+	}
+	if stored.UpstreamID != "" {
+		associations["upstream_id"] = stored.UpstreamID
+	}
+	if stored.PluginConfigID != "" {
+		associations["plugin_config_id"] = stored.PluginConfigID
+	}
+	if stored.GroupID != "" {
+		associations["group_id"] = stored.GroupID
+	}
+	return associations
+}
 
 func TestParseOrderByExprList(t *testing.T) {
 	ascFieldMap := map[string]field.Expr{
@@ -195,6 +418,122 @@ func TestBatchGetResources_EmptyIDs(t *testing.T) {
 	assert.NoError(t, err)
 	// 空 ID 列表应该返回所有资源
 	assert.GreaterOrEqual(t, len(resources), 0)
+}
+
+func TestCommonResourceReadsPreferAuthoritativeColumns(t *testing.T) {
+	route := &model.Route{
+		Name:           fmt.Sprintf("typed-route-%d", time.Now().UnixNano()),
+		ServiceID:      "typed-service-id",
+		UpstreamID:     "typed-upstream-id",
+		PluginConfigID: "typed-plugin-config-id",
+		ResourceCommonModel: model.ResourceCommonModel{
+			GatewayID: gatewayInfo.ID,
+			ID:        idx.GenResourceID(constant.Route),
+			Config: datatypes.JSON(`{
+				"uris": ["/typed-route"],
+				"methods": ["GET"],
+				"upstream": {
+					"type": "roundrobin",
+					"nodes": [{"host": "httpbin.org", "port": 80, "weight": 1}],
+					"scheme": "http"
+				}
+			}`),
+			Status: constant.ResourceStatusCreateDraft,
+		},
+	}
+	assert.NoError(t, CreateRoute(gatewayCtx, *route))
+
+	consumer := &model.Consumer{
+		Username: "typed-consumer-name",
+		GroupID:  "typed-group-id",
+		ResourceCommonModel: model.ResourceCommonModel{
+			GatewayID: gatewayInfo.ID,
+			ID:        idx.GenResourceID(constant.Consumer),
+			Config:    datatypes.JSON(`{"plugins":{"key-auth":{}}}`),
+			Status:    constant.ResourceStatusCreateDraft,
+		},
+	}
+	assert.NoError(t, CreateConsumer(gatewayCtx, *consumer))
+
+	assert.NoError(t, database.Client().WithContext(gatewayCtx).
+		Table(route.TableName()).
+		Where("gateway_id = ? AND id = ?", gatewayInfo.ID, route.ID).
+		Update("config", datatypes.JSON(`{
+			"uris": ["/typed-route"],
+			"methods": ["GET"],
+			"upstream": {
+				"type": "roundrobin",
+				"nodes": [{"host": "httpbin.org", "port": 80, "weight": 1}],
+				"scheme": "http"
+			}
+		}`)).Error)
+	assert.NoError(t, database.Client().WithContext(gatewayCtx).
+		Table(consumer.TableName()).
+		Where("gateway_id = ? AND id = ?", gatewayInfo.ID, consumer.ID).
+		Update("config", datatypes.JSON(`{"plugins":{"key-auth":{}}}`)).Error)
+
+	var storedRoute struct {
+		Config datatypes.JSON
+	}
+	assert.NoError(t, database.Client().WithContext(gatewayCtx).
+		Table(route.TableName()).
+		Select("config").
+		Where("gateway_id = ? AND id = ?", gatewayInfo.ID, route.ID).
+		Take(&storedRoute).Error)
+	assert.Empty(t, gjson.GetBytes(storedRoute.Config, "name").String())
+	assert.Empty(t, gjson.GetBytes(storedRoute.Config, "service_id").String())
+	assert.Empty(t, gjson.GetBytes(storedRoute.Config, "upstream_id").String())
+	assert.Empty(t, gjson.GetBytes(storedRoute.Config, "plugin_config_id").String())
+
+	var storedConsumer struct {
+		Config datatypes.JSON
+	}
+	assert.NoError(t, database.Client().WithContext(gatewayCtx).
+		Table(consumer.TableName()).
+		Select("config").
+		Where("gateway_id = ? AND id = ?", gatewayInfo.ID, consumer.ID).
+		Take(&storedConsumer).Error)
+	assert.Empty(t, gjson.GetBytes(storedConsumer.Config, "username").String())
+	assert.Empty(t, gjson.GetBytes(storedConsumer.Config, "group_id").String())
+
+	gotRoute, err := GetResourceByID(gatewayCtx, constant.Route, route.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, route.Name, gjson.GetBytes(gotRoute.Config, "name").String())
+	assert.Equal(t, route.ServiceID, gjson.GetBytes(gotRoute.Config, "service_id").String())
+	assert.Equal(t, route.UpstreamID, gjson.GetBytes(gotRoute.Config, "upstream_id").String())
+	assert.Equal(t, route.PluginConfigID, gjson.GetBytes(gotRoute.Config, "plugin_config_id").String())
+	assert.Equal(t, route.Name, gotRoute.GetName(constant.Route))
+	assert.Equal(t, route.ServiceID, gotRoute.GetServiceID())
+	assert.Equal(t, route.UpstreamID, gotRoute.GetUpstreamID())
+	assert.Equal(t, route.PluginConfigID, gotRoute.GetPluginConfigID())
+
+	gotRouteList, err := GetResourceByIDs(gatewayCtx, constant.Route, []string{route.ID})
+	assert.NoError(t, err)
+	assert.Len(t, gotRouteList, 1)
+	assert.Equal(t, route.Name, gotRouteList[0].GetName(constant.Route))
+	assert.Equal(t, route.ServiceID, gotRouteList[0].GetServiceID())
+	assert.Equal(t, route.UpstreamID, gotRouteList[0].GetUpstreamID())
+	assert.Equal(t, route.PluginConfigID, gotRouteList[0].GetPluginConfigID())
+
+	largeBatchIDs := []string{route.ID}
+	for i := 0; i < constant.DBConditionIDMaxLength; i++ {
+		largeBatchIDs = append(largeBatchIDs, fmt.Sprintf("missing-route-%d", i))
+	}
+
+	gotRouteBatch, err := BatchGetResources(gatewayCtx, constant.Route, largeBatchIDs)
+	assert.NoError(t, err)
+	assert.Len(t, gotRouteBatch, 1)
+	assert.Equal(t, route.Name, gotRouteBatch[0].GetName(constant.Route))
+	assert.Equal(t, route.ServiceID, gotRouteBatch[0].GetServiceID())
+	assert.Equal(t, route.UpstreamID, gotRouteBatch[0].GetUpstreamID())
+	assert.Equal(t, route.PluginConfigID, gotRouteBatch[0].GetPluginConfigID())
+
+	gotConsumer, err := GetResourceByID(gatewayCtx, constant.Consumer, consumer.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, consumer.Username, gjson.GetBytes(gotConsumer.Config, "username").String())
+	assert.Equal(t, consumer.GroupID, gjson.GetBytes(gotConsumer.Config, "group_id").String())
+	assert.Equal(t, consumer.Username, gotConsumer.GetName(constant.Consumer))
+	assert.Equal(t, consumer.GroupID, gotConsumer.GetGroupID())
 }
 
 // TestBatchUpdateResourceStatus_SmallBatch 测试小批量更新资源状态

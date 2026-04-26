@@ -118,6 +118,21 @@ func ShouldRemoveFieldBeforeValidationOrPublish(
 	}
 }
 
+// ValidationProfileRequiresStrictTopLevel reports whether a validation profile should behave like final publish
+// validation. This is useful for callers that need a single branch for DATABASE vs ETCD profile handling.
+func ValidationProfileRequiresStrictTopLevel(profile DataType) bool {
+	return profile == ETCD
+}
+
+// ValidationProfileName normalizes empty or unknown profiles to DATABASE because request-time validation defaults to
+// the draft-persistence path.
+func ValidationProfileName(profile DataType) DataType {
+	if profile == ETCD {
+		return ETCD
+	}
+	return DATABASE
+}
+
 // ResourceRequiresIDInSchema checks if a resource type requires "id" in the APISIX schema validation.
 // These resources have "id" in the schema's required array.
 //

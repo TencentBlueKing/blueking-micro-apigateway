@@ -50,7 +50,12 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams/ [post]
 func UpstreamCreate(c *gin.Context) {
 	var req serializer.UpstreamInfo
-	if err := validation.BindAndValidate(c, &req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	req.ID = idx.GenResourceID(constant.Upstream)
+	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -59,7 +64,7 @@ func UpstreamCreate(c *gin.Context) {
 		Name:  req.Name,
 		SSLID: req.SSLID,
 		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Upstream),
+			ID:        req.ID,
 			GatewayID: ginx.GetGatewayInfo(c).ID,
 			Config:    datatypes.JSON(req.Config),
 			Status:    constant.ResourceStatusCreateDraft,

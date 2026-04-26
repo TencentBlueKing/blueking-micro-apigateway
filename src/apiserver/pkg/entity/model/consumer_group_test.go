@@ -24,11 +24,18 @@ var _ = Describe("ConsumerGroup", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id and name into the Config", func() {
+		It("should strip echoed id and name from stored Config", func() {
 			err := consumerGroup.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
+			err = json.Unmarshal(consumerGroup.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap).NotTo(HaveKey("id"))
+			Expect(configMap).NotTo(HaveKey("name"))
+
+			err = consumerGroup.AfterFind(nil)
+			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(consumerGroup.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))

@@ -24,16 +24,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tidwall/sjson"
-
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/publisher"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/goroutinex"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // FuncPublishResource ...
@@ -596,6 +593,49 @@ func batchDeleteEtcdResource(ctx context.Context, resourceType constant.APISIXRe
 	return nil
 }
 
+func buildPublishOperation(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	key string,
+	resourceID string,
+	nameValue string,
+	associations map[string]string,
+	config json.RawMessage,
+	createdAt time.Time,
+	updatedAt time.Time,
+) (publisher.ResourceOperation, error) {
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	// Publish rebuilds the ETCD payload from authoritative columns plus the stored config spec.
+	draft := resourcecodec.DraftFromStoredRow(resourcecodec.StoredRowInput{
+		GatewayID:    gatewayInfo.ID,
+		ResourceType: resourceType,
+		Version:      gatewayInfo.GetAPISIXVersionX(),
+		ResourceID:   resourceID,
+		NameKey:      resourceNameKey(resourceType),
+		NameValue:    nameValue,
+		Associations: associations,
+		Config:       config,
+		CreateTime:   createdAt.Unix(),
+		UpdateTime:   updatedAt.Unix(),
+	})
+	materialized, err := resourcecodec.MaterializeStoredDraft(draft, constant.ETCD)
+	if err != nil {
+		return publisher.ResourceOperation{}, err
+	}
+	return publisher.ResourceOperation{
+		Key:    key,
+		Config: materialized.Payload,
+		Type:   resourceType,
+	}, nil
+}
+
+func resourceNameKey(resourceType constant.APISIXResource) string {
+	if resourceType == constant.Consumer {
+		return "username"
+	}
+	return "name"
+}
+
 // deleteRoutes 删除 route
 func deleteRoutes(ctx context.Context, routeIDs []string) error {
 	// 先删除 etcd 的数据
@@ -803,12 +843,6 @@ func putRoutes(ctx context.Context, routeIDs []string) error {
 	var pluginConfigIDs []string
 	var routeOps []publisher.ResourceOperation
 	for _, route := range routes {
-		baseInfo := entity.BaseInfo{
-			ID:         route.ID,
-			Name:       route.Name,
-			CreateTime: route.CreatedAt.Unix(),
-			UpdateTime: route.UpdatedAt.Unix(),
-		}
 		if route.ServiceID != "" {
 			serviceIDs = append(serviceIDs, route.ServiceID)
 		}
@@ -818,19 +852,25 @@ func putRoutes(ctx context.Context, routeIDs []string) error {
 		if route.PluginConfigID != "" {
 			pluginConfigIDs = append(pluginConfigIDs, route.PluginConfigID)
 		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal route base info failed: %w", marshalErr)
-		}
-		route.Config, err = jsonx.MergeJson(route.Config, baseConfig)
+		op, err := buildPublishOperation(
+			ctx,
+			constant.Route,
+			route.ID,
+			route.ID,
+			route.Name,
+			map[string]string{
+				"service_id":       route.ServiceID,
+				"upstream_id":      route.UpstreamID,
+				"plugin_config_id": route.PluginConfigID,
+			},
+			json.RawMessage(route.Config),
+			route.CreatedAt,
+			route.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		routeOps = append(routeOps, publisher.ResourceOperation{
-			Key:    route.ID,
-			Config: json.RawMessage(route.Config),
-			Type:   constant.Route,
-		})
+		routeOps = append(routeOps, op)
 	}
 	// 发布 upstream
 	if len(upstreamIDs) > 0 {
@@ -879,27 +919,24 @@ func putServices(ctx context.Context, serviceIDs []string) error {
 	var upstreamIDs []string
 	var serviceOps []publisher.ResourceOperation
 	for _, service := range services {
-		baseInfo := entity.BaseInfo{
-			ID:         service.ID,
-			CreateTime: service.CreatedAt.Unix(),
-			UpdateTime: service.UpdatedAt.Unix(),
-		}
 		if service.UpstreamID != "" {
 			upstreamIDs = append(upstreamIDs, service.UpstreamID)
-			baseConfig, marshalErr := json.Marshal(baseInfo)
-			if marshalErr != nil {
-				return fmt.Errorf("marshal service base info failed: %w", marshalErr)
-			}
-			service.Config, err = jsonx.MergeJson(service.Config, baseConfig)
-			if err != nil {
-				return err
-			}
 		}
-		serviceOps = append(serviceOps, publisher.ResourceOperation{
-			Key:    service.ID,
-			Config: json.RawMessage(service.Config),
-			Type:   constant.Service,
-		})
+		op, err := buildPublishOperation(
+			ctx,
+			constant.Service,
+			service.ID,
+			service.ID,
+			service.Name,
+			map[string]string{"upstream_id": service.UpstreamID},
+			json.RawMessage(service.Config),
+			service.CreatedAt,
+			service.UpdatedAt,
+		)
+		if err != nil {
+			return err
+		}
+		serviceOps = append(serviceOps, op)
 	}
 	// 发布 upstream
 	if len(upstreamIDs) > 0 {
@@ -935,27 +972,24 @@ func putUpstreams(ctx context.Context, upstreamIDs []string) error {
 	var upstreamOps []publisher.ResourceOperation
 	var sslIDs []string
 	for _, upstream := range upstreams {
-		baseInfo := entity.BaseInfo{
-			ID:         upstream.ID,
-			CreateTime: upstream.CreatedAt.Unix(),
-			UpdateTime: upstream.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal upstream base info failed: %w", marshalErr)
-		}
-		upstream.Config, err = jsonx.MergeJson(upstream.Config, baseConfig)
-		if err != nil {
-			return err
-		}
 		if upstream.GetSSLID() != "" {
 			sslIDs = append(sslIDs, upstream.GetSSLID())
 		}
-		upstreamOps = append(upstreamOps, publisher.ResourceOperation{
-			Key:    upstream.ID,
-			Config: json.RawMessage(upstream.Config),
-			Type:   constant.Upstream,
-		})
+		op, err := buildPublishOperation(
+			ctx,
+			constant.Upstream,
+			upstream.ID,
+			upstream.ID,
+			upstream.Name,
+			map[string]string{"tls.client_cert_id": upstream.GetSSLID()},
+			json.RawMessage(upstream.Config),
+			upstream.CreatedAt,
+			upstream.UpdatedAt,
+		)
+		if err != nil {
+			return err
+		}
+		upstreamOps = append(upstreamOps, op)
 	}
 	if len(sslIDs) > 0 {
 		if err = PutSSLs(ctx, sslIDs); err != nil {
@@ -991,38 +1025,23 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		return fmt.Errorf("未找到指定的插件组资源 IDs %v", pluginConfigIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var pluginConfigOps []publisher.ResourceOperation
 	for _, pluginConfig := range pluginConfigs {
-		baseInfo := entity.BaseInfo{
-			ID:         pluginConfig.ID,
-			CreateTime: pluginConfig.CreatedAt.Unix(),
-			UpdateTime: pluginConfig.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal plugin config base info failed: %w", marshalErr)
-		}
-		pluginConfig.Config, err = jsonx.MergeJson(pluginConfig.Config, baseConfig)
-
-		// Version-aware field cleanup: only remove fields that are invalid for this APISIX version
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.PluginConfig, "id", apisixVersion) {
-			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "id")
-		}
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.PluginConfig, "name", apisixVersion) {
-			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "name")
-		}
-
+		op, err := buildPublishOperation(
+			ctx,
+			constant.PluginConfig,
+			pluginConfig.ID,
+			pluginConfig.ID,
+			pluginConfig.Name,
+			nil,
+			json.RawMessage(pluginConfig.Config),
+			pluginConfig.CreatedAt,
+			pluginConfig.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		pluginConfigOps = append(pluginConfigOps, publisher.ResourceOperation{
-			Key:    pluginConfig.ID,
-			Config: json.RawMessage(pluginConfig.Config),
-			Type:   constant.PluginConfig,
-		})
+		pluginConfigOps = append(pluginConfigOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1055,24 +1074,21 @@ func putPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) error {
 	}
 	var pluginMetadataOps []publisher.ResourceOperation
 	for _, pluginMetadata := range pluginMetadatas {
-		baseInfo := entity.BaseInfo{
-			ID:         pluginMetadata.Name, // pluginMetadata.Name 必须是 pluginName
-			CreateTime: pluginMetadata.CreatedAt.Unix(),
-			UpdateTime: pluginMetadata.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal plugin metadata base info failed: %w", marshalErr)
-		}
-		pluginMetadata.Config, err = jsonx.MergeJson(pluginMetadata.Config, baseConfig)
+		op, err := buildPublishOperation(
+			ctx,
+			constant.PluginMetadata,
+			pluginMetadata.Name,
+			pluginMetadata.ID,
+			pluginMetadata.Name,
+			nil,
+			json.RawMessage(pluginMetadata.Config),
+			pluginMetadata.CreatedAt,
+			pluginMetadata.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		pluginMetadataOps = append(pluginMetadataOps, publisher.ResourceOperation{
-			Key:    pluginMetadata.Name,
-			Config: json.RawMessage(pluginMetadata.Config),
-			Type:   constant.PluginMetadata,
-		})
+		pluginMetadataOps = append(pluginMetadataOps, op)
 	}
 	// 先创建 etcd 的数据
 	err = batchCreateEtcdResource(ctx, pluginMetadataOps)
@@ -1099,38 +1115,27 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 		return fmt.Errorf("未找到指定的消费者资源 IDs %v", consumerIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var consumerOps []publisher.ResourceOperation
 	var consumerGroupIDs []string
 	for _, consumer := range consumers {
-		baseInfo := entity.BaseInfo{
-			CreateTime: consumer.CreatedAt.Unix(),
-			UpdateTime: consumer.UpdatedAt.Unix(),
-		}
 		if consumer.GroupID != "" {
 			consumerGroupIDs = append(consumerGroupIDs, consumer.GroupID)
 		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal consumer base info failed: %w", marshalErr)
-		}
-		consumer.Config, err = jsonx.MergeJson(consumer.Config, baseConfig)
-
-		// Version-aware field cleanup: consumer uses username as identifier, id should always be removed
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Consumer, "id", apisixVersion) {
-			consumer.Config, _ = sjson.DeleteBytes(consumer.Config, "id")
-		}
-
+		op, err := buildPublishOperation(
+			ctx,
+			constant.Consumer,
+			consumer.ID,
+			consumer.ID,
+			consumer.Username,
+			map[string]string{"group_id": consumer.GroupID},
+			json.RawMessage(consumer.Config),
+			consumer.CreatedAt,
+			consumer.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		consumerOps = append(consumerOps, publisher.ResourceOperation{
-			Key:    consumer.ID,
-			Config: json.RawMessage(consumer.Config),
-			Type:   constant.Consumer,
-		})
+		consumerOps = append(consumerOps, op)
 	}
 
 	if len(consumerGroupIDs) > 0 {
@@ -1169,39 +1174,23 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 		return fmt.Errorf("未找到指定的消费者组资源 IDs %v", consumerGroupIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var consumerGroupOps []publisher.ResourceOperation
 	for _, consumerGroup := range consumerGroups {
-		baseInfo := entity.BaseInfo{
-			ID:         consumerGroup.ID,
-			CreateTime: consumerGroup.CreatedAt.Unix(),
-			UpdateTime: consumerGroup.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal consumer group base info failed: %w", marshalErr)
-		}
-		consumerGroup.Config, err = jsonx.MergeJson(consumerGroup.Config, baseConfig)
-
-		// Version-aware field cleanup: consumer_group requires id in schema
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.ConsumerGroup, "id", apisixVersion) {
-			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "id")
-		}
-		// name is only valid in 3.13+
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.ConsumerGroup, "name", apisixVersion) {
-			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "name")
-		}
-
+		op, err := buildPublishOperation(
+			ctx,
+			constant.ConsumerGroup,
+			consumerGroup.ID,
+			consumerGroup.ID,
+			consumerGroup.Name,
+			nil,
+			json.RawMessage(consumerGroup.Config),
+			consumerGroup.CreatedAt,
+			consumerGroup.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		consumerGroupOps = append(consumerGroupOps, publisher.ResourceOperation{
-			Key:    consumerGroup.ID,
-			Config: json.RawMessage(consumerGroup.Config),
-			Type:   constant.ConsumerGroup,
-		})
+		consumerGroupOps = append(consumerGroupOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1230,35 +1219,23 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 		return fmt.Errorf("未找到指定的全局规则资源 IDs %v", globalRuleIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var globalRuleOps []publisher.ResourceOperation
 	for _, globalRule := range globalRules {
-		baseInfo := entity.BaseInfo{
-			ID:         globalRule.ID,
-			CreateTime: globalRule.CreatedAt.Unix(),
-			UpdateTime: globalRule.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal global rule base info failed: %w", marshalErr)
-		}
-		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
-
-		// Version-aware field cleanup: global_rule never supports name in any version
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.GlobalRule, "name", apisixVersion) {
-			globalRule.Config, _ = sjson.DeleteBytes(globalRule.Config, "name")
-		}
-
+		op, err := buildPublishOperation(
+			ctx,
+			constant.GlobalRule,
+			globalRule.ID,
+			globalRule.ID,
+			globalRule.Name,
+			nil,
+			json.RawMessage(globalRule.Config),
+			globalRule.CreatedAt,
+			globalRule.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		globalRuleOps = append(globalRuleOps, publisher.ResourceOperation{
-			Key:    globalRule.ID,
-			Config: json.RawMessage(globalRule.Config),
-			Type:   constant.GlobalRule,
-		})
+		globalRuleOps = append(globalRuleOps, op)
 	}
 	// 先创建 etcd 的数据
 	err = batchCreateEtcdResource(ctx, globalRuleOps)
@@ -1290,35 +1267,23 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		return fmt.Errorf("未找到指定的 protos 资源 IDs %v", protoIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var protoOps []publisher.ResourceOperation
 	for _, pb := range protos {
-		baseInfo := entity.BaseInfo{
-			ID:         pb.ID,
-			CreateTime: pb.CreatedAt.Unix(),
-			UpdateTime: pb.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal proto base info failed: %w", marshalErr)
-		}
-		pb.Config, err = jsonx.MergeJson(pb.Config, baseConfig)
+		op, err := buildPublishOperation(
+			ctx,
+			constant.Proto,
+			pb.ID,
+			pb.ID,
+			pb.Name,
+			nil,
+			json.RawMessage(pb.Config),
+			pb.CreatedAt,
+			pb.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-
-		// Version-aware field cleanup: proto name is only supported in 3.13+
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Proto, "name", apisixVersion) {
-			pb.Config, _ = sjson.DeleteBytes(pb.Config, "name")
-		}
-
-		protoOps = append(protoOps, publisher.ResourceOperation{
-			Key:    pb.ID,
-			Config: json.RawMessage(pb.Config),
-			Type:   constant.Proto,
-		})
+		protoOps = append(protoOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1346,38 +1311,23 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		return fmt.Errorf("未找到指定的 ssls 资源 IDs %v", sslIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var sslOps []publisher.ResourceOperation
 	for _, ssl := range ssls {
-		baseInfo := entity.BaseInfo{
-			ID:         ssl.ID,
-			CreateTime: ssl.CreatedAt.Unix(),
-			UpdateTime: ssl.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal ssl base info failed: %w", marshalErr)
-		}
-		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
+		op, err := buildPublishOperation(
+			ctx,
+			constant.SSL,
+			ssl.ID,
+			ssl.ID,
+			ssl.Name,
+			nil,
+			json.RawMessage(ssl.Config),
+			ssl.CreatedAt,
+			ssl.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-
-		// Version-aware field cleanup: ssl never supports name in any version
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.SSL, "name", apisixVersion) {
-			ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "name")
-		}
-		// Remove internal fields that are not part of APISIX schema
-		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_start")
-		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_end")
-
-		sslOps = append(sslOps, publisher.ResourceOperation{
-			Key:    ssl.ID,
-			Config: json.RawMessage(ssl.Config),
-			Type:   constant.SSL,
-		})
+		sslOps = append(sslOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1409,45 +1359,34 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 		return fmt.Errorf("未找到指定的 streamRoutes 资源 IDs %v", streamRouteIDs)
 	}
 
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	apisixVersion := gatewayInfo.GetAPISIXVersionX()
-
 	var upstreamIDs []string
 	var serviceIDs []string
 	var streamRouteOps []publisher.ResourceOperation
 	for _, sr := range streamRoutes {
-		baseInfo := entity.BaseInfo{
-			ID:         sr.ID,
-			CreateTime: sr.CreatedAt.Unix(),
-			UpdateTime: sr.UpdatedAt.Unix(),
-		}
 		if sr.UpstreamID != "" {
 			upstreamIDs = append(upstreamIDs, sr.UpstreamID)
 		}
 		if sr.ServiceID != "" {
 			serviceIDs = append(serviceIDs, sr.ServiceID)
 		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal stream route base info failed: %w", marshalErr)
-		}
-		sr.Config, err = jsonx.MergeJson(sr.Config, baseConfig)
-
-		// Version-aware field cleanup: stream_route name is only supported in 3.13+
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.StreamRoute, "name", apisixVersion) {
-			sr.Config, _ = sjson.DeleteBytes(sr.Config, "name")
-		}
-		// Remove internal fields that are not part of APISIX schema
-		sr.Config, _ = sjson.DeleteBytes(sr.Config, "labels")
-
+		op, err := buildPublishOperation(
+			ctx,
+			constant.StreamRoute,
+			sr.ID,
+			sr.ID,
+			sr.Name,
+			map[string]string{
+				"service_id":  sr.ServiceID,
+				"upstream_id": sr.UpstreamID,
+			},
+			json.RawMessage(sr.Config),
+			sr.CreatedAt,
+			sr.UpdatedAt,
+		)
 		if err != nil {
 			return err
 		}
-		streamRouteOps = append(streamRouteOps, publisher.ResourceOperation{
-			Key:    sr.ID,
-			Config: json.RawMessage(sr.Config),
-			Type:   constant.StreamRoute,
-		})
+		streamRouteOps = append(streamRouteOps, op)
 	}
 	// 发布 upstream
 	if len(upstreamIDs) > 0 {

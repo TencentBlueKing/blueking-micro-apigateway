@@ -20,12 +20,10 @@ package model
 
 import (
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/proto"
 )
 
@@ -94,20 +92,9 @@ func (p *Proto) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 
 // HandleConfig 处理配置
 func (p *Proto) HandleConfig() (err error) {
-	p.Config, err = sjson.SetBytes(p.Config, "id", p.ID)
+	p.Config, err = stripResourceConfigForStorage(constant.Proto, p.Config)
 	if err != nil {
 		return err
-	}
-	if p.Name != "" {
-		p.Config, err = sjson.SetBytes(p.Config, "name", p.Name)
-		if err != nil {
-			return err
-		}
-	}
-	// Remove empty fields
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(p.Config))
-	if err == nil {
-		p.Config = []byte(config)
 	}
 	content := gjson.GetBytes(p.Config, "content").String()
 	err = proto.ParseContent(p.Name, content)
@@ -115,4 +102,10 @@ func (p *Proto) HandleConfig() (err error) {
 		return err
 	}
 	return nil
+}
+
+// AfterFind hydrates read-time config using authoritative proto columns.
+func (p *Proto) AfterFind(tx *gorm.DB) (err error) {
+	p.Config, err = hydrateResourceConfigForRead(constant.Proto, p.Config, p.ID, p.Name, nil)
+	return err
 }

@@ -20,13 +20,18 @@ package biz
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/publisher"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/cryptography"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
@@ -830,4 +835,130 @@ func TestPublishStreamRoutes(t *testing.T) {
 			assert.Equal(t, constant.ResourceStatusSuccess, streamRoute.Status)
 		})
 	}
+}
+
+func TestPublishPayloadCleanupRules(t *testing.T) {
+	capturePublishedPayload := func(
+		t *testing.T,
+		resourceType constant.APISIXResource,
+		publishFunc func() error,
+	) []publisher.ResourceOperation {
+		t.Helper()
+
+		var captured []publisher.ResourceOperation
+		patches := gomonkey.ApplyFunc(
+			batchCreateEtcdResource,
+			func(_ context.Context, ops []publisher.ResourceOperation) error {
+				captured = append(captured[:0], ops...)
+				return nil
+			},
+		)
+		defer patches.Reset()
+
+		assert.NoError(t, publishFunc())
+		if assert.Len(t, captured, 1) {
+			assert.Equal(t, resourceType, captured[0].Type)
+		}
+		return captured
+	}
+
+	t.Run("plugin config publish keeps name in 3.11 payload today", func(t *testing.T) {
+		pluginConfig := data.PluginConfig1WithNoRelation(gatewayInfo, constant.ResourceStatusCreateDraft)
+		pluginConfig.Name = fmt.Sprintf("plugin-config-%s", pluginConfig.ID)
+		assert.NoError(t, CreatePluginConfig(gatewayCtx, *pluginConfig))
+
+		ops := capturePublishedPayload(t, constant.PluginConfig, func() error {
+			return PublishPluginConfigs(gatewayCtx, []string{pluginConfig.ID})
+		})
+		if len(ops) == 0 {
+			return
+		}
+		assert.Equal(t, pluginConfig.Name, gjson.GetBytes(ops[0].Config, "name").String())
+		assert.Equal(t, pluginConfig.ID, gjson.GetBytes(ops[0].Config, "id").String())
+	})
+
+	t.Run("consumer publish removes id from final payload", func(t *testing.T) {
+		consumer := data.Consumer1WithNoRelation(gatewayInfo, constant.ResourceStatusCreateDraft)
+		consumer.Username = fmt.Sprintf("consumer-%s", consumer.ID)
+		assert.NoError(t, CreateConsumer(gatewayCtx, *consumer))
+
+		ops := capturePublishedPayload(t, constant.Consumer, func() error {
+			return PublishConsumers(gatewayCtx, []string{consumer.ID})
+		})
+		if len(ops) == 0 {
+			return
+		}
+		assert.False(t, gjson.GetBytes(ops[0].Config, "id").Exists())
+		assert.Equal(t, consumer.Username, gjson.GetBytes(ops[0].Config, "username").String())
+	})
+
+	t.Run("ssl publish removes internal validity fields", func(t *testing.T) {
+		ssl := data.SSL1(gatewayInfo, constant.ResourceStatusCreateDraft)
+		var cfg map[string]any
+		assert.NoError(t, json.Unmarshal(ssl.Config, &cfg))
+		cfg["validity_start"] = int64(1)
+		cfg["validity_end"] = int64(2)
+		updated, err := json.Marshal(cfg)
+		assert.NoError(t, err)
+		ssl.Config = updated
+		assert.NoError(t, CreateSSL(gatewayCtx, ssl))
+
+		ops := capturePublishedPayload(t, constant.SSL, func() error {
+			return PublishSSLs(gatewayCtx, []string{ssl.ID})
+		})
+		if len(ops) == 0 {
+			return
+		}
+		assert.False(t, gjson.GetBytes(ops[0].Config, "validity_start").Exists())
+		assert.False(t, gjson.GetBytes(ops[0].Config, "validity_end").Exists())
+	})
+
+	t.Run("route publish prefers authoritative model columns over legacy config echoes", func(t *testing.T) {
+		route := data.Route1WithNoRelationResource(gatewayInfo, constant.ResourceStatusCreateDraft)
+		route.Name = fmt.Sprintf("route-model-%s", route.ID)
+		service := data.Service1WithNoRelation(gatewayInfo, constant.ResourceStatusCreateDraft)
+		service.Name = fmt.Sprintf("service-model-%s", service.ID)
+		assert.NoError(t, CreateService(gatewayCtx, *service))
+		route.ServiceID = service.ID
+		var cfg map[string]any
+		assert.NoError(t, json.Unmarshal(route.Config, &cfg))
+		cfg["name"] = "route-legacy-name"
+		cfg["service_id"] = "svc-legacy"
+		updated, err := json.Marshal(cfg)
+		assert.NoError(t, err)
+		route.Config = updated
+		assert.NoError(t, CreateRoute(gatewayCtx, *route))
+
+		ops := capturePublishedPayload(t, constant.Route, func() error {
+			return PublishRoutes(gatewayCtx, []string{route.ID})
+		})
+		if len(ops) == 0 {
+			return
+		}
+		assert.Equal(t, route.ID, gjson.GetBytes(ops[0].Config, "id").String())
+		assert.Equal(t, route.Name, gjson.GetBytes(ops[0].Config, "name").String())
+		assert.Equal(t, route.ServiceID, gjson.GetBytes(ops[0].Config, "service_id").String())
+	})
+
+	t.Run("stream route publish removes labels and unsupported name for 3.11", func(t *testing.T) {
+		streamRoute := data.StreamRoute1WithNoRelationResource(gatewayInfo, constant.ResourceStatusCreateDraft)
+		streamRoute.Name = fmt.Sprintf("stream-route-%s", streamRoute.ID)
+		var cfg map[string]any
+		assert.NoError(t, json.Unmarshal(streamRoute.Config, &cfg))
+		cfg["labels"] = map[string]any{"env": "test"}
+		cfg["name"] = streamRoute.Name
+		updated, err := json.Marshal(cfg)
+		assert.NoError(t, err)
+		streamRoute.Config = updated
+		assert.NoError(t, CreateStreamRoute(gatewayCtx, *streamRoute))
+
+		ops := capturePublishedPayload(t, constant.StreamRoute, func() error {
+			return PublishStreamRoutes(gatewayCtx, []string{streamRoute.ID})
+		})
+		if len(ops) == 0 {
+			return
+		}
+		assert.False(t, gjson.GetBytes(ops[0].Config, "labels").Exists())
+		assert.False(t, gjson.GetBytes(ops[0].Config, "name").Exists())
+	})
 }

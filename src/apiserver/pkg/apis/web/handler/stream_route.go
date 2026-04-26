@@ -48,7 +48,12 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes/ [post]
 func StreamRouteCreate(c *gin.Context) {
 	var req serializer.StreamRouteInfo
-	if err := validation.BindAndValidate(c, &req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	req.ID = idx.GenResourceID(constant.StreamRoute)
+	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
@@ -57,7 +62,7 @@ func StreamRouteCreate(c *gin.Context) {
 		ServiceID:  req.ServiceID,
 		UpstreamID: req.UpstreamID,
 		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.StreamRoute), // todo: generate
+			ID:        req.ID,
 			GatewayID: ginx.GetGatewayInfo(c).ID,
 			Config:    datatypes.JSON(req.Config),
 			Status:    constant.ResourceStatusCreateDraft,

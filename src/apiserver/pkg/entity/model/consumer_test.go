@@ -25,11 +25,19 @@ var _ = Describe("Consumer", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id, username, and group_id into the Config", func() {
+		It("should strip echoed id, username, and group_id from stored Config", func() {
 			err := consumer.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
+			err = json.Unmarshal(consumer.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap).NotTo(HaveKey("id"))
+			Expect(configMap).NotTo(HaveKey("username"))
+			Expect(configMap).NotTo(HaveKey("group_id"))
+
+			err = consumer.AfterFind(nil)
+			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(consumer.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))
@@ -70,6 +78,15 @@ var _ = Describe("Consumer", func() {
 			err = json.Unmarshal(consumer.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap).NotTo(HaveKey("group_id"))
+		})
+
+		It("should preserve username and group from typed fields even when config omits them", func() {
+			consumer.ResourceCommonModel.NameValue = "typed-consumer-name"
+			consumer.ResourceCommonModel.GroupIDValue = "typed-group-id"
+
+			typedConsumer := consumer.ResourceCommonModel.ToResourceModel("consumer").(*model.Consumer)
+			Expect(typedConsumer.Username).To(Equal("typed-consumer-name"))
+			Expect(typedConsumer.GroupID).To(Equal("typed-group-id"))
 		})
 	})
 })

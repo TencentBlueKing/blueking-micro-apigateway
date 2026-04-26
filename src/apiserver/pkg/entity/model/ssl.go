@@ -28,7 +28,6 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/sslx"
 )
 
@@ -108,20 +107,9 @@ func (s *SSL) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err er
 
 // HandleConfig 处理配置
 func (s *SSL) HandleConfig() (err error) {
-	s.Config, err = sjson.SetBytes(s.Config, "id", s.ID)
+	s.Config, err = stripResourceConfigForStorage(constant.SSL, s.Config)
 	if err != nil {
 		return err
-	}
-	if s.Name != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "name", s.Name)
-		if err != nil {
-			return err
-		}
-	}
-	// Remove empty fields
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(s.Config))
-	if err == nil {
-		s.Config = []byte(config)
 	}
 	crt := gjson.GetBytes(s.Config, "cert").String()
 	key := gjson.GetBytes(s.Config, "key").String()
@@ -134,4 +122,10 @@ func (s *SSL) HandleConfig() (err error) {
 		s.Config, _ = sjson.SetBytes(s.Config, "snis", snis)
 	}
 	return nil
+}
+
+// AfterFind hydrates read-time config using authoritative ssl columns.
+func (s *SSL) AfterFind(tx *gorm.DB) (err error) {
+	s.Config, err = hydrateResourceConfigForRead(constant.SSL, s.Config, s.ID, s.Name, nil)
+	return err
 }

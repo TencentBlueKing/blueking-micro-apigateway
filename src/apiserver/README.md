@@ -12,6 +12,35 @@ make build # 构建项目
 make docker-build # 构建 Docker 镜像
 ```
 
+## Config Validation Pipeline
+
+当前 apiserver 的资源配置处理遵循两条内部校验链路，外部协议保持不变：
+
+1. 请求入库前
+   - WebAPI 表单校验入口：`pkg/apis/web/serializer/common.go`
+   - OpenAPI 请求校验入口：`pkg/middleware/openapi_resource_check.go`
+   - 导入校验入口：`pkg/biz/common.go`
+   - 三条路径都会先进入 `pkg/resourcecodec` 做 canonicalization，然后 materialize 成目标 APISIX 版本对应的 `DATABASE` payload，再执行 JSON Schema 校验。
+2. 发布到 APISIX 前
+   - 发布装配入口：`pkg/biz/publish.go`
+   - 最终发布校验入口：`pkg/publisher/etcd.go`
+   - 已存量的 DB 行会先通过 `pkg/resourcecodec` 做 legacy-tolerant materialization，生成目标 APISIX 版本对应的 `ETCD` payload，再执行最终 JSON Schema 校验。
+
+这次重构的兼容边界：
+
+- 不修改 OpenAPI serializer 对外协议
+- 默认不修改 WebAPI 表单协议
+- 不修改数据库字段
+- 接受的数据必须在入库前通过对应版本 JSON Schema 校验
+- 发布数据必须在写入 APISIX/etcd 前通过对应版本 JSON Schema 校验
+
+推荐验证命令：
+
+```shell
+cd src/apiserver && GOTOOLCHAIN=auto go test ./pkg/apis/web/serializer ./pkg/apis/open/serializer ./pkg/middleware ./pkg/apis/common ./pkg/biz ./pkg/entity/model ./pkg/publisher ./pkg/resourcecodec
+cd src/apiserver && GOTOOLCHAIN=auto go test ./...
+```
+
 ## 项目结构
 
 ```shell

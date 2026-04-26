@@ -22,12 +22,10 @@ import (
 	"encoding/json"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // StreamRoute 表示数据库中的 stream_route 表
@@ -108,36 +106,15 @@ func (s *StreamRoute) AddAuditLog(tx *gorm.DB, operation constant.OperationType)
 
 // HandleConfig 处理配置
 func (s *StreamRoute) HandleConfig() (err error) {
-	s.Config, err = sjson.SetBytes(s.Config, "id", s.ID)
-	if err != nil {
-		return err
-	}
-	if s.Name != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "name", s.Name)
-		if err != nil {
-			return err
-		}
-	}
-	if s.ServiceID != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "service_id", s.ServiceID)
-		if err != nil {
-			return err
-		}
-	} else {
-		s.Config, _ = sjson.DeleteBytes(s.Config, "service_id")
-	}
-	if s.UpstreamID != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "upstream_id", s.UpstreamID)
-		if err != nil {
-			return err
-		}
-	} else {
-		s.Config, _ = sjson.DeleteBytes(s.Config, "upstream_id")
-	}
-	// Remove empty fields
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(s.Config))
-	if err == nil {
-		s.Config = []byte(config)
-	}
-	return nil
+	s.Config, err = stripResourceConfigForStorage(constant.StreamRoute, s.Config)
+	return err
+}
+
+// AfterFind hydrates read-time config using authoritative stream-route columns.
+func (s *StreamRoute) AfterFind(tx *gorm.DB) (err error) {
+	s.Config, err = hydrateResourceConfigForRead(constant.StreamRoute, s.Config, s.ID, s.Name, map[string]string{
+		"service_id":  s.ServiceID,
+		"upstream_id": s.UpstreamID,
+	})
+	return err
 }

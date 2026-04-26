@@ -25,13 +25,13 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
@@ -290,16 +290,22 @@ func createResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	// Inject name into config so ToResourceModel.GetName() picks it up
-	nameKey := model.GetResourceNameKey(resourceType)
-	config, err = sjson.SetBytes(config, nameKey, input.Name)
-	if err != nil {
-		return errorResult(fmt.Errorf("failed to inject name into config: %w", err)), nil, nil
-	}
-
-	// Verify name was successfully injected
-	if !gjson.GetBytes(config, nameKey).Exists() {
-		return errorResult(fmt.Errorf("name field not found in config after injection")), nil, nil
+	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+		Source:       "mcp",
+		Operation:    constant.OperationTypeCreate,
+		GatewayID:    gateway.ID,
+		ResourceType: resourceType,
+		Version:      gateway.GetAPISIXVersionX(),
+		PathID:       resourceID,
+		OuterName:    input.Name,
+		OuterFields:  mcpOuterFields(resourceType, input.Config),
+		Config:       config,
+	})
+	if err == nil {
+		config, err = resourcecodec.MaterializeRequestStorageConfig(draft)
+		if err != nil {
+			return errorResult(fmt.Errorf("failed to materialize config: %w", err)), nil, nil
+		}
 	}
 
 	// Create resource model
@@ -312,6 +318,14 @@ func createResourceHandler(
 			Creator: "mcp",
 			Updater: "mcp",
 		},
+	}
+	if err == nil {
+		resource.NameValue = draft.Identity.NameValue
+		resource.ServiceIDValue = draft.Identity.Associations["service_id"]
+		resource.UpstreamIDValue = draft.Identity.Associations["upstream_id"]
+		resource.PluginConfigIDValue = draft.Identity.Associations["plugin_config_id"]
+		resource.GroupIDValue = draft.Identity.Associations["group_id"]
+		resource.SSLIDValue = draft.Identity.Associations["tls.client_cert_id"]
 	}
 
 	// Convert to specific resource type and create
@@ -369,8 +383,23 @@ func updateResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	// If name is provided, inject it into config using the correct key for the resource type
-	if input.Name != "" {
+	draft, canonicalErr := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+		Source:       "mcp",
+		Operation:    constant.OperationTypeUpdate,
+		GatewayID:    gateway.ID,
+		ResourceType: resourceType,
+		Version:      gateway.GetAPISIXVersionX(),
+		PathID:       input.ResourceID,
+		OuterName:    input.Name,
+		OuterFields:  mcpOuterFields(resourceType, input.Config),
+		Config:       config,
+	})
+	if canonicalErr == nil {
+		config, err = resourcecodec.MaterializeRequestStorageConfig(draft)
+		if err != nil {
+			return errorResult(fmt.Errorf("failed to materialize config: %w", err)), nil, nil
+		}
+	} else if input.Name != "" {
 		nameKey := model.GetResourceNameKey(resourceType)
 		config, _ = sjson.SetBytes(config, nameKey, input.Name)
 	}
@@ -394,6 +423,23 @@ func updateResourceHandler(
 		"resource_type": input.ResourceType,
 		"status":        updateStatus,
 	}), nil, nil
+}
+
+func mcpOuterFields(resourceType constant.APISIXResource, config map[string]any) map[string]any {
+	outer := map[string]any{}
+	for _, key := range []string{"service_id", "upstream_id", "plugin_config_id", "group_id"} {
+		if value, ok := config[key]; ok {
+			outer[key] = value
+		}
+	}
+	if resourceType == constant.Upstream {
+		if tlsRaw, ok := config["tls"].(map[string]any); ok {
+			if value, ok := tlsRaw["client_cert_id"]; ok {
+				outer["tls.client_cert_id"] = value
+			}
+		}
+	}
+	return outer
 }
 
 // deleteResourceHandler handles the delete_resource tool call

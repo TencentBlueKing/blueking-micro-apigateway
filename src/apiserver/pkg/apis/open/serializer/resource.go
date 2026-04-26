@@ -23,15 +23,13 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // ResourceCreateRequest 资源创建
@@ -61,24 +59,77 @@ type ResourceBatchCreateRequest []ResourceCreateRequest
 func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int,
 	resourceType constant.APISIXResource,
 ) []*model.ResourceCommonModel {
+	return rs.ToCommonResourceWithDrafts(gatewayID, resourceType, nil)
+}
+
+// ToCommonResourceWithDrafts reuses drafts resolved earlier in the request pipeline when available.
+func (rs ResourceBatchCreateRequest) ToCommonResourceWithDrafts(
+	gatewayID int,
+	resourceType constant.APISIXResource,
+	resolvedDrafts []resourcecodec.CanonicalDraft,
+) []*model.ResourceCommonModel {
 	var resources []*model.ResourceCommonModel
-	for _, r := range rs {
-		if gjson.GetBytes(r.Config, "name").String() == "" {
-			r.Config, _ = sjson.SetBytes(r.Config, model.GetResourceNameKey(resourceType), r.Name)
+	for i, r := range rs {
+		draft, ok := openAPICreateDraftAt(resolvedDrafts, i, resourceType)
+		var err error
+		if !ok {
+			draft, err = resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceOpenAPI,
+				Operation:    constant.OperationTypeCreate,
+				GatewayID:    gatewayID,
+				ResourceType: resourceType,
+				OuterName:    r.Name,
+				OuterFields: map[string]any{
+					model.GetResourceNameKey(resourceType): r.Name,
+				},
+				Config: r.Config,
+			})
 		}
-		id := gjson.GetBytes(r.Config, "id").String()
-		if id == "" {
-			id = idx.GenResourceID(resourceType)
+		if err != nil {
+			id := resourcecodec.ResolveOpenAPICreateID(resourceType, r.Config)
+			config := resourcecodec.PrepareOpenAPICreateConfig(resourceType, r.Name, id, r.Config)
+			resources = append(resources, &model.ResourceCommonModel{
+				ID:        id,
+				GatewayID: gatewayID,
+				Config:    datatypes.JSON(config),
+				Status:    constant.ResourceStatusCreateDraft,
+			})
+			continue
+		}
+		config, err := resourcecodec.MaterializeRequestStorageConfig(draft)
+		if err != nil {
+			continue
 		}
 		resource := &model.ResourceCommonModel{
-			ID:        id,
-			GatewayID: gatewayID,
-			Config:    datatypes.JSON(r.Config),
-			Status:    constant.ResourceStatusCreateDraft,
+			ID:                  draft.Identity.ResourceID,
+			GatewayID:           gatewayID,
+			Config:              datatypes.JSON(config),
+			Status:              constant.ResourceStatusCreateDraft,
+			NameValue:           draft.Identity.NameValue,
+			ServiceIDValue:      draft.Identity.Associations["service_id"],
+			UpstreamIDValue:     draft.Identity.Associations["upstream_id"],
+			PluginConfigIDValue: draft.Identity.Associations["plugin_config_id"],
+			GroupIDValue:        draft.Identity.Associations["group_id"],
+			SSLIDValue:          draft.Identity.Associations["tls.client_cert_id"],
 		}
 		resources = append(resources, resource)
 	}
 	return resources
+}
+
+func openAPICreateDraftAt(
+	resolvedDrafts []resourcecodec.CanonicalDraft,
+	index int,
+	resourceType constant.APISIXResource,
+) (resourcecodec.CanonicalDraft, bool) {
+	if index >= len(resolvedDrafts) {
+		return resourcecodec.CanonicalDraft{}, false
+	}
+	draft := resolvedDrafts[index]
+	if draft.ResourceType != resourceType {
+		return resourcecodec.CanonicalDraft{}, false
+	}
+	return draft, true
 }
 
 // ResourceBatchGetRequest 资源获取参数
@@ -131,11 +182,43 @@ func (r ResourceUpdateRequest) ToCommonResource(
 	id string,
 	status constant.ResourceStatus,
 ) *model.ResourceCommonModel {
+	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+		Source:       resourcecodec.SourceOpenAPI,
+		Operation:    constant.OperationTypeUpdate,
+		GatewayID:    ginx.GetGatewayInfo(c).ID,
+		ResourceType: ginx.GetResourceType(c),
+		PathID:       id,
+		OuterName:    r.Name,
+		OuterFields: map[string]any{
+			model.GetResourceNameKey(ginx.GetResourceType(c)): r.Name,
+		},
+		Config: r.Config,
+	})
+	if err != nil {
+		config := datatypes.JSON(r.Config)
+		return &model.ResourceCommonModel{
+			ID:        id,
+			GatewayID: ginx.GetGatewayInfo(c).ID,
+			Config:    config,
+			Status:    status,
+			BaseModel: model.BaseModel{Updater: ginx.GetUserID(c)},
+		}
+	}
+	config, err := resourcecodec.MaterializeRequestStorageConfig(draft)
+	if err != nil {
+		config = draft.ConfigSpec
+	}
 	resource := &model.ResourceCommonModel{
-		ID:        id,
-		GatewayID: ginx.GetGatewayInfo(c).ID,
-		Config:    datatypes.JSON(r.Config),
-		Status:    status,
+		ID:                  id,
+		GatewayID:           ginx.GetGatewayInfo(c).ID,
+		Config:              datatypes.JSON(config),
+		Status:              status,
+		NameValue:           draft.Identity.NameValue,
+		ServiceIDValue:      draft.Identity.Associations["service_id"],
+		UpstreamIDValue:     draft.Identity.Associations["upstream_id"],
+		PluginConfigIDValue: draft.Identity.Associations["plugin_config_id"],
+		GroupIDValue:        draft.Identity.Associations["group_id"],
+		SSLIDValue:          draft.Identity.Associations["tls.client_cert_id"],
 		BaseModel: model.BaseModel{
 			Updater: ginx.GetUserID(c),
 		},

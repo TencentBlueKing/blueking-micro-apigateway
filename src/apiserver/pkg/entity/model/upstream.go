@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // Upstream upstream 表
@@ -91,30 +89,14 @@ func (u *Upstream) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 
 // HandleConfig 处理配置
 func (u *Upstream) HandleConfig() (err error) {
-	u.Config, err = sjson.SetBytes(u.Config, "id", u.ID)
-	if err != nil {
-		return err
-	}
+	u.Config, err = stripResourceConfigForStorage(constant.Upstream, u.Config)
+	return err
+}
 
-	if u.Name != "" {
-		u.Config, err = sjson.SetBytes(u.Config, "name", u.Name)
-		if err != nil {
-			return err
-		}
-	}
-	if u.SSLID != "" {
-		u.Config, err = sjson.SetBytes(u.Config, "tls.client_cert_id", u.SSLID)
-		if err != nil {
-			return err
-		}
-	} else {
-		u.Config, _ = sjson.DeleteBytes(u.Config, "tls.client_cert_id")
-	}
-
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(u.Config))
-	if err == nil {
-		u.Config = []byte(config)
-	}
-	return nil
+// AfterFind hydrates read-time config using authoritative upstream columns.
+func (u *Upstream) AfterFind(tx *gorm.DB) (err error) {
+	u.Config, err = hydrateResourceConfigForRead(constant.Upstream, u.Config, u.ID, u.Name, map[string]string{
+		"tls.client_cert_id": u.SSLID,
+	})
+	return err
 }

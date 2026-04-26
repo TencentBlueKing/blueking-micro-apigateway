@@ -290,86 +290,186 @@ the dir is `pkg/utils/schema/{version}/schema.json` and `pkg/utils/schema/{versi
 - schema.json is the schema for the APISIX resource.
 - plugin.json is the schema for the APISIX plugin.
 
-### 4. Resource Field Management
+### 4. Config Validation Refactor (Feature 001)
 
-#### 4.1 HandleConfig Pattern
+#### 4.1 Spec Summary
 
-All resource models implement a `HandleConfig()` method called by GORM hooks (BeforeCreate/BeforeUpdate/BeforeSave) to inject fields into the `config` JSON column:
+The `specs/001-config-validation-refactor/` feature reshapes validation around one shared internal draft and one shared payload-building path.
 
-**Purpose**: Sync database column values into the config JSON for internal use and APISIX compatibility.
+- Runtime terminology in code is `Prepare*` and `Build*`, centered on `pkg/resourcecodec/`
+- Web, OpenAPI, import, stored-row compatibility, and publish should converge on the same draft/payload pipeline
+- Keep Web and OpenAPI wire contracts stable by default; do not assume serializer or frontend changes are allowed
+- Keep database schema stable by default; model columns remain authoritative for identity and association fields
+- Validate accepted data twice: `DATABASE` profile before persistence and `ETCD` profile before publish
+- Preserve legacy stored rows that still echo `id`, `name`, or association fields inside `config`
+- Treat regression coverage as part of the feature contract before changing request/import/publish validation behavior
 
-**Example** (`pkg/entity/model/route.go`):
+#### 4.2 Current Runtime Flow
 
-```go
-func (r *Route) HandleConfig() error {
-    // Inject id and name
-    r.Config, _ = sjson.SetBytes(r.Config, "id", r.ID)
-    if r.Name != "" {
-        r.Config, _ = sjson.SetBytes(r.Config, "name", r.Name)
-    }
-    // Inject association fields (required by APISIX)
-    if r.ServiceID != "" {
-        r.Config, _ = sjson.SetBytes(r.Config, "service_id", r.ServiceID)
-    }
-    return nil
-}
+The old mental model of "request validation first, then `HandleConfig()` fills in the real payload later" is no longer the primary path. The current runtime flow is request draft preparation plus payload building in `pkg/resourcecodec/`.
+
+```mermaid
+flowchart TD
+    Web["Web serializer<br/>CheckAPISIXConfig()"] --> Prepare["resourcecodec.PrepareRequestDraft()<br/>resolve identity, reject conflicts,<br/>strip echoed server-owned fields"]
+    Open["OpenAPI middleware<br/>OpenAPIResourceCheck()"] --> Prepare
+    Import["Import validation<br/>biz.ValidateResource()"] --> Prepare
+
+    Prepare --> Draft["ResourceDraft<br/>shared internal draft"]
+    Draft --> BuildDB["resourcecodec.BuildRequestPayload(DATABASE)"]
+    BuildDB --> RequestSchema["APISIX schema + JSON schema<br/>before persistence"]
+
+    Draft --> Storage["resourcecodec.BuildStorageConfig()<br/>shape config for storage/update code"]
+    Storage --> Rows[(resource tables)]
+
+    Rows --> Stored["resourcecodec.PrepareStoredDraft()<br/>rebuild draft from authoritative columns<br/>plus stored config"]
+    Stored --> BuildETCD["resourcecodec.BuildStoredPayload(ETCD)"]
+    BuildETCD --> PublishValidate["EtcdPublisher.Validate()<br/>ValidateBuiltPayloadShape()<br/>+ JSON schema ETCD"]
+    PublishValidate --> Etcd[(etcd / APISIX)]
 ```
 
-**Field Categories**:
+OpenAPI create has one extra optimization: `pkg/middleware/openapi_resource_check.go` caches resolved drafts in Gin context, and `pkg/apis/open/serializer/resource.go` reuses them in `ToCommonResourceWithDrafts()` so create does not need to resolve identity twice.
 
-1. **Identity fields** (`id`, `name`): Duplicated from columns, removed before publish based on version
-2. **Association fields** (`service_id`, `upstream_id`, `plugin_config_id`): Required by APISIX, kept during publish
-3. **Internal fields** (`validity_start`, `validity_end` for SSL): Never sent to APISIX
+#### 4.3 Key Structs
 
-#### 4.2 Publish Field Cleanup
+```mermaid
+classDiagram
+    class RequestInput {
+        +Source
+        +Operation
+        +GatewayID
+        +ResourceType
+        +Version
+        +PathID
+        +OuterName
+        +OuterFields
+        +Config
+    }
 
-Before publishing to APISIX/etcd, `pkg/biz/publish.go` removes fields based on version compatibility using `ShouldRemoveFieldBeforeValidationOrPublish()`.
+    class ResolvedIdentity {
+        +ResourceType
+        +ResourceID
+        +NameKey
+        +NameValue
+        +ResolvedFrom
+        +Associations
+        +Generated
+        +LegacyDetected
+    }
 
-### 5. Schema Validation
+    class ResourceDraft {
+        +GatewayID
+        +ResourceType
+        +Version
+        +Identity
+        +ConfigSpec
+        +LegacyEchoes
+        +ExistingConfig
+        +CreateTime
+        +UpdateTime
+        +Labels
+    }
 
-#### 5.1 DATABASE Validation
+    class BuiltPayload {
+        +Profile
+        +ResourceType
+        +Version
+        +Payload
+        +Dependencies
+    }
 
-- **When**: Middleware validation of user input (before HandleConfig injection)
-- **Purpose**: Validate user-provided config is valid for APISIX
-- **Constraint**: Looser, allows missing fields that HandleConfig will inject
-- **Datatype**: `constant.DatatypeDATABASE`
-- **Example**: User doesn't need to provide `id` for consumer_group (auto-generated)
+    class StoredRowInput {
+        +GatewayID
+        +ResourceType
+        +Version
+        +ResourceID
+        +NameKey
+        +NameValue
+        +Associations
+        +Config
+        +CreateTime
+        +UpdateTime
+        +Labels
+        +LegacyDetected
+    }
 
-#### 5.2 ETCD Validation
+    class resourceCodecConfig {
+        +nameKey
+        +associationFields
+        +stripFields
+    }
 
-- **When**: Publisher validation before writing to etcd (after HandleConfig and field cleanup)
-- **Purpose**: Ensure config sent to APISIX is complete and valid
-- **Constraint**: Strict, `additionalProperties: false`, all required fields must be present
-- **Datatype**: `constant.DatatypeETCD`
-- **Example**: consumer_group MUST have `id` in config when publishing to APISIX 3.11/3.13
-
-### 5.3 Validation Flow
-
-```plaintext
-User Request (without id/name)
-    ↓
-[Middleware] DATABASE Validation
-    - Validates user input
-    - Injects ID if required by schema (consumer_group, plugin_config, global_rule)
-    ✅ PASS
-    ↓
-[Handler] Process Request
-    ↓
-[Model.HandleConfig()] GORM Hook
-    - Injects id, name, association fields into config
-    - Saves to database
-    ↓
-[Publish] Read from Database
-    - Get gateway APISIX version
-    - Remove fields not supported in that version
-    ↓
-[Publisher] ETCD Validation
-    - Validates cleaned config
-    - Strict validation with additionalProperties: false
-    ✅ PASS
-    ↓
-Write to etcd → APISIX
+    RequestInput --> ResolvedIdentity : ResolveRequestIdentity
+    ResolvedIdentity --> ResourceDraft : PrepareRequestDraft
+    StoredRowInput --> ResourceDraft : PrepareStoredDraft
+    ResourceDraft --> BuiltPayload : BuildRequestPayload or BuildStoredPayload
+    resourceCodecConfig --> ResolvedIdentity : name key and associations
+    resourceCodecConfig --> ResourceDraft : strip duplicated fields
 ```
+
+#### 4.4 Key Struct Intent
+
+| Type | File | Purpose |
+|------|------|---------|
+| `RequestInput` | `pkg/resourcecodec/types.go` | External request/import shape before normalization |
+| `ResolvedIdentity` | `pkg/resourcecodec/types.go` | One authoritative ID/name/association resolution result for a lifecycle operation |
+| `ResourceDraft` | `pkg/resourcecodec/types.go` | Shared internal draft used by request validation, storage shaping, and publish rebuilding |
+| `BuiltPayload` | `pkg/resourcecodec/types.go` | Version-aware `DATABASE` or `ETCD` payload used for schema validation or publish |
+| `StoredRowInput` | `pkg/resourcecodec/materialize.go` | Authoritative stored-row data used to rebuild a draft for publish/compatibility |
+| `resourceCodecConfig` | `pkg/resourcecodec/common.go` + `pkg/resourcecodec/configs.go` | Per-resource rules for name key, association fields, and stripped duplicated fields |
+
+#### 4.5 Key Mechanisms
+
+1. **Resolve identity once**
+   - `ResolveRequestIdentity()` is the single authority for request-side ID/name/association resolution.
+   - Priority is `path id -> structured field -> config field -> generated id`.
+   - `consumer` uses `username` as the logical name key; `plugin_metadata` maps logical name to `config.id`.
+
+2. **Reject conflicting duplicates early**
+   - `DetectRequestConflicts()` rejects Web/OpenAPI requests where outer fields and `config` disagree on the same semantic field.
+   - Matching duplicates are tolerated; conflicting duplicates are not.
+   - Import skips this request-side conflict rejection because stored/imported payloads may contain legacy echoes.
+
+3. **Strip server-owned echoes into `ConfigSpec`**
+   - `PrepareRequestDraft()` removes duplicated server-owned fields from request config via `normalizeRequestConfigSpec()`.
+   - The stripping rules are centralized in `pkg/resourcecodec/configs.go` for all 11 resource types.
+   - This is the current home for resource-specific `nameKey`, `associationFields`, and `stripFields` behavior.
+
+4. **Build request-side payloads from the draft**
+   - `BuildRequestPayload(draft, constant.DATABASE)` reconstructs the validation payload from `ConfigSpec` plus authoritative identity and associations.
+   - Web validation in `pkg/apis/web/serializer/common.go` and OpenAPI validation in `pkg/middleware/openapi_resource_check.go` both validate this built payload, not raw request `config`.
+   - `pkg/biz/common.go:ValidateResource()` uses the same request draft plus `DATABASE` payload build for import validation.
+
+5. **Use storage shaping as an adapter, not the source of truth**
+   - `BuildStorageConfig()` currently returns the config shape expected by storage/update paths.
+   - `pkg/apis/open/serializer/resource.go` and `pkg/apis/mcp/tools/resource_crud.go` use it to persist request drafts without re-deriving identity.
+   - Treat model `HandleConfig()` hooks as persistence compatibility/invariant code, not as the preferred place to add new validation semantics.
+
+6. **Rebuild publish payloads from stored rows**
+   - `PrepareStoredDraft()` rebuilds a `ResourceDraft` from authoritative DB columns plus stored config.
+   - `ExtractStoredConfigSpec()` removes legacy echoed fields from stored config, and `DetectLegacyEchoes()` marks rows that still carry them.
+   - `BuildStoredPayload(draft, constant.ETCD)` reinjects authoritative identity/associations, merges base metadata, and then removes version-unsupported or internal-only fields via `cleanupBuiltPayload()`.
+
+7. **Enforce built-payload shape before ETCD schema validation**
+   - `pkg/publisher/etcd.go:EtcdPublisher.Validate()` first calls `resourcecodec.ValidateBuiltPayloadShape()`.
+   - That check ensures publish callers are already sending the shared built form, instead of ad-hoc JSON surgery.
+   - Only then does the final `JsonSchemaValidator(..., constant.ETCD)` run.
+
+#### 4.6 Where To Change Code
+
+If you need to change validation or payload behavior, start in the shared codec layer before touching handlers:
+
+- `pkg/resourcecodec/types.go`: shared draft and built-payload types
+- `pkg/resourcecodec/common.go`: identity resolution, conflict detection, request draft preparation
+- `pkg/resourcecodec/configs.go`: per-resource `nameKey`, association, and strip rules
+- `pkg/resourcecodec/materialize.go`: stored-row rebuild and ETCD payload generation
+- `pkg/resourcecodec/legacy.go`: legacy echo detection and stored config spec extraction
+- `pkg/apis/web/serializer/common.go`: Web request validation entrypoint
+- `pkg/middleware/openapi_resource_check.go`: OpenAPI request validation entrypoint
+- `pkg/biz/common.go`: import validation entrypoint
+- `pkg/apis/open/serializer/resource.go`: OpenAPI create/update persistence adapter
+- `pkg/biz/publish.go` and `pkg/publisher/etcd.go`: publish assembly and final ETCD validation
+
+`BuildConfigRawForValidation()` is still present in `pkg/biz/common.go`, but only as a historical import-style cleanup helper for regression compatibility. Do not treat it as the primary runtime validation path.
 
 ## Build and test commands
 

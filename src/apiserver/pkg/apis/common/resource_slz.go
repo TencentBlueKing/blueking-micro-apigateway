@@ -111,16 +111,16 @@ func ClassifyImportResourceInfo(
 			if imp.Name == "" {
 				imp.Name = parsedName
 			}
-			canonicalOuterName := imp.Name
+			requestOuterName := imp.Name
 			if imp.ResourceType == constant.PluginMetadata {
-				canonicalOuterName = ""
+				requestOuterName = ""
 			}
-			if draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+			if draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 				Source:       resourcecodec.SourceImport,
 				Operation:    constant.OperationImport,
 				ResourceType: imp.ResourceType,
 				PathID:       imp.ResourceID,
-				OuterName:    canonicalOuterName,
+				OuterName:    requestOuterName,
 				Config:       imp.Config,
 			}); err == nil {
 				imp.Name = draft.Identity.NameValue
@@ -340,7 +340,7 @@ func applyImportIdentityToSyncData(syncData *model.GatewaySyncData, outerName st
 	if syncData == nil {
 		return
 	}
-	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 		Source:       resourcecodec.SourceImport,
 		Operation:    constant.OperationImport,
 		GatewayID:    syncData.GatewayID,

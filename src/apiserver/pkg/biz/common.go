@@ -1027,7 +1027,7 @@ func ParseOrderByExprList(
 }
 
 // BuildConfigRawForValidation 保留历史 import-style cleanup 语义，主要用于回归测试。
-// 运行时的 Web/OpenAPI/import 校验已统一走 request canonicalization + DATABASE materialization。
+// 运行时的 Web/OpenAPI/import 校验已统一走 request draft preparation + DATABASE payload building。
 func BuildConfigRawForValidation(
 	configRaw string,
 	resourceType constant.APISIXResource,
@@ -1065,7 +1065,7 @@ func ValidateResource(
 		}
 		// Validate each resource instance
 		for _, r := range resource {
-			draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+			draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 				Source:       resourcecodec.SourceImport,
 				Operation:    constant.OperationImport,
 				GatewayID:    gatewayInfo.ID,
@@ -1077,11 +1077,11 @@ func ValidateResource(
 			if err != nil {
 				return err
 			}
-			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			built, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
 			if err != nil {
 				return err
 			}
-			configRawForValidation := materialized.Payload
+			configRawForValidation := built.Payload
 
 			// Validate resource against schema
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {

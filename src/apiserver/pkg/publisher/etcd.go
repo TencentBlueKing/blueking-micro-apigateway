@@ -80,7 +80,7 @@ func (s *EtcdPublisher) List(ctx context.Context, prefix string) (any, error) {
 // Validate 验证
 func (s *EtcdPublisher) Validate(resourceType constant.APISIXResource, config json.RawMessage) (err error) {
 	apisixVersion, _ := version.ToXVersion(s.gatewayInfo.APISIXVersion)
-	materialized, err := resourcecodec.EnsureMaterializedPayloadShape(resourcecodec.MaterializedValidationInput{
+	builtPayload, err := resourcecodec.ValidateBuiltPayloadShape(resourcecodec.ValidationPayloadInput{
 		ResourceType: resourceType,
 		Version:      apisixVersion,
 		Profile:      constant.ETCD,
@@ -100,7 +100,7 @@ func (s *EtcdPublisher) Validate(resourceType constant.APISIXResource, config js
 	if err != nil {
 		return err
 	}
-	return validator.Validate(materialized.Payload)
+	return validator.Validate(builtPayload.Payload)
 }
 
 // Create 创建

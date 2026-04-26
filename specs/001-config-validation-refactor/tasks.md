@@ -29,7 +29,7 @@
 
 **⚠️ CRITICAL**: No request-path or publish-path refactor should start until this phase is complete.
 
-- [X] T004 Define canonical draft, resolved identity, and materialization interfaces in `src/apiserver/pkg/resourcecodec/types.go`
+- [X] T004 Define resource draft, resolved identity, and payload-building interfaces in `src/apiserver/pkg/resourcecodec/types.go`
 - [X] T005 [P] Add shared version/profile helper utilities in `src/apiserver/pkg/resourcecodec/common.go` and `src/apiserver/pkg/constant/resource_schema.go`
 - [X] T006 [P] Add legacy row comparison and duplicate-field helper functions in `src/apiserver/pkg/resourcecodec/legacy.go`
 
@@ -66,7 +66,7 @@
 
 ## Phase 4: User Story 2 - Validate Web And OpenAPI Inputs With One Consistent Semantics (Priority: P1)
 
-**Goal**: Introduce one shared normalization and DATABASE-validation path for WebAPI, OpenAPI, and import inputs while preserving external contracts.
+**Goal**: Introduce one shared draft-preparation and DATABASE-validation path for WebAPI, OpenAPI, and import inputs while preserving external contracts.
 
 **Independent Test**: Submit equivalent fixtures through WebAPI, OpenAPI, and import-oriented validation tests and verify the same acceptance result, resolved identity, and target-version DATABASE-schema validation outcome.
 
@@ -74,17 +74,17 @@
 
 - [X] T016 [P] [US2] Add codec identity-resolution and conflict-detection tests in `src/apiserver/pkg/resourcecodec/common_test.go`
 - [X] T017 [P] [US2] Add WebAPI and OpenAPI parity tests in `src/apiserver/pkg/apis/web/serializer/common_test.go` and `src/apiserver/pkg/middleware/openapi_resource_check_test.go`
-- [X] T018 [P] [US2] Add import normalization parity tests in `src/apiserver/pkg/biz/common_test.go`
+- [X] T018 [P] [US2] Add import draft-preparation parity tests in `src/apiserver/pkg/biz/common_test.go`
 
 ### Implementation for User Story 2
 
-- [X] T019 [P] [US2] Implement shared normalization and materialization core in `src/apiserver/pkg/resourcecodec/common.go` and `src/apiserver/pkg/constant/resource_schema.go`
-- [X] T020 [P] [US2] Implement route, service, upstream, and plugin_config codecs in `src/apiserver/pkg/resourcecodec/route.go`, `src/apiserver/pkg/resourcecodec/service.go`, `src/apiserver/pkg/resourcecodec/upstream.go`, and `src/apiserver/pkg/resourcecodec/plugin_config.go`
-- [X] T021 [P] [US2] Implement consumer, consumer_group, global_rule, and plugin_metadata codecs in `src/apiserver/pkg/resourcecodec/consumer.go`, `src/apiserver/pkg/resourcecodec/consumer_group.go`, `src/apiserver/pkg/resourcecodec/global_rule.go`, and `src/apiserver/pkg/resourcecodec/plugin_metadata.go`
-- [X] T022 [P] [US2] Implement proto, ssl, and stream_route codecs in `src/apiserver/pkg/resourcecodec/proto.go`, `src/apiserver/pkg/resourcecodec/ssl.go`, and `src/apiserver/pkg/resourcecodec/stream_route.go`
-- [X] T023 [US2] Wire WebAPI request validation through codec-based DATABASE materialization in `src/apiserver/pkg/apis/web/serializer/common.go`
-- [X] T024 [US2] Wire OpenAPI request validation through codec-based DATABASE materialization in `src/apiserver/pkg/middleware/openapi_resource_check.go`
-- [X] T025 [US2] Wire shared import validation through codec-based DATABASE materialization in `src/apiserver/pkg/biz/common.go` and `src/apiserver/pkg/apis/common/resource_slz.go`
+- [X] T019 [P] [US2] Implement shared draft-preparation and payload-building core in `src/apiserver/pkg/resourcecodec/common.go` and `src/apiserver/pkg/constant/resource_schema.go`
+- [X] T020 [US2] Implement the consolidated resource codec configuration layer in `src/apiserver/pkg/resourcecodec/resource_configs.go`
+- [X] T021 [US2] Implement route, service, upstream, consumer, consumer_group, plugin_config, global_rule, and plugin_metadata draft rules in `src/apiserver/pkg/resourcecodec/resource_configs.go`
+- [X] T022 [US2] Implement proto, ssl, and stream_route draft rules in `src/apiserver/pkg/resourcecodec/resource_configs.go`
+- [X] T023 [US2] Wire WebAPI request validation through codec-based DATABASE payload building in `src/apiserver/pkg/apis/web/serializer/common.go`
+- [X] T024 [US2] Wire OpenAPI request validation through codec-based DATABASE payload building in `src/apiserver/pkg/middleware/openapi_resource_check.go`
+- [X] T025 [US2] Wire shared import validation through codec-based DATABASE payload building in `src/apiserver/pkg/biz/common.go` and `src/apiserver/pkg/apis/common/resource_slz.go`
 - [X] T026 [US2] Preserve the OpenAPI serializer wire contract while delegating normalization helpers in `src/apiserver/pkg/apis/open/serializer/resource.go`
 
 **Checkpoint**: WebAPI, OpenAPI, and import validation share one semantic path without breaking the existing request contracts.
@@ -100,15 +100,15 @@
 ### Tests for User Story 3 ⚠️
 
 - [X] T027 [P] [US3] Add legacy stored-row compatibility tests in `src/apiserver/pkg/resourcecodec/legacy_test.go`
-- [X] T028 [P] [US3] Add publish materialization compatibility tests in `src/apiserver/pkg/biz/publish_test.go`
+- [X] T028 [P] [US3] Add publish payload-building compatibility tests in `src/apiserver/pkg/biz/publish_test.go`
 - [X] T029 [P] [US3] Add final ETCD JSON Schema gate tests in `src/apiserver/pkg/publisher/etcd_test.go`
 - [X] T030 [P] [US3] Add historical import and legacy fixture compatibility tests in `src/apiserver/pkg/biz/common_test.go`
 
 ### Implementation for User Story 3
 
-- [X] T031 [US3] Implement legacy duplicate-field tolerance and draft dematerialization helpers in `src/apiserver/pkg/resourcecodec/legacy.go`
-- [X] T032 [US3] Migrate publish payload assembly to codec materialization in `src/apiserver/pkg/biz/publish.go`
-- [X] T033 [US3] Route final APISIX publish validation through shared materialized payload handling in `src/apiserver/pkg/publisher/etcd.go`
+- [X] T031 [US3] Implement legacy duplicate-field tolerance and stored-config extraction helpers in `src/apiserver/pkg/resourcecodec/legacy.go`
+- [X] T032 [US3] Migrate publish payload assembly to codec-based payload building in `src/apiserver/pkg/biz/publish.go`
+- [X] T033 [US3] Route final APISIX publish validation through shared built-payload handling in `src/apiserver/pkg/publisher/etcd.go`
 - [X] T034 [US3] Stop new writes from depending on echoed server-owned config fields in `src/apiserver/pkg/entity/model/common.go` and the resource model files under `src/apiserver/pkg/entity/model/`
 
 **Checkpoint**: Publish and legacy compatibility now use the same internal payload model while keeping old rows operational.
@@ -155,7 +155,7 @@
 - Setup tasks T002-T003 can run in parallel.
 - Foundational tasks T005-T006 can run in parallel after T004 begins.
 - User Story 1 test tasks T007-T014 can run in parallel across different packages.
-- User Story 2 test tasks T016-T018 can run in parallel, and codec file tasks T020-T022 can run in parallel once T019 establishes the shared core.
+- User Story 2 test tasks T016-T018 can run in parallel, and the consolidated codec configuration tasks T020-T022 should be coordinated once T019 establishes the shared core.
 - User Story 3 test tasks T027-T030 can run in parallel, and T032-T033 can proceed after T031 prepares legacy helpers.
 - Polish tasks T035 and T037 can run in parallel while the final verification task T038 waits for code completion.
 
@@ -182,10 +182,10 @@ Task: "Add codec identity-resolution and conflict-detection tests in src/apiserv
 Task: "Add WebAPI and OpenAPI parity tests in src/apiserver/pkg/apis/web/serializer/common_test.go and src/apiserver/pkg/middleware/openapi_resource_check_test.go"
 Task: "Add import normalization parity tests in src/apiserver/pkg/biz/common_test.go"
 
-# After the codec core lands, split per-resource codec files:
-Task: "Implement route, service, upstream, and plugin_config codecs in src/apiserver/pkg/resourcecodec/route.go, service.go, upstream.go, and plugin_config.go"
-Task: "Implement consumer, consumer_group, global_rule, and plugin_metadata codecs in src/apiserver/pkg/resourcecodec/consumer.go, consumer_group.go, global_rule.go, and plugin_metadata.go"
-Task: "Implement proto, ssl, and stream_route codecs in src/apiserver/pkg/resourcecodec/proto.go, ssl.go, and stream_route.go"
+# After the codec core lands, update the consolidated codec config file:
+Task: "Implement the consolidated resource codec configuration layer in src/apiserver/pkg/resourcecodec/resource_configs.go"
+Task: "Add route/service/upstream/consumer/consumer_group/plugin_config/global_rule/plugin_metadata draft rules in src/apiserver/pkg/resourcecodec/resource_configs.go"
+Task: "Add proto/ssl/stream_route draft rules in src/apiserver/pkg/resourcecodec/resource_configs.go"
 ```
 
 ---
@@ -195,7 +195,7 @@ Task: "Implement proto, ssl, and stream_route codecs in src/apiserver/pkg/resour
 ```bash
 # Launch legacy and publish safety tests together:
 Task: "Add legacy stored-row compatibility tests in src/apiserver/pkg/resourcecodec/legacy_test.go"
-Task: "Add publish materialization compatibility tests in src/apiserver/pkg/biz/publish_test.go"
+Task: "Add publish payload-building compatibility tests in src/apiserver/pkg/biz/publish_test.go"
 Task: "Add final ETCD JSON Schema gate tests in src/apiserver/pkg/publisher/etcd_test.go"
 Task: "Add historical import and legacy fixture compatibility tests in src/apiserver/pkg/biz/common_test.go"
 ```

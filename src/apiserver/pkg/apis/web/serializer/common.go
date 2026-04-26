@@ -56,7 +56,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	resourceType := constant.APISIXResource(fl.Param())
 	resourceTypeName := resourceType.String()
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 		Source:       resourcecodec.SourceWeb,
 		Operation:    webValidationOperation(fl),
 		GatewayID:    gatewayInfo.ID,
@@ -71,13 +71,13 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
 		return false
 	}
-	// Request-time validation now targets the canonical DATABASE projection, not raw echoed config fields.
-	materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+	// Request-time validation now targets the prepared DATABASE payload, not raw echoed config fields.
+	built, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
 		return false
 	}
-	rawConfig = materialized.Payload
+	rawConfig = built.Payload
 	resourceIdentification := schema.GetResourceIdentification(rawConfig)
 	if resourceIdentification == "" {
 		resourceIdentification = draft.Identity.NameValue

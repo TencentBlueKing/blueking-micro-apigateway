@@ -49,18 +49,18 @@ var noneValidateSchemaHandlerMap = map[string]bool{
 
 const openAPIRequestDraftsKey = "openapi_request_drafts"
 
-// SetOpenAPIRequestDrafts stores the canonical drafts resolved during OpenAPI request validation.
-func SetOpenAPIRequestDrafts(c *gin.Context, drafts []resourcecodec.CanonicalDraft) {
+// SetOpenAPIRequestDrafts stores the prepared drafts resolved during OpenAPI request validation.
+func SetOpenAPIRequestDrafts(c *gin.Context, drafts []resourcecodec.ResourceDraft) {
 	c.Set(openAPIRequestDraftsKey, drafts)
 }
 
-// GetOpenAPIRequestDrafts returns the canonical drafts resolved during OpenAPI request validation.
-func GetOpenAPIRequestDrafts(c *gin.Context) ([]resourcecodec.CanonicalDraft, bool) {
+// GetOpenAPIRequestDrafts returns the prepared drafts resolved during OpenAPI request validation.
+func GetOpenAPIRequestDrafts(c *gin.Context) ([]resourcecodec.ResourceDraft, bool) {
 	value, ok := c.Get(openAPIRequestDraftsKey)
 	if !ok {
 		return nil, false
 	}
-	drafts, ok := value.([]resourcecodec.CanonicalDraft)
+	drafts, ok := value.([]resourcecodec.ResourceDraft)
 	return drafts, ok
 }
 
@@ -137,7 +137,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		}
 		// validate config schema
 		configs := gjson.ParseBytes(reqBody).Array()
-		resolvedDrafts := make([]resourcecodec.CanonicalDraft, 0, len(configs))
+		resolvedDrafts := make([]resourcecodec.ResourceDraft, 0, len(configs))
 		for _, config := range configs {
 			schemaValidator, err := schema.NewAPISIXSchemaValidator(
 				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
@@ -150,7 +150,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			}
 			configRaw := config.Get("config").Raw
 			outerName := config.Get("name").String()
-			draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+			draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 				Source:       resourcecodec.SourceOpenAPI,
 				Operation:    openAPIOperation(method),
 				GatewayID:    ginx.GetGatewayInfo(c).ID,
@@ -166,14 +166,14 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			resolvedDrafts = append(resolvedDrafts, draft)
-			// OpenAPI request validation now runs against the canonical DATABASE projection too.
-			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			// OpenAPI request validation now runs against the prepared DATABASE payload too.
+			built, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
 			if err != nil {
 				ginx.BadRequestErrorJSONResponse(c, err)
 				c.Abort()
 				return
 			}
-			configRawForValidation := materialized.Payload
+			configRawForValidation := built.Payload
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)

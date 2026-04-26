@@ -236,7 +236,7 @@ func TestWebAndOpenAPIConflictParity(t *testing.T) {
 	})
 }
 
-func TestWebValidationCanonicalParity(t *testing.T) {
+func TestWebValidationDraftParity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -304,12 +304,12 @@ func TestWebValidationCanonicalParity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			draft, err := resourcecodec.CanonicalizeRequest(tt.input)
+			draft, err := resourcecodec.PrepareRequestDraft(tt.input)
 			assert.NoError(t, err)
 
-			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			builtPayload, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
 			assert.NoError(t, err)
-			assertJSONWithGeneratedID(t, tt.wantDatabase, string(materialized.Payload))
+			assertJSONWithGeneratedID(t, tt.wantDatabase, string(builtPayload.Payload))
 		})
 	}
 }

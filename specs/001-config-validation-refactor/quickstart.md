@@ -20,8 +20,8 @@ Recommended coverage priorities:
 1. Web request validation: `pkg/apis/web/serializer/common.go`
 2. OpenAPI request validation: `pkg/middleware/openapi_resource_check.go`
 3. Import validation and shared helpers: `pkg/biz/common.go`, `pkg/apis/common/resource_slz.go`
-4. OpenAPI serializer materialization: `pkg/apis/open/serializer/resource.go`
-5. Shared canonicalization/materialization core: `pkg/resourcecodec/*`
+4. OpenAPI serializer payload building: `pkg/apis/open/serializer/resource.go`
+5. Shared draft-preparation/payload-building core: `pkg/resourcecodec/*`
 6. Model persistence projection hooks: `pkg/entity/model/*`
 7. Publish payload construction and final validation: `pkg/biz/publish.go`, `pkg/publisher/etcd.go`
 
@@ -30,8 +30,8 @@ Recommended coverage priorities:
 Create `pkg/resourcecodec/` and introduce:
 
 - identity resolution helpers
-- canonical draft normalization helpers
-- version-aware materialization helpers for `DATABASE` and `ETCD` validation profiles
+- resource-draft preparation helpers
+- version-aware payload-building helpers for `DATABASE` and `ETCD` validation profiles
 - legacy compatibility helpers for stored rows that still contain duplicated config fields
 
 Keep external request structs and database fields unchanged while wiring new logic behind existing entrypoints.
@@ -41,8 +41,8 @@ Keep external request structs and database fields unchanged while wiring new log
 当前已落地的目标链路是：
 
 ```text
-request/import -> canonicalize -> materialize(DATABASE) -> schema validate -> persist
-stored draft   -> legacy-tolerant materialize(ETCD) -> schema validate -> publish
+request/import -> prepare draft -> build payload(DATABASE) -> schema validate -> persist
+stored draft   -> legacy-tolerant build payload(ETCD) -> schema validate -> publish
 ```
 
 兼容边界保持不变：
@@ -55,7 +55,7 @@ stored draft   -> legacy-tolerant materialize(ETCD) -> schema validate -> publis
 
 ## 5. Migrate Publish Before Request Paths
 
-1. Move `pkg/biz/publish.go` resource-specific JSON surgery into codec-based materialization.
+1. Move `pkg/biz/publish.go` resource-specific JSON surgery into codec-based payload building.
 2. Preserve `pkg/publisher/etcd.go:Validate` as the final publish gate.
 3. After publish parity is proven, route WebAPI, OpenAPI, and import validation through the same codec layer.
 

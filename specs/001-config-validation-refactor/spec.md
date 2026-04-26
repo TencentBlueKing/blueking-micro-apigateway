@@ -1,8 +1,8 @@
 # Feature Specification: APIServer Config Validation Refactor
 
-**Feature Branch**: `[001-config-validation-refactor]`  
-**Created**: 2026-04-25  
-**Status**: Draft  
+**Feature Branch**: `[001-config-validation-refactor]`
+**Created**: 2026-04-25
+**Status**: Draft
 **Input**: User description: "阅读 current_validation.md and solution.md and AGENTS.md；实现 apiserver config validation new solution，并在实现前补全当前实现涉及模块、函数、入口的相关单元测试，确保重构后相同 case 通过；这是线上项目且已有存量数据，需要兼容 web 表单、openapi 和最终发布的数据正确、合法、有效。"
 
 ## Clarifications
@@ -78,7 +78,7 @@
 
 ### Functional Requirements
 
-- **FR-001**: System MUST define one canonical edit-state representation for every managed resource and use it as the internal source of truth across request handling, draft persistence, and publish preparation.
+- **FR-001**: System MUST define one shared internal resource-draft representation for every managed resource and use it as the internal source of truth across request handling, draft persistence, and publish preparation.
 - **FR-002**: System MUST create automated unit-test coverage for every in-scope validation, normalization, persistence-projection, and publish-preparation entrypoint before refactoring the behavior of that entrypoint.
 - **FR-003**: System MUST cover all 11 managed resource types in the regression baseline, and MUST include every supported version-specific rule that changes acceptance, rejection, or final payload shape.
 - **FR-004**: System MUST include both positive and negative baseline cases, and MUST assert observable outcomes that affect compatibility, including acceptance result, resolved identity, stored draft shape, and final publish payload shape where applicable.
@@ -88,7 +88,7 @@
 - **FR-008**: System MUST resolve resource identity exactly once per request lifecycle and MUST use that resolved identity consistently for validation, draft persistence, and publish preparation.
 - **FR-009**: System MUST preserve compatibility with existing stored resources, including records that still contain legacy duplicated fields or server-owned fields in stored configuration, without requiring manual data migration before rollout.
 - **FR-010**: System MUST validate management-console inputs against the corresponding target-version JSON Schema before persistence and MUST return deterministic, user-actionable errors when configuration content, associations, or supported-version rules are violated.
-- **FR-011**: System MUST validate OpenAPI and import inputs before persistence using the same canonical resource semantics that govern management-console requests, and those accepted inputs MUST pass the corresponding target-version JSON Schema before persistence while preserving resource-specific acceptance rules already supported in production.
+- **FR-011**: System MUST validate OpenAPI and import inputs before persistence using the same resource-draft preparation rules that govern management-console requests, and those accepted inputs MUST pass the corresponding target-version JSON Schema before persistence while preserving resource-specific acceptance rules already supported in production.
 - **FR-012**: System MUST construct one authoritative final publish payload per resource and target version, and that payload MUST pass the corresponding target-version JSON Schema before any publish write occurs.
 - **FR-013**: System MUST ensure that a resource accepted into draft state does not later fail final publish solely because different lifecycle stages assembled the payload using divergent field-injection or cleanup rules.
 - **FR-014**: System MUST preserve currently supported resource-specific special cases, including alternate naming fields, derived metadata identity, generated identifiers, association fields, and version-specific field removal, unless a change is explicitly approved and documented.
@@ -101,7 +101,7 @@
 ### Key Entities *(include if feature involves data)*
 
 - **Resource Input Request**: 来自 web 表单、OpenAPI 或导入流程的资源输入，包含结构化字段与资源配置内容，是外部输入而不是内部真相。
-- **Canonical Draft Resource**: 系统内部用于编辑态流转和持久化的统一资源表示，承载资源身份、关联关系和用户真正编辑的配置语义。
+- **Resource Draft**: 系统内部用于编辑态流转和持久化的统一资源表示，承载资源身份、关联关系和用户真正编辑的配置语义。
 - **Publish Payload**: 面向目标版本最终发布的数据表示，是发布前校验和写入发布通道所使用的唯一权威载荷。
 - **Regression Baseline Suite**: 在重构前建立的自动化回归用例集合，用于固化当前接受、拒绝、持久化和发布行为。
 - **Historical Compatibility Fixture**: 代表线上存量数据、旧字段形态和导入数据形态的测试夹具，用于证明兼容性不会因重构而破坏。

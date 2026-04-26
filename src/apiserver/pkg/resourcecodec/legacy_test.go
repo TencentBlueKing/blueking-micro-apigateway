@@ -28,7 +28,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
-func TestMaterializeStoredDraftLegacyCompatibility(t *testing.T) {
+func TestBuildStoredPayloadLegacyCompatibility(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -115,16 +115,16 @@ func TestMaterializeStoredDraftLegacyCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			draft := DraftFromStoredRow(tt.input)
+			draft := PrepareStoredDraft(tt.input)
 			assert.Equal(t, tt.wantLegacy, draft.LegacyEchoes)
 			assert.Equal(t, tt.wantLegacy, draft.Identity.LegacyDetected)
 			for _, fieldName := range codecConfigFor(tt.input.ResourceType).stripFields {
 				assert.False(t, gjson.GetBytes(draft.ConfigSpec, fieldName).Exists(), fieldName)
 			}
 
-			materialized, err := MaterializeStoredDraft(draft, constant.ETCD)
+			built, err := BuildStoredPayload(draft, constant.ETCD)
 			assert.NoError(t, err)
-			assert.JSONEq(t, tt.wantETCD, string(materialized.Payload))
+			assert.JSONEq(t, tt.wantETCD, string(built.Payload))
 		})
 	}
 }

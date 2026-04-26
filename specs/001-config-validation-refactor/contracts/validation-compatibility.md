@@ -7,10 +7,10 @@ Define the non-breaking contracts this refactor must preserve across external re
 ## External Surface Contract
 
 | Surface | Compatibility rule | Validation requirement before persistence |
-|--------|---------------------|-------------------------------------------|
-| WebAPI form | Existing request payload shape remains unchanged by default. If a shape change is unavoidable, the matching frontend Vue form change must ship together. | Normalize to canonical draft, materialize target-version payload, pass target-version JSON Schema validation before database write. |
-| OpenAPI serializer | Existing serializer contract remains unchanged for online callers. | Normalize to canonical draft without changing wire format, materialize target-version payload, pass target-version JSON Schema validation before database write. |
-| Import payload | Existing supported import format remains accepted. | Normalize to canonical draft, materialize target-version payload, pass target-version JSON Schema validation before database write. |
+| ------- | ------------------ | ----------------------------------------- |
+| WebAPI form | Existing request payload shape remains unchanged by default. If a shape change is unavoidable, the matching frontend Vue form change must ship together. | Prepare a resource draft, build the target-version payload, and pass target-version JSON Schema validation before database write. |
+| OpenAPI serializer | Existing serializer contract remains unchanged for online callers. | Prepare a resource draft without changing wire format, build the target-version payload, and pass target-version JSON Schema validation before database write. |
+| Import payload | Existing supported import format remains accepted. | Prepare a resource draft, build the target-version payload, and pass target-version JSON Schema validation before database write. |
 
 ## Persistence Contract
 
@@ -22,7 +22,7 @@ Define the non-breaking contracts this refactor must preserve across external re
 
 ## Publish Contract
 
-- Final APISIX publish payloads are built from the canonical draft plus authoritative model columns.
+- Final APISIX publish payloads are built from the resource draft plus authoritative model columns.
 - Every publish payload must pass target-version JSON Schema validation before etcd write.
 - Publish ordering for dependent resources remains intact: upstream/service/plugin_config or consumer_group dependencies still publish before the referencing resource.
 - Resource/version special cases remain preserved for approved regression cases.

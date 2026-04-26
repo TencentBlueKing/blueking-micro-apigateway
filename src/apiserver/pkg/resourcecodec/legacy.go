@@ -74,8 +74,8 @@ func DetectLegacyEchoes(resourceType constant.APISIXResource, config json.RawMes
 	return false
 }
 
-// DematerializeStoredConfigSpec removes duplicated server-owned fields from a stored config row.
-func DematerializeStoredConfigSpec(
+// ExtractStoredConfigSpec removes duplicated server-owned fields from a stored config row.
+func ExtractStoredConfigSpec(
 	resourceType constant.APISIXResource,
 	config json.RawMessage,
 ) (json.RawMessage, error) {

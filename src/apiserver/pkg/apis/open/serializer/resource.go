@@ -66,14 +66,14 @@ func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int,
 func (rs ResourceBatchCreateRequest) ToCommonResourceWithDrafts(
 	gatewayID int,
 	resourceType constant.APISIXResource,
-	resolvedDrafts []resourcecodec.CanonicalDraft,
+	resolvedDrafts []resourcecodec.ResourceDraft,
 ) []*model.ResourceCommonModel {
 	var resources []*model.ResourceCommonModel
 	for i, r := range rs {
 		draft, ok := openAPICreateDraftAt(resolvedDrafts, i, resourceType)
 		var err error
 		if !ok {
-			draft, err = resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+			draft, err = resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 				Source:       resourcecodec.SourceOpenAPI,
 				Operation:    constant.OperationTypeCreate,
 				GatewayID:    gatewayID,
@@ -96,7 +96,7 @@ func (rs ResourceBatchCreateRequest) ToCommonResourceWithDrafts(
 			})
 			continue
 		}
-		config, err := resourcecodec.MaterializeRequestStorageConfig(draft)
+		config, err := resourcecodec.BuildStorageConfig(draft)
 		if err != nil {
 			continue
 		}
@@ -118,16 +118,16 @@ func (rs ResourceBatchCreateRequest) ToCommonResourceWithDrafts(
 }
 
 func openAPICreateDraftAt(
-	resolvedDrafts []resourcecodec.CanonicalDraft,
+	resolvedDrafts []resourcecodec.ResourceDraft,
 	index int,
 	resourceType constant.APISIXResource,
-) (resourcecodec.CanonicalDraft, bool) {
+) (resourcecodec.ResourceDraft, bool) {
 	if index >= len(resolvedDrafts) {
-		return resourcecodec.CanonicalDraft{}, false
+		return resourcecodec.ResourceDraft{}, false
 	}
 	draft := resolvedDrafts[index]
 	if draft.ResourceType != resourceType {
-		return resourcecodec.CanonicalDraft{}, false
+		return resourcecodec.ResourceDraft{}, false
 	}
 	return draft, true
 }
@@ -182,7 +182,7 @@ func (r ResourceUpdateRequest) ToCommonResource(
 	id string,
 	status constant.ResourceStatus,
 ) *model.ResourceCommonModel {
-	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 		Source:       resourcecodec.SourceOpenAPI,
 		Operation:    constant.OperationTypeUpdate,
 		GatewayID:    ginx.GetGatewayInfo(c).ID,
@@ -204,7 +204,7 @@ func (r ResourceUpdateRequest) ToCommonResource(
 			BaseModel: model.BaseModel{Updater: ginx.GetUserID(c)},
 		}
 	}
-	config, err := resourcecodec.MaterializeRequestStorageConfig(draft)
+	config, err := resourcecodec.BuildStorageConfig(draft)
 	if err != nil {
 		config = draft.ConfigSpec
 	}

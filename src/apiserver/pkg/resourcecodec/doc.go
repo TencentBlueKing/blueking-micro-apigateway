@@ -16,5 +16,5 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-// Package resourcecodec centralizes canonical draft normalization and APISIX payload materialization.
+// Package resourcecodec centralizes request draft preparation and APISIX payload building.
 package resourcecodec

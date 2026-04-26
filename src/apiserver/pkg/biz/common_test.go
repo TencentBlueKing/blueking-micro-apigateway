@@ -152,7 +152,7 @@ func TestPrepareValidationPayloadImportParity(t *testing.T) {
 	}
 }
 
-func TestImportCanonicalParity(t *testing.T) {
+func TestImportDraftParity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -191,7 +191,7 @@ func TestImportCanonicalParity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+			draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 				Source:       resourcecodec.SourceImport,
 				Operation:    constant.OperationImport,
 				GatewayID:    1001,
@@ -202,9 +202,9 @@ func TestImportCanonicalParity(t *testing.T) {
 			})
 			assert.NoError(t, err)
 
-			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			builtPayload, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
 			assert.NoError(t, err)
-			assert.JSONEq(t, tt.want, string(materialized.Payload))
+			assert.JSONEq(t, tt.want, string(builtPayload.Payload))
 		})
 	}
 }
@@ -215,7 +215,7 @@ func TestHistoricalImportValidationFixtures(t *testing.T) {
 	for _, fixture := range utiltesting.HistoricalValidationFixtures() {
 		fixture := fixture.Clone()
 		t.Run(fixture.Name, func(t *testing.T) {
-			draft := resourcecodec.DraftFromStoredRow(resourcecodec.StoredRowInput{
+			draft := resourcecodec.PrepareStoredDraft(resourcecodec.StoredRowInput{
 				GatewayID:    gatewayInfo.ID,
 				ResourceType: fixture.ResourceType,
 				Version:      fixture.Version,
@@ -226,9 +226,9 @@ func TestHistoricalImportValidationFixtures(t *testing.T) {
 				Config:       fixture.Stored.Config,
 			})
 
-			materialized, err := resourcecodec.MaterializeStoredDraft(draft, constant.DATABASE)
+			builtPayload, err := resourcecodec.BuildStoredPayload(draft, constant.DATABASE)
 			assert.NoError(t, err)
-			assert.JSONEq(t, string(fixture.DatabaseConfig), string(materialized.Payload))
+			assert.JSONEq(t, string(fixture.DatabaseConfig), string(builtPayload.Payload))
 		})
 	}
 }

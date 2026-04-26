@@ -29,7 +29,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
-// StoredRowInput captures the authoritative stored row used to rebuild a canonical draft.
+// StoredRowInput captures the authoritative stored row used to rebuild a prepared draft.
 type StoredRowInput struct {
 	GatewayID      int
 	ResourceType   constant.APISIXResource
@@ -45,14 +45,14 @@ type StoredRowInput struct {
 	LegacyDetected bool
 }
 
-// DraftFromStoredRow rebuilds a canonical draft from an existing stored resource row.
-func DraftFromStoredRow(input StoredRowInput) CanonicalDraft {
-	configSpec, err := DematerializeStoredConfigSpec(input.ResourceType, input.Config)
+// PrepareStoredDraft rebuilds a prepared draft from an existing stored resource row.
+func PrepareStoredDraft(input StoredRowInput) ResourceDraft {
+	configSpec, err := ExtractStoredConfigSpec(input.ResourceType, input.Config)
 	if err != nil {
 		configSpec = CloneRawMessage(input.Config)
 	}
 	legacyDetected := input.LegacyDetected || DetectLegacyEchoes(input.ResourceType, input.Config)
-	return CanonicalDraft{
+	return ResourceDraft{
 		GatewayID:    input.GatewayID,
 		ResourceType: input.ResourceType,
 		Version:      input.Version,
@@ -74,8 +74,8 @@ func DraftFromStoredRow(input StoredRowInput) CanonicalDraft {
 	}
 }
 
-// MaterializeStoredDraft converts a stored canonical draft into the payload used for validation/publish.
-func MaterializeStoredDraft(draft CanonicalDraft, profile constant.DataType) (MaterializedPayload, error) {
+// BuildStoredPayload converts a stored prepared draft into the payload used for validation/publish.
+func BuildStoredPayload(draft ResourceDraft, profile constant.DataType) (BuiltPayload, error) {
 	payload := CloneRawMessage(draft.ConfigSpec)
 	var err error
 
@@ -150,16 +150,16 @@ func MaterializeStoredDraft(draft CanonicalDraft, profile constant.DataType) (Ma
 		})
 	}
 	if err != nil {
-		return MaterializedPayload{}, err
+		return BuiltPayload{}, err
 	}
 
 	payload, err = injectStoredDraftAuthoritativeFields(payload, draft)
 	if err != nil {
-		return MaterializedPayload{}, err
+		return BuiltPayload{}, err
 	}
 
-	payload = cleanupMaterializedPayload(draft.ResourceType, draft.Version, NormalizeProfile(profile), payload)
-	return MaterializedPayload{
+	payload = cleanupBuiltPayload(draft.ResourceType, draft.Version, NormalizeProfile(profile), payload)
+	return BuiltPayload{
 		Profile:      NormalizeProfile(profile),
 		ResourceType: draft.ResourceType,
 		Version:      draft.Version,
@@ -167,7 +167,7 @@ func MaterializeStoredDraft(draft CanonicalDraft, profile constant.DataType) (Ma
 	}, nil
 }
 
-func injectStoredDraftAuthoritativeFields(payload json.RawMessage, draft CanonicalDraft) (json.RawMessage, error) {
+func injectStoredDraftAuthoritativeFields(payload json.RawMessage, draft ResourceDraft) (json.RawMessage, error) {
 	var err error
 
 	idValue := draft.Identity.ResourceID
@@ -213,7 +213,7 @@ func mergeBaseInfo(payload json.RawMessage, baseInfo entity.BaseInfo) (json.RawM
 	return json.RawMessage(merged), nil
 }
 
-func cleanupMaterializedPayload(
+func cleanupBuiltPayload(
 	resourceType constant.APISIXResource,
 	version constant.APISIXVersion,
 	profile constant.DataType,
@@ -237,7 +237,7 @@ func cleanupMaterializedPayload(
 	return payload
 }
 
-func associationValue(draft CanonicalDraft, key string) string {
+func associationValue(draft ResourceDraft, key string) string {
 	if draft.Identity.Associations == nil {
 		return ""
 	}

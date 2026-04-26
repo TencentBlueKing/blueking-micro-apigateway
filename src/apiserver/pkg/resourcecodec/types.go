@@ -24,7 +24,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
-// RequestInput captures the external request/import shape before canonical normalization.
+// RequestInput captures the external request/import shape before draft preparation.
 type RequestInput struct {
 	Source       string
 	Operation    constant.OperationType
@@ -60,8 +60,8 @@ type ResolvedIdentity struct {
 	LegacyDetected bool
 }
 
-// CanonicalDraft is the internal edit-state representation used by validation and publish materialization.
-type CanonicalDraft struct {
+// ResourceDraft is the internal edit-state representation used by validation and publish payload building.
+type ResourceDraft struct {
 	GatewayID      int
 	ResourceType   constant.APISIXResource
 	Version        constant.APISIXVersion
@@ -74,8 +74,8 @@ type CanonicalDraft struct {
 	Labels         map[string]string
 }
 
-// MaterializedPayload is the version-aware payload emitted for schema validation or publish.
-type MaterializedPayload struct {
+// BuiltPayload is the version-aware payload emitted for schema validation or publish.
+type BuiltPayload struct {
 	Profile      constant.DataType
 	ResourceType constant.APISIXResource
 	Version      constant.APISIXVersion
@@ -83,13 +83,13 @@ type MaterializedPayload struct {
 	Dependencies []string
 }
 
-// Codec resolves external input into a canonical draft and materialized APISIX payloads.
+// Codec resolves external input into a prepared draft and built APISIX payloads.
 type Codec interface {
 	ResolveIdentity(input RequestInput, existing *ExistingResource) (ResolvedIdentity, error)
-	NormalizeDraft(
+	PrepareDraft(
 		input RequestInput,
 		identity ResolvedIdentity,
 		existing *ExistingResource,
-	) (CanonicalDraft, error)
-	Materialize(draft CanonicalDraft, profile constant.DataType) (MaterializedPayload, error)
+	) (ResourceDraft, error)
+	BuildPayload(draft ResourceDraft, profile constant.DataType) (BuiltPayload, error)
 }

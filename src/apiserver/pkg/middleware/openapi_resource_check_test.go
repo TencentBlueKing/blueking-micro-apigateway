@@ -253,7 +253,7 @@ func TestOpenAPIResourceCheckRejectsConflictingNameBeforeSchemaValidation(t *tes
 	assert.True(t, schemaValidatorCalled)
 }
 
-func TestOpenAPIRequestCanonicalParity(t *testing.T) {
+func TestOpenAPIRequestDraftParity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -320,12 +320,12 @@ func TestOpenAPIRequestCanonicalParity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			draft, err := resourcecodec.CanonicalizeRequest(tt.input)
+			draft, err := resourcecodec.PrepareRequestDraft(tt.input)
 			assert.NoError(t, err)
 
-			materialized, err := resourcecodec.MaterializeRequestDraft(draft, constant.DATABASE)
+			builtPayload, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
 			assert.NoError(t, err)
-			assertOpenAPIJSON(t, tt.wantDatabase, string(materialized.Payload))
+			assertOpenAPIJSON(t, tt.wantDatabase, string(builtPayload.Payload))
 		})
 	}
 }

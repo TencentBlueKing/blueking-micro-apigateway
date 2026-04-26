@@ -38,9 +38,9 @@ This feature does not introduce new database tables. It introduces new internal 
   - Update flows must treat the path or existing row identity as authoritative.
   - Conflicting identity or association values between structured fields and config are rejected for new external inputs.
 
-### CanonicalDraftResource
+### ResourceDraft
 
-- **Purpose**: The internal edit-state representation used after normalization and before publish materialization.
+- **Purpose**: The internal edit-state representation used after request preparation and before publish payload building.
 - **Fields**:
   - `gatewayID`
   - `resourceType`
@@ -53,11 +53,11 @@ This feature does not introduce new database tables. It introduces new internal 
 - **Validation rules**:
   - New writes keep database columns authoritative for identity and associations.
   - Legacy rows may still contain duplicated server-owned fields inside config and must remain readable.
-  - The canonical draft is the internal source of truth used by request validation, import validation, and publish preparation.
+  - The resource draft is the internal source of truth used by request validation, import validation, and publish preparation.
 
-### MaterializedValidationPayload
+### BuiltPayload
 
-- **Purpose**: Version-aware payload generated from the canonical draft for schema validation.
+- **Purpose**: Version-aware payload generated from the resource draft for schema validation.
 - **Fields**:
   - `resourceType`
   - `targetVersion`
@@ -104,15 +104,15 @@ This feature does not introduce new database tables. It introduces new internal 
 ```text
 ExternalResourceInput
   -> ResolvedIdentity
-  -> CanonicalDraftResource
-  -> MaterializedValidationPayload (DATABASE)
+  -> ResourceDraft
+  -> BuiltPayload (DATABASE)
   -> Stored draft row / existing resource table row
-  -> MaterializedValidationPayload (ETCD)
+  -> BuiltPayload (ETCD)
   -> APISIX publish payload
 
 HistoricalCompatibilityFixture
-  -> CanonicalDraftResource
-  -> MaterializedValidationPayload
+  -> ResourceDraft
+  -> BuiltPayload
 
 RegressionBaselineCase
   -> asserts all observable transitions above
@@ -127,7 +127,7 @@ Existing resource lifecycle states remain unchanged:
 - `delete_draft`
 - `success`
 
-Validation and materialization refactor changes how payloads are formed, not the lifecycle state machine itself.
+Validation and payload-building refactor changes how payloads are formed, not the lifecycle state machine itself.
 
 ## Resource-Specific Notes
 
@@ -135,4 +135,4 @@ Validation and materialization refactor changes how payloads are formed, not the
 - `plugin_metadata` derives publish identity from plugin name.
 - `consumer_group`, `plugin_config`, and `global_rule` have version-sensitive `id` requirements.
 - `proto`, `consumer_group`, and `stream_route` have version-sensitive `name` support.
-- `ssl` and `stream_route` require removal of internal-only fields before final publish materialization.
+- `ssl` and `stream_route` require removal of internal-only fields before final publish payload building.

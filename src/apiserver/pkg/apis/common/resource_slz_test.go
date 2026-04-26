@@ -110,7 +110,7 @@ func TestApplyImportIdentityToSyncData(t *testing.T) {
 	}
 }
 
-func TestClassifyImportResourceInfoUsesCanonicalNames(t *testing.T) {
+func TestClassifyImportResourceInfoUsesResolvedNames(t *testing.T) {
 	t.Parallel()
 
 	importData := map[constant.APISIXResource][]*ResourceInfo{

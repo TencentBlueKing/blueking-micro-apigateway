@@ -45,8 +45,8 @@ type ValidationInput struct {
 	OuterName    string
 }
 
-// MaterializedValidationInput describes an already-built payload that should match a shared profile shape.
-type MaterializedValidationInput struct {
+// ValidationPayloadInput describes an already-built payload that should match a shared profile shape.
+type ValidationPayloadInput struct {
 	ResourceType constant.APISIXResource
 	Version      constant.APISIXVersion
 	Profile      constant.DataType
@@ -69,11 +69,11 @@ func PrepareValidationPayload(input ValidationInput) json.RawMessage {
 	return payload
 }
 
-// EnsureMaterializedPayloadShape verifies that a payload already matches the shared materialized shape.
-func EnsureMaterializedPayloadShape(input MaterializedValidationInput) (MaterializedPayload, error) {
+// ValidateBuiltPayloadShape verifies that a payload already matches the shared built payload shape.
+func ValidateBuiltPayloadShape(input ValidationPayloadInput) (BuiltPayload, error) {
 	payload := CloneRawMessage(input.Payload)
 	profile := NormalizeProfile(input.Profile)
-	expected := cleanupMaterializedPayload(
+	expected := cleanupBuiltPayload(
 		input.ResourceType,
 		input.Version,
 		profile,
@@ -81,12 +81,12 @@ func EnsureMaterializedPayloadShape(input MaterializedValidationInput) (Material
 	)
 	same, err := sameJSONShape(payload, expected)
 	if err != nil {
-		return MaterializedPayload{}, err
+		return BuiltPayload{}, err
 	}
 	if !same {
-		return MaterializedPayload{}, fmt.Errorf("schema 验证失败: payload is not in %s materialized form", profile)
+		return BuiltPayload{}, fmt.Errorf("schema 验证失败: payload is not in %s built form", profile)
 	}
-	return MaterializedPayload{
+	return BuiltPayload{
 		Profile:      profile,
 		ResourceType: input.ResourceType,
 		Version:      input.Version,

@@ -129,11 +129,11 @@ func DetectRequestConflicts(input ConflictInput) error {
 	return nil
 }
 
-// CanonicalizeRequest resolves one authoritative request identity and strips duplicated server-owned fields.
-func CanonicalizeRequest(input RequestInput) (CanonicalDraft, error) {
+// PrepareRequestDraft resolves one authoritative request identity and strips duplicated server-owned fields.
+func PrepareRequestDraft(input RequestInput) (ResourceDraft, error) {
 	identity, err := ResolveRequestIdentity(input)
 	if err != nil {
-		return CanonicalDraft{}, err
+		return ResourceDraft{}, err
 	}
 
 	if input.Source != SourceImport {
@@ -144,16 +144,16 @@ func CanonicalizeRequest(input RequestInput) (CanonicalDraft, error) {
 			OuterFields:  authoritativeAssociationFields(input),
 			Config:       input.Config,
 		}); err != nil {
-			return CanonicalDraft{}, err
+			return ResourceDraft{}, err
 		}
 	}
 
 	configSpec, err := normalizeRequestConfigSpec(input.Config, input.ResourceType)
 	if err != nil {
-		return CanonicalDraft{}, err
+		return ResourceDraft{}, err
 	}
 
-	return CanonicalDraft{
+	return ResourceDraft{
 		GatewayID:    input.GatewayID,
 		ResourceType: input.ResourceType,
 		Version:      input.Version,
@@ -192,18 +192,18 @@ func ResolveRequestIdentity(input RequestInput) (ResolvedIdentity, error) {
 	return identity, nil
 }
 
-// MaterializeRequestDraft builds the version-aware payload used by request-side validation or OpenAPI body shaping.
-func MaterializeRequestDraft(
-	draft CanonicalDraft,
+// BuildRequestPayload builds the version-aware payload used by request-side validation or OpenAPI body shaping.
+func BuildRequestPayload(
+	draft ResourceDraft,
 	profile constant.DataType,
-) (MaterializedPayload, error) {
-	payload, err := materializeRequestPayload(draft)
+) (BuiltPayload, error) {
+	payload, err := buildRequestPayload(draft)
 	if err != nil {
-		return MaterializedPayload{}, err
+		return BuiltPayload{}, err
 	}
 
-	payload = cleanupMaterializedPayload(draft.ResourceType, draft.Version, NormalizeProfile(profile), payload)
-	return MaterializedPayload{
+	payload = cleanupBuiltPayload(draft.ResourceType, draft.Version, NormalizeProfile(profile), payload)
+	return BuiltPayload{
 		Profile:      NormalizeProfile(profile),
 		ResourceType: draft.ResourceType,
 		Version:      draft.Version,
@@ -211,12 +211,12 @@ func MaterializeRequestDraft(
 	}, nil
 }
 
-// MaterializeRequestStorageConfig builds the config shape currently expected by persistence/update code paths.
-func MaterializeRequestStorageConfig(draft CanonicalDraft) (json.RawMessage, error) {
-	return materializeRequestPayload(draft)
+// BuildStorageConfig builds the config shape currently expected by persistence/update code paths.
+func BuildStorageConfig(draft ResourceDraft) (json.RawMessage, error) {
+	return buildRequestPayload(draft)
 }
 
-func materializeRequestPayload(draft CanonicalDraft) (json.RawMessage, error) {
+func buildRequestPayload(draft ResourceDraft) (json.RawMessage, error) {
 	payload := CloneRawMessage(draft.ConfigSpec)
 	var err error
 

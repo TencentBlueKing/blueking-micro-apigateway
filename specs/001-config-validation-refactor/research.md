@@ -1,8 +1,8 @@
 # Research: APIServer Config Validation Refactor
 
-## Decision 1: Introduce a canonical draft plus a dedicated `pkg/resourcecodec/` package
+## Decision 1: Introduce a shared resource draft plus a dedicated `pkg/resourcecodec/` package
 
-- **Decision**: Implement a new internal codec layer that resolves identity once, normalizes external input into a canonical draft representation, and materializes APISIX payloads for validation and publish.
+- **Decision**: Implement a new internal codec layer that resolves identity once, prepares external input into a shared resource-draft representation, and builds APISIX payloads for validation and publish.
 - **Rationale**: Current behavior is split across request validators, middleware, serializers, model hooks, and publish functions. A shared codec layer reduces repeated JSON surgery and lets request-time validation and publish-time validation reason about the same payload family.
 - **Alternatives considered**:
   - Keep patching the current per-layer functions: rejected because the same field conflicts would continue to be solved multiple times with inconsistent precedence.
@@ -13,9 +13,9 @@
 - **Decision**: Keep the existing OpenAPI serializer protocol unchanged, keep WebAPI request payloads unchanged by default, and avoid database field changes.
 - **Rationale**: All three boundaries are already in production use. The feature goal is to make validation behavior coherent without forcing online callers, frontend forms, or database migrations to move first.
 - **Alternatives considered**:
-  - Change OpenAPI serializer payloads to match the new canonical draft: rejected because there are already online callers.
+  - Change OpenAPI serializer payloads to match the new resource-draft model: rejected because there are already online callers.
   - Change WebAPI request shapes immediately: rejected because it would couple backend refactor risk with frontend rollout risk.
-  - Add or reshape database fields for canonical draft storage now: rejected because the current requirement explicitly avoids schema change unless proven unavoidable.
+  - Add or reshape database fields for resource-draft storage now: rejected because the current requirement explicitly avoids schema change unless proven unavoidable.
 
 ## Decision 3: Build the regression baseline before refactoring behavior
 
@@ -25,14 +25,14 @@
   - Rely only on integration tests: rejected because most compatibility bugs in this area come from small per-layer payload mutations that are easier to localize with unit tests.
   - Add tests only for the new codec package: rejected because that would leave current behavior unpinned and make it impossible to prove parity.
 
-## Decision 4: Use one materialization path with different validation profiles
+## Decision 4: Use one payload-building path with different validation profiles
 
-- **Decision**: Materialize one authoritative payload family per resource and target version, then validate it with `DATABASE` profile before persistence and `ETCD` profile before publish.
-- **Rationale**: The user requires target-version JSON Schema validation before persistence and before publish. Reusing one materialization path keeps request-time and publish-time validation aligned while still respecting the stricter top-level constraints of the `ETCD` profile.
+- **Decision**: Build one authoritative payload family per resource and target version, then validate it with `DATABASE` profile before persistence and `ETCD` profile before publish.
+- **Rationale**: The user requires target-version JSON Schema validation before persistence and before publish. Reusing one payload-building path keeps request-time and publish-time validation aligned while still respecting the stricter top-level constraints of the `ETCD` profile.
 - **Alternatives considered**:
   - Keep separate request-time and publish-time payload builders: rejected because this is the current source of divergence.
   - Validate only on publish: rejected because invalid data would still enter draft storage.
-  - Validate request-time payloads directly with `ETCD` profile: rejected as the default because draft storage may still need to preserve edit-state distinctions better handled by `DATABASE` profile, while the materialized payload itself remains shared.
+  - Validate request-time payloads directly with `ETCD` profile: rejected as the default because draft storage may still need to preserve edit-state distinctions better handled by `DATABASE` profile, while the built payload itself remains shared.
 
 ## Decision 5: New writes should stop depending on server-owned echo fields, but legacy rows must still work
 
@@ -45,10 +45,10 @@
 ## Decision 6: Migrate in the order publish -> request/import -> persistence cleanup
 
 - **Decision**: First move publish assembly to the new codec layer, then reuse the same layer for request/import validation, and finally reduce persistence echo behavior for new writes.
-- **Rationale**: Publish is currently the most fragmented area and also the final correctness gate before APISIX. Moving it first gives the highest risk reduction and proves the materializer design before request paths depend on it.
+- **Rationale**: Publish is currently the most fragmented area and also the final correctness gate before APISIX. Moving it first gives the highest risk reduction and proves the payload-builder design before request paths depend on it.
 - **Alternatives considered**:
   - Refactor request validation first: rejected because publish would still have a second divergent payload builder.
-  - Refactor model hooks first: rejected because it would change stored data shape before the shared materializer exists to absorb legacy compatibility.
+  - Refactor model hooks first: rejected because it would change stored data shape before the shared payload builder exists to absorb legacy compatibility.
 
 ## Decision 7: Treat target versions `3.11.X` and `3.13.X` as the primary acceptance matrix
 

@@ -290,7 +290,7 @@ func createResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	draft, err := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 		Source:       "mcp",
 		Operation:    constant.OperationTypeCreate,
 		GatewayID:    gateway.ID,
@@ -302,9 +302,9 @@ func createResourceHandler(
 		Config:       config,
 	})
 	if err == nil {
-		config, err = resourcecodec.MaterializeRequestStorageConfig(draft)
+		config, err = resourcecodec.BuildStorageConfig(draft)
 		if err != nil {
-			return errorResult(fmt.Errorf("failed to materialize config: %w", err)), nil, nil
+			return errorResult(fmt.Errorf("failed to build config: %w", err)), nil, nil
 		}
 	}
 
@@ -383,7 +383,7 @@ func updateResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	draft, canonicalErr := resourcecodec.CanonicalizeRequest(resourcecodec.RequestInput{
+	draft, prepareErr := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
 		Source:       "mcp",
 		Operation:    constant.OperationTypeUpdate,
 		GatewayID:    gateway.ID,
@@ -394,10 +394,10 @@ func updateResourceHandler(
 		OuterFields:  mcpOuterFields(resourceType, input.Config),
 		Config:       config,
 	})
-	if canonicalErr == nil {
-		config, err = resourcecodec.MaterializeRequestStorageConfig(draft)
+	if prepareErr == nil {
+		config, err = resourcecodec.BuildStorageConfig(draft)
 		if err != nil {
-			return errorResult(fmt.Errorf("failed to materialize config: %w", err)), nil, nil
+			return errorResult(fmt.Errorf("failed to build config: %w", err)), nil, nil
 		}
 	} else if input.Name != "" {
 		nameKey := model.GetResourceNameKey(resourceType)

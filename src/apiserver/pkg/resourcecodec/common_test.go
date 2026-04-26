@@ -223,7 +223,7 @@ func TestResolveRequestIdentity(t *testing.T) {
 	}
 }
 
-func TestCanonicalizeRequestAndMaterializeRequestDraft(t *testing.T) {
+func TestPrepareRequestDraftAndBuildRequestPayload(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -234,7 +234,7 @@ func TestCanonicalizeRequestAndMaterializeRequestDraft(t *testing.T) {
 		wantErrorSub string
 	}{
 		{
-			name: "web route create materializes outer name and service id",
+			name: "web route create builds outer name and service id into the payload",
 			input: RequestInput{
 				Source:       SourceWeb,
 				Operation:    constant.OperationTypeCreate,
@@ -248,7 +248,7 @@ func TestCanonicalizeRequestAndMaterializeRequestDraft(t *testing.T) {
 			wantConfig: `{"name":"route-a","service_id":"svc-a","uris":["/test"]}`,
 		},
 		{
-			name: "consumer materialization uses username and strips id for database validation",
+			name: "consumer payload build uses username and strips id for database validation",
 			input: RequestInput{
 				Source:       SourceWeb,
 				Operation:    constant.OperationTypeCreate,
@@ -262,7 +262,7 @@ func TestCanonicalizeRequestAndMaterializeRequestDraft(t *testing.T) {
 			wantConfig: `{"username":"consumer-a","group_id":"group-a","plugins":{"key-auth":{"key":"demo"}}}`,
 		},
 		{
-			name: "plugin metadata validation materialization keeps name and derives id from it",
+			name: "plugin metadata payload build keeps name and derives id from it",
 			input: RequestInput{
 				Source:       SourceWeb,
 				Operation:    constant.OperationTypeCreate,
@@ -317,7 +317,7 @@ func TestCanonicalizeRequestAndMaterializeRequestDraft(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			draft, err := CanonicalizeRequest(tt.input)
+			draft, err := PrepareRequestDraft(tt.input)
 			if tt.wantErrorSub != "" {
 				if assert.Error(t, err) {
 					assert.Contains(t, err.Error(), tt.wantErrorSub)
@@ -327,29 +327,29 @@ func TestCanonicalizeRequestAndMaterializeRequestDraft(t *testing.T) {
 			assert.NoError(t, err)
 			assertJSONWithOptionalGeneratedID(t, tt.wantSpec, string(draft.ConfigSpec))
 
-			materialized, err := MaterializeRequestDraft(draft, constant.DATABASE)
+			built, err := BuildRequestPayload(draft, constant.DATABASE)
 			assert.NoError(t, err)
-			assertJSONWithOptionalGeneratedID(t, tt.wantConfig, string(materialized.Payload))
+			assertJSONWithOptionalGeneratedID(t, tt.wantConfig, string(built.Payload))
 		})
 	}
 }
 
-func TestEnsureMaterializedPayloadShape(t *testing.T) {
+func TestValidateBuiltPayloadShape(t *testing.T) {
 	t.Parallel()
 
-	t.Run("accepts payload already in etcd materialized form", func(t *testing.T) {
-		materialized, err := EnsureMaterializedPayloadShape(MaterializedValidationInput{
+	t.Run("accepts payload already in etcd built form", func(t *testing.T) {
+		built, err := ValidateBuiltPayloadShape(ValidationPayloadInput{
 			ResourceType: constant.Route,
 			Version:      constant.APISIXVersion311,
 			Profile:      constant.ETCD,
 			Payload:      json.RawMessage(`{"id":"route-id","name":"route-a","uris":["/test"]}`),
 		})
 		assert.NoError(t, err)
-		assert.JSONEq(t, `{"id":"route-id","name":"route-a","uris":["/test"]}`, string(materialized.Payload))
+		assert.JSONEq(t, `{"id":"route-id","name":"route-a","uris":["/test"]}`, string(built.Payload))
 	})
 
 	t.Run("rejects payload that still carries database-only fields", func(t *testing.T) {
-		_, err := EnsureMaterializedPayloadShape(MaterializedValidationInput{
+		_, err := ValidateBuiltPayloadShape(ValidationPayloadInput{
 			ResourceType: constant.Consumer,
 			Version:      constant.APISIXVersion313,
 			Profile:      constant.ETCD,
@@ -357,7 +357,7 @@ func TestEnsureMaterializedPayloadShape(t *testing.T) {
 		})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "schema 验证失败")
-			assert.Contains(t, err.Error(), "materialized form")
+			assert.Contains(t, err.Error(), "built form")
 		}
 	})
 }

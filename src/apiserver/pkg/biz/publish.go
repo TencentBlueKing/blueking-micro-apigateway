@@ -606,7 +606,7 @@ func buildPublishOperation(
 ) (publisher.ResourceOperation, error) {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	// Publish rebuilds the ETCD payload from authoritative columns plus the stored config spec.
-	draft := resourcecodec.DraftFromStoredRow(resourcecodec.StoredRowInput{
+	draft := resourcecodec.PrepareStoredDraft(resourcecodec.StoredRowInput{
 		GatewayID:    gatewayInfo.ID,
 		ResourceType: resourceType,
 		Version:      gatewayInfo.GetAPISIXVersionX(),
@@ -618,13 +618,13 @@ func buildPublishOperation(
 		CreateTime:   createdAt.Unix(),
 		UpdateTime:   updatedAt.Unix(),
 	})
-	materialized, err := resourcecodec.MaterializeStoredDraft(draft, constant.ETCD)
+	builtPayload, err := resourcecodec.BuildStoredPayload(draft, constant.ETCD)
 	if err != nil {
 		return publisher.ResourceOperation{}, err
 	}
 	return publisher.ResourceOperation{
 		Key:    key,
-		Config: materialized.Payload,
+		Config: builtPayload.Payload,
 		Type:   resourceType,
 	}, nil
 }

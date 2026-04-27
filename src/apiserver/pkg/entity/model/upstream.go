@@ -74,6 +74,16 @@ func (u *Upstream) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 	if u.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.Upstream,
+		u.Config,
+		u.ID,
+		u.Name,
+		map[string]string{"tls.client_cert_id": u.SSLID},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate && u.ID != "" {
 		// 获取原始数据
@@ -81,22 +91,22 @@ func (u *Upstream) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 		if err := tx.First(&origin, "id = ?", u.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Upstream,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			map[string]string{"tls.client_cert_id": origin.SSLID},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		u.GatewayID, u.ID, u.Updater, u.Status, operation, constant.Upstream, originConfig, u.Config)
+		u.GatewayID, u.ID, u.Updater, u.Status, operation, constant.Upstream, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (u *Upstream) HandleConfig() (err error) {
-	u.Config, err = stripResourceConfigForStorage(constant.Upstream, u.Config)
-	return err
-}
-
-// AfterFind restores read-time config using authoritative upstream columns.
-func (u *Upstream) AfterFind(tx *gorm.DB) (err error) {
-	u.Config, err = restoreResourceConfigForRead(constant.Upstream, u.Config, u.ID, u.Name, map[string]string{
-		"tls.client_cert_id": u.SSLID,
-	})
-	return err
+	return nil
 }

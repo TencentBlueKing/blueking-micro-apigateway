@@ -91,6 +91,19 @@ func (s *StreamRoute) AddAuditLog(tx *gorm.DB, operation constant.OperationType)
 	if s.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.StreamRoute,
+		s.Config,
+		s.ID,
+		s.Name,
+		map[string]string{
+			"service_id":  s.ServiceID,
+			"upstream_id": s.UpstreamID,
+		},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -98,23 +111,25 @@ func (s *StreamRoute) AddAuditLog(tx *gorm.DB, operation constant.OperationType)
 		if err := tx.First(&origin, "id = ?", s.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.StreamRoute,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			map[string]string{
+				"service_id":  origin.ServiceID,
+				"upstream_id": origin.UpstreamID,
+			},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		s.GatewayID, s.ID, s.Updater, s.Status, operation, constant.StreamRoute, originConfig, s.Config)
+		s.GatewayID, s.ID, s.Updater, s.Status, operation, constant.StreamRoute, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (s *StreamRoute) HandleConfig() (err error) {
-	s.Config, err = stripResourceConfigForStorage(constant.StreamRoute, s.Config)
-	return err
-}
-
-// AfterFind restores read-time config using authoritative stream-route columns.
-func (s *StreamRoute) AfterFind(tx *gorm.DB) (err error) {
-	s.Config, err = restoreResourceConfigForRead(constant.StreamRoute, s.Config, s.ID, s.Name, map[string]string{
-		"service_id":  s.ServiceID,
-		"upstream_id": s.UpstreamID,
-	})
-	return err
+	return nil
 }

@@ -71,7 +71,10 @@ func GetSSLOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedSSL 分页查询 ssl
+// ListPagedSSL 分页查询 SSL 的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedSSLForRead。
 func ListPagedSSL(
 	ctx context.Context,
 	param map[string]any,
@@ -105,6 +108,32 @@ func ListPagedSSL(
 		Where(field.Attrs(param)).
 		Order(orderByExprs...).
 		FindByPage(page.Offset, page.Limit)
+}
+
+// ListPagedSSLForRead 分页查询 SSL，并在返回前执行显式 read-time restore。
+func ListPagedSSLForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
+) ([]*model.SSL, int64, error) {
+	ssls, total, err := ListPagedSSL(ctx, param, label, status, name, updater, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, ssl := range ssls {
+		if ssl == nil {
+			continue
+		}
+		if err := ssl.ResourceCommonModel.RestoreConfigForRead(constant.SSL); err != nil {
+			return nil, 0, err
+		}
+	}
+	return ssls, total, nil
 }
 
 // ParseCert 解析证书
@@ -152,10 +181,25 @@ func UpdateSSL(ctx context.Context, ssl *model.SSL) error {
 	return err
 }
 
-// GetSSL 查询 SSL 详情
+// GetSSL 查询 SSL 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetSSLForRead。
 func GetSSL(ctx context.Context, id string) (*model.SSL, error) {
 	u := repo.SSL
 	return buildSSLQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetSSLForRead 查询 SSL 详情，并在返回前执行显式 read-time restore。
+func GetSSLForRead(ctx context.Context, id string) (*model.SSL, error) {
+	ssl, err := GetSSL(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := ssl.ResourceCommonModel.RestoreConfigForRead(constant.SSL); err != nil {
+		return nil, err
+	}
+	return ssl, nil
 }
 
 // BatchRevertSSLs 批量回滚 ssl

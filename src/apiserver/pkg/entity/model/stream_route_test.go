@@ -26,19 +26,18 @@ var _ = Describe("StreamRoute", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id, name, service_id, and upstream_id from stored Config", func() {
+		It("should preserve stored config and explicitly restore stream-route read fields", func() {
 			err := streamRoute.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(streamRoute.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("name"))
-			Expect(configMap).NotTo(HaveKey("service_id"))
-			Expect(configMap).NotTo(HaveKey("upstream_id"))
 
-			err = streamRoute.AfterFind(nil)
+			streamRoute.ResourceCommonModel.NameValue = streamRoute.Name
+			streamRoute.ResourceCommonModel.ServiceIDValue = streamRoute.ServiceID
+			streamRoute.ResourceCommonModel.UpstreamIDValue = streamRoute.UpstreamID
+			err = streamRoute.ResourceCommonModel.RestoreConfigForRead("stream_route")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(streamRoute.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
@@ -48,7 +47,7 @@ var _ = Describe("StreamRoute", func() {
 			Expect(configMap["upstream_id"]).To(Equal("upstream-a"))
 		})
 
-		It("should delete empty relation fields from the Config", func() {
+		It("should leave legacy relation fields untouched when config already carries them", func() {
 			streamRoute.ServiceID = ""
 			streamRoute.UpstreamID = ""
 			streamRoute.ResourceCommonModel = model.ResourceCommonModel{
@@ -64,8 +63,8 @@ var _ = Describe("StreamRoute", func() {
 			var configMap map[string]any
 			err = json.Unmarshal(streamRoute.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("service_id"))
-			Expect(configMap).NotTo(HaveKey("upstream_id"))
+			Expect(configMap["service_id"]).To(Equal("service-a"))
+			Expect(configMap["upstream_id"]).To(Equal("upstream-a"))
 		})
 
 		It("should preserve typed name and relations when config omits them", func() {

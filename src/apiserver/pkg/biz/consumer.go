@@ -68,7 +68,10 @@ func GetConsumerOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedConsumers 分页查询 Consumer 列表
+// ListPagedConsumers 分页查询 Consumer 列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedConsumersForRead。
 func ListPagedConsumers(
 	ctx context.Context,
 	param map[string]any,
@@ -114,6 +117,33 @@ func ListPagedConsumers(
 		FindByPage(page.Offset, page.Limit)
 }
 
+// ListPagedConsumersForRead 分页查询 Consumer 列表，并在返回前执行显式 read-time restore。
+func ListPagedConsumersForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	groupID string,
+	orderBy string,
+	page PageParam,
+) ([]*model.Consumer, int64, error) {
+	consumers, total, err := ListPagedConsumers(ctx, param, label, status, name, updater, groupID, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, consumer := range consumers {
+		if consumer == nil {
+			continue
+		}
+		if err := consumer.ResourceCommonModel.RestoreConfigForRead(constant.Consumer); err != nil {
+			return nil, 0, err
+		}
+	}
+	return consumers, total, nil
+}
+
 // CreateConsumer 创建 Consumer
 func CreateConsumer(ctx context.Context, consumer model.Consumer) error {
 	return repo.Consumer.WithContext(ctx).Create(&consumer)
@@ -140,10 +170,25 @@ func UpdateConsumer(ctx context.Context, consumer model.Consumer) error {
 	return err
 }
 
-// GetConsumer 查询 Consumer 详情
+// GetConsumer 查询 Consumer 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetConsumerForRead。
 func GetConsumer(ctx context.Context, id string) (*model.Consumer, error) {
 	u := repo.Consumer
 	return buildConsumerQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetConsumerForRead 查询 Consumer 详情，并在返回前执行显式 read-time restore。
+func GetConsumerForRead(ctx context.Context, id string) (*model.Consumer, error) {
+	consumer, err := GetConsumer(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := consumer.ResourceCommonModel.RestoreConfigForRead(constant.Consumer); err != nil {
+		return nil, err
+	}
+	return consumer, nil
 }
 
 // QueryConsumers 搜索 consumer

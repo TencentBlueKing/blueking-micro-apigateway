@@ -77,6 +77,10 @@ func (p *Proto) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 	if p.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(constant.Proto, p.Config, p.ID, p.Name, nil)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -84,28 +88,27 @@ func (p *Proto) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 		if err := tx.First(&origin, "id = ?", p.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Proto,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		p.GatewayID, p.ID, p.Updater, p.Status, operation, constant.Proto, originConfig, p.Config)
+		p.GatewayID, p.ID, p.Updater, p.Status, operation, constant.Proto, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (p *Proto) HandleConfig() (err error) {
-	p.Config, err = stripResourceConfigForStorage(constant.Proto, p.Config)
-	if err != nil {
-		return err
-	}
 	content := gjson.GetBytes(p.Config, "content").String()
 	err = proto.ParseContent(p.Name, content)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-// AfterFind restores read-time config using authoritative proto columns.
-func (p *Proto) AfterFind(tx *gorm.DB) (err error) {
-	p.Config, err = restoreResourceConfigForRead(constant.Proto, p.Config, p.ID, p.Name, nil)
-	return err
 }

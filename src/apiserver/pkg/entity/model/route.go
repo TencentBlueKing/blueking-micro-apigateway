@@ -96,6 +96,20 @@ func (r *Route) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 	if r.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.Route,
+		r.Config,
+		r.ID,
+		r.Name,
+		map[string]string{
+			"service_id":       r.ServiceID,
+			"upstream_id":      r.UpstreamID,
+			"plugin_config_id": r.PluginConfigID,
+		},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -103,24 +117,26 @@ func (r *Route) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 		if err := tx.First(&origin, "id = ?", r.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Route,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			map[string]string{
+				"service_id":       origin.ServiceID,
+				"upstream_id":      origin.UpstreamID,
+				"plugin_config_id": origin.PluginConfigID,
+			},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		r.GatewayID, r.ID, r.Updater, r.Status, operation, constant.Route, originConfig, r.Config)
+		r.GatewayID, r.ID, r.Updater, r.Status, operation, constant.Route, originConfig, currentConfig)
 }
 
 // HandleConfig 处理特殊字段
 func (r *Route) HandleConfig() (err error) {
-	r.Config, err = stripResourceConfigForStorage(constant.Route, r.Config)
-	return err
-}
-
-// AfterFind restores read-time config using authoritative route columns.
-func (r *Route) AfterFind(tx *gorm.DB) (err error) {
-	r.Config, err = restoreResourceConfigForRead(constant.Route, r.Config, r.ID, r.Name, map[string]string{
-		"service_id":       r.ServiceID,
-		"upstream_id":      r.UpstreamID,
-		"plugin_config_id": r.PluginConfigID,
-	})
-	return err
+	return nil
 }

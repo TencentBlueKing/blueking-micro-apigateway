@@ -71,7 +71,10 @@ func GetGlobalRuleOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedGlobalRules 分页查询 GlobalRule 列表
+// ListPagedGlobalRules 分页查询 GlobalRule 列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedGlobalRulesForRead。
 func ListPagedGlobalRules(
 	ctx context.Context,
 	param map[string]any,
@@ -94,6 +97,31 @@ func ListPagedGlobalRules(
 	}
 	orderByExprs := GetGlobalRuleOrderExprList(orderBy)
 	return query.Where(field.Attrs(param)).Order(orderByExprs...).FindByPage(page.Offset, page.Limit)
+}
+
+// ListPagedGlobalRulesForRead 分页查询 GlobalRule 列表，并在返回前执行显式 read-time restore。
+func ListPagedGlobalRulesForRead(
+	ctx context.Context,
+	param map[string]any,
+	status []string,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
+) ([]*model.GlobalRule, int64, error) {
+	globalRules, total, err := ListPagedGlobalRules(ctx, param, status, name, updater, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, globalRule := range globalRules {
+		if globalRule == nil {
+			continue
+		}
+		if err := globalRule.ResourceCommonModel.RestoreConfigForRead(constant.GlobalRule); err != nil {
+			return nil, 0, err
+		}
+	}
+	return globalRules, total, nil
 }
 
 // CreateGlobalRule 创建 GlobalRule
@@ -121,10 +149,25 @@ func UpdateGlobalRule(ctx context.Context, globalRule model.GlobalRule) error {
 	return err
 }
 
-// GetGlobalRule 查询 GlobalRule 详情
+// GetGlobalRule 查询 GlobalRule 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetGlobalRuleForRead。
 func GetGlobalRule(ctx context.Context, id string) (*model.GlobalRule, error) {
 	u := repo.GlobalRule
 	return buildGlobalRuleQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetGlobalRuleForRead 查询 GlobalRule 详情，并在返回前执行显式 read-time restore。
+func GetGlobalRuleForRead(ctx context.Context, id string) (*model.GlobalRule, error) {
+	globalRule, err := GetGlobalRule(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := globalRule.ResourceCommonModel.RestoreConfigForRead(constant.GlobalRule); err != nil {
+		return nil, err
+	}
+	return globalRule, nil
 }
 
 // QueryGlobalRules 搜索 GlobalRule

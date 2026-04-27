@@ -24,17 +24,16 @@ var _ = Describe("GlobalRule", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id and name from stored Config", func() {
+		It("should preserve stored config and explicitly restore global-rule read fields", func() {
 			err := globalRule.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(globalRule.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("name"))
 
-			err = globalRule.AfterFind(nil)
+			globalRule.ResourceCommonModel.NameValue = globalRule.Name
+			err = globalRule.ResourceCommonModel.RestoreConfigForRead("global_rule")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(globalRule.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())

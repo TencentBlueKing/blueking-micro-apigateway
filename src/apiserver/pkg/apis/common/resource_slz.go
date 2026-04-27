@@ -340,7 +340,7 @@ func applyImportIdentityToSyncData(syncData *model.GatewaySyncData, outerName st
 	if syncData == nil {
 		return
 	}
-	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+	prepared, err := PrepareStoredResource(resourcecodec.RequestInput{
 		Source:       resourcecodec.SourceImport,
 		Operation:    constant.OperationImport,
 		GatewayID:    syncData.GatewayID,
@@ -352,10 +352,6 @@ func applyImportIdentityToSyncData(syncData *model.GatewaySyncData, outerName st
 	if err != nil {
 		return
 	}
-	syncData.NameValue = draft.Identity.NameValue
-	syncData.ServiceIDValue = draft.Identity.Associations["service_id"]
-	syncData.UpstreamIDValue = draft.Identity.Associations["upstream_id"]
-	syncData.PluginConfigIDValue = draft.Identity.Associations["plugin_config_id"]
-	syncData.GroupIDValue = draft.Identity.Associations["group_id"]
-	syncData.SSLIDValue = draft.Identity.Associations["tls.client_cert_id"]
+	syncData.Config = prepared.StorageConfig
+	syncData.ApplyResolvedValues(prepared.ResolvedValues)
 }

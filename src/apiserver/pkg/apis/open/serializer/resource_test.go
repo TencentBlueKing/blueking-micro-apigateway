@@ -56,11 +56,30 @@ func TestResourceBatchCreateRequestToCommonResource(t *testing.T) {
 			assertions: func(t *testing.T, resources []*model.ResourceCommonModel) {
 				assert.Len(t, resources, 1)
 				assert.NotEmpty(t, resources[0].ID)
-				assert.Equal(t, "route-a", gjson.GetBytes(resources[0].Config, "name").String())
+				assert.Empty(t, gjson.GetBytes(resources[0].Config, "name").String())
+				assert.Equal(t, "route-a", resources[0].GetName(constant.Route))
 			},
 		},
 		{
-			name:         "keep config name and id when already set",
+			name:         "keep config id while stripping echoed route name",
+			resourceType: constant.Route,
+			request: ResourceBatchCreateRequest{
+				{
+					Name: "inner-route",
+					Config: json.RawMessage(
+						`{"id":"route-id","name":"inner-route","uris":["/test"],"methods":["GET"],"upstream":{"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}}`,
+					),
+				},
+			},
+			assertions: func(t *testing.T, resources []*model.ResourceCommonModel) {
+				assert.Len(t, resources, 1)
+				assert.Equal(t, "route-id", resources[0].ID)
+				assert.Empty(t, gjson.GetBytes(resources[0].Config, "name").String())
+				assert.Equal(t, "inner-route", resources[0].GetName(constant.Route))
+			},
+		},
+		{
+			name:         "fallback path still stores raw config and keeps outer route name",
 			resourceType: constant.Route,
 			request: ResourceBatchCreateRequest{
 				{
@@ -73,7 +92,8 @@ func TestResourceBatchCreateRequestToCommonResource(t *testing.T) {
 			assertions: func(t *testing.T, resources []*model.ResourceCommonModel) {
 				assert.Len(t, resources, 1)
 				assert.Equal(t, "route-id", resources[0].ID)
-				assert.Equal(t, "inner-route", gjson.GetBytes(resources[0].Config, "name").String())
+				assert.Empty(t, gjson.GetBytes(resources[0].Config, "name").String())
+				assert.Equal(t, "outer-route", resources[0].GetName(constant.Route))
 			},
 		},
 		{
@@ -86,8 +106,9 @@ func TestResourceBatchCreateRequestToCommonResource(t *testing.T) {
 			assertions: func(t *testing.T, resources []*model.ResourceCommonModel) {
 				assert.Len(t, resources, 1)
 				assert.NotEmpty(t, resources[0].ID)
-				assert.Equal(t, "consumer-a", gjson.GetBytes(resources[0].Config, "username").String())
+				assert.Empty(t, gjson.GetBytes(resources[0].Config, "username").String())
 				assert.Empty(t, gjson.GetBytes(resources[0].Config, "name").String())
+				assert.Equal(t, "consumer-a", resources[0].GetName(constant.Consumer))
 			},
 		},
 	}
@@ -111,7 +132,7 @@ func TestResourceUpdateRequestToCommonResource(t *testing.T) {
 	ginx.SetUserID(c, "tester")
 
 	req := ResourceUpdateRequest{
-		Name:   "route-a",
+		Name:   "inner-route",
 		Config: json.RawMessage(`{"name":"inner-route","uris":["/test"]}`),
 	}
 
@@ -121,5 +142,6 @@ func TestResourceUpdateRequestToCommonResource(t *testing.T) {
 	assert.Equal(t, constant.ResourceStatusUpdateDraft, resource.Status)
 	assert.Equal(t, gateway.ID, resource.GatewayID)
 	assert.Equal(t, "tester", resource.Updater)
-	assert.JSONEq(t, `{"name":"inner-route","uris":["/test"]}`, string(resource.Config))
+	assert.JSONEq(t, `{"uris":["/test"]}`, string(resource.Config))
+	assert.Equal(t, "inner-route", resource.GetName(constant.Route))
 }

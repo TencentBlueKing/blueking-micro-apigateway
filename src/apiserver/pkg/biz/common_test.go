@@ -420,7 +420,7 @@ func TestBatchGetResources_EmptyIDs(t *testing.T) {
 	assert.GreaterOrEqual(t, len(resources), 0)
 }
 
-func TestCommonResourceReadsPreferAuthoritativeColumns(t *testing.T) {
+func TestCommonResourceReadsPreferResolvedColumns(t *testing.T) {
 	route := &model.Route{
 		Name:           fmt.Sprintf("typed-route-%d", time.Now().UnixNano()),
 		ServiceID:      "typed-service-id",
@@ -498,10 +498,10 @@ func TestCommonResourceReadsPreferAuthoritativeColumns(t *testing.T) {
 
 	gotRoute, err := GetResourceByID(gatewayCtx, constant.Route, route.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, route.Name, gjson.GetBytes(gotRoute.Config, "name").String())
-	assert.Equal(t, route.ServiceID, gjson.GetBytes(gotRoute.Config, "service_id").String())
-	assert.Equal(t, route.UpstreamID, gjson.GetBytes(gotRoute.Config, "upstream_id").String())
-	assert.Equal(t, route.PluginConfigID, gjson.GetBytes(gotRoute.Config, "plugin_config_id").String())
+	assert.Empty(t, gjson.GetBytes(gotRoute.Config, "name").String())
+	assert.Empty(t, gjson.GetBytes(gotRoute.Config, "service_id").String())
+	assert.Empty(t, gjson.GetBytes(gotRoute.Config, "upstream_id").String())
+	assert.Empty(t, gjson.GetBytes(gotRoute.Config, "plugin_config_id").String())
 	assert.Equal(t, route.Name, gotRoute.GetName(constant.Route))
 	assert.Equal(t, route.ServiceID, gotRoute.GetServiceID())
 	assert.Equal(t, route.UpstreamID, gotRoute.GetUpstreamID())
@@ -530,8 +530,8 @@ func TestCommonResourceReadsPreferAuthoritativeColumns(t *testing.T) {
 
 	gotConsumer, err := GetResourceByID(gatewayCtx, constant.Consumer, consumer.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, consumer.Username, gjson.GetBytes(gotConsumer.Config, "username").String())
-	assert.Equal(t, consumer.GroupID, gjson.GetBytes(gotConsumer.Config, "group_id").String())
+	assert.Empty(t, gjson.GetBytes(gotConsumer.Config, "username").String())
+	assert.Empty(t, gjson.GetBytes(gotConsumer.Config, "group_id").String())
 	assert.Equal(t, consumer.Username, gotConsumer.GetName(constant.Consumer))
 	assert.Equal(t, consumer.GroupID, gotConsumer.GetGroupID())
 }

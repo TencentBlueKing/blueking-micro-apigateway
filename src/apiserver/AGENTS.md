@@ -306,27 +306,26 @@ The `specs/001-config-validation-refactor/` feature reshapes validation around o
 
 #### 4.2 Current Runtime Flow
 
-The old mental model of "request validation first, then `HandleConfig()` fills in the real payload later" is no longer the primary path. The current runtime flow is request draft preparation plus payload building in `pkg/resourcecodec/`.
+The old mental model of "request validation first, then `HandleConfig()` fills in the real payload later" is no longer the primary path. The current runtime flow for validated write paths is request draft preparation plus payload building in `pkg/resourcecodec/`, with response restoration and publish rebuild handled as separate downstream boundaries.
 
 ```mermaid
 flowchart LR
-    Req["External Input<br/>Web / OpenAPI / Import"] --> Draft["ResourceDraft<br/>resolved identity + stripped ConfigSpec"]
+    Req["Validated External Input<br/>Web / OpenAPI / Import"] --> Draft["PrepareRequestDraft()<br/>ResourceDraft<br/>resolved identity + stripped ConfigSpec"]
 
     Draft --> DBValidate["BuildRequestPayload(DATABASE)<br/>schema validation payload"]
     DBValidate --> Schema["APISIX schema + JSON schema<br/>before persistence"]
 
-    Draft --> OAStore["OpenAPI path<br/>BuildStorageConfig()"]
-    Draft --> WebStore["Web path<br/>handler builds typed model<br/>from request fields + config"]
-    Draft --> ImportStore["Import path<br/>sync data / model fields updated<br/>from draft identity"]
+    Draft --> StoreConfig["PrepareStoredResource()<br/>BuildStorageConfig() + resolved values"]
+    StoreConfig --> Persist["Web / OpenAPI / Import / MCP write adapters<br/>ResourceCommonModel + authoritative columns + raw config"]
+    Persist --> Hooks["GORM model hooks<br/>side effects only<br/>audit / schema association / special cases"]
+    Hooks --> DB[("DB row<br/>columns authoritative<br/>config stores raw spec")]
 
-    OAStore --> CommonModel["ResourceCommonModel / typed model"]
-    WebStore --> CommonModel
-    ImportStore --> CommonModel
+    DB --> InternalRead["GetResourceByID / GetResourceByIDs / QueryResource<br/>raw stored config"]
+    InternalRead --> ReadRestore["Get*ForRead / Query*ForRead<br/>RestoreConfigForRead() only when needed"]
+    ReadRestore --> WebResp["Web / OpenAPI response boundary<br/>response-ready config"]
+    InternalRead --> MCPResp["MCP response boundary<br/>keep raw stored config"]
 
-    CommonModel --> Hooks["GORM model hooks<br/>HandleConfig(): strip storage echoes"]
-    Hooks --> DB[("DB row<br/>columns authoritative<br/>config stores stripped spec")]
-
-    DB --> StoredDraft["PrepareStoredDraft()<br/>rebuild draft from row"]
+    DB --> StoredDraft["PrepareStoredDraft()<br/>rebuild draft from stored row<br/>with legacy compatibility"]
     StoredDraft --> ETCDBuild["BuildStoredPayload(ETCD)<br/>publish payload"]
     ETCDBuild --> PublishValidate["ValidateBuiltPayloadShape()<br/>+ ETCD JSON schema"]
     PublishValidate --> ETCD[("etcd / APISIX")]
@@ -335,7 +334,8 @@ flowchart LR
 Important distinction:
 
 - `BuildRequestPayload(DATABASE)` is the request-time validation shape, not the object written directly to MySQL.
-- Persistence still goes through DB-facing models (`ResourceCommonModel` and concrete resource models), then `HandleConfig()` strips echoed storage fields before write.
+- `PrepareStoredResource()` / `BuildStorageConfig()` produce raw stored config from `ConfigSpec`; new writes store authoritative columns separately instead of echoing them back into `config`.
+- Internal biz reads stay raw. Web and OpenAPI opt into `*ForRead` helpers that restore response fields at the response boundary, while MCP intentionally returns raw stored config.
 - Publish later rebuilds a fresh `ETCD` payload from the stored row rather than reusing the request-side `BuiltPayload`.
 
 OpenAPI create has one extra optimization: `pkg/middleware/openapi_resource_check.go` caches resolved drafts in Gin context, and `pkg/apis/open/serializer/resource.go` reuses them in `ToCommonResourceWithDrafts()` so create does not need to resolve identity twice.
@@ -450,17 +450,22 @@ classDiagram
    - Web validation in `pkg/apis/web/serializer/common.go` and OpenAPI validation in `pkg/middleware/openapi_resource_check.go` both validate this built payload, not raw request `config`.
    - `pkg/biz/common.go:ValidateResource()` uses the same request draft plus `DATABASE` payload build for import validation.
 
-5. **Use storage shaping as an adapter, not the source of truth**
-   - `BuildStorageConfig()` currently returns the config shape expected by storage/update paths.
-   - `pkg/apis/open/serializer/resource.go` and `pkg/apis/mcp/tools/resource_crud.go` use it to persist request drafts without re-deriving identity.
-   - Treat model `HandleConfig()` hooks as persistence compatibility/invariant code, not as the preferred place to add new validation semantics.
+5. **Store raw config, not echoed request shape**
+   - `BuildStorageConfig()` returns raw stored config copied from `ConfigSpec`.
+   - Web/OpenAPI persistence and import normalization write authoritative columns separately from `config`.
+   - Model `HandleConfig()` hooks should not be used for generic echo stripping anymore; keep them focused on side effects and narrow special cases.
 
-6. **Rebuild publish payloads from stored rows**
+6. **Keep internal reads raw and restore response fields only where needed**
+   - `GetResourceByID()`, `GetResourceByIDs()`, and `QueryResource()` now return raw stored config.
+    - Web/OpenAPI response-facing paths opt into `Get*ForRead()` / `Query*ForRead()` helpers, which call `RestoreConfigForRead()` before returning editor-facing config.
+   - MCP intentionally returns raw stored config.
+
+7. **Rebuild publish payloads from stored rows**
    - `PrepareStoredDraft()` rebuilds a `ResourceDraft` from authoritative DB columns plus stored config.
    - `ExtractStoredConfigSpec()` removes legacy echoed fields from stored config, and `DetectLegacyEchoes()` marks rows that still carry them.
    - `BuildStoredPayload(draft, constant.ETCD)` reinjects authoritative identity/associations, merges base metadata, and then removes version-unsupported or internal-only fields via `cleanupBuiltPayload()`.
 
-7. **Enforce built-payload shape before ETCD schema validation**
+8. **Enforce built-payload shape before ETCD schema validation**
    - `pkg/publisher/etcd.go:EtcdPublisher.Validate()` first calls `resourcecodec.ValidateBuiltPayloadShape()`.
    - That check ensures publish callers are already sending the shared built form, instead of ad-hoc JSON surgery.
    - Only then does the final `JsonSchemaValidator(..., constant.ETCD)` run.
@@ -474,10 +479,14 @@ If you need to change validation or payload behavior, start in the shared codec 
 - `pkg/resourcecodec/configs.go`: per-resource `nameKey`, association, and strip rules
 - `pkg/resourcecodec/stored.go`: stored-row rebuild and ETCD payload generation
 - `pkg/resourcecodec/legacy.go`: legacy echo detection and stored config spec extraction
+- `pkg/resourcecodec/validation.go`: built-payload shape assertions and legacy validation-shaping helpers
 - `pkg/apis/web/serializer/common.go`: Web request validation entrypoint
 - `pkg/middleware/openapi_resource_check.go`: OpenAPI request validation entrypoint
 - `pkg/biz/common.go`: import validation entrypoint
+- `pkg/entity/model/common.go`: explicit response-field restoration helpers for response boundaries
 - `pkg/apis/open/serializer/resource.go`: OpenAPI create/update persistence adapter
+- `pkg/apis/open/handler/resource.go` and `pkg/apis/web/handler/*.go`: response-facing call sites that choose raw reads vs `*ForRead` helpers
+- `pkg/apis/mcp/tools/resource_crud.go`: MCP raw-response path
 - `pkg/biz/publish.go` and `pkg/publisher/etcd.go`: publish assembly and final ETCD validation
 
 `BuildConfigRawForValidation()` is still present in `pkg/biz/common.go`, but only as a historical import-style cleanup helper for regression compatibility. Do not treat it as the primary runtime validation path.

@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -70,49 +69,36 @@ func (rs ResourceBatchCreateRequest) ToCommonResourceWithDrafts(
 ) []*model.ResourceCommonModel {
 	var resources []*model.ResourceCommonModel
 	for i, r := range rs {
+		requestInput := resourcecodec.RequestInput{
+			Source:       resourcecodec.SourceOpenAPI,
+			Operation:    constant.OperationTypeCreate,
+			GatewayID:    gatewayID,
+			ResourceType: resourceType,
+			OuterName:    r.Name,
+			OuterFields: map[string]any{
+				model.GetResourceNameKey(resourceType): r.Name,
+			},
+			Config: r.Config,
+		}
 		draft, ok := openAPICreateDraftAt(resolvedDrafts, i, resourceType)
-		var err error
+		var (
+			prepared common.PreparedStoredResource
+			err      error
+		)
 		if !ok {
-			draft, err = resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
-				Source:       resourcecodec.SourceOpenAPI,
-				Operation:    constant.OperationTypeCreate,
-				GatewayID:    gatewayID,
-				ResourceType: resourceType,
-				OuterName:    r.Name,
-				OuterFields: map[string]any{
-					model.GetResourceNameKey(resourceType): r.Name,
-				},
-				Config: r.Config,
-			})
+			prepared, err = common.PrepareStoredResource(requestInput)
+		} else {
+			prepared, err = common.PrepareStoredResourceFromDraft(draft)
 		}
 		if err != nil {
-			id := resourcecodec.ResolveOpenAPICreateID(resourceType, r.Config)
-			config := resourcecodec.PrepareOpenAPICreateConfig(resourceType, r.Name, id, r.Config)
-			resources = append(resources, &model.ResourceCommonModel{
-				ID:        id,
-				GatewayID: gatewayID,
-				Config:    datatypes.JSON(config),
-				Status:    constant.ResourceStatusCreateDraft,
-			})
-			continue
+			prepared = common.BuildFallbackStoredResource(requestInput)
 		}
-		config, err := resourcecodec.BuildStorageConfig(draft)
-		if err != nil {
-			continue
-		}
-		resource := &model.ResourceCommonModel{
-			ID:                  draft.Identity.ResourceID,
-			GatewayID:           gatewayID,
-			Config:              datatypes.JSON(config),
-			Status:              constant.ResourceStatusCreateDraft,
-			NameValue:           draft.Identity.NameValue,
-			ServiceIDValue:      draft.Identity.Associations["service_id"],
-			UpstreamIDValue:     draft.Identity.Associations["upstream_id"],
-			PluginConfigIDValue: draft.Identity.Associations["plugin_config_id"],
-			GroupIDValue:        draft.Identity.Associations["group_id"],
-			SSLIDValue:          draft.Identity.Associations["tls.client_cert_id"],
-		}
-		resources = append(resources, resource)
+		resources = append(resources, common.BuildResourceCommonModel(
+			prepared,
+			constant.ResourceStatusCreateDraft,
+			"",
+			"",
+		))
 	}
 	return resources
 }
@@ -182,7 +168,7 @@ func (r ResourceUpdateRequest) ToCommonResource(
 	id string,
 	status constant.ResourceStatus,
 ) *model.ResourceCommonModel {
-	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+	requestInput := resourcecodec.RequestInput{
 		Source:       resourcecodec.SourceOpenAPI,
 		Operation:    constant.OperationTypeUpdate,
 		GatewayID:    ginx.GetGatewayInfo(c).ID,
@@ -193,37 +179,12 @@ func (r ResourceUpdateRequest) ToCommonResource(
 			model.GetResourceNameKey(ginx.GetResourceType(c)): r.Name,
 		},
 		Config: r.Config,
-	})
+	}
+	prepared, err := common.PrepareStoredResource(requestInput)
 	if err != nil {
-		config := datatypes.JSON(r.Config)
-		return &model.ResourceCommonModel{
-			ID:        id,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    config,
-			Status:    status,
-			BaseModel: model.BaseModel{Updater: ginx.GetUserID(c)},
-		}
+		prepared = common.BuildFallbackStoredResource(requestInput)
 	}
-	config, err := resourcecodec.BuildStorageConfig(draft)
-	if err != nil {
-		config = draft.ConfigSpec
-	}
-	resource := &model.ResourceCommonModel{
-		ID:                  id,
-		GatewayID:           ginx.GetGatewayInfo(c).ID,
-		Config:              datatypes.JSON(config),
-		Status:              status,
-		NameValue:           draft.Identity.NameValue,
-		ServiceIDValue:      draft.Identity.Associations["service_id"],
-		UpstreamIDValue:     draft.Identity.Associations["upstream_id"],
-		PluginConfigIDValue: draft.Identity.Associations["plugin_config_id"],
-		GroupIDValue:        draft.Identity.Associations["group_id"],
-		SSLIDValue:          draft.Identity.Associations["tls.client_cert_id"],
-		BaseModel: model.BaseModel{
-			Updater: ginx.GetUserID(c),
-		},
-	}
-	return resource
+	return common.BuildResourceCommonModel(prepared, status, "", ginx.GetUserID(c))
 }
 
 // ResourceImportRequest 资源导入请求

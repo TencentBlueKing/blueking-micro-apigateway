@@ -20,8 +20,8 @@ package biz
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"gorm.io/datatypes"
@@ -29,6 +29,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
@@ -83,42 +84,16 @@ func ListResourcesWithPagination(
 	return anyResults, total, nil
 }
 
-// CreateResource creates a new resource
-func CreateResource(
+// CreateTypedResource creates one already-typed resource model.
+func CreateTypedResource(
 	ctx context.Context,
-	resourceType constant.APISIXResource,
 	resource any,
-	name string,
 ) error {
-	// Set the name on the resource based on resource type
-	// The name field varies by type (e.g., "name" for most, "username" for consumer)
-	switch r := resource.(type) {
-	case *model.Route:
-		r.Name = name
-	case *model.Service:
-		r.Name = name
-	case *model.Upstream:
-		r.Name = name
-	case *model.Consumer:
-		r.Username = name
-	case *model.ConsumerGroup:
-		r.Name = name
-	case *model.PluginConfig:
-		r.Name = name
-	case *model.GlobalRule:
-		r.Name = name
-	case *model.PluginMetadata:
-		r.Name = name
-	case *model.Proto:
-		r.Name = name
-	case *model.SSL:
-		r.Name = name
-	case *model.StreamRoute:
-		r.Name = name
-	}
-
 	return database.Client().WithContext(ctx).Create(resource).Error
 }
+
+// ResourceResolvedValues is kept as an alias so MCP write helpers can reuse the shared model mapping type.
+type ResourceResolvedValues = model.ResourceResolvedValues
 
 // RevertResource reverts a resource to its synced snapshot state
 func RevertResource(
@@ -136,15 +111,18 @@ func RevertResource(
 	if err != nil {
 		return fmt.Errorf("synced data not found: %w", err)
 	}
+	storageConfig, resolvedValues := prepareSyncedDataForEditArea(syncedData)
 
 	// Update resource with synced config
 	result := database.Client().WithContext(ctx).
 		Table(resourceTableMap[resourceType]).
 		Where("gateway_id = ? AND id = ?", gatewayID, resourceID).
-		Updates(map[string]any{
-			"config": syncedData.Config,
-			"status": constant.ResourceStatusSuccess,
-		})
+		Updates(buildMCPResourceUpdateMap(
+			resourceType,
+			storageConfig,
+			constant.ResourceStatusSuccess,
+			resolvedValues,
+		))
 	if result.Error != nil {
 		return fmt.Errorf("failed to revert resource: %w", result.Error)
 	}
@@ -155,79 +133,121 @@ func RevertResource(
 	return nil
 }
 
+func prepareSyncedDataForEditArea(
+	syncedData model.GatewaySyncData,
+) (datatypes.JSON, ResourceResolvedValues) {
+	input := resourcecodec.RequestInput{
+		Source:       resourcecodec.SourceImport,
+		Operation:    constant.OperationImport,
+		GatewayID:    syncedData.GatewayID,
+		ResourceType: syncedData.Type,
+		PathID:       syncedData.ID,
+		OuterName:    syncedData.GetName(),
+		OuterFields:  syncedDataOuterFields(syncedData),
+		Config:       json.RawMessage(syncedData.Config),
+	}
+
+	draft, err := resourcecodec.PrepareRequestDraft(input)
+	if err != nil {
+		return syncedData.Config, syncedData.ResolvedValues()
+	}
+
+	storageConfig, err := resourcecodec.BuildStorageConfig(draft)
+	if err != nil {
+		return syncedData.Config, model.NewResourceResolvedValues(
+			draft.Identity.NameValue,
+			draft.Identity.Associations,
+		)
+	}
+
+	return datatypes.JSON(storageConfig), model.NewResourceResolvedValues(
+		draft.Identity.NameValue,
+		draft.Identity.Associations,
+	)
+}
+
+func syncedDataOuterFields(syncedData model.GatewaySyncData) map[string]any {
+	fields := map[string]any{}
+	if name := syncedData.GetName(); name != "" {
+		fields[model.GetResourceNameKey(syncedData.Type)] = name
+	}
+	if serviceID := syncedData.GetServiceID(); serviceID != "" {
+		fields["service_id"] = serviceID
+	}
+	if upstreamID := syncedData.GetUpstreamID(); upstreamID != "" {
+		fields["upstream_id"] = upstreamID
+	}
+	if pluginConfigID := syncedData.GetPluginConfigID(); pluginConfigID != "" {
+		fields["plugin_config_id"] = pluginConfigID
+	}
+	if groupID := syncedData.GetGroupID(); groupID != "" {
+		fields["group_id"] = groupID
+	}
+	if sslID := syncedData.GetSSLID(); sslID != "" {
+		fields["tls.client_cert_id"] = sslID
+	}
+	return fields
+}
+
 // UpdateResourceByTypeAndID updates a resource by type and ID
 func UpdateResourceByTypeAndID(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
 	resourceID string,
-	name string,
 	config datatypes.JSON,
 	status constant.ResourceStatus,
+	resolvedValues ResourceResolvedValues,
 ) error {
 	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
-
-	// Create ResourceCommonModel with config
-	resource := model.ResourceCommonModel{
-		ID:        resourceID,
-		GatewayID: gatewayID,
-		Config:    config,
-		Status:    status,
-		BaseModel: model.BaseModel{
-			Updater: "mcp",
-		},
-	}
-
-	// Convert to specific resource type (extracts association fields from config)
-	resourceModel, exists := resourceModelMap[resourceType]
-	if !exists {
+	if _, exists := resourceModelMap[resourceType]; !exists {
 		return fmt.Errorf("unsupported resource type: %v", resourceType)
 	}
 
-	newResourceModel := reflect.New(reflect.TypeOf(resourceModel).Elem()).Interface()
-	resourceValue := reflect.ValueOf(resource.ToResourceModel(resourceType))
-	if resourceValue.Kind() == reflect.Ptr {
-		resourceValue = resourceValue.Elem()
-	}
-	reflect.ValueOf(newResourceModel).Elem().Set(resourceValue)
-
-	// Set name on the typed model if provided
-	if name != "" {
-		setResourceName(newResourceModel, resourceType, name)
-	}
-
-	// Update with full model struct (includes association fields)
 	return database.Client().WithContext(ctx).
 		Table(resourceTableMap[resourceType]).
 		Where("gateway_id = ? AND id = ?", gatewayID, resourceID).
-		Updates(newResourceModel).Error
+		Updates(buildMCPResourceUpdateMap(resourceType, config, status, resolvedValues)).Error
 }
 
-// setResourceName sets the name/username field on a resource model based on resource type
-func setResourceName(resource any, resourceType constant.APISIXResource, name string) {
-	switch r := resource.(type) {
-	case *model.Route:
-		r.Name = name
-	case *model.Service:
-		r.Name = name
-	case *model.Upstream:
-		r.Name = name
-	case *model.Consumer:
-		r.Username = name
-	case *model.ConsumerGroup:
-		r.Name = name
-	case *model.PluginConfig:
-		r.Name = name
-	case *model.GlobalRule:
-		r.Name = name
-	case *model.PluginMetadata:
-		r.Name = name
-	case *model.Proto:
-		r.Name = name
-	case *model.SSL:
-		r.Name = name
-	case *model.StreamRoute:
-		r.Name = name
+func buildMCPResourceUpdateMap(
+	resourceType constant.APISIXResource,
+	config datatypes.JSON,
+	status constant.ResourceStatus,
+	resolvedValues ResourceResolvedValues,
+) map[string]any {
+	updates := map[string]any{
+		"config":  config,
+		"status":  status,
+		"updater": "mcp",
 	}
+
+	if resolvedValues.NameValue != "" {
+		updates[resourceNameColumn(resourceType)] = resolvedValues.NameValue
+	}
+	if resolvedValues.ServiceIDValue != "" {
+		updates["service_id"] = resolvedValues.ServiceIDValue
+	}
+	if resolvedValues.UpstreamIDValue != "" {
+		updates["upstream_id"] = resolvedValues.UpstreamIDValue
+	}
+	if resolvedValues.PluginConfigIDValue != "" {
+		updates["plugin_config_id"] = resolvedValues.PluginConfigIDValue
+	}
+	if resolvedValues.GroupIDValue != "" {
+		updates["group_id"] = resolvedValues.GroupIDValue
+	}
+	if resolvedValues.SSLIDValue != "" {
+		updates["ssl_id"] = resolvedValues.SSLIDValue
+	}
+
+	return updates
+}
+
+func resourceNameColumn(resourceType constant.APISIXResource) string {
+	if resourceType == constant.Consumer {
+		return "username"
+	}
+	return "name"
 }
 
 // PublishResourcesByType publishes resources to etcd using the existing PublishResource function

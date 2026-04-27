@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -59,22 +58,29 @@ func ServiceCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	service := model.Service{
-		Name:       req.Name,
-		UpstreamID: req.UpstreamID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.Service,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		map[string]any{"upstream_id": req.UpstreamID},
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	service, err := toTypedResourceModel[*model.Service](resource, constant.Service)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.CreateService(c.Request.Context(), service); err != nil {
+	if err := biz.CreateService(c.Request.Context(), *service); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -120,21 +126,29 @@ func ServiceUpdate(c *gin.Context) {
 		return
 	}
 
-	service := model.Service{
-		Name:       req.Name,
-		UpstreamID: req.UpstreamID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.Service,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		map[string]any{"upstream_id": req.UpstreamID},
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	service, err := toTypedResourceModel[*model.Service](resource, constant.Service)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.UpdateService(c.Request.Context(), service); err != nil {
+	if err := biz.UpdateService(c.Request.Context(), *service); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -171,7 +185,7 @@ func ServiceList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	services, total, err := biz.ListPagedServices(
+	services, total, err := biz.ListPagedServicesForRead(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -226,7 +240,7 @@ func ServiceGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	service, err := biz.GetService(c.Request.Context(), pathParam.ID)
+	service, err := biz.GetServiceForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

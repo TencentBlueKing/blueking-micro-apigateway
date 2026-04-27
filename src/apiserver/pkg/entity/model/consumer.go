@@ -86,6 +86,16 @@ func (c *Consumer) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 	if c.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.Consumer,
+		c.Config,
+		c.ID,
+		c.Username,
+		map[string]string{"group_id": c.GroupID},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -93,22 +103,22 @@ func (c *Consumer) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 		if err := tx.First(&origin, "id = ?", c.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Consumer,
+			origin.Config,
+			origin.ID,
+			origin.Username,
+			map[string]string{"group_id": origin.GroupID},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		c.GatewayID, c.ID, c.Updater, c.Status, operation, constant.Consumer, originConfig, c.Config)
+		c.GatewayID, c.ID, c.Updater, c.Status, operation, constant.Consumer, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (c *Consumer) HandleConfig() (err error) {
-	c.Config, err = stripResourceConfigForStorage(constant.Consumer, c.Config)
-	return err
-}
-
-// AfterFind restores read-time config using authoritative consumer columns.
-func (c *Consumer) AfterFind(tx *gorm.DB) (err error) {
-	c.Config, err = restoreResourceConfigForRead(constant.Consumer, c.Config, c.ID, c.Username, map[string]string{
-		"group_id": c.GroupID,
-	})
-	return err
+	return nil
 }

@@ -39,7 +39,7 @@ func TestApplyImportIdentityToSyncData(t *testing.T) {
 		assertions func(t *testing.T, syncData *model.GatewaySyncData)
 	}{
 		{
-			name: "route import keeps authoritative name and relation fields",
+			name: "route import keeps resolved name and relation fields",
 			syncData: &model.GatewaySyncData{
 				GatewayID: 1001,
 				Type:      constant.Route,
@@ -52,6 +52,7 @@ func TestApplyImportIdentityToSyncData(t *testing.T) {
 			assertions: func(t *testing.T, syncData *model.GatewaySyncData) {
 				assert.Equal(t, "route-a", syncData.NameValue)
 				assert.Equal(t, "legacy-service", syncData.ServiceIDValue)
+				assert.JSONEq(t, `{"uris":["/test"]}`, string(syncData.Config))
 				assert.Equal(t, "route-a", syncData.GetName())
 				assert.Equal(t, "legacy-service", syncData.GetServiceID())
 			},
@@ -67,6 +68,7 @@ func TestApplyImportIdentityToSyncData(t *testing.T) {
 			assertions: func(t *testing.T, syncData *model.GatewaySyncData) {
 				assert.Equal(t, "legacy-consumer", syncData.NameValue)
 				assert.Equal(t, "group-a", syncData.GroupIDValue)
+				assert.JSONEq(t, `{}`, string(syncData.Config))
 				assert.Equal(t, "legacy-consumer", syncData.GetName())
 				assert.Equal(t, "group-a", syncData.GetGroupID())
 			},
@@ -81,6 +83,7 @@ func TestApplyImportIdentityToSyncData(t *testing.T) {
 			},
 			assertions: func(t *testing.T, syncData *model.GatewaySyncData) {
 				assert.Equal(t, "jwt-auth", syncData.NameValue)
+				assert.JSONEq(t, `{"key":"value"}`, string(syncData.Config))
 				assert.Equal(t, "jwt-auth", syncData.GetName())
 				assert.Equal(t, "jwt-auth", syncData.GetConfigID())
 			},
@@ -97,6 +100,7 @@ func TestApplyImportIdentityToSyncData(t *testing.T) {
 			},
 			assertions: func(t *testing.T, syncData *model.GatewaySyncData) {
 				assert.Equal(t, "ssl-id", syncData.SSLIDValue)
+				assert.JSONEq(t, `{"type":"roundrobin","tls":{}}`, string(syncData.Config))
 				assert.Equal(t, "ssl-id", syncData.GetSSLID())
 			},
 		},

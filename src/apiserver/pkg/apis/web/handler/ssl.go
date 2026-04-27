@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -110,19 +109,25 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err = biz.CreateSSL(c, &model.SSL{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
-	})
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.SSL,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		nil,
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err == nil {
+		var sslModel *model.SSL
+		sslModel, err = toTypedResourceModel[*model.SSL](resource, constant.SSL)
+		if err == nil {
+			err = biz.CreateSSL(c, sslModel)
+		}
+	}
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -187,17 +192,26 @@ func SSLUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	sslModel := &model.SSL{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.SSL,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		nil,
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	sslModel, err := toTypedResourceModel[*model.SSL](resource, constant.SSL)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 	if err := biz.UpdateSSL(c.Request.Context(), sslModel); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -237,7 +251,7 @@ func SSLList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	ssls, total, err := biz.ListPagedSSL(
+	ssls, total, err := biz.ListPagedSSLForRead(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -291,7 +305,7 @@ func SSLGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	ssl, err := biz.GetSSL(c.Request.Context(), pathParam.ID)
+	ssl, err := biz.GetSSLForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

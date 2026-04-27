@@ -213,7 +213,7 @@ func BuildRequestPayload(
 
 // BuildStorageConfig builds the config shape currently expected by persistence/update code paths.
 func BuildStorageConfig(draft ResourceDraft) (json.RawMessage, error) {
-	return buildRequestPayload(draft)
+	return CloneRawMessage(draft.ConfigSpec), nil
 }
 
 func buildRequestPayload(draft ResourceDraft) (json.RawMessage, error) {

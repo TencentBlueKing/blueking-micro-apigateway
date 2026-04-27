@@ -40,12 +40,37 @@ type GatewaySyncData struct {
 	ModRevision         int                     `gorm:"column:mod_revision"`     // 更新版本
 	CreatedAt           time.Time               `json:"createdAt"`               // 创建时间
 	UpdatedAt           time.Time               `json:"updatedAt"`               // 更新时间
-	NameValue           string                  `gorm:"column:name_value;->" json:"-"`
-	ServiceIDValue      string                  `gorm:"column:service_id_value;->" json:"-"`
-	UpstreamIDValue     string                  `gorm:"column:upstream_id_value;->" json:"-"`
-	PluginConfigIDValue string                  `gorm:"column:plugin_config_id_value;->" json:"-"`
-	GroupIDValue        string                  `gorm:"column:group_id_value;->" json:"-"`
-	SSLIDValue          string                  `gorm:"column:ssl_id_value;->" json:"-"`
+	NameValue           string                  `gorm:"column:name_value;->;-:migration" json:"-"`
+	ServiceIDValue      string                  `gorm:"column:service_id_value;->;-:migration" json:"-"`
+	UpstreamIDValue     string                  `gorm:"column:upstream_id_value;->;-:migration" json:"-"`
+	PluginConfigIDValue string                  `gorm:"column:plugin_config_id_value;->;-:migration" json:"-"`
+	GroupIDValue        string                  `gorm:"column:group_id_value;->;-:migration" json:"-"`
+	SSLIDValue          string                  `gorm:"column:ssl_id_value;->;-:migration" json:"-"`
+}
+
+// ResolvedValues exposes the synced typed columns in the same normalized shape used by write adapters.
+func (g GatewaySyncData) ResolvedValues() ResourceResolvedValues {
+	return ResourceResolvedValues{
+		NameValue:           g.GetName(),
+		ServiceIDValue:      g.GetServiceID(),
+		UpstreamIDValue:     g.GetUpstreamID(),
+		PluginConfigIDValue: g.GetPluginConfigID(),
+		GroupIDValue:        g.GetGroupID(),
+		SSLIDValue:          g.GetSSLID(),
+	}
+}
+
+// ApplyResolvedValues copies resolved values onto imported sync rows.
+func (g *GatewaySyncData) ApplyResolvedValues(values ResourceResolvedValues) {
+	if g == nil {
+		return
+	}
+	g.NameValue = values.NameValue
+	g.ServiceIDValue = values.ServiceIDValue
+	g.UpstreamIDValue = values.UpstreamIDValue
+	g.PluginConfigIDValue = values.PluginConfigIDValue
+	g.GroupIDValue = values.GroupIDValue
+	g.SSLIDValue = values.SSLIDValue
 }
 
 // GetResourceKey 获取资源 key

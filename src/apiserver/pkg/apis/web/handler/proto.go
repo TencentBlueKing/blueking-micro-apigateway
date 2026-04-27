@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -57,20 +56,28 @@ func ProtoCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	proto := model.Proto{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.Proto,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		nil,
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
-	if err := biz.CreateProto(c.Request.Context(), proto); err != nil {
+	proto, err := toTypedResourceModel[*model.Proto](resource, constant.Proto)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	if err := biz.CreateProto(c.Request.Context(), *proto); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -113,19 +120,28 @@ func ProtoUpdate(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	proto := model.Proto{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.Proto,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		nil,
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
-	if err := biz.UpdateProto(c.Request.Context(), proto); err != nil {
+	proto, err := toTypedResourceModel[*model.Proto](resource, constant.Proto)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	if err := biz.UpdateProto(c.Request.Context(), *proto); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -148,7 +164,7 @@ func ProtoGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	proto, err := biz.GetProto(c.Request.Context(), pathParam.ID)
+	proto, err := biz.GetProtoForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -236,7 +252,7 @@ func ProtoList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	protoList, total, err := biz.ListPagedProtos(
+	protoList, total, err := biz.ListPagedProtosForRead(
 		c.Request.Context(),
 		queryParam,
 		strings.Split(req.Status, ","),

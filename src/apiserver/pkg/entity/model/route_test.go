@@ -28,7 +28,7 @@ var _ = Describe("Route", func() {
 
 	Describe("HandleConfig", func() {
 		It(
-			"should strip echoed id, name, service_id, upstream_id, and plugin_config_id from stored Config",
+			"should preserve stored config and explicitly restore route read fields",
 			func() {
 				err := route.HandleConfig()
 				Expect(err).NotTo(HaveOccurred())
@@ -36,13 +36,12 @@ var _ = Describe("Route", func() {
 				var configMap map[string]any
 				err = json.Unmarshal(route.Config, &configMap)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configMap).NotTo(HaveKey("id"))
-				Expect(configMap).NotTo(HaveKey("name"))
-				Expect(configMap).NotTo(HaveKey("service_id"))
-				Expect(configMap).NotTo(HaveKey("upstream_id"))
-				Expect(configMap).NotTo(HaveKey("plugin_config_id"))
 
-				err = route.AfterFind(nil)
+				route.ResourceCommonModel.NameValue = route.Name
+				route.ResourceCommonModel.ServiceIDValue = route.ServiceID
+				route.ResourceCommonModel.UpstreamIDValue = route.UpstreamID
+				route.ResourceCommonModel.PluginConfigIDValue = route.PluginConfigID
+				err = route.ResourceCommonModel.RestoreConfigForRead("route")
 				Expect(err).NotTo(HaveOccurred())
 				err = json.Unmarshal(route.Config, &configMap)
 				Expect(err).NotTo(HaveOccurred())
@@ -55,7 +54,7 @@ var _ = Describe("Route", func() {
 		)
 
 		It(
-			"should delete service_id, plugin_config_id, and upstream_id from the Config if they are empty",
+			"should leave legacy echoed relation fields untouched in stored Config",
 			func() {
 				route.ServiceID = ""
 				route.PluginConfigID = ""
@@ -75,9 +74,9 @@ var _ = Describe("Route", func() {
 
 				err = json.Unmarshal(route.Config, &configMap)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configMap).NotTo(HaveKey("service_id"))
-				Expect(configMap).NotTo(HaveKey("plugin_config_id"))
-				Expect(configMap).NotTo(HaveKey("upstream_id"))
+				Expect(configMap["service_id"]).To(Equal("test-service-id"))
+				Expect(configMap["plugin_config_id"]).To(Equal("test-plugin-config-id"))
+				Expect(configMap["upstream_id"]).To(Equal("test-upstream-id"))
 			},
 		)
 

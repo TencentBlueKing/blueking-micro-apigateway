@@ -24,17 +24,16 @@ var _ = Describe("Upstream", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id and name from stored Config", func() {
+		It("should preserve stored config and explicitly restore upstream read fields", func() {
 			err := upstream.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(upstream.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("name"))
 
-			err = upstream.AfterFind(nil)
+			upstream.ResourceCommonModel.NameValue = upstream.Name
+			err = upstream.ResourceCommonModel.RestoreConfigForRead("upstream")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(upstream.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())

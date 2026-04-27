@@ -25,12 +25,10 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tidwall/sjson"
-	"gorm.io/datatypes"
 
+	apicommon "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
@@ -290,7 +288,7 @@ func createResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+	requestInput := resourcecodec.RequestInput{
 		Source:       "mcp",
 		Operation:    constant.OperationTypeCreate,
 		GatewayID:    gateway.ID,
@@ -300,41 +298,18 @@ func createResourceHandler(
 		OuterName:    input.Name,
 		OuterFields:  mcpOuterFields(resourceType, input.Config),
 		Config:       config,
-	})
-	if err == nil {
-		config, err = resourcecodec.BuildStorageConfig(draft)
-		if err != nil {
-			return errorResult(fmt.Errorf("failed to build config: %w", err)), nil, nil
-		}
 	}
-
-	// Create resource model
-	resource := model.ResourceCommonModel{
-		ID:        resourceID,
-		GatewayID: gateway.ID,
-		Config:    datatypes.JSON(config),
-		Status:    constant.ResourceStatusCreateDraft,
-		BaseModel: model.BaseModel{
-			Creator: "mcp",
-			Updater: "mcp",
-		},
+	prepared, err := apicommon.PrepareStoredResource(requestInput)
+	if err != nil {
+		prepared = apicommon.BuildFallbackStoredResource(requestInput)
 	}
-	if err == nil {
-		resource.NameValue = draft.Identity.NameValue
-		resource.ServiceIDValue = draft.Identity.Associations["service_id"]
-		resource.UpstreamIDValue = draft.Identity.Associations["upstream_id"]
-		resource.PluginConfigIDValue = draft.Identity.Associations["plugin_config_id"]
-		resource.GroupIDValue = draft.Identity.Associations["group_id"]
-		resource.SSLIDValue = draft.Identity.Associations["tls.client_cert_id"]
-	}
-
-	// Convert to specific resource type and create
+	resource := apicommon.BuildResourceCommonModel(prepared, constant.ResourceStatusCreateDraft, "mcp", "mcp")
 	specificResource := resource.ToResourceModel(resourceType)
 	if specificResource == nil {
 		return errorResult(fmt.Errorf("unsupported resource type: %s", input.ResourceType)), nil, nil
 	}
 
-	err = biz.CreateResource(ctx, resourceType, specificResource, input.Name)
+	err = biz.CreateTypedResource(ctx, specificResource)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -383,7 +358,7 @@ func updateResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	draft, prepareErr := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+	requestInput := resourcecodec.RequestInput{
 		Source:       "mcp",
 		Operation:    constant.OperationTypeUpdate,
 		GatewayID:    gateway.ID,
@@ -393,15 +368,10 @@ func updateResourceHandler(
 		OuterName:    input.Name,
 		OuterFields:  mcpOuterFields(resourceType, input.Config),
 		Config:       config,
-	})
-	if prepareErr == nil {
-		config, err = resourcecodec.BuildStorageConfig(draft)
-		if err != nil {
-			return errorResult(fmt.Errorf("failed to build config: %w", err)), nil, nil
-		}
-	} else if input.Name != "" {
-		nameKey := model.GetResourceNameKey(resourceType)
-		config, _ = sjson.SetBytes(config, nameKey, input.Name)
+	}
+	prepared, prepareErr := apicommon.PrepareStoredResource(requestInput)
+	if prepareErr != nil {
+		prepared = apicommon.BuildFallbackStoredResource(requestInput)
 	}
 
 	// Use UpdateResourceByTypeAndID which properly handles name updates
@@ -409,9 +379,9 @@ func updateResourceHandler(
 		ctx,
 		resourceType,
 		input.ResourceID,
-		input.Name,
-		datatypes.JSON(config),
+		prepared.StorageConfig,
 		updateStatus,
+		prepared.ResolvedValues,
 	)
 	if err != nil {
 		return errorResult(err), nil, nil

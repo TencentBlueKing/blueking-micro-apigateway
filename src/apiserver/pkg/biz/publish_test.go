@@ -913,7 +913,7 @@ func TestPublishPayloadCleanupRules(t *testing.T) {
 		assert.False(t, gjson.GetBytes(ops[0].Config, "validity_end").Exists())
 	})
 
-	t.Run("route publish prefers authoritative model columns over legacy config echoes", func(t *testing.T) {
+	t.Run("route publish prefers resolved model columns over legacy config echoes", func(t *testing.T) {
 		route := data.Route1WithNoRelationResource(gatewayInfo, constant.ResourceStatusCreateDraft)
 		route.Name = fmt.Sprintf("route-model-%s", route.ID)
 		service := data.Service1WithNoRelation(gatewayInfo, constant.ResourceStatusCreateDraft)

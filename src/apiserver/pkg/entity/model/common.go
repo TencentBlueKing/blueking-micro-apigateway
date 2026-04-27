@@ -28,7 +28,6 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // BaseModel 基础模型
@@ -48,51 +47,50 @@ type ResourceCommonModel struct {
 	Config    datatypes.JSON `gorm:"column:config;type:json"`                                            // config
 	// 发布状态：create-draft,update-draft,success,delete-draft
 	Status              constant.ResourceStatus `gorm:"column:status;type:varchar(32)"`
-	NameValue           string                  `gorm:"column:name_value;->" json:"-"`
-	ServiceIDValue      string                  `gorm:"column:service_id_value;->" json:"-"`
-	UpstreamIDValue     string                  `gorm:"column:upstream_id_value;->" json:"-"`
-	PluginConfigIDValue string                  `gorm:"column:plugin_config_id_value;->" json:"-"`
-	GroupIDValue        string                  `gorm:"column:group_id_value;->" json:"-"`
-	SSLIDValue          string                  `gorm:"column:ssl_id_value;->" json:"-"`
+	NameValue           string                  `gorm:"column:name_value;->;-:migration" json:"-"`
+	ServiceIDValue      string                  `gorm:"column:service_id_value;->;-:migration" json:"-"`
+	UpstreamIDValue     string                  `gorm:"column:upstream_id_value;->;-:migration" json:"-"`
+	PluginConfigIDValue string                  `gorm:"column:plugin_config_id_value;->;-:migration" json:"-"`
+	GroupIDValue        string                  `gorm:"column:group_id_value;->;-:migration" json:"-"`
+	SSLIDValue          string                  `gorm:"column:ssl_id_value;->;-:migration" json:"-"`
 }
 
-var resourceStorageEchoFields = map[constant.APISIXResource][]string{
-	constant.Route:          {"id", "name", "service_id", "upstream_id", "plugin_config_id"},
-	constant.Service:        {"id", "name", "upstream_id"},
-	constant.Upstream:       {"id", "name", "tls.client_cert_id"},
-	constant.Consumer:       {"id", "username", "group_id"},
-	constant.ConsumerGroup:  {"id", "name"},
-	constant.PluginConfig:   {"id", "name"},
-	constant.GlobalRule:     {"id", "name"},
-	constant.PluginMetadata: {"id", "name"},
-	constant.Proto:          {"id", "name"},
-	constant.SSL:            {"id", "name"},
-	constant.StreamRoute:    {"id", "name", "service_id", "upstream_id"},
+// ResourceResolvedValues carries the resolved name and relation IDs mirrored into typed columns.
+type ResourceResolvedValues struct {
+	NameValue           string
+	ServiceIDValue      string
+	UpstreamIDValue     string
+	PluginConfigIDValue string
+	GroupIDValue        string
+	SSLIDValue          string
 }
 
-func stripResourceConfigForStorage(
-	resourceType constant.APISIXResource,
-	config datatypes.JSON,
-) (datatypes.JSON, error) {
-	updated := datatypes.JSON(append([]byte(nil), config...))
-	for _, fieldName := range resourceStorageEchoFields[resourceType] {
-		if !gjson.GetBytes(updated, fieldName).Exists() {
-			continue
-		}
-		next, err := sjson.DeleteBytes(updated, fieldName)
-		if err != nil {
-			return nil, err
-		}
-		updated = datatypes.JSON(next)
+// NewResourceResolvedValues normalizes the resolved name and relation IDs into one reusable struct.
+func NewResourceResolvedValues(nameValue string, associations map[string]string) ResourceResolvedValues {
+	return ResourceResolvedValues{
+		NameValue:           nameValue,
+		ServiceIDValue:      associations["service_id"],
+		UpstreamIDValue:     associations["upstream_id"],
+		PluginConfigIDValue: associations["plugin_config_id"],
+		GroupIDValue:        associations["group_id"],
+		SSLIDValue:          associations["tls.client_cert_id"],
 	}
-	cleaned, err := jsonx.RemoveEmptyObjectsAndArrays(string(updated))
-	if err == nil {
-		updated = datatypes.JSON(cleaned)
-	}
-	return updated, nil
 }
 
-func restoreResourceConfigForRead(
+// ApplyResolvedValues copies resolved values onto the read/write common model.
+func (r *ResourceCommonModel) ApplyResolvedValues(values ResourceResolvedValues) {
+	if r == nil {
+		return
+	}
+	r.NameValue = values.NameValue
+	r.ServiceIDValue = values.ServiceIDValue
+	r.UpstreamIDValue = values.UpstreamIDValue
+	r.PluginConfigIDValue = values.PluginConfigIDValue
+	r.GroupIDValue = values.GroupIDValue
+	r.SSLIDValue = values.SSLIDValue
+}
+
+func buildRestoredConfig(
 	resourceType constant.APISIXResource,
 	config datatypes.JSON,
 	resourceID string,
@@ -135,7 +133,7 @@ func restoreResourceConfigForRead(
 
 // RestoreConfigForRead reconstitutes the historical read-time config shape from authoritative columns.
 func (r *ResourceCommonModel) RestoreConfigForRead(resourceType constant.APISIXResource) error {
-	config, err := restoreResourceConfigForRead(
+	config, err := buildRestoredConfig(
 		resourceType,
 		r.Config,
 		r.ID,

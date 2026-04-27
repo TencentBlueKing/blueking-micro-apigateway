@@ -52,6 +52,14 @@ func AddBatchAuditLog(ctx context.Context, operationType constant.OperationType,
 	if len(resources) == 0 {
 		return nil
 	}
+	for _, resource := range resources {
+		if resource == nil {
+			continue
+		}
+		if err := resource.RestoreConfigForRead(resourceType); err != nil {
+			return err
+		}
+	}
 	var dataBefore []model.BatchOperationData
 	var dataAfter []model.BatchOperationData
 	var resourceIDs []string
@@ -186,6 +194,22 @@ func WrapBatchRevertResourceAddAuditLog(ctx context.Context, resourceType consta
 	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
 	if err != nil {
 		return err
+	}
+	for _, resource := range resourceList {
+		if resource == nil {
+			continue
+		}
+		if err := resource.RestoreConfigForRead(resourceType); err != nil {
+			return err
+		}
+	}
+	for _, resource := range afterResources {
+		if resource == nil {
+			continue
+		}
+		if err := resource.RestoreConfigForRead(resourceType); err != nil {
+			return err
+		}
 	}
 
 	var dataBefore []model.BatchOperationData

@@ -84,6 +84,10 @@ func (g *GlobalRule) AddAuditLog(tx *gorm.DB, operation constant.OperationType) 
 	if g.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(constant.GlobalRule, g.Config, g.ID, g.Name, nil)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate && g.ID != "" {
 		// 获取原始数据
@@ -91,20 +95,22 @@ func (g *GlobalRule) AddAuditLog(tx *gorm.DB, operation constant.OperationType) 
 		if err := tx.First(&origin, "id = ?", g.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.GlobalRule,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		g.GatewayID, g.ID, g.Updater, g.Status, operation, constant.GlobalRule, originConfig, g.Config)
+		g.GatewayID, g.ID, g.Updater, g.Status, operation, constant.GlobalRule, originConfig, currentConfig)
 }
 
 // HandleConfig 处理 config
 func (g *GlobalRule) HandleConfig() (err error) {
-	g.Config, err = stripResourceConfigForStorage(constant.GlobalRule, g.Config)
-	return err
-}
-
-// AfterFind restores read-time config using authoritative global-rule columns.
-func (g *GlobalRule) AfterFind(tx *gorm.DB) (err error) {
-	g.Config, err = restoreResourceConfigForRead(constant.GlobalRule, g.Config, g.ID, g.Name, nil)
-	return err
+	return nil
 }

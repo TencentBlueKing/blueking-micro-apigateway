@@ -24,17 +24,16 @@ var _ = Describe("ConsumerGroup", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id and name from stored Config", func() {
+		It("should preserve stored config and explicitly restore consumer-group read fields", func() {
 			err := consumerGroup.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(consumerGroup.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("name"))
 
-			err = consumerGroup.AfterFind(nil)
+			consumerGroup.ResourceCommonModel.NameValue = consumerGroup.Name
+			err = consumerGroup.ResourceCommonModel.RestoreConfigForRead("consumer_group")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(consumerGroup.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())

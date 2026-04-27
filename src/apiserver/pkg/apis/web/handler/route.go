@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -59,24 +58,32 @@ func RouteCreate(c *gin.Context) {
 		return
 	}
 
-	route := model.Route{
-		Name:           req.Name,
-		ServiceID:      req.ServiceID,
-		UpstreamID:     req.UpstreamID,
-		PluginConfigID: req.PluginConfigID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.Route,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		map[string]any{
+			"service_id":       req.ServiceID,
+			"upstream_id":      req.UpstreamID,
+			"plugin_config_id": req.PluginConfigID,
 		},
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
-
-	if err := biz.CreateRoute(c.Request.Context(), route); err != nil {
+	route, err := toTypedResourceModel[*model.Route](resource, constant.Route)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	if err := biz.CreateRoute(c.Request.Context(), *route); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -124,23 +131,37 @@ func RouteUpdate(c *gin.Context) {
 		return
 	}
 
-	route := model.Route{
-		Name:           req.Name,
-		ServiceID:      req.ServiceID,
-		UpstreamID:     req.UpstreamID,
-		PluginConfigID: req.PluginConfigID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.Route,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		map[string]any{
+			"service_id":       req.ServiceID,
+			"upstream_id":      req.UpstreamID,
+			"plugin_config_id": req.PluginConfigID,
 		},
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	route, err := toTypedResourceModel[*model.Route](resource, constant.Route)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.UpdateRoute(c.Request.Context(), route); err != nil {
+	if err := biz.UpdateRoute(c.Request.Context(), *route); err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	if err := route.ResourceCommonModel.RestoreConfigForRead(constant.Route); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -177,7 +198,7 @@ func RouteList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	routes, total, err := biz.ListPagedRoutes(
+	routes, total, err := biz.ListPagedRoutesForRead(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -237,7 +258,7 @@ func RouteGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	route, err := biz.GetRoute(c.Request.Context(), pathParam.ID)
+	route, err := biz.GetRouteForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -21,18 +21,17 @@ var _ = Describe("SSL", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id and name from stored Config while keeping derived snis", func() {
+		It("should preserve stored config, keep derived snis, and explicitly restore read fields", func() {
 			err := ssl.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(ssl.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("name"))
 			Expect(configMap["snis"]).NotTo(BeNil())
 
-			err = ssl.AfterFind(nil)
+			ssl.ResourceCommonModel.NameValue = ssl.Name
+			err = ssl.ResourceCommonModel.RestoreConfigForRead("ssl")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(ssl.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())

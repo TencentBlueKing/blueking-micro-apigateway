@@ -41,7 +41,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
@@ -204,40 +203,6 @@ func buildCommonResourceReadQuery(
 		return query.Select(selectClause)
 	}
 	return query
-}
-
-func restoreCommonResourceRead(
-	resourceType constant.APISIXResource,
-	resource *model.ResourceCommonModel,
-) error {
-	if resource == nil {
-		return nil
-	}
-	return resource.RestoreConfigForRead(resourceType)
-}
-
-func restoreCommonResourceReadList(
-	resourceType constant.APISIXResource,
-	resources []*model.ResourceCommonModel,
-) error {
-	for _, resource := range resources {
-		if err := restoreCommonResourceRead(resourceType, resource); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func restoreCommonResourceReadValues(
-	resourceType constant.APISIXResource,
-	resources []model.ResourceCommonModel,
-) error {
-	for i := range resources {
-		if err := resources[i].RestoreConfigForRead(resourceType); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // BatchDeleteResourceByIDs 事务批量删除资源
@@ -445,7 +410,7 @@ func BatchGetResources(
 		if err != nil {
 			return nil, err
 		}
-		return res, restoreCommonResourceReadList(resourceType, res)
+		return res, nil
 	}
 
 	// 直接查询短列表
@@ -454,7 +419,7 @@ func BatchGetResources(
 		if err != nil {
 			return nil, err
 		}
-		return res, restoreCommonResourceReadList(resourceType, res)
+		return res, nil
 	}
 
 	// 正确分批次逻辑：每个批次使用新的查询实例
@@ -470,7 +435,28 @@ func BatchGetResources(
 		res = append(res, batchRes...)
 	}
 
-	return res, restoreCommonResourceReadList(resourceType, res)
+	return res, nil
+}
+
+// BatchGetResourcesForRead 批量获取资源，并在返回前执行显式 read-time restore。
+func BatchGetResourcesForRead(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) ([]*model.ResourceCommonModel, error) {
+	resources, err := BatchGetResources(ctx, resourceType, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, resource := range resources {
+		if resource == nil {
+			continue
+		}
+		if err := resource.RestoreConfigForRead(resourceType); err != nil {
+			return nil, err
+		}
+	}
+	return resources, nil
 }
 
 // GetResourcesLabels 获取资源标签
@@ -529,7 +515,10 @@ func BatchDeleteResource(ctx context.Context, resourceType constant.APISIXResour
 	return nil
 }
 
-// GetResourceByID 根据 id 获取资源
+// GetResourceByID 根据 id 获取资源的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetResourceByIDForRead。
 func GetResourceByID(
 	ctx context.Context,
 	resourceType constant.APISIXResource, id string,
@@ -540,7 +529,37 @@ func GetResourceByID(
 	if err != nil {
 		return res, err
 	}
-	return res, res.RestoreConfigForRead(resourceType)
+	return res, nil
+}
+
+// GetResourceByIDForRead 根据 id 获取资源，并在返回前执行显式 read-time restore。
+//
+// 该方法仅用于 Web/OpenAPI 这类 response-facing 场景，返回值会保留当前兼容的 restored response config。
+// 需要 raw stored config 的内部逻辑，请继续使用 GetResourceByID。
+func GetResourceByIDForRead(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+) (model.ResourceCommonModel, error) {
+	resource, err := GetResourceByID(ctx, resourceType, id)
+	if err != nil {
+		return resource, err
+	}
+	if err := resource.RestoreConfigForRead(resourceType); err != nil {
+		return resource, err
+	}
+	return resource, nil
+}
+
+func normalizeResourceConfigForComparison(
+	resourceType constant.APISIXResource,
+	config json.RawMessage,
+) json.RawMessage {
+	normalized, err := resourcecodec.ExtractStoredConfigSpec(resourceType, config)
+	if err != nil {
+		return resourcecodec.CloneRawMessage(config)
+	}
+	return normalized
 }
 
 // IsResourceConfigChanged 判断资源配置是否发生变化
@@ -555,14 +574,8 @@ func IsResourceConfigChanged(
 		// if failed to get resource, treat as config changed
 		return true
 	}
-	currentConfigJson := json.RawMessage(resource.Config)
-
-	// reference: GetResourceConfigDiffDetail
-	// For PluginMetadata, remove the restored read-shape fields before comparison.
-	if resourceType == constant.PluginMetadata {
-		currentConfigJson = []byte(jsonx.RemoveJsonKey(string(currentConfigJson), []string{"id", "name"}))
-		inputConfigJson = []byte(jsonx.RemoveJsonKey(string(inputConfigJson), []string{"id", "name"}))
-	}
+	currentConfigJson := normalizeResourceConfigForComparison(resourceType, json.RawMessage(resource.Config))
+	inputConfigJson = normalizeResourceConfigForComparison(resourceType, inputConfigJson)
 
 	// Parse both JSONs and compare their structures
 	// This properly handles JSON objects with different key orders
@@ -727,7 +740,10 @@ func IsResourceChanged(
 	return false
 }
 
-// GetResourceByIDs 根据 ids 获取资源
+// GetResourceByIDs 根据 ids 获取资源的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config 列表，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetResourceByIDsForRead。
 func GetResourceByIDs(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
@@ -740,7 +756,7 @@ func GetResourceByIDs(
 		if err != nil {
 			return nil, err
 		}
-		return res, restoreCommonResourceReadValues(resourceType, res)
+		return res, nil
 	}
 	// 如果 IDs 数量小于等于 DBConditionIDMaxLength，直接查询
 	if len(ids) <= constant.DBConditionIDMaxLength {
@@ -748,7 +764,7 @@ func GetResourceByIDs(
 		if err != nil {
 			return nil, err
 		}
-		return res, restoreCommonResourceReadValues(resourceType, res)
+		return res, nil
 	}
 
 	// 分批处理大量 IDs
@@ -767,7 +783,28 @@ func GetResourceByIDs(
 		res = append(res, batchRes...)
 	}
 
-	return res, restoreCommonResourceReadValues(resourceType, res)
+	return res, nil
+}
+
+// GetResourceByIDsForRead 根据 ids 获取资源，并在返回前执行显式 read-time restore。
+//
+// 该方法仅用于 response-facing 场景，返回值中的 config 已经恢复为兼容的 response-ready 形态。
+// 需要 raw stored config 的内部逻辑，请继续使用 GetResourceByIDs。
+func GetResourceByIDsForRead(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	ids []string,
+) ([]model.ResourceCommonModel, error) {
+	resources, err := GetResourceByIDs(ctx, resourceType, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range resources {
+		if err := resources[i].RestoreConfigForRead(resourceType); err != nil {
+			return nil, err
+		}
+	}
+	return resources, nil
 }
 
 // DeleteResourceByIDs 根据 ids 删除资源
@@ -839,7 +876,10 @@ func GetSchemaByIDs(
 	return res, nil
 }
 
-// QueryResource ... 根据条件查询资源
+// QueryResource 根据条件查询资源的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 QueryResourceForRead。
 func QueryResource(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
@@ -855,7 +895,32 @@ func QueryResource(
 	if err != nil {
 		return nil, err
 	}
-	return res, restoreCommonResourceReadList(resourceType, res)
+	return res, nil
+}
+
+// QueryResourceForRead 根据条件查询资源，并在返回前执行显式 read-time restore。
+//
+// 该方法仅用于 response-facing 场景，返回值中的 config 已经恢复为兼容的 response-ready 形态。
+// 需要 raw stored config 的内部逻辑，请继续使用 QueryResource。
+func QueryResourceForRead(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	params map[string]any,
+	name string,
+) ([]*model.ResourceCommonModel, error) {
+	resources, err := QueryResource(ctx, resourceType, params, name)
+	if err != nil {
+		return nil, err
+	}
+	for _, resource := range resources {
+		if resource == nil {
+			continue
+		}
+		if err := resource.RestoreConfigForRead(resourceType); err != nil {
+			return nil, err
+		}
+	}
+	return resources, nil
 }
 
 // LabelConditionList 标签查询条件列表

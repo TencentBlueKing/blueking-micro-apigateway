@@ -68,7 +68,10 @@ func GetPluginConfigOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedPluginConfigs 分页查询 pluginConfig 表
+// ListPagedPluginConfigs 分页查询 pluginConfig 列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedPluginConfigsForRead。
 func ListPagedPluginConfigs(
 	ctx context.Context,
 	param map[string]any,
@@ -104,6 +107,32 @@ func ListPagedPluginConfigs(
 		FindByPage(page.Offset, page.Limit)
 }
 
+// ListPagedPluginConfigsForRead 分页查询 pluginConfig 列表，并在返回前执行显式 read-time restore。
+func ListPagedPluginConfigsForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
+) ([]*model.PluginConfig, int64, error) {
+	pluginConfigs, total, err := ListPagedPluginConfigs(ctx, param, label, status, name, updater, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, pluginConfig := range pluginConfigs {
+		if pluginConfig == nil {
+			continue
+		}
+		if err := pluginConfig.ResourceCommonModel.RestoreConfigForRead(constant.PluginConfig); err != nil {
+			return nil, 0, err
+		}
+	}
+	return pluginConfigs, total, nil
+}
+
 // CreatePluginConfig 创建 PluginConfig
 func CreatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) error {
 	return repo.PluginConfig.WithContext(ctx).Create(&pluginConfig)
@@ -129,10 +158,25 @@ func UpdatePluginConfig(ctx context.Context, pluginConfig model.PluginConfig) er
 	return err
 }
 
-// GetPluginConfig 查询 PluginConfig 详情
+// GetPluginConfig 查询 PluginConfig 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetPluginConfigForRead。
 func GetPluginConfig(ctx context.Context, id string) (*model.PluginConfig, error) {
 	u := repo.PluginConfig
 	return buildPluginConfigQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetPluginConfigForRead 查询 PluginConfig 详情，并在返回前执行显式 read-time restore。
+func GetPluginConfigForRead(ctx context.Context, id string) (*model.PluginConfig, error) {
+	pluginConfig, err := GetPluginConfig(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := pluginConfig.ResourceCommonModel.RestoreConfigForRead(constant.PluginConfig); err != nil {
+		return nil, err
+	}
+	return pluginConfig, nil
 }
 
 // QueryPluginConfigs  搜索插件配置

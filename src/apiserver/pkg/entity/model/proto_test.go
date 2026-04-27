@@ -26,17 +26,16 @@ var _ = Describe("Proto", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id and name from stored Config", func() {
+		It("should preserve stored config and explicitly restore proto read fields", func() {
 			err := protoModel.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(protoModel.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("name"))
 
-			err = protoModel.AfterFind(nil)
+			protoModel.ResourceCommonModel.NameValue = protoModel.Name
+			err = protoModel.ResourceCommonModel.RestoreConfigForRead("proto")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(protoModel.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())

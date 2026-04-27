@@ -25,18 +25,17 @@ var _ = Describe("Consumer", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should strip echoed id, username, and group_id from stored Config", func() {
+		It("should preserve stored config and explicitly restore consumer read fields", func() {
 			err := consumer.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(consumer.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("id"))
-			Expect(configMap).NotTo(HaveKey("username"))
-			Expect(configMap).NotTo(HaveKey("group_id"))
 
-			err = consumer.AfterFind(nil)
+			consumer.ResourceCommonModel.NameValue = consumer.Username
+			consumer.ResourceCommonModel.GroupIDValue = consumer.GroupID
+			err = consumer.ResourceCommonModel.RestoreConfigForRead("consumer")
 			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(consumer.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
@@ -62,7 +61,7 @@ var _ = Describe("Consumer", func() {
 			Expect(configMap).NotTo(HaveKey("username"))
 		})
 
-		It("should delete group_id from the Config if GroupID is empty", func() {
+		It("should leave legacy group_id untouched when config already carries it", func() {
 			consumer.GroupID = ""
 			consumer.ResourceCommonModel = model.ResourceCommonModel{
 				ID: "test-id",
@@ -77,7 +76,7 @@ var _ = Describe("Consumer", func() {
 
 			err = json.Unmarshal(consumer.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap).NotTo(HaveKey("group_id"))
+			Expect(configMap["group_id"]).To(Equal("test-group-id"))
 		})
 
 		It("should preserve username and group from typed fields even when config omits them", func() {

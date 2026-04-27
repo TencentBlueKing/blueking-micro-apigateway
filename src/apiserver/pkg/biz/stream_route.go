@@ -68,7 +68,10 @@ func GetStreamRouteOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedStreamRoutes 分页查询 StreamRoute
+// ListPagedStreamRoutes 分页查询 StreamRoute 的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedStreamRoutesForRead。
 func ListPagedStreamRoutes(
 	ctx context.Context,
 	param map[string]any,
@@ -122,6 +125,45 @@ func ListPagedStreamRoutes(
 		FindByPage(page.Offset, page.Limit)
 }
 
+// ListPagedStreamRoutesForRead 分页查询 StreamRoute，并在返回前执行显式 read-time restore。
+func ListPagedStreamRoutesForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	serviceID string,
+	upstreamID string,
+	orderBy string,
+	page PageParam,
+) ([]*model.StreamRoute, int64, error) {
+	streamRoutes, total, err := ListPagedStreamRoutes(
+		ctx,
+		param,
+		label,
+		status,
+		name,
+		updater,
+		serviceID,
+		upstreamID,
+		orderBy,
+		page,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, streamRoute := range streamRoutes {
+		if streamRoute == nil {
+			continue
+		}
+		if err := streamRoute.ResourceCommonModel.RestoreConfigForRead(constant.StreamRoute); err != nil {
+			return nil, 0, err
+		}
+	}
+	return streamRoutes, total, nil
+}
+
 // CreateStreamRoute 创建 StreamRoute
 func CreateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error {
 	if ginx.GetTx(ctx) != nil {
@@ -152,10 +194,25 @@ func UpdateStreamRoute(ctx context.Context, streamRoute model.StreamRoute) error
 	return err
 }
 
-// GetStreamRoute 查询 StreamRoute 详情
+// GetStreamRoute 查询 StreamRoute 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetStreamRouteForRead。
 func GetStreamRoute(ctx context.Context, id string) (*model.StreamRoute, error) {
 	u := repo.StreamRoute
 	return buildStreamRouteQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetStreamRouteForRead 查询 StreamRoute 详情，并在返回前执行显式 read-time restore。
+func GetStreamRouteForRead(ctx context.Context, id string) (*model.StreamRoute, error) {
+	streamRoute, err := GetStreamRoute(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := streamRoute.ResourceCommonModel.RestoreConfigForRead(constant.StreamRoute); err != nil {
+		return nil, err
+	}
+	return streamRoute, nil
 }
 
 // QueryStreamRoutes 搜索 StreamRoute

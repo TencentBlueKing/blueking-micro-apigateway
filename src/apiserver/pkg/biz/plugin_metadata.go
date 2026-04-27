@@ -67,7 +67,10 @@ func GetPluginMetadataOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedPluginMetadatas 分页查询 PluginMetadata 列表
+// ListPagedPluginMetadatas 分页查询 PluginMetadata 列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedPluginMetadatasForRead。
 func ListPagedPluginMetadatas(
 	ctx context.Context,
 	param map[string]any,
@@ -90,6 +93,31 @@ func ListPagedPluginMetadatas(
 	}
 	orderByExprs := GetPluginMetadataOrderExprList(orderBy)
 	return query.Where(field.Attrs(param)).Order(orderByExprs...).FindByPage(page.Offset, page.Limit)
+}
+
+// ListPagedPluginMetadatasForRead 分页查询 PluginMetadata 列表，并在返回前执行显式 read-time restore。
+func ListPagedPluginMetadatasForRead(
+	ctx context.Context,
+	param map[string]any,
+	status []string,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
+) ([]*model.PluginMetadata, int64, error) {
+	pluginMetadatas, total, err := ListPagedPluginMetadatas(ctx, param, status, name, updater, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, pluginMetadata := range pluginMetadatas {
+		if pluginMetadata == nil {
+			continue
+		}
+		if err := pluginMetadata.ResourceCommonModel.RestoreConfigForRead(constant.PluginMetadata); err != nil {
+			return nil, 0, err
+		}
+	}
+	return pluginMetadatas, total, nil
 }
 
 // CreatePluginMetadata 创建 PluginMetadata
@@ -117,10 +145,25 @@ func UpdatePluginMetadata(ctx context.Context, pluginMetadata model.PluginMetada
 	return err
 }
 
-// GetPluginMetadata 查询 PluginMetadata 详情
+// GetPluginMetadata 查询 PluginMetadata 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetPluginMetadataForRead。
 func GetPluginMetadata(ctx context.Context, id string) (*model.PluginMetadata, error) {
 	u := repo.PluginMetadata
 	return buildPluginMetadataQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetPluginMetadataForRead 查询 PluginMetadata 详情，并在返回前执行显式 read-time restore。
+func GetPluginMetadataForRead(ctx context.Context, id string) (*model.PluginMetadata, error) {
+	pluginMetadata, err := GetPluginMetadata(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := pluginMetadata.ResourceCommonModel.RestoreConfigForRead(constant.PluginMetadata); err != nil {
+		return nil, err
+	}
+	return pluginMetadata, nil
 }
 
 // QueryPluginMetadatas 搜索 PluginMetadata

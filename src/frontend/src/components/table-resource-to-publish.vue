@@ -306,7 +306,7 @@ const handleDeleteClick = async (row: Record<string, any>) => {
     if (deleteApi) {
       await deleteApi({ id: row.resource_id } as { id: string });
     } else {
-      await fetch.delete(`${BK_DASHBOARD_URL}/gateways/${common.gatewayId}/${row.resource_type}s/${row.resource_id}/`);
+      await fetch.delete(`${BK_DASHBOARD_URL}/gateways/${common.gatewayId}/${resourceType === 'all' ? row.resource_type : resourceType}s/${row.resource_id}/`);
     }
 
     Message({

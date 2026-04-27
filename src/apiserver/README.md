@@ -20,11 +20,11 @@ make docker-build # 构建 Docker 镜像
    - WebAPI 表单校验入口：`pkg/apis/web/serializer/common.go`
    - OpenAPI 请求校验入口：`pkg/middleware/openapi_resource_check.go`
    - 导入校验入口：`pkg/biz/common.go`
-   - 三条路径都会先进入 `pkg/resourcecodec` 做 canonicalization，然后 materialize 成目标 APISIX 版本对应的 `DATABASE` payload，再执行 JSON Schema 校验。
+   - 三条路径都会先进入 `pkg/resourcecodec` 准备统一的资源 draft，然后 build 成目标 APISIX 版本对应的 `DATABASE` payload，再执行 JSON Schema 校验。
 2. 发布到 APISIX 前
    - 发布装配入口：`pkg/biz/publish.go`
    - 最终发布校验入口：`pkg/publisher/etcd.go`
-   - 已存量的 DB 行会先通过 `pkg/resourcecodec` 做 legacy-tolerant materialization，生成目标 APISIX 版本对应的 `ETCD` payload，再执行最终 JSON Schema 校验。
+   - 已存量的 DB 行会先通过 `pkg/resourcecodec` 做 legacy-tolerant stored-draft rebuild，再生成目标 APISIX 版本对应的 `ETCD` payload，并执行最终 JSON Schema 校验。
 
 这次重构的兼容边界：
 

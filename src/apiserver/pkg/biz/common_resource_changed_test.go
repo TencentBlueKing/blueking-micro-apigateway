@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
 
@@ -226,4 +227,23 @@ func TestIsResourceChanged_Proto_NameChanged(t *testing.T) {
 		"name": "new-proto-name", // Changed
 	})
 	assert.True(t, changed, "Should detect name change for proto")
+}
+
+func TestIsResourceChanged_PluginMetadata_NoChangesWithStrippedRequestConfig(t *testing.T) {
+	metadata := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusCreateDraft)
+	metadata.Name = fmt.Sprintf("test-plugin-metadata-nochange-%d", time.Now().UnixNano())
+
+	err := CreatePluginMetadata(gatewayCtx, *metadata)
+	assert.NoError(t, err)
+
+	retrievedMetadata, err := GetPluginMetadata(gatewayCtx, metadata.ID)
+	assert.NoError(t, err)
+
+	requestConfig := json.RawMessage(
+		jsonx.RemoveJsonKey(string(retrievedMetadata.Config), []string{"id", "name"}),
+	)
+	changed := IsResourceChanged(gatewayCtx, constant.PluginMetadata, metadata.ID, requestConfig, map[string]any{
+		"name": retrievedMetadata.Name,
+	})
+	assert.False(t, changed, "Should treat unchanged plugin metadata edit payload as unchanged")
 }

@@ -42,8 +42,18 @@ func (p *PluginMetadata) BeforeCreate(tx *gorm.DB) (err error) {
 	if err := p.HandleConfig(); err != nil {
 		return err
 	}
+	schemaAssociationConfig, err := restoreResourceConfigForRead(
+		constant.PluginMetadata,
+		p.Config,
+		p.ID,
+		p.Name,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
 	// 关联自定义插件
-	err = ResourceSchemaCallback(tx, p.GatewayID, p.ID, constant.PluginMetadata, p.Config)
+	err = ResourceSchemaCallback(tx, p.GatewayID, p.ID, constant.PluginMetadata, schemaAssociationConfig)
 	if err != nil {
 		return err
 	}
@@ -56,8 +66,18 @@ func (p *PluginMetadata) BeforeUpdate(tx *gorm.DB) (err error) {
 	if err := p.HandleConfig(); err != nil {
 		return err
 	}
+	schemaAssociationConfig, err := restoreResourceConfigForRead(
+		constant.PluginMetadata,
+		p.Config,
+		p.ID,
+		p.Name,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
 	// 关联自定义插件
-	err = ResourceSchemaCallback(tx, p.GatewayID, p.ID, constant.PluginMetadata, p.Config)
+	err = ResourceSchemaCallback(tx, p.GatewayID, p.ID, constant.PluginMetadata, schemaAssociationConfig)
 	if err != nil {
 		return err
 	}

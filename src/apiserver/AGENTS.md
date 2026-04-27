@@ -425,7 +425,7 @@ classDiagram
 | `ResolvedIdentity` | `pkg/resourcecodec/types.go` | One authoritative ID/name/association resolution result for a lifecycle operation |
 | `ResourceDraft` | `pkg/resourcecodec/types.go` | Shared internal draft used by request validation, storage shaping, and publish rebuilding |
 | `BuiltPayload` | `pkg/resourcecodec/types.go` | Version-aware `DATABASE` or `ETCD` payload used for schema validation or publish |
-| `StoredRowInput` | `pkg/resourcecodec/materialize.go` | Authoritative stored-row data used to rebuild a draft for publish/compatibility |
+| `StoredRowInput` | `pkg/resourcecodec/stored.go` | Authoritative stored-row data used to rebuild a draft for publish/compatibility |
 | `resourceCodecConfig` | `pkg/resourcecodec/common.go` + `pkg/resourcecodec/configs.go` | Per-resource rules for name key, association fields, and stripped duplicated fields |
 
 #### 4.5 Key Mechanisms
@@ -472,7 +472,7 @@ If you need to change validation or payload behavior, start in the shared codec 
 - `pkg/resourcecodec/types.go`: shared draft and built-payload types
 - `pkg/resourcecodec/common.go`: identity resolution, conflict detection, request draft preparation
 - `pkg/resourcecodec/configs.go`: per-resource `nameKey`, association, and strip rules
-- `pkg/resourcecodec/materialize.go`: stored-row rebuild and ETCD payload generation
+- `pkg/resourcecodec/stored.go`: stored-row rebuild and ETCD payload generation
 - `pkg/resourcecodec/legacy.go`: legacy echo detection and stored config spec extraction
 - `pkg/apis/web/serializer/common.go`: Web request validation entrypoint
 - `pkg/middleware/openapi_resource_check.go`: OpenAPI request validation entrypoint

@@ -20,12 +20,18 @@ package biz
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/datatypes"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
 
@@ -104,5 +110,34 @@ func TestBuildPluginMetadataQueryWithTx(t *testing.T) {
 			assert.NotNil(t, query, "事务查询对象不应该为空")
 			assert.Implements(t, (*repo.IPluginMetadataDo)(nil), query, "应该实现 IPluginMetadataDo 接口")
 		})
+	}
+}
+
+func TestCreatePluginMetadataCreatesSchemaAssociation(t *testing.T) {
+	schemaName := fmt.Sprintf("custom-plugin-%d", time.Now().UnixNano())
+	schemaInfo := &model.GatewayCustomPluginSchema{
+		GatewayID: gatewayInfo.ID,
+		Name:      schemaName,
+		Schema:    datatypes.JSON(`{"type":"object"}`),
+		Example:   datatypes.JSON(`{}`),
+	}
+	assert.NoError(t, CreateSchema(gatewayCtx, schemaInfo))
+
+	pluginMetadata := model.PluginMetadata{
+		Name: schemaName,
+		ResourceCommonModel: model.ResourceCommonModel{
+			GatewayID: gatewayInfo.ID,
+			ID:        idx.GenResourceID(constant.PluginMetadata),
+			Config:    datatypes.JSON(`{"foo":"bar"}`),
+			Status:    constant.ResourceStatusCreateDraft,
+		},
+	}
+	assert.NoError(t, CreatePluginMetadata(gatewayCtx, pluginMetadata))
+
+	associations, err := GetResourceSchemaAssociation(gatewayCtx, schemaInfo.AutoID)
+	assert.NoError(t, err)
+	if assert.Len(t, associations, 1) {
+		assert.Equal(t, pluginMetadata.ID, associations[0].ResourceID)
+		assert.Equal(t, constant.PluginMetadata, associations[0].ResourceType)
 	}
 }

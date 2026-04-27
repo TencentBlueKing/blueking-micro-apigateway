@@ -772,6 +772,19 @@ func TestDeleteResourceByIDs_LargeBatch(t *testing.T) {
 	}
 }
 
+func TestDeleteResourceByIDs_PluginMetadataUsesResourceID(t *testing.T) {
+	metadata := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusCreateDraft)
+	metadata.Name = fmt.Sprintf("test-plugin-metadata-delete-%d", time.Now().UnixNano())
+
+	assert.NoError(t, CreatePluginMetadata(gatewayCtx, *metadata))
+
+	err := DeleteResourceByIDs(gatewayCtx, constant.PluginMetadata, []string{metadata.ID})
+	assert.NoError(t, err)
+
+	_, err = GetPluginMetadata(gatewayCtx, metadata.ID)
+	assert.Error(t, err)
+}
+
 // TestBatchOperations_EdgeCases 测试边界情况
 func TestBatchOperations_EdgeCases(t *testing.T) {
 	t.Run("TestBatchGetResources_ExactBatchSize", func(t *testing.T) {

@@ -38,7 +38,7 @@ func ResolveOpenAPICreateID(resourceType constant.APISIXResource, config json.Ra
 	return idx.GenResourceID(resourceType)
 }
 
-// PrepareOpenAPICreateConfig preserves the current OpenAPI serializer materialization behavior.
+// PrepareOpenAPICreateConfig preserves the current OpenAPI serializer payload-building behavior.
 func PrepareOpenAPICreateConfig(
 	resourceType constant.APISIXResource,
 	outerName string,

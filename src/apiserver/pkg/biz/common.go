@@ -248,12 +248,7 @@ func BatchDeleteResourceByIDs(
 ) error {
 	params := map[string]any{
 		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
-	}
-	// pluginMetadata 特殊处理
-	if resourceType == constant.PluginMetadata {
-		params["name"] = ids
-	} else {
-		params["id"] = ids
+		"id":         ids,
 	}
 	fieldAttr := field.Attrs(params)
 	switch resourceType {
@@ -563,10 +558,10 @@ func IsResourceConfigChanged(
 	currentConfigJson := json.RawMessage(resource.Config)
 
 	// reference: GetResourceConfigDiffDetail
-	// For PluginMetadata, remove the "name" field before comparison
+	// For PluginMetadata, remove the restored read-shape fields before comparison.
 	if resourceType == constant.PluginMetadata {
-		currentConfigJson = []byte(jsonx.RemoveJsonKey(string(currentConfigJson), []string{"name"}))
-		inputConfigJson = []byte(jsonx.RemoveJsonKey(string(inputConfigJson), []string{"name"}))
+		currentConfigJson = []byte(jsonx.RemoveJsonKey(string(currentConfigJson), []string{"id", "name"}))
+		inputConfigJson = []byte(jsonx.RemoveJsonKey(string(inputConfigJson), []string{"id", "name"}))
 	}
 
 	// Parse both JSONs and compare their structures

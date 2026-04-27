@@ -245,7 +245,7 @@ func TestWebValidationDraftParity(t *testing.T) {
 		wantDatabase string
 	}{
 		{
-			name: "consumer uses outer name as authoritative username",
+			name: "consumer uses outer name as resolved username",
 			input: resourcecodec.RequestInput{
 				Source:       resourcecodec.SourceWeb,
 				Operation:    constant.OperationTypeCreate,

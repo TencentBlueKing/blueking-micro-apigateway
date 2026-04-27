@@ -213,7 +213,7 @@ func TestHistoricalImportValidationFixtures(t *testing.T) {
 	t.Parallel()
 
 	for _, fixture := range utiltesting.HistoricalValidationFixtures() {
-		fixture := fixture.Clone()
+		fixture := fixture
 		t.Run(fixture.Name, func(t *testing.T) {
 			draft := resourcecodec.PrepareStoredDraft(resourcecodec.StoredRowInput{
 				GatewayID:    gatewayInfo.ID,

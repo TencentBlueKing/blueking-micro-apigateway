@@ -131,7 +131,7 @@ func buildRestoredConfig(
 	return updated, nil
 }
 
-// RestoreConfigForRead reconstitutes the historical read-time config shape from authoritative columns.
+// RestoreConfigForRead reconstitutes the historical read-time config shape from stored columns.
 func (r *ResourceCommonModel) RestoreConfigForRead(resourceType constant.APISIXResource) error {
 	config, err := buildRestoredConfig(
 		resourceType,

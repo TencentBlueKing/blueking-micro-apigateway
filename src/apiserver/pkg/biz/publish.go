@@ -605,7 +605,7 @@ func buildPublishOperation(
 	updatedAt time.Time,
 ) (publisher.ResourceOperation, error) {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	// Publish rebuilds the ETCD payload from authoritative columns plus the stored config spec.
+	// Publish rebuilds the ETCD payload from stored columns plus the stored config spec.
 	draft := resourcecodec.PrepareStoredDraft(resourcecodec.StoredRowInput{
 		GatewayID:    gatewayInfo.ID,
 		ResourceType: resourceType,

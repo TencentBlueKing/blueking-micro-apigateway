@@ -49,14 +49,14 @@ func CloneStringMap(values map[string]string) map[string]string {
 	return cloned
 }
 
-// IsLegacyDuplicate reports whether the config copy matches the authoritative value for a duplicated field.
-func IsLegacyDuplicate(authoritative, configValue string) bool {
-	return authoritative != "" && configValue != "" && authoritative == configValue
+// IsLegacyDuplicate reports whether the config copy matches the resolved value for a duplicated field.
+func IsLegacyDuplicate(resolvedValue, configValue string) bool {
+	return resolvedValue != "" && configValue != "" && resolvedValue == configValue
 }
 
-// HasLegacyConflict reports whether the config copy conflicts with the authoritative value for a duplicated field.
-func HasLegacyConflict(authoritative, configValue string) bool {
-	return authoritative != "" && configValue != "" && authoritative != configValue
+// HasLegacyConflict reports whether the config copy conflicts with the resolved value for a duplicated field.
+func HasLegacyConflict(resolvedValue, configValue string) bool {
+	return resolvedValue != "" && configValue != "" && resolvedValue != configValue
 }
 
 // SameAssociations reports whether two association maps are semantically equal.

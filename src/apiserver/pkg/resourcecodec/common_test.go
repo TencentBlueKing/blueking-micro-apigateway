@@ -146,7 +146,7 @@ func TestResolveRequestIdentity(t *testing.T) {
 			},
 		},
 		{
-			name: "update path id is authoritative",
+			name: "update path id wins",
 			input: RequestInput{
 				Source:       SourceOpenAPI,
 				Operation:    constant.OperationTypeUpdate,

@@ -38,16 +38,6 @@ func NormalizeProfile(profile constant.DataType) constant.DataType {
 	return constant.DATABASE
 }
 
-// ShouldValidateBeforePersistence reports whether the profile participates in pre-persistence validation.
-func ShouldValidateBeforePersistence(profile constant.DataType) bool {
-	return NormalizeProfile(profile) == constant.DATABASE
-}
-
-// ShouldValidateBeforePublish reports whether the profile participates in final publish validation.
-func ShouldValidateBeforePublish(profile constant.DataType) bool {
-	return NormalizeProfile(profile) == constant.ETCD
-}
-
 type resourceCodecConfig struct {
 	nameKey           string
 	associationFields []string
@@ -83,7 +73,7 @@ func codecConfigFor(resourceType constant.APISIXResource) resourceCodecConfig {
 	}
 }
 
-// ConflictInput describes request-side authoritative fields that must agree with config duplicates.
+// ConflictInput describes request-side fields that must agree with config duplicates.
 type ConflictInput struct {
 	ResourceType constant.APISIXResource
 	ResourceID   string
@@ -92,7 +82,7 @@ type ConflictInput struct {
 	Config       []byte
 }
 
-// DetectRequestConflicts rejects duplicated semantic fields that disagree with authoritative request fields.
+// DetectRequestConflicts rejects duplicated semantic fields that disagree with request-side fields.
 func DetectRequestConflicts(input ConflictInput) error {
 	nameKey := validationNameKey(input.ResourceType)
 
@@ -116,12 +106,12 @@ func DetectRequestConflicts(input ConflictInput) error {
 		}
 	}
 
-	for fieldName, authoritative := range input.OuterFields {
-		if authoritative == "" {
+	for fieldName, requestValue := range input.OuterFields {
+		if requestValue == "" {
 			continue
 		}
 		configValue := gjson.GetBytes(input.Config, fieldName).String()
-		if HasLegacyConflict(authoritative, configValue) {
+		if HasLegacyConflict(requestValue, configValue) {
 			return fmt.Errorf("config.%s conflicts with request field", fieldName)
 		}
 	}
@@ -129,7 +119,7 @@ func DetectRequestConflicts(input ConflictInput) error {
 	return nil
 }
 
-// PrepareRequestDraft resolves one authoritative request identity and strips duplicated server-owned fields.
+// PrepareRequestDraft resolves one request identity and strips duplicated server-owned fields.
 func PrepareRequestDraft(input RequestInput) (ResourceDraft, error) {
 	identity, err := ResolveRequestIdentity(input)
 	if err != nil {
@@ -139,9 +129,9 @@ func PrepareRequestDraft(input RequestInput) (ResourceDraft, error) {
 	if input.Source != SourceImport {
 		if err = DetectRequestConflicts(ConflictInput{
 			ResourceType: input.ResourceType,
-			ResourceID:   authoritativeRequestID(input, identity),
-			OuterName:    authoritativeRequestName(input, identity),
-			OuterFields:  authoritativeAssociationFields(input),
+			ResourceID:   requestIdentityID(input, identity),
+			OuterName:    requestIdentityName(input, identity),
+			OuterFields:  requestAssociationFields(input),
 			Config:       input.Config,
 		}); err != nil {
 			return ResourceDraft{}, err
@@ -162,7 +152,7 @@ func PrepareRequestDraft(input RequestInput) (ResourceDraft, error) {
 	}, nil
 }
 
-// ResolveRequestIdentity computes one authoritative request identity for validation and storage preparation.
+// ResolveRequestIdentity computes one request identity for validation and storage preparation.
 func ResolveRequestIdentity(input RequestInput) (ResolvedIdentity, error) {
 	identity := ResolvedIdentity{
 		ResourceType: input.ResourceType,
@@ -254,7 +244,7 @@ func buildRequestPayload(draft ResourceDraft) (json.RawMessage, error) {
 	return payload, nil
 }
 
-func authoritativeRequestID(input RequestInput, identity ResolvedIdentity) string {
+func requestIdentityID(input RequestInput, identity ResolvedIdentity) string {
 	if input.PathID != "" {
 		return input.PathID
 	}
@@ -270,7 +260,7 @@ func authoritativeRequestID(input RequestInput, identity ResolvedIdentity) strin
 	return ""
 }
 
-func authoritativeRequestName(input RequestInput, identity ResolvedIdentity) string {
+func requestIdentityName(input RequestInput, identity ResolvedIdentity) string {
 	if input.OuterName != "" {
 		return input.OuterName
 	}
@@ -289,7 +279,7 @@ func authoritativeRequestName(input RequestInput, identity ResolvedIdentity) str
 	return ""
 }
 
-func authoritativeAssociationFields(input RequestInput) map[string]string {
+func requestAssociationFields(input RequestInput) map[string]string {
 	fields := map[string]string{}
 	for _, fieldName := range codecConfigFor(input.ResourceType).associationFields {
 		if value, ok := stringField(input.OuterFields, fieldName); ok && value != "" {

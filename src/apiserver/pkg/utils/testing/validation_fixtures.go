@@ -73,31 +73,6 @@ func CloneMap(values map[string]any) map[string]any {
 	return cloned
 }
 
-// Clone returns a detached copy that tests can mutate without changing the shared fixture.
-func (f StoredResourceFixture) Clone() StoredResourceFixture {
-	return StoredResourceFixture{
-		ID:             f.ID,
-		Name:           f.Name,
-		ServiceID:      f.ServiceID,
-		UpstreamID:     f.UpstreamID,
-		PluginConfigID: f.PluginConfigID,
-		GroupID:        f.GroupID,
-		Config:         CloneRawMessage(f.Config),
-	}
-}
-
-// Clone returns a detached copy that tests can mutate without changing the shared fixture.
-func (f HistoricalValidationFixture) Clone() HistoricalValidationFixture {
-	return HistoricalValidationFixture{
-		Name:           f.Name,
-		ResourceType:   f.ResourceType,
-		Version:        f.Version,
-		Stored:         f.Stored.Clone(),
-		DatabaseConfig: CloneRawMessage(f.DatabaseConfig),
-		PublishConfig:  CloneRawMessage(f.PublishConfig),
-	}
-}
-
 // HistoricalValidationFixtures returns representative legacy shapes that must remain import-valid and publishable.
 func HistoricalValidationFixtures() []HistoricalValidationFixture {
 	return []HistoricalValidationFixture{

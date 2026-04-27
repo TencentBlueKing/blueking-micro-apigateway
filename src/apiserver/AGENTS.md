@@ -299,7 +299,7 @@ The `specs/001-config-validation-refactor/` feature reshapes validation around o
 - Runtime terminology in code is `Prepare*` and `Build*`, centered on `pkg/resourcecodec/`
 - Web, OpenAPI, import, stored-row compatibility, and publish should converge on the same draft/payload pipeline
 - Keep Web and OpenAPI wire contracts stable by default; do not assume serializer or frontend changes are allowed
-- Keep database schema stable by default; model columns remain authoritative for identity and association fields
+- Keep database schema stable by default; model columns remain the stored fields for identity and association data
 - Validate accepted data twice: `DATABASE` profile before persistence and `ETCD` profile before publish
 - Preserve legacy stored rows that still echo `id`, `name`, or association fields inside `config`
 - Treat regression coverage as part of the feature contract before changing request/import/publish validation behavior
@@ -316,9 +316,9 @@ flowchart LR
     DBValidate --> Schema["APISIX schema + JSON schema<br/>before persistence"]
 
     Draft --> StoreConfig["PrepareStoredResource()<br/>BuildStorageConfig() + resolved values"]
-    StoreConfig --> Persist["Web / OpenAPI / Import / MCP write adapters<br/>ResourceCommonModel + authoritative columns + raw config"]
+    StoreConfig --> Persist["Web / OpenAPI / Import / MCP write adapters<br/>ResourceCommonModel + stored columns + raw config"]
     Persist --> Hooks["GORM model hooks<br/>side effects only<br/>audit / schema association / special cases"]
-    Hooks --> DB[("DB row<br/>columns authoritative<br/>config stores raw spec")]
+    Hooks --> DB[("DB row<br/>identity/association data in columns<br/>config stores raw spec")]
 
     DB --> InternalRead["GetResourceByID / GetResourceByIDs / QueryResource<br/>raw stored config"]
     InternalRead --> ReadRestore["Get*ForRead / Query*ForRead<br/>RestoreConfigForRead() only when needed"]
@@ -334,7 +334,7 @@ flowchart LR
 Important distinction:
 
 - `BuildRequestPayload(DATABASE)` is the request-time validation shape, not the object written directly to MySQL.
-- `PrepareStoredResource()` / `BuildStorageConfig()` produce raw stored config from `ConfigSpec`; new writes store authoritative columns separately instead of echoing them back into `config`.
+- `PrepareStoredResource()` / `BuildStorageConfig()` produce raw stored config from `ConfigSpec`; new writes store resolved identity and association fields separately instead of echoing them back into `config`.
 - Internal biz reads stay raw. Web and OpenAPI opt into `*ForRead` helpers that restore response fields at the response boundary, while MCP intentionally returns raw stored config.
 - Publish later rebuilds a fresh `ETCD` payload from the stored row rather than reusing the request-side `BuiltPayload`.
 
@@ -422,10 +422,10 @@ classDiagram
 | Type | File | Purpose |
 |------|------|---------|
 | `RequestInput` | `pkg/resourcecodec/types.go` | External request/import shape before normalization |
-| `ResolvedIdentity` | `pkg/resourcecodec/types.go` | One authoritative ID/name/association resolution result for a lifecycle operation |
+| `ResolvedIdentity` | `pkg/resourcecodec/types.go` | One resolved ID/name/association result for a lifecycle operation |
 | `ResourceDraft` | `pkg/resourcecodec/types.go` | Shared internal draft used by request validation, storage shaping, and publish rebuilding |
 | `BuiltPayload` | `pkg/resourcecodec/types.go` | Version-aware `DATABASE` or `ETCD` payload used for schema validation or publish |
-| `StoredRowInput` | `pkg/resourcecodec/stored.go` | Authoritative stored-row data used to rebuild a draft for publish/compatibility |
+| `StoredRowInput` | `pkg/resourcecodec/stored.go` | Stored-row data used to rebuild a draft for publish/compatibility |
 | `resourceCodecConfig` | `pkg/resourcecodec/common.go` + `pkg/resourcecodec/configs.go` | Per-resource rules for name key, association fields, and stripped duplicated fields |
 
 #### 4.5 Key Mechanisms
@@ -446,13 +446,13 @@ classDiagram
    - This is the current home for resource-specific `nameKey`, `associationFields`, and `stripFields` behavior.
 
 4. **Build request-side payloads from the draft**
-   - `BuildRequestPayload(draft, constant.DATABASE)` reconstructs the validation payload from `ConfigSpec` plus authoritative identity and associations.
+    - `BuildRequestPayload(draft, constant.DATABASE)` reconstructs the validation payload from `ConfigSpec` plus resolved identity and associations.
    - Web validation in `pkg/apis/web/serializer/common.go` and OpenAPI validation in `pkg/middleware/openapi_resource_check.go` both validate this built payload, not raw request `config`.
    - `pkg/biz/common.go:ValidateResource()` uses the same request draft plus `DATABASE` payload build for import validation.
 
 5. **Store raw config, not echoed request shape**
    - `BuildStorageConfig()` returns raw stored config copied from `ConfigSpec`.
-   - Web/OpenAPI persistence and import normalization write authoritative columns separately from `config`.
+    - Web/OpenAPI persistence and import normalization write resolved identity and association fields separately from `config`.
    - Model `HandleConfig()` hooks should not be used for generic echo stripping anymore; keep them focused on side effects and narrow special cases.
 
 6. **Keep internal reads raw and restore response fields only where needed**
@@ -461,9 +461,9 @@ classDiagram
    - MCP intentionally returns raw stored config.
 
 7. **Rebuild publish payloads from stored rows**
-   - `PrepareStoredDraft()` rebuilds a `ResourceDraft` from authoritative DB columns plus stored config.
+    - `PrepareStoredDraft()` rebuilds a `ResourceDraft` from stored DB columns plus stored config.
    - `ExtractStoredConfigSpec()` removes legacy echoed fields from stored config, and `DetectLegacyEchoes()` marks rows that still carry them.
-   - `BuildStoredPayload(draft, constant.ETCD)` reinjects authoritative identity/associations, merges base metadata, and then removes version-unsupported or internal-only fields via `cleanupBuiltPayload()`.
+    - `BuildStoredPayload(draft, constant.ETCD)` reinjects resolved identity and associations, merges base metadata, and then removes version-unsupported or internal-only fields via `cleanupBuiltPayload()`.
 
 8. **Enforce built-payload shape before ETCD schema validation**
    - `pkg/publisher/etcd.go:EtcdPublisher.Validate()` first calls `resourcecodec.ValidateBuiltPayloadShape()`.

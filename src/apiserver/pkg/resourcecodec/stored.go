@@ -29,7 +29,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
-// StoredRowInput captures the authoritative stored row used to rebuild a prepared draft.
+// StoredRowInput captures the stored row fields used to rebuild a prepared draft.
 type StoredRowInput struct {
 	GatewayID      int
 	ResourceType   constant.APISIXResource
@@ -88,13 +88,11 @@ func BuildStoredPayload(draft ResourceDraft, profile constant.DataType) (BuiltPa
 			UpdateTime: draft.UpdateTime,
 		})
 	case constant.Service:
-		if associationValue(draft, "upstream_id") != "" {
-			payload, err = mergeBaseInfo(payload, entity.BaseInfo{
-				ID:         draft.Identity.ResourceID,
-				CreateTime: draft.CreateTime,
-				UpdateTime: draft.UpdateTime,
-			})
-		}
+		payload, err = mergeBaseInfo(payload, entity.BaseInfo{
+			ID:         draft.Identity.ResourceID,
+			CreateTime: draft.CreateTime,
+			UpdateTime: draft.UpdateTime,
+		})
 	case constant.Upstream:
 		payload, err = mergeBaseInfo(payload, entity.BaseInfo{
 			ID:         draft.Identity.ResourceID,
@@ -153,7 +151,7 @@ func BuildStoredPayload(draft ResourceDraft, profile constant.DataType) (BuiltPa
 		return BuiltPayload{}, err
 	}
 
-	payload, err = injectStoredDraftAuthoritativeFields(payload, draft)
+	payload, err = injectStoredDraftResolvedFields(payload, draft)
 	if err != nil {
 		return BuiltPayload{}, err
 	}
@@ -167,7 +165,7 @@ func BuildStoredPayload(draft ResourceDraft, profile constant.DataType) (BuiltPa
 	}, nil
 }
 
-func injectStoredDraftAuthoritativeFields(payload json.RawMessage, draft ResourceDraft) (json.RawMessage, error) {
+func injectStoredDraftResolvedFields(payload json.RawMessage, draft ResourceDraft) (json.RawMessage, error) {
 	var err error
 
 	idValue := draft.Identity.ResourceID
@@ -235,13 +233,6 @@ func cleanupBuiltPayload(
 		payload, _ = sjson.DeleteBytes(payload, "labels")
 	}
 	return payload
-}
-
-func associationValue(draft ResourceDraft, key string) string {
-	if draft.Identity.Associations == nil {
-		return ""
-	}
-	return draft.Identity.Associations[key]
 }
 
 func cloneLabels(labels map[string]string) map[string]string {

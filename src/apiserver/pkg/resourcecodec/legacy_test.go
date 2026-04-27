@@ -38,7 +38,7 @@ func TestBuildStoredPayloadLegacyCompatibility(t *testing.T) {
 		wantLegacy bool
 	}{
 		{
-			name: "route stored row uses authoritative columns over legacy config duplicates",
+			name: "route stored row uses stored columns over legacy config duplicates",
 			input: StoredRowInput{
 				GatewayID:    1001,
 				ResourceType: constant.Route,
@@ -77,7 +77,7 @@ func TestBuildStoredPayloadLegacyCompatibility(t *testing.T) {
 			wantLegacy: true,
 		},
 		{
-			name: "plugin metadata publish key comes from authoritative name",
+			name: "plugin metadata publish key comes from resolved name",
 			input: StoredRowInput{
 				GatewayID:    1001,
 				ResourceType: constant.PluginMetadata,
@@ -92,6 +92,24 @@ func TestBuildStoredPayloadLegacyCompatibility(t *testing.T) {
 			},
 			wantETCD:   `{"id":"jwt-auth","key":"value"}`,
 			wantLegacy: true,
+		},
+		{
+			name: "service with inline upstream keeps base info without upstream association",
+			input: StoredRowInput{
+				GatewayID:    1001,
+				ResourceType: constant.Service,
+				Version:      constant.APISIXVersion313,
+				ResourceID:   "service-id",
+				NameKey:      "name",
+				NameValue:    "service-name",
+				Config: json.RawMessage(
+					`{"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:80":1}}}`,
+				),
+				CreateTime: 1710000000,
+				UpdateTime: 1710001234,
+			},
+			wantETCD:   `{"id":"service-id","name":"service-name","create_time":1710000000,"update_time":1710001234,"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:80":1}}}`,
+			wantLegacy: false,
 		},
 		{
 			name: "stream route 3.11 removes unsupported name and labels",

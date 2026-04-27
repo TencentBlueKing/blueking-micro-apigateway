@@ -37,7 +37,7 @@ type RequestInput struct {
 	Config       json.RawMessage
 }
 
-// ExistingResource captures authoritative stored state used during update/legacy normalization.
+// ExistingResource captures stored row state used during update/legacy normalization.
 type ExistingResource struct {
 	ID             string
 	Name           string

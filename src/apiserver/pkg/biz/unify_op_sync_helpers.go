@@ -51,6 +51,7 @@ func buildSyncedResourceFromKV(
 ) (*model.GatewaySyncData, bool) {
 	resourceKeyWithoutPrefix := strings.TrimPrefix(kv.Key, normalizedPrefix)
 	resourceKeyList := strings.Split(resourceKeyWithoutPrefix, "/")
+	// key 不合法
 	if len(resourceKeyList) != 2 {
 		return nil, false
 	}
@@ -69,9 +70,11 @@ func buildSyncedResourceFromKV(
 		Config:      datatypes.JSON(kv.Value),
 		ModRevision: int(kv.ModRevision),
 	}
+	// config 中去除 update_time/create_time，避免影响资源的 diff
 	resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "update_time")
 	resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "create_time")
 
+	// 插件元数据的名称就是取 id
 	if resourceType == constant.PluginMetadata {
 		resourceInfo.SetName(id)
 	} else if resourceInfo.GetName() == "" {
@@ -122,6 +125,7 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 
 	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
 
+	// global rule name 需要特殊处理
 	if len(globalRuleIDs) > 0 {
 		globalRules, err := QueryGlobalRules(ctx, map[string]any{
 			"gateway_id": gatewayID,
@@ -137,6 +141,7 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 		}
 	}
 
+	// PluginConfig name 需要特殊处理
 	if len(pluginConfigIDs) > 0 {
 		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
 			"gateway_id": gatewayID,
@@ -152,6 +157,7 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 		}
 	}
 
+	// Consumer id，name 需要特殊处理
 	if len(consumerGroupIDs) > 0 {
 		consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
 			"gateway_id": gatewayID,
@@ -168,6 +174,7 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 		}
 	}
 
+	// Proto name 需要特殊处理
 	if len(protoIDs) > 0 {
 		protos, err := QueryProtos(ctx, map[string]any{
 			"gateway_id": gatewayID,
@@ -183,6 +190,7 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 		}
 	}
 
+	// StreamRoute name, labels 需要特殊处理
 	if len(streamRouteIDs) > 0 {
 		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
 			"id": streamRouteIDs,
@@ -260,6 +268,7 @@ func buildSyncSnapshotResources(
 	gatewayInfo *model.Gateway,
 	kvList []storage.KeyValuePair,
 ) ([]*model.GatewaySyncData, error) {
+	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
 	normalizedPrefix := model.NormalizeEtcdPrefix(gatewayInfo.EtcdConfig.Prefix)
 	resources := make([]*model.GatewaySyncData, 0, len(kvList))
 
@@ -302,11 +311,13 @@ func buildSyncChangeSet(
 	for _, resource := range databaseResources {
 		key := resource.GetResourceKey()
 		databaseResourceMap[key] = resource
+		// 获取需要删除的资源
 		if _, existsInEtcd := etcdResourceMap[key]; !existsInEtcd {
 			changeSet.ToDeleteAutoIDs = append(changeSet.ToDeleteAutoIDs, resource.AutoID)
 		}
 	}
 
+	// 获取需要创建/更新的资源
 	for key, etcdResource := range etcdResourceMap {
 		if dbResource, exists := databaseResourceMap[key]; exists {
 			if dbResource.ModRevision != etcdResource.ModRevision {

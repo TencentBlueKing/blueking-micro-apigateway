@@ -58,16 +58,7 @@ func GlobalRuleCreate(c *gin.Context) {
 	}
 	globalRule := model.GlobalRule{
 		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 	if err := biz.CreateGlobalRule(c.Request.Context(), globalRule); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)

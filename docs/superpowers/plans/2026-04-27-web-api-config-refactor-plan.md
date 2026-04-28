@@ -585,7 +585,7 @@ git commit -m "refactor: unify generated-id web create validation flow"
 
 ### Task 4: 抽出特殊 create handler 的 draft 组装 helper
 
-- [ ] Task 4: 抽出特殊 create handler 的 draft 组装 helper
+- [x] Task 4: 抽出特殊 create handler 的 draft 组装 helper
 
 **要解决的复杂度：** 上一步收拢了校验顺序，但 3 个特殊 handler 里仍然各自手写一份相同的 `ResourceCommonModel` 组装。
 
@@ -598,7 +598,7 @@ git commit -m "refactor: unify generated-id web create validation flow"
 - Modify: `src/apiserver/pkg/apis/web/handler/consumer_group.go:64-71`
 - Modify: `src/apiserver/pkg/apis/web/handler/global_rule.go:64-71`
 
-- [ ] **Step 1: 先补 create draft 组装测试**
+- [x] **Step 1: 先补 create draft 组装测试**
 
 在 `web_create_helpers_test.go` 里新增：
 
@@ -627,7 +627,7 @@ func TestBuildWebCreateDraft(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -638,7 +638,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: buildWebCreateDraft`
 
-- [ ] **Step 3: 实现 helper，并让 3 个 handler 复用**
+- [x] **Step 3: 实现 helper，并让 3 个 handler 复用**
 
 在 `web_create_helpers.go` 增加（**行为保持要求**：当前特殊 3 条 create handler 原代码已经写入 `Updater = userID`；helper 抽取后必须保持 `Updater == Creator == userID` 这一现状）：
 
@@ -675,7 +675,7 @@ pluginConfig := &model.PluginConfig{
 
 **行为保持同步（review）：** 保持 Task 0 在 `create_handlers_test.go` 里已经锁住的 `Updater == ginx.GetUserID(c)`（== `Creator`）断言不变，确认 helper 提取没有改变 create draft 的写入结果。
 
-- [ ] **Step 4: 运行 handler 包测试**
+- [x] **Step 4: 运行 handler 包测试**
 
 Run:
 
@@ -686,7 +686,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/web/handler/web_create_helpers.go src/apiserver/pkg/apis/web/handler/web_create_helpers_test.go src/apiserver/pkg/apis/web/handler/plugin_config.go src/apiserver/pkg/apis/web/handler/consumer_group.go src/apiserver/pkg/apis/web/handler/global_rule.go

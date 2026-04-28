@@ -19,9 +19,14 @@
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -38,4 +43,22 @@ func bindAndValidateWebCreateWithGeneratedID(
 	// A typed callback keeps the hot path simple and avoids reflective field mutation.
 	setResourceID(idx.GenResourceID(resourceType))
 	return validation.ValidateStruct(c.Request.Context(), req)
+}
+
+func buildWebCreateDraft(
+	c *gin.Context,
+	resourceID string,
+	config json.RawMessage,
+) model.ResourceCommonModel {
+	userID := ginx.GetUserID(c)
+	return model.ResourceCommonModel{
+		ID:        resourceID,
+		GatewayID: ginx.GetGatewayInfo(c).ID,
+		Config:    datatypes.JSON(config),
+		Status:    constant.ResourceStatusCreateDraft,
+		BaseModel: model.BaseModel{
+			Creator: userID,
+			Updater: userID,
+		},
+	}
 }

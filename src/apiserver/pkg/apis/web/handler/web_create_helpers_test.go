@@ -19,9 +19,11 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
@@ -107,4 +109,24 @@ func TestBindAndValidateWebCreateWithGeneratedID(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, req.ID)
 	})
+}
+
+func TestBuildWebCreateDraft(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	c, _ := newWebCreateTestContext(t, "{}", &model.Gateway{ID: 12}, "tester")
+
+	draft := buildWebCreateDraft(
+		c,
+		"resource-id",
+		json.RawMessage(`{"plugins":{"limit-count":{"count":1}}}`),
+	)
+
+	assert.Equal(t, "resource-id", draft.ID)
+	assert.Equal(t, 12, draft.GatewayID)
+	assert.Equal(t, constant.ResourceStatusCreateDraft, draft.Status)
+	assert.Equal(t, "tester", draft.Creator)
+	assert.Equal(t, "tester", draft.Updater)
+	assert.JSONEq(t, `{"plugins":{"limit-count":{"count":1}}}`, string(draft.Config))
 }

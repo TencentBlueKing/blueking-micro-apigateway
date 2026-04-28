@@ -19,6 +19,7 @@
 package biz
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // buildSyncedResourceFromKV normalizes one etcd KV into a GatewaySyncData snapshot.
@@ -75,4 +77,126 @@ func buildSyncedResourceFromKV(
 	}
 
 	return resourceInfo, true
+}
+
+// backfillStoredSnapshotFields fills snapshot Config fields (name/id/labels)
+// from the matching DB rows for global_rule / plugin_config / consumer_group /
+// proto / stream_route. Resource types not in this list are passed through.
+//
+// TODO(perf): these 5 QueryXxx calls are serial today (preserving the original
+// kvToResource(...) behavior). A follow-up can move them behind an errgroup.
+func backfillStoredSnapshotFields(ctx context.Context, resources []*model.GatewaySyncData) error {
+	globalRuleMap := make(map[string]*model.GatewaySyncData)
+	pluginConfigMap := make(map[string]*model.GatewaySyncData)
+	consumerGroupMap := make(map[string]*model.GatewaySyncData)
+	protoMap := make(map[string]*model.GatewaySyncData)
+	streamRouteMap := make(map[string]*model.GatewaySyncData)
+
+	var globalRuleIDs []string
+	var pluginConfigIDs []string
+	var consumerGroupIDs []string
+	var protoIDs []string
+	var streamRouteIDs []string
+
+	for _, resource := range resources {
+		switch resource.Type {
+		case constant.GlobalRule:
+			globalRuleMap[resource.ID] = resource
+			globalRuleIDs = append(globalRuleIDs, resource.ID)
+		case constant.PluginConfig:
+			pluginConfigMap[resource.ID] = resource
+			pluginConfigIDs = append(pluginConfigIDs, resource.ID)
+		case constant.ConsumerGroup:
+			consumerGroupMap[resource.ID] = resource
+			consumerGroupIDs = append(consumerGroupIDs, resource.ID)
+		case constant.Proto:
+			protoMap[resource.ID] = resource
+			protoIDs = append(protoIDs, resource.ID)
+		case constant.StreamRoute:
+			streamRouteMap[resource.ID] = resource
+			streamRouteIDs = append(streamRouteIDs, resource.ID)
+		}
+	}
+
+	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
+
+	if len(globalRuleIDs) > 0 {
+		globalRules, err := QueryGlobalRules(ctx, map[string]any{
+			"gateway_id": gatewayID,
+			"id":         globalRuleIDs,
+		})
+		if err != nil {
+			return err
+		}
+		for _, globalRule := range globalRules {
+			if resource, ok := globalRuleMap[globalRule.ID]; ok {
+				resource.Config, _ = sjson.SetBytes(resource.Config, "name", globalRule.Name)
+			}
+		}
+	}
+
+	if len(pluginConfigIDs) > 0 {
+		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
+			"gateway_id": gatewayID,
+			"id":         pluginConfigIDs,
+		})
+		if err != nil {
+			return err
+		}
+		for _, pluginConfig := range pluginConfigs {
+			if resource, ok := pluginConfigMap[pluginConfig.ID]; ok {
+				resource.Config, _ = sjson.SetBytes(resource.Config, "name", pluginConfig.Name)
+			}
+		}
+	}
+
+	if len(consumerGroupIDs) > 0 {
+		consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
+			"gateway_id": gatewayID,
+			"id":         consumerGroupIDs,
+		})
+		if err != nil {
+			return err
+		}
+		for _, consumerGroup := range consumerGroups {
+			if resource, ok := consumerGroupMap[consumerGroup.ID]; ok {
+				resource.Config, _ = sjson.SetBytes(resource.Config, "id", consumerGroup.ID)
+				resource.Config, _ = sjson.SetBytes(resource.Config, "name", consumerGroup.Name)
+			}
+		}
+	}
+
+	if len(protoIDs) > 0 {
+		protos, err := QueryProtos(ctx, map[string]any{
+			"gateway_id": gatewayID,
+			"id":         protoIDs,
+		})
+		if err != nil {
+			return err
+		}
+		for _, proto := range protos {
+			if resource, ok := protoMap[proto.ID]; ok {
+				resource.Config, _ = sjson.SetBytes(resource.Config, "name", proto.Name)
+			}
+		}
+	}
+
+	if len(streamRouteIDs) > 0 {
+		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
+			"id": streamRouteIDs,
+		})
+		if err != nil {
+			return err
+		}
+		for _, streamRoute := range streamRoutes {
+			if resource, ok := streamRouteMap[streamRoute.ID]; ok {
+				resource.Config, _ = sjson.SetBytes(resource.Config, "name", streamRoute.Name)
+				if labels := streamRoute.GetLabels(); labels != nil {
+					resource.Config, _ = sjson.SetBytes(resource.Config, "labels", labels)
+				}
+			}
+		}
+	}
+
+	return nil
 }

@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -693,16 +692,6 @@ func (s *UnifyOp) kvToResource(
 	var resources []*model.GatewaySyncData
 	var metadataNames []string
 	metadataNameMap := make(map[string]*model.GatewaySyncData)
-	globalRuleIdMap := make(map[string]*model.GatewaySyncData)
-	pluginConfigIdMap := make(map[string]*model.GatewaySyncData)
-	consumerGroupIdMap := make(map[string]*model.GatewaySyncData)
-	protoIdMap := make(map[string]*model.GatewaySyncData)
-	streamRouteIdMap := make(map[string]*model.GatewaySyncData)
-	var globalRuleIDs []string
-	var pluginConfigIDs []string
-	var consumerGroupIDs []string
-	var protoIDs []string
-	var streamRouteIDs []string
 	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
 	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
 	for _, kv := range kvList {
@@ -717,31 +706,6 @@ func (s *UnifyOp) kvToResource(
 		if resourceType == constant.PluginMetadata {
 			metadataNames = append(metadataNames, id)
 			metadataNameMap[id] = resourceInfo
-		}
-		// global rule name 需要特殊处理
-		if resourceType == constant.GlobalRule {
-			globalRuleIdMap[id] = resourceInfo
-			globalRuleIDs = append(globalRuleIDs, id)
-		}
-		// PluginConfig name 需要特殊处理
-		if resourceType == constant.PluginConfig {
-			pluginConfigIdMap[id] = resourceInfo
-			pluginConfigIDs = append(pluginConfigIDs, id)
-		}
-		// Consumer id，name 需要特殊处理
-		if resourceType == constant.ConsumerGroup {
-			consumerGroupIdMap[id] = resourceInfo
-			consumerGroupIDs = append(consumerGroupIDs, id)
-		}
-		// Proto name 需要特殊处理
-		if resourceType == constant.Proto {
-			protoIdMap[id] = resourceInfo
-			protoIDs = append(protoIDs, id)
-		}
-		// StreamRoute name，labels 需要特殊处理
-		if resourceType == constant.StreamRoute {
-			streamRouteIdMap[id] = resourceInfo
-			streamRouteIDs = append(streamRouteIDs, id)
 		}
 	}
 	if len(metadataNames) > 0 {
@@ -767,93 +731,9 @@ func (s *UnifyOp) kvToResource(
 		}
 	}
 
-	// 处理 global rule name
-	if len(globalRuleIDs) > 0 {
-		globalRules, err := QueryGlobalRules(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         globalRuleIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchGlobalRule error: %s", err.Error())
-			return nil
-		}
-		for _, globalRule := range globalRules {
-			if g, ok := globalRuleIdMap[globalRule.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", globalRule.Name)
-			}
-		}
-	}
-
-	// 处理 PluginConfig name
-	if len(pluginConfigIDs) > 0 {
-		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         pluginConfigIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchPluginConfig error: %s", err.Error())
-			return nil
-		}
-		for _, pluginConfig := range pluginConfigs {
-			if g, ok := pluginConfigIdMap[pluginConfig.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", pluginConfig.Name)
-			}
-		}
-	}
-
-	// 处理 ConsumerGroup id，name
-	if len(consumerGroupIDs) > 0 {
-		consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         consumerGroupIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchConsumerGroup error: %s", err.Error())
-			return nil
-		}
-		for _, consumerGroup := range consumerGroups {
-			if g, ok := consumerGroupIdMap[consumerGroup.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "id", consumerGroup.ID)
-				g.Config, _ = sjson.SetBytes(g.Config, "name", consumerGroup.Name)
-			}
-		}
-	}
-
-	// 处理 Proto name
-	if len(protoIDs) > 0 {
-		protos, err := QueryProtos(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         protoIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchProto error: %s", err.Error())
-			return nil
-		}
-		for _, proto := range protos {
-			if g, ok := protoIdMap[proto.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", proto.Name)
-			}
-		}
-	}
-
-	// 处理 StreamRoute name，labels
-	if len(streamRouteIDs) > 0 {
-		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
-			"id": streamRouteIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchStreamRoute error: %s", err.Error())
-			return nil
-		}
-		for _, streamRoute := range streamRoutes {
-			if g, ok := streamRouteIdMap[streamRoute.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", streamRoute.Name)
-				labels := streamRoute.GetLabels()
-				if labels != nil {
-					g.Config, _ = sjson.SetBytes(g.Config, "labels", labels)
-				}
-			}
-		}
+	if err := backfillStoredSnapshotFields(ctx, resources); err != nil {
+		logging.Errorf("backfill stored snapshot fields error: %s", err.Error())
+		return nil
 	}
 	return resources
 }

@@ -19,14 +19,22 @@
 package biz
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
 
 func TestBuildSyncedResourceFromKV(t *testing.T) {
@@ -70,5 +78,66 @@ func TestBuildSyncedResourceFromKV(t *testing.T) {
 		})
 		assert.False(t, ok)
 		assert.Nil(t, got)
+	})
+}
+
+func TestBackfillStoredSnapshotFields(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	pluginConfig := data.PluginConfig1WithNoRelation(gatewayInfo, constant.ResourceStatusSuccess)
+	pluginConfig.Name = "pc-from-db-" + suffix
+	assert.NoError(t, CreatePluginConfig(ctx, *pluginConfig))
+
+	consumerGroup := data.ConsumerGroup1WithNoRelation(gatewayInfo, constant.ResourceStatusSuccess)
+	consumerGroup.Name = "cg-from-db-" + suffix
+	assert.NoError(t, CreateConsumerGroup(ctx, *consumerGroup))
+
+	proto := data.Proto1(gatewayInfo, constant.ResourceStatusSuccess)
+	proto.Name = "proto-from-db-" + suffix
+	assert.NoError(t, CreateProto(ctx, *proto))
+
+	streamRoute := data.StreamRoute1WithNoRelationResource(gatewayInfo, constant.ResourceStatusSuccess)
+	streamRoute.Name = "sr-from-db-" + suffix
+	streamRoute.Config, _ = sjson.SetBytes(streamRoute.Config, "labels", map[string]string{"env": "test"})
+	assert.NoError(t, CreateStreamRoute(ctx, *streamRoute))
+
+	globalRule := data.GlobalRule1(gatewayInfo, constant.ResourceStatusSuccess)
+	globalRule.Name = "gr-from-db-" + suffix
+	assert.NoError(t, CreateGlobalRule(ctx, *globalRule))
+
+	resources := []*model.GatewaySyncData{
+		{ID: globalRule.ID, GatewayID: gatewayInfo.ID, Type: constant.GlobalRule, Config: datatypes.JSON(`{"plugins":{}}`)},
+		{ID: pluginConfig.ID, GatewayID: gatewayInfo.ID, Type: constant.PluginConfig, Config: datatypes.JSON(`{"plugins":{}}`)},
+		{ID: consumerGroup.ID, GatewayID: gatewayInfo.ID, Type: constant.ConsumerGroup, Config: datatypes.JSON(`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)},
+		{ID: proto.ID, GatewayID: gatewayInfo.ID, Type: constant.Proto, Config: datatypes.JSON(`{"content":"syntax = \"proto3\";"}`)},
+		{ID: streamRoute.ID, GatewayID: gatewayInfo.ID, Type: constant.StreamRoute, Config: datatypes.JSON(`{"server_addr":"127.0.0.1","server_port":8080}`)},
+	}
+
+	err := backfillStoredSnapshotFields(ctx, resources)
+	assert.NoError(t, err)
+	assert.Equal(t, globalRule.Name, gjson.GetBytes(resources[0].Config, "name").String())
+	assert.Equal(t, pluginConfig.Name, gjson.GetBytes(resources[1].Config, "name").String())
+	assert.Equal(t, consumerGroup.ID, gjson.GetBytes(resources[2].Config, "id").String())
+	assert.Equal(t, consumerGroup.Name, gjson.GetBytes(resources[2].Config, "name").String())
+	assert.Equal(t, proto.Name, gjson.GetBytes(resources[3].Config, "name").String())
+	assert.Equal(t, streamRoute.Name, gjson.GetBytes(resources[4].Config, "name").String())
+	assert.Equal(t, "test", gjson.GetBytes(resources[4].Config, "labels.env").String())
+
+	t.Run("missing DB row keeps original config", func(t *testing.T) {
+		missingID := idx.GenResourceID(constant.PluginConfig)
+		missingResources := []*model.GatewaySyncData{
+			{
+				ID:        missingID,
+				GatewayID: gatewayInfo.ID,
+				Type:      constant.PluginConfig,
+				Config:    datatypes.JSON(`{"name":"keep-me","plugins":{"example":{}}}`),
+			},
+		}
+
+		err := backfillStoredSnapshotFields(ctx, missingResources)
+		assert.NoError(t, err)
+		assert.Equal(t, "keep-me", gjson.GetBytes(missingResources[0].Config, "name").String())
+		assert.True(t, gjson.GetBytes(missingResources[0].Config, "plugins.example").Exists())
 	})
 }

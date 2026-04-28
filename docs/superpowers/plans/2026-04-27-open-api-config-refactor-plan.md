@@ -529,7 +529,7 @@ git commit -m "refactor: extract open validation payload helper"
 
 > **review YAGNI修正：** 原计划的 `OpenResolvedDraft` 同时包含 `ValidationConfig` 和 `StorageConfig`。Task 5 Step 3 的示例代码实际只消费了 `StorageConfig`，`ValidationConfig` 从诞生就是 dead code。**本次落地时 Task 4 的结构体只留 `ID` / `Name` / `StorageConfig` 3 个字段**，一旦将来有明确的“校验 id ≠ 落库 id”测试 demonstrate 证据，再补 `ValidationConfig` 字段。
 
-- [ ] Task 4: 引入 Open 域内的 resolved draft 上下文载体
+- [x] Task 4: 引入 Open 域内的 resolved draft 上下文载体
 
 **要解决的复杂度：** middleware 现在即使将来算出了更完整的 request identity，也没有一个 Open 域内明确的传递载体；后续很容易继续靠重复计算把逻辑摊回 serializer。
 
@@ -539,7 +539,7 @@ git commit -m "refactor: extract open validation payload helper"
 - Create: `src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context.go`
 - Create: `src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context_test.go`
 
-- [ ] **Step 1: 先补 context helper 的失败测试**
+- [x] **Step 1: 先补 context helper 的失败测试**
 
 在 `open_resolved_draft_context_test.go` 里新增：
 
@@ -569,7 +569,7 @@ func TestOpenResolvedDraftContextHelpers(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认结构和 helper 还不存在**
+- [x] **Step 2: 运行测试，确认结构和 helper 还不存在**
 
 Run:
 
@@ -580,7 +580,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: OpenResolvedDraft` / `undefined: SetOpenResolvedDrafts`
 
-- [ ] **Step 3: 实现 resolved draft 结构和 context helper**
+- [x] **Step 3: 实现 resolved draft 结构和 context helper**
 
 在 `open_resolved_draft_context.go` 里新增（**YAGNI：暂不加 ValidationConfig 字段**）：
 
@@ -626,7 +626,7 @@ t.Run("context key occupied with wrong type returns ok=false", func(t *testing.T
 })
 ```
 
-- [ ] **Step 4: 运行 serializer 包测试**
+- [x] **Step 4: 运行 serializer 包测试**
 
 Run:
 
@@ -637,7 +637,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context.go src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context_test.go

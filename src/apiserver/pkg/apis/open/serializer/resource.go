@@ -128,13 +128,18 @@ type ResourceUpdateRequest struct {
 // ToCommonResource 转换为通用资源
 func (r ResourceUpdateRequest) ToCommonResource(
 	c *gin.Context,
+	resourceType constant.APISIXResource,
 	id string,
 	status constant.ResourceStatus,
 ) *model.ResourceCommonModel {
+	config := r.Config
+	if r.Name != "" {
+		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)
+	}
 	resource := &model.ResourceCommonModel{
 		ID:        id,
 		GatewayID: ginx.GetGatewayInfo(c).ID,
-		Config:    datatypes.JSON(r.Config),
+		Config:    datatypes.JSON(config),
 		Status:    status,
 		BaseModel: model.BaseModel{
 			Updater: ginx.GetUserID(c),

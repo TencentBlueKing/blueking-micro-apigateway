@@ -72,6 +72,7 @@ func newOpenBatchCreateRouter(version string) *gin.Engine {
 	group := router.Group("/api/v1/open/gateways/:gateway_name/resources")
 	group.Use(openmiddleware.OpenAPIResourceCheck())
 	group.POST("/:resource_type/", openhandler.ResourceBatchCreate)
+	group.PUT("/:resource_type/:id/", openhandler.ResourceUpdate)
 
 	return router
 }
@@ -274,4 +275,82 @@ func TestResourceBatchCreateCurrentlyUsesDifferentGeneratedIDsForValidationAndPe
 	assert.Equal(t, "generated-2", persistedID)
 	assert.NotEqual(t, validationID, persistedID)
 	assert.Equal(t, persistedID, gjson.Get(recorder.Body.String(), "data.0.id").String())
+}
+
+func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
+	var updatedResource *model.ResourceCommonModel
+
+	patches := patchOpenValidation(t, nil)
+	defer patches.Reset()
+
+	patches.ApplyFunc(
+		biz.GetResourceByID,
+		func(
+			ctx context.Context,
+			resourceType constant.APISIXResource,
+			id string,
+		) (model.ResourceCommonModel, error) {
+			assert.Equal(t, constant.Route, resourceType)
+			assert.Equal(t, "route-id", id)
+			return model.ResourceCommonModel{
+				ID:     id,
+				Status: constant.ResourceStatusSuccess,
+			}, nil
+		},
+	)
+	patches.ApplyFunc(
+		biz.DuplicatedResourceName,
+		func(ctx context.Context, resourceType constant.APISIXResource, id string, name string) bool {
+			assert.Equal(t, constant.Route, resourceType)
+			assert.Equal(t, "route-id", id)
+			assert.Equal(t, "route-demo", name)
+			return false
+		},
+	)
+	patches.ApplyFunc(
+		biz.GetResourceUpdateStatus,
+		func(ctx context.Context, resourceType constant.APISIXResource, id string) (constant.ResourceStatus, error) {
+			assert.Equal(t, constant.Route, resourceType)
+			assert.Equal(t, "route-id", id)
+			return constant.ResourceStatusUpdateDraft, nil
+		},
+	)
+	patches.ApplyFunc(
+		biz.UpdateResource,
+		func(
+			ctx context.Context,
+			resourceType constant.APISIXResource,
+			id string,
+			resource *model.ResourceCommonModel,
+		) error {
+			assert.Equal(t, constant.Route, resourceType)
+			assert.Equal(t, "route-id", id)
+			updatedResource = resource
+			return nil
+		},
+	)
+
+	router := newOpenBatchCreateRouter("3.13.0")
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/open/gateways/demo/resources/routes/route-id/",
+		strings.NewReader(`{"name":"route-demo","config":{"uri":"/demo"}}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, req)
+
+	if !assert.Equal(t, http.StatusNoContent, recorder.Code) {
+		return
+	}
+	if !assert.NotNil(t, updatedResource) {
+		return
+	}
+	assert.Equal(t, "route-id", updatedResource.ID)
+	assert.Equal(t, 42, updatedResource.GatewayID)
+	assert.Equal(t, constant.ResourceStatusUpdateDraft, updatedResource.Status)
+	assert.Equal(t, "openapi-user", updatedResource.Updater)
+	assert.Equal(t, "/demo", gjson.GetBytes(updatedResource.Config, "uri").String())
+	assert.Equal(t, "route-demo", gjson.GetBytes(updatedResource.Config, "name").String())
 }

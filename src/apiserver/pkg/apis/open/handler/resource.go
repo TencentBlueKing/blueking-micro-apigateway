@@ -281,7 +281,7 @@ func ResourceUpdate(c *gin.Context) {
 		return
 	}
 
-	resource := req.ToCommonResource(c, pathParam.ID, updateStatus)
+	resource := req.ToCommonResource(c, ginx.GetResourceType(c), pathParam.ID, updateStatus)
 	// 更新资源
 	err = biz.UpdateResource(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, resource)
 	if err != nil {

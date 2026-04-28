@@ -277,8 +277,8 @@ git commit -m "refactor: extract open batch create draft builder"
 ### Task 2: 修正 Open update outer name 回写 + 抽出 update draft builder
 
 > **按 review 要求拆为 2a / 2b 两个 PR：**
-> - **Task 2a（correctness fix，failing-then-green）：** 在 Task 0 的“update 传 `name=foo` 时落库 config 应含 `name=foo`”质问下，让 `ResourceUpdateRequest.ToCommonResource(...)` 在执行前对 `r.Config` 做 `sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)` 注入；make previously-failing characterization test green；不引入新 helper。
-> - **Task 2b（纯 refactor）：** 再抽出 `buildOpenUpdateDraft(...)` helper，绑定 Task 2a 的行为。
+> - [x] **Task 2a（correctness fix，failing-then-green）：** 在 Task 0 的“update 传 `name=foo` 时落库 config 应含 `name=foo`”质问下，让 `ResourceUpdateRequest.ToCommonResource(...)` 在执行前对 `r.Config` 做 `sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)` 注入；make previously-failing characterization test green；不引入新 helper。
+> - [ ] **Task 2b（纯 refactor）：** 再抽出 `buildOpenUpdateDraft(...)` helper，绑定 Task 2a 的行为。
 >
 > 理由：bugfix 和 refactor 不混在同一个 PR，便于 review 和 cherry-pick。
 

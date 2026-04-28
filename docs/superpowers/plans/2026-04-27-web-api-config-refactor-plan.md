@@ -470,7 +470,7 @@ git commit -m "refactor: extract web validation payload helper"
 
 ### Task 3: 收拢 3 个“先生成 ID 再校验”的 create 路径
 
-- [ ] Task 3: 收拢 3 个“先生成 ID 再校验”的 create 路径
+- [x] Task 3: 收拢 3 个“先生成 ID 再校验”的 create 路径
 
 **要解决的复杂度：** `plugin_config`、`consumer_group`、`global_rule` 三个 handler 现在都手写一遍 `ShouldBindJSON -> GenResourceID -> ValidateStruct`，同一类顺序逻辑重复 3 次。
 
@@ -483,7 +483,7 @@ git commit -m "refactor: extract web validation payload helper"
 - Modify: `src/apiserver/pkg/apis/web/handler/consumer_group.go:50-62`
 - Modify: `src/apiserver/pkg/apis/web/handler/global_rule.go:49-62`
 
-- [ ] **Step 1: 先补这 3 条 create 顺序的失败测试**
+- [x] **Step 1: 先补这 3 条 create 顺序的失败测试**
 
 在 `web_create_helpers_test.go` 里新增（**review 要求**：3 个子测试必须一次性全部写出来，不要留“同文件再补”）：
 
@@ -500,7 +500,7 @@ func TestBindAndValidateWebCreateWithGeneratedID(t *testing.T) {
 		c.Request = httptest.NewRequest(
 			http.MethodPost,
 			"/",
-			strings.NewReader(`{"name":"pc-demo","config":{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}}`),
+			strings.NewReader(`{"name":"pc-demo","config":{"plugins":{"authz-casbin":{"model":"path/to/model.conf","policy":"path/to/policy.csv","username":"admin"}}}}`),
 		)
 		ginx.SetGatewayInfo(c, gateway)
 
@@ -514,11 +514,11 @@ func TestBindAndValidateWebCreateWithGeneratedID(t *testing.T) {
 }
 ```
 
-同文件再补 `consumer_group`、`global_rule` 两个子测试（**review**：完整给出，不仅是在注释里记一笔），断言点保持一致：`err == nil`、`req.ID` 已被填充；在 Task 0 已锁定“`Updater==""`”的前提下，本步不改组装逻辑，因此不断言 `Updater`。
+同文件再补 `consumer_group`、`global_rule` 两个子测试（**review**：完整给出，不仅是在注释里记一笔），断言点保持一致：`err == nil`、`req.ID` 已被填充；Task 0 已经从 handler 入口锁住 create draft 的 `Creator/Updater` 行为，本步只聚焦“生成 ID 后再校验”的顺序，因此这里不断言 `Updater`。
 
 **注意 Step 3 的实现签名（review 建议记录设计理由）：** helper 使用 `setResourceID func(string)` 回调而非反射设置 `req.ID`，是为了避免在 hot path 里引入反射。属于有意识的取舍，需在注释里写明原因。
 
-- [ ] **Step 2: 运行测试，确认 helper 尚未实现**
+- [x] **Step 2: 运行测试，确认 helper 尚未实现**
 
 Run:
 
@@ -529,7 +529,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: bindAndValidateWebCreateWithGeneratedID`
 
-- [ ] **Step 3: 新增 Web 本地 bind/validate helper，并迁移 3 个 handler**
+- [x] **Step 3: 新增 Web 本地 bind/validate helper，并迁移 3 个 handler**
 
 在 `web_create_helpers.go` 增加：
 
@@ -565,7 +565,7 @@ if err := bindAndValidateWebCreateWithGeneratedID(
 
 `consumer_group` 和 `global_rule` 只替换类型和 `constant.*` 即可，不改后续 `biz.CreateXxx(...)`。
 
-- [ ] **Step 4: 运行 handler 包测试**
+- [x] **Step 4: 运行 handler 包测试**
 
 Run:
 
@@ -576,7 +576,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/web/handler/web_create_helpers.go src/apiserver/pkg/apis/web/handler/web_create_helpers_test.go src/apiserver/pkg/apis/web/handler/plugin_config.go src/apiserver/pkg/apis/web/handler/consumer_group.go src/apiserver/pkg/apis/web/handler/global_rule.go

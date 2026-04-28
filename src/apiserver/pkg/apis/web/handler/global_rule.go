@@ -31,7 +31,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
@@ -48,15 +47,12 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/ [post]
 func GlobalRuleCreate(c *gin.Context) {
 	var req serializer.GlobalRuleInfo
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
-		return
-	}
-	// global_rule schema requires config.id, but that ID is assigned by the server. Bind first so validation sees
-	// the
-	// real generated ID instead of forcing clients to send a placeholder value.
-	req.ID = idx.GenResourceID(constant.GlobalRule)
-	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
+	if err := bindAndValidateWebCreateWithGeneratedID(
+		c,
+		&req,
+		constant.GlobalRule,
+		func(resourceID string) { req.ID = resourceID },
+	); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}

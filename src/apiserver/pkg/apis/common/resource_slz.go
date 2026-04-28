@@ -263,14 +263,9 @@ func handleResources(
 		if resourceType == constant.Schema {
 			continue
 		}
-		allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
+		allResourceMap, err := loadExistingImportResources(ctx, resourceType, allResourceIdMap)
 		if err != nil {
-			return nil, fmt.Errorf("get exist resources failed, err: %w", err)
-		}
-		allResourceMap := make(map[string]model.ResourceCommonModel)
-		for _, resource := range allResourceList {
-			allResourceMap[resource.GetResourceKey(resourceType)] = resource
-			allResourceIdMap[resource.GetResourceKey(resourceType)] = struct{}{}
+			return nil, err
 		}
 		for _, imp := range resourceInfoList {
 			// 如果 id 为空，直接报错

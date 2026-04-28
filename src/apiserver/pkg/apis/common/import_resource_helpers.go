@@ -19,11 +19,17 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
+
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
 func applyImportIgnoreFields(
@@ -44,4 +50,29 @@ func applyImportIgnoreFields(
 		}
 	}
 	return merged, nil
+}
+
+// loadExistingImportResources fetches all stored resources of the given type for
+// the current gateway and returns them keyed by GetResourceKey(resourceType, id).
+//
+// mutates allResourceIDs: every loaded resource key is appended to the passed-in
+// set so that the import orchestration can build a global id set across all
+// resource types without re-querying the DB.
+func loadExistingImportResources(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	allResourceIDs map[string]struct{},
+) (map[string]model.ResourceCommonModel, error) {
+	allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
+	if err != nil {
+		return nil, fmt.Errorf("get exist resources failed, err: %w", err)
+	}
+
+	allResourceMap := make(map[string]model.ResourceCommonModel, len(allResourceList))
+	for _, resource := range allResourceList {
+		key := resource.GetResourceKey(resourceType)
+		allResourceMap[key] = resource
+		allResourceIDs[key] = struct{}{}
+	}
+	return allResourceMap, nil
 }

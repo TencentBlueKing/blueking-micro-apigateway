@@ -19,11 +19,19 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
+
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
 func TestApplyImportIgnoreFields(t *testing.T) {
@@ -77,4 +85,40 @@ func TestApplyImportIgnoreFields(t *testing.T) {
 			assert.JSONEq(t, tt.want, string(got))
 		})
 	}
+}
+
+func TestLoadExistingImportResources(t *testing.T) {
+	util.InitEmbedDb()
+
+	ctx := context.Background()
+	gateway := &model.Gateway{
+		Name:          "import-test-gateway",
+		APISIXVersion: string(constant.APISIXVersion313),
+	}
+	assert.NoError(t, biz.CreateGateway(ctx, gateway))
+
+	gatewayCtx := ginx.SetGatewayInfoToContext(ctx, gateway)
+	assert.NoError(t, biz.CreatePluginConfig(gatewayCtx, model.PluginConfig{
+		Name: "pc-demo",
+		ResourceCommonModel: model.ResourceCommonModel{
+			ID:        "pc-1",
+			GatewayID: gateway.ID,
+			Config:    datatypes.JSON([]byte(`{"id":"pc-1","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)),
+			Status:    constant.ResourceStatusSuccess,
+		},
+	}))
+
+	allResourceIDs := map[string]struct{}{}
+	got, err := loadExistingImportResources(gatewayCtx, constant.PluginConfig, allResourceIDs)
+	assert.NoError(t, err)
+	assert.Contains(t, got, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
+	assert.Contains(t, allResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
+
+	t.Run("empty DB returns empty map", func(t *testing.T) {
+		empty := map[string]struct{}{}
+		got, err := loadExistingImportResources(gatewayCtx, constant.Upstream, empty)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+		assert.Empty(t, empty)
+	})
 }

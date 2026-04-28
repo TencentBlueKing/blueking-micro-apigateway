@@ -276,7 +276,7 @@ git commit -m "refactor: extract import ignore-fields overlay helper"
 
 ### Task 2: 抽出 import 本地“装载旧资源” helper
 
-- [ ] Task 2: 抽出 import 本地“装载旧资源” helper
+- [x] Task 2: 抽出 import 本地“装载旧资源” helper
 
 **要解决的复杂度：** `handleResources(...)` 每轮循环都要自己取 DB 资源、组 map、回填 `allResourceIDs`，这块和 overlay / sync-data 组装混在一起，不利于单测。
 
@@ -287,7 +287,7 @@ git commit -m "refactor: extract import ignore-fields overlay helper"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:267-275`
 
-- [ ] **Step 1: 先补旧资源装载测试**
+- [x] **Step 1: 先补旧资源装载测试**
 
 在 `import_resource_helpers_test.go` 里新增（除 happy path 外，review 要求补一条 empty-DB 边界断言）：
 
@@ -327,7 +327,7 @@ func TestLoadExistingImportResources(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -338,7 +338,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: loadExistingImportResources`
 
-- [ ] **Step 3: 把“取 DB 资源 + 组 map + 回填 allResourceIDs”抽成 helper**
+- [x] **Step 3: 把“取 DB 资源 + 组 map + 回填 allResourceIDs”抽成 helper**
 
 在 `import_resource_helpers.go` 里新增（**注意 doc comment 显式标注 side-effect**）：
 
@@ -371,7 +371,7 @@ func loadExistingImportResources(
 
 然后把 `handleResources(...)` 里原来的 9 行 DB 装载逻辑替换为这个 helper 调用。本地变量仍用 `allResourceIdMap` 名字以保持结果最小改动，helper 签名则统一走 `allResourceIDs`。
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -382,7 +382,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go

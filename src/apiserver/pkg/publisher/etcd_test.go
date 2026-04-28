@@ -34,6 +34,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage/mock"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
 const (
@@ -42,6 +43,17 @@ const (
 )
 
 var ctx context.Context
+
+type stubValidator struct {
+	validate func(obj json.RawMessage) error
+}
+
+func (s *stubValidator) Validate(obj json.RawMessage) error {
+	if s.validate != nil {
+		return s.validate(obj)
+	}
+	return nil
+}
 
 var _ = Describe("EtcdPublisher", func() {
 	Describe("NewEtcdPublisher", func() {
@@ -363,6 +375,156 @@ var _ = Describe("EtcdPublisher", func() {
 			})
 		})
 
+		Describe("Validate", func() {
+			It("Test Validate: build validator with gateway version and ETCD profile", func() {
+				customizePluginSchemaMap := map[string]any{
+					"demo-plugin": map[string]any{"type": "object"},
+				}
+				p := &EtcdPublisher{
+					ctx: context.Background(),
+					gatewayInfo: &model.Gateway{
+						APISIXVersion: "3.13.0",
+						ID:            100,
+					},
+				}
+
+				var (
+					gotVersion      constant.APISIXVersion
+					gotResourceType constant.APISIXResource
+					gotJSONPath     string
+					gotDataType     constant.DataType
+					gotPluginMap    map[string]any
+				)
+
+				patches = gomonkey.ApplyFunc(
+					GetCustomizePluginSchemaMap,
+					func(context.Context, int) map[string]any {
+						return customizePluginSchemaMap
+					},
+				)
+				patches.ApplyFunc(
+					schema.NewAPISIXJsonSchemaValidator,
+					func(
+						version constant.APISIXVersion,
+						resourceType constant.APISIXResource,
+						jsonPath string,
+						customizePluginSchemaMap map[string]any,
+						dataType constant.DataType,
+					) (schema.Validator, error) {
+						gotVersion = version
+						gotResourceType = resourceType
+						gotJSONPath = jsonPath
+						gotDataType = dataType
+						gotPluginMap = customizePluginSchemaMap
+						return &stubValidator{}, nil
+					},
+				)
+
+				err := p.Validate(constant.Route, json.RawMessage(`{"id":"route-1"}`))
+				assert.NoError(GinkgoT(), err)
+				assert.Equal(GinkgoT(), constant.APISIXVersion313, gotVersion)
+				assert.Equal(GinkgoT(), constant.Route, gotResourceType)
+				assert.Equal(GinkgoT(), "main.route", gotJSONPath)
+				assert.Equal(GinkgoT(), constant.ETCD, gotDataType)
+				assert.Equal(GinkgoT(), customizePluginSchemaMap, gotPluginMap)
+			})
+		})
+
+		Describe("buildETCDValidator", func() {
+			It("uses ETCD profile validator with gateway version and customize schema map", func() {
+				customizePluginSchemaMap := map[string]any{
+					"demo-plugin": map[string]any{"type": "object"},
+				}
+				p := &EtcdPublisher{
+					ctx: context.Background(),
+					gatewayInfo: &model.Gateway{
+						APISIXVersion: "3.13.0",
+						ID:            12,
+					},
+				}
+
+				var (
+					gotVersion      constant.APISIXVersion
+					gotResourceType constant.APISIXResource
+					gotJSONPath     string
+					gotDataType     constant.DataType
+					gotPluginMap    map[string]any
+				)
+
+				patches = gomonkey.ApplyFunc(
+					GetCustomizePluginSchemaMap,
+					func(context.Context, int) map[string]any {
+						return customizePluginSchemaMap
+					},
+				)
+				patches.ApplyFunc(
+					schema.NewAPISIXJsonSchemaValidator,
+					func(
+						version constant.APISIXVersion,
+						resourceType constant.APISIXResource,
+						jsonPath string,
+						customizePluginSchemaMap map[string]any,
+						dataType constant.DataType,
+					) (schema.Validator, error) {
+						gotVersion = version
+						gotResourceType = resourceType
+						gotJSONPath = jsonPath
+						gotDataType = dataType
+						gotPluginMap = customizePluginSchemaMap
+						return &stubValidator{}, nil
+					},
+				)
+
+				validator, err := p.buildETCDValidator(constant.PluginConfig)
+				assert.NoError(GinkgoT(), err)
+				assert.NotNil(GinkgoT(), validator)
+				assert.Equal(GinkgoT(), constant.APISIXVersion313, gotVersion)
+				assert.Equal(GinkgoT(), constant.PluginConfig, gotResourceType)
+				assert.Equal(GinkgoT(), "main.plugin_config", gotJSONPath)
+				assert.Equal(GinkgoT(), constant.ETCD, gotDataType)
+				assert.Equal(GinkgoT(), customizePluginSchemaMap, gotPluginMap)
+			})
+		})
+
+		Describe("validatePublishOperations", func() {
+			It("stops on the first invalid operation", func() {
+				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
+				p := &EtcdPublisher{
+					etcdStore: mockEtcdStore,
+					gatewayInfo: &model.Gateway{
+						ID:            12,
+						APISIXVersion: "3.11.0",
+					},
+				}
+
+				patches = gomonkey.ApplyMethod(
+					reflect.TypeOf(p),
+					"Validate",
+					func(_ *EtcdPublisher, resourceType constant.APISIXResource, config json.RawMessage) error {
+						if resourceType == constant.PluginConfig {
+							return errors.New("invalid plugin config")
+						}
+						return nil
+					},
+				)
+
+				err := p.validatePublishOperations([]ResourceOperation{
+					{
+						Type:   constant.PluginConfig,
+						Key:    "pc-id",
+						Config: json.RawMessage(`{"plugins":{}}`),
+					},
+					{
+						Type:   constant.GlobalRule,
+						Key:    "gr-id",
+						Config: json.RawMessage(`{"plugins":{}}`),
+					},
+				})
+				assert.Error(GinkgoT(), err)
+				assert.Equal(GinkgoT(), "invalid plugin config", err.Error())
+			})
+		})
+
 		Describe("BatchCreate", func() {
 			It("Test BatchCreate: ok", func() {
 				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
@@ -445,6 +607,37 @@ var _ = Describe("EtcdPublisher", func() {
 				err := p.BatchCreate(context.Background(), resources)
 				assert.Error(GinkgoT(), err)
 				assert.Equal(GinkgoT(), batchCreateError, err.Error())
+			})
+
+			It("Test BatchCreate: short circuit after validate error", func() {
+				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
+				p := &EtcdPublisher{
+					etcdStore: mockEtcdStore,
+				}
+
+				validateCalls := make([]string, 0, 3)
+				patches = gomonkey.ApplyMethod(
+					reflect.TypeOf(p),
+					"Validate",
+					func(_ *EtcdPublisher, resourceType constant.APISIXResource, config json.RawMessage) error {
+						validateCalls = append(validateCalls, string(config))
+						if string(config) == `{"step":2}` {
+							return errors.New(validateError)
+						}
+						return nil
+					},
+				)
+
+				resources := []ResourceOperation{
+					{Key: "one", Type: constant.Route, Config: json.RawMessage(`{"step":1}`)},
+					{Key: "two", Type: constant.Route, Config: json.RawMessage(`{"step":2}`)},
+					{Key: "three", Type: constant.Route, Config: json.RawMessage(`{"step":3}`)},
+				}
+
+				err := p.BatchCreate(context.Background(), resources)
+				assert.Error(GinkgoT(), err)
+				assert.Equal(GinkgoT(), validateError, err.Error())
+				assert.Equal(GinkgoT(), []string{`{"step":1}`, `{"step":2}`}, validateCalls)
 			})
 		})
 
@@ -530,6 +723,37 @@ var _ = Describe("EtcdPublisher", func() {
 				err := p.BatchUpdate(context.Background(), resources)
 				assert.Error(GinkgoT(), err)
 				assert.Equal(GinkgoT(), batchCreateError, err.Error())
+			})
+
+			It("Test BatchUpdate: short circuit after validate error", func() {
+				mockEtcdStore := mock.NewMockStorageInterface(ctrl)
+				p := &EtcdPublisher{
+					etcdStore: mockEtcdStore,
+				}
+
+				validateCalls := make([]string, 0, 3)
+				patches = gomonkey.ApplyMethod(
+					reflect.TypeOf(p),
+					"Validate",
+					func(_ *EtcdPublisher, resourceType constant.APISIXResource, config json.RawMessage) error {
+						validateCalls = append(validateCalls, string(config))
+						if string(config) == `{"step":2}` {
+							return errors.New(validateError)
+						}
+						return nil
+					},
+				)
+
+				resources := []ResourceOperation{
+					{Key: "one", Type: constant.Route, Config: json.RawMessage(`{"step":1}`)},
+					{Key: "two", Type: constant.Route, Config: json.RawMessage(`{"step":2}`)},
+					{Key: "three", Type: constant.Route, Config: json.RawMessage(`{"step":3}`)},
+				}
+
+				err := p.BatchUpdate(context.Background(), resources)
+				assert.Error(GinkgoT(), err)
+				assert.Equal(GinkgoT(), validateError, err.Error())
+				assert.Equal(GinkgoT(), []string{`{"step":1}`, `{"step":2}`}, validateCalls)
 			})
 		})
 

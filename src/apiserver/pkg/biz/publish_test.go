@@ -21,9 +21,13 @@ package biz
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -74,6 +78,500 @@ func CreatGateway() {
 		panic(err)
 	}
 	gatewayCtx = ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+}
+
+func publishTestName(t *testing.T, suffix string) string {
+	t.Helper()
+	name := strings.ToLower(t.Name() + "-" + suffix)
+	name = strings.ReplaceAll(name, "/", "-")
+	name = strings.ReplaceAll(name, "_", "-")
+	if len(name) > 48 {
+		name = name[:24] + "-" + name[len(name)-23:]
+	}
+	return name
+}
+
+func newPublishGatewayContext(t *testing.T, version string) (*model.Gateway, context.Context) {
+	t.Helper()
+
+	gateway := data.Gateway1WithBkAPISIX()
+	gateway.Name = publishTestName(t, strings.ReplaceAll(version, ".", "-"))
+	gateway.Desc = gateway.Name
+	gateway.APISIXVersion = version
+	gateway.EtcdConfig.Prefix = "/" + publishTestName(t, "etcd")
+	if err := CreateGateway(context.Background(), gateway); err != nil {
+		t.Fatal(err)
+	}
+	return gateway, ginx.SetGatewayInfoToContext(context.Background(), gateway)
+}
+
+func mustSyncAndGetSyncedItem(
+	t *testing.T,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	id string,
+) *model.GatewaySyncData {
+	t.Helper()
+
+	if _, err := SyncResources(ctx, resourceType); err != nil {
+		t.Fatal(err)
+	}
+	syncedItem, err := GetSyncedItemByResourceTypeAndID(ctx, resourceType, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return syncedItem
+}
+
+func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
+	t.Run("route keeps id and name in final payload", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+
+		if err := CreateRoute(ctx, *route); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishRoutes(ctx, []string{route.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedRoute := mustSyncAndGetSyncedItem(t, ctx, constant.Route, route.ID)
+		assert.Equal(t, route.ID, gjson.GetBytes(syncedRoute.Config, "id").String())
+		assert.Equal(t, route.Name, gjson.GetBytes(syncedRoute.Config, "name").String())
+	})
+
+	t.Run("service keeps id in final payload", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		service := data.Service1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+
+		if err := CreateService(ctx, *service); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishServices(ctx, []string{service.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedService := mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID)
+		assert.Equal(t, service.ID, gjson.GetBytes(syncedService.Config, "id").String())
+		assert.Equal(t, service.Name, gjson.GetBytes(syncedService.Config, "name").String())
+	})
+
+	t.Run("upstream keeps id in final payload", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishUpstreams(ctx, []string{upstream.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedUpstream := mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID)
+		assert.Equal(t, upstream.ID, gjson.GetBytes(syncedUpstream.Config, "id").String())
+		assert.Equal(t, upstream.Name, gjson.GetBytes(syncedUpstream.Config, "name").String())
+	})
+
+	t.Run("consumer removes id and keeps username", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		consumer := data.Consumer1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+
+		if err := CreateConsumer(ctx, *consumer); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishConsumers(ctx, []string{consumer.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedConsumer := mustSyncAndGetSyncedItem(t, ctx, constant.Consumer, consumer.ID)
+		assert.False(t, gjson.GetBytes(syncedConsumer.Config, "id").Exists())
+		assert.Equal(t, consumer.Username, gjson.GetBytes(syncedConsumer.Config, "username").String())
+	})
+
+	t.Run("consumer group synced payload keeps name across versions", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			version  string
+			wantName bool
+		}{
+			{name: "3.11 keeps name", version: "3.11.0", wantName: true},
+			{name: "3.13 keeps name", version: "3.13.0", wantName: true},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				gateway, ctx := newPublishGatewayContext(t, tc.version)
+
+				group := data.ConsumerGroup1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+
+				if err := CreateConsumerGroup(ctx, *group); err != nil {
+					t.Fatal(err)
+				}
+				if err := PublishConsumerGroups(ctx, []string{group.ID}); err != nil {
+					t.Fatal(err)
+				}
+
+				syncedGroup := mustSyncAndGetSyncedItem(t, ctx, constant.ConsumerGroup, group.ID)
+				assert.Equal(t, tc.wantName, gjson.GetBytes(syncedGroup.Config, "name").Exists())
+			})
+		}
+	})
+
+	t.Run("ssl removes internal validity fields", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		ssl := data.SSL1(gateway, constant.ResourceStatusCreateDraft)
+		var err error
+		ssl.Config, err = sjson.SetBytes(ssl.Config, "validity_start", 111)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ssl.Config, err = sjson.SetBytes(ssl.Config, "validity_end", 222)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := CreateSSL(ctx, ssl); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishSSLs(ctx, []string{ssl.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedSSL := mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID)
+		assert.False(t, gjson.GetBytes(syncedSSL.Config, "validity_start").Exists())
+		assert.False(t, gjson.GetBytes(syncedSSL.Config, "validity_end").Exists())
+	})
+
+	t.Run("stream route synced payload keeps labels", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		streamRoute := data.StreamRoute1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+		var err error
+		streamRoute.Config, err = sjson.SetBytes(streamRoute.Config, "labels", map[string]string{"env": "test"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := CreateStreamRoute(ctx, *streamRoute); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishStreamRoutes(ctx, []string{streamRoute.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedStreamRoute := mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID)
+		assert.Equal(t, "test", gjson.GetBytes(syncedStreamRoute.Config, "labels.env").String())
+	})
+}
+
+func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
+	t.Run("route publishes upstream service and plugin config dependencies", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		service := data.Service1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		service.UpstreamID = upstream.ID
+		if err := CreateService(ctx, *service); err != nil {
+			t.Fatal(err)
+		}
+
+		pluginConfig := data.PluginConfig1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreatePluginConfig(ctx, *pluginConfig); err != nil {
+			t.Fatal(err)
+		}
+
+		route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+		route.ServiceID = service.ID
+		route.UpstreamID = upstream.ID
+		route.PluginConfigID = pluginConfig.ID
+		route.Config = datatypes.JSON(`{"uris":["/route-dependency"],"methods":["GET"]}`)
+		if err := CreateRoute(ctx, *route); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishRoutes(ctx, []string{route.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, route.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Route, route.ID).ID)
+		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
+		assert.Equal(t, service.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID).ID)
+		assert.Equal(
+			t,
+			pluginConfig.ID,
+			mustSyncAndGetSyncedItem(t, ctx, constant.PluginConfig, pluginConfig.ID).ID,
+		)
+	})
+
+	t.Run("consumer publishes consumer group dependency", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		group := data.ConsumerGroup1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateConsumerGroup(ctx, *group); err != nil {
+			t.Fatal(err)
+		}
+
+		consumer := data.Consumer1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		consumer.GroupID = group.ID
+		if err := CreateConsumer(ctx, *consumer); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishConsumers(ctx, []string{consumer.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, consumer.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Consumer, consumer.ID).ID)
+		assert.Equal(t, group.ID, mustSyncAndGetSyncedItem(t, ctx, constant.ConsumerGroup, group.ID).ID)
+	})
+
+	t.Run("service publishes upstream dependency", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		service := data.Service1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		service.UpstreamID = upstream.ID
+		if err := CreateService(ctx, *service); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishServices(ctx, []string{service.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, service.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID).ID)
+		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
+	})
+
+	t.Run("upstream publishes ssl dependency", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		ssl := data.SSL1(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateSSL(ctx, ssl); err != nil {
+			t.Fatal(err)
+		}
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		upstream.SSLID = ssl.ID
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishUpstreams(ctx, []string{upstream.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
+		assert.Equal(t, ssl.ID, mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID).ID)
+		storedSSL, err := GetSSL(ctx, ssl.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, constant.ResourceStatusSuccess, storedSSL.Status)
+	})
+
+	t.Run("stream route publishes service and upstream dependencies", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		service := data.Service1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		service.UpstreamID = upstream.ID
+		if err := CreateService(ctx, *service); err != nil {
+			t.Fatal(err)
+		}
+
+		streamRoute := data.StreamRoute1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+		streamRoute.ServiceID = service.ID
+		streamRoute.UpstreamID = upstream.ID
+		if err := CreateStreamRoute(ctx, *streamRoute); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishStreamRoutes(ctx, []string{streamRoute.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(
+			t,
+			streamRoute.ID,
+			mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID).ID,
+		)
+		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
+		assert.Equal(t, service.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID).ID)
+	})
+}
+
+func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
+	t.Run("consumer synced payload removes id", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		consumer := data.Consumer1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		var err error
+		consumer.Config, err = sjson.SetBytes(consumer.Config, "id", "should-disappear")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := CreateConsumer(ctx, *consumer); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishConsumers(ctx, []string{consumer.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedConsumer := mustSyncAndGetSyncedItem(t, ctx, constant.Consumer, consumer.ID)
+		assert.False(t, gjson.GetBytes(syncedConsumer.Config, "id").Exists())
+		assert.Equal(t, consumer.Username, gjson.GetBytes(syncedConsumer.Config, "username").String())
+	})
+
+	t.Run("consumer group synced payload keeps name across versions", func(t *testing.T) {
+		testCases := []struct {
+			name    string
+			version string
+		}{
+			{name: "3.11 keeps name", version: "3.11.0"},
+			{name: "3.13 keeps name", version: "3.13.0"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				gateway, ctx := newPublishGatewayContext(t, tc.version)
+
+				group := data.ConsumerGroup1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+				group.Name = "cg-demo"
+				if err := CreateConsumerGroup(ctx, *group); err != nil {
+					t.Fatal(err)
+				}
+				if err := PublishConsumerGroups(ctx, []string{group.ID}); err != nil {
+					t.Fatal(err)
+				}
+
+				syncedGroup := mustSyncAndGetSyncedItem(t, ctx, constant.ConsumerGroup, group.ID)
+				assert.Equal(t, "cg-demo", gjson.GetBytes(syncedGroup.Config, "name").String())
+			})
+		}
+	})
+
+	t.Run("ssl synced payload removes internal validity fields", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		ssl := data.SSL1(gateway, constant.ResourceStatusCreateDraft)
+		var err error
+		ssl.Config, err = sjson.SetBytes(ssl.Config, "validity_start", 1710000000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ssl.Config, err = sjson.SetBytes(ssl.Config, "validity_end", 1810000000)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := CreateSSL(ctx, ssl); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishSSLs(ctx, []string{ssl.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedSSL := mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID)
+		assert.False(t, gjson.GetBytes(syncedSSL.Config, "validity_start").Exists())
+		assert.False(t, gjson.GetBytes(syncedSSL.Config, "validity_end").Exists())
+	})
+
+	t.Run("stream route synced payload keeps labels", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		streamRoute := data.StreamRoute1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+		var err error
+		streamRoute.Config, err = sjson.SetBytes(streamRoute.Config, "labels", map[string]string{"env": "prod"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := CreateStreamRoute(ctx, *streamRoute); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishStreamRoutes(ctx, []string{streamRoute.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		syncedStreamRoute := mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID)
+		assert.Equal(t, "prod", gjson.GetBytes(syncedStreamRoute.Config, "labels.env").String())
+	})
+}
+
+func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
+	t.Run("plugin metadata uses plugin name as final payload id", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		pm := data.PluginMetadata1(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreatePluginMetadata(ctx, *pm); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishPluginMetadatas(ctx, []string{pm.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		synced := mustSyncAndGetSyncedItem(t, ctx, constant.PluginMetadata, pm.ID)
+		assert.Equal(t, pm.Name, gjson.GetBytes(synced.Config, "id").String())
+		assert.Equal(t, pm.Name, gjson.GetBytes(synced.Config, "name").String())
+	})
+
+	t.Run("proto keeps name on 3.13", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.13.0")
+
+		pb := data.Proto1(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateProto(ctx, *pb); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishProtos(ctx, []string{pb.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		synced := mustSyncAndGetSyncedItem(t, ctx, constant.Proto, pb.ID)
+		assert.Equal(t, pb.Name, gjson.GetBytes(synced.Config, "name").String())
+		assert.Equal(t, pb.ID, gjson.GetBytes(synced.Config, "id").String())
+	})
+}
+
+func TestPublishPersist_CurrentSeams(t *testing.T) {
+	t.Run("plugin config publish still writes synced config and updates status", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		pluginConfig := data.PluginConfig1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreatePluginConfig(ctx, *pluginConfig); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishPluginConfigs(ctx, []string{pluginConfig.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		synced := mustSyncAndGetSyncedItem(t, ctx, constant.PluginConfig, pluginConfig.ID)
+		assert.Equal(t, pluginConfig.ID, synced.ID)
+
+		stored, err := GetPluginConfig(ctx, pluginConfig.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, constant.ResourceStatusSuccess, stored.Status)
+	})
 }
 
 func TestPublishRoutes(t *testing.T) {

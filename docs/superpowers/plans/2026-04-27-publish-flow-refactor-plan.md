@@ -109,8 +109,8 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
   - 最终同步后的 payload 字段形态
   - 版本差异字段是否保留/删除
   - **每个资源实际上“clean 了哪些字段”的当前行为**——特别包括 `putRoutes/putServices/putUpstreams` **不会对 `id` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`**，`Consumer/Routes` **不会对 `name` 调**；只有 `ConsumerGroup/GlobalRule/Proto/SSL/PluginConfig/Consumer/ConsumerGroup` 特定子集会调。这一差异必须在 Task 0 里以 seam test 锁住，防止 Task 1 helper 统一运用时把规则错扩到其他资源。
-  - `stream_route.labels` 在最终标 payload 中被删除
-  - 依赖资源是否跟随主资源一起发布（**包括 `service→upstream`、`upstream→ssl`、`stream_route→service/upstream` 3 条原先漏覆盖的 fan-out**，不只是 `route→deps` 和 `consumer→consumer_group`）
+  - 当前 `publish + sync` 黑盒结果里，`stream_route.labels` 仍会出现在 synced payload 中
+  - 依赖资源是否跟随主资源一起发布（**包括 `service→upstream`、`stream_route→service/upstream` 两条真实存在的 fan-out，以及 `upstream` 当前不会自动带出 `ssl` 这条现状**，不只是 `route→deps` 和 `consumer→consumer_group`）
   - `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
 - Task 0 完成后，Task 1-3 和 Task 5 才有足够稳定的黑盒约束；否则 helper 抽完后很容易只验证“代码变短了”，却没验证最终 payload 还对。
 - Task 4 只有在前面的任务都落完后，`putXxx()` 结尾的持久化收口仍然明显拖累可读性时再执行；它不是本轮最高杠杆点。
@@ -118,13 +118,15 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 **行为不变量清单（review 必改）：** 以下现有行为被认为是不变的，helper 抽出后必须保持，由 Task 0 的 seam test 锁住：
 1. `putRoutes/putServices/putUpstreams` **不**对 payload 的 `id` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`（这 3 种资源的 `id` 必须保留）。
 2. `Routes/Consumer` **不**对 payload 的 `name` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`。
-3. `stream_route.labels` 无论在任何版本下都会被删除。
-4. `ssl.validity_start/validity_end` 无论在任何版本下都会被删除。
-5. `BatchCreate/BatchUpdate` 在有任何一条校验失败时短路返回，不再继续校验后续资源。
+3. 当前 `publish + sync` seam 下，`consumer_group.name` 在 `3.11` / `3.13` 的 synced payload 中都会保留。
+4. 当前 `publish + sync` seam 下，`stream_route.labels` 仍会保留在 synced payload 中。
+5. `ssl.validity_start/validity_end` 无论在任何版本下都会被删除。
+6. `BatchCreate/BatchUpdate` 在有任何一条校验失败时短路返回，不再继续校验后续资源。
+7. 当前 `putUpstreams()` 不会自动发布关联 `ssl`；这条现状需要先锁住，后续不要在“重构”里顺手改行为。
 
 ### Task 0: 补 publish / validator characterization tests
 
-- [ ] Task 0: 补 publish / validator characterization tests
+- [x] Task 0: 补 publish / validator characterization tests
 
 **要解决的缺口：** 当前文档已经把 seam-first 原则写清了，但正文还没有一个独立任务专门扩 `publish_test.go` 和 `etcd_test.go`。先把最终 payload 和 validator 组装锁住，后面的 helper 才有黑盒护栏。
 
@@ -134,18 +136,18 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 - Modify: `src/apiserver/pkg/publisher/etcd_test.go`
 
-- [ ] **Step 1: 扩充现有 seam tests，先锁发布结果和 validator 组装**
+- [x] **Step 1: 扩充现有 seam tests，先锁发布结果和 validator 组装**
 
 至少覆盖下面 6 类现状，全部断言现有黑盒结果：
 
-- 最终同步后的 payload 字段形态（包含 `stream_route.labels` 被删除的断言，避免 Task 1 helper 对该字段的处理无 seam 护栏）
-- 不同网关版本下字段的保留/删除差异（`ConsumerGroup` on 3.11 vs 3.13 等）
-- 依赖资源是否跟随主资源一起发布：**至少覆盖 `route→upstream/service/plugin_config`、`consumer→consumer_group`、`service→upstream`、`upstream→ssl`、`stream_route→service/upstream` 5 条 fan-out**（Task 3 要迁移的 5 个 put 函数必须有 1:1 的 seam 护栏）
+- 最终同步后的 payload 字段形态（按代码真实黑盒结果锁住，包括 `stream_route.labels` 当前仍会出现在 synced payload）
+- 不同网关版本下字段的保留/删除差异（按真实黑盒结果锁住，例如 `consumer_group.name` 当前在 `3.11` / `3.13` 的 synced payload 中都保留）
+- 依赖资源是否跟随主资源一起发布：**至少覆盖 `route→upstream/service/plugin_config`、`consumer→consumer_group`、`service→upstream`、`stream_route→service/upstream`，以及 `upstream` 当前不会自动带出 `ssl` 这条现状**（Task 3 后续要按代码真实行为抽 helper，而不是按假设补行为）
 - **每个资源“clean 了哪些字段”的当前行为**：`putRoutes/putServices/putUpstreams` 不清 `id`；`Routes/Consumer` 不清 `name`（锁住当前差异，防止 Task 1 误扩）
 - `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
 - `BatchCreate/BatchUpdate` 在任一条资源校验失败时短路返回
 
-- [ ] **Step 2: 运行 publish seam tests，确认现状已经被锁住**
+- [x] **Step 2: 运行 publish seam tests，确认现状已经被锁住**
 
 Run:
 
@@ -156,7 +158,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/publisher/etcd_test.go
@@ -167,9 +169,11 @@ git commit -m "test: lock publish and validator seams"
 
 ### Task 1: 抽 publish 字段清理 helper
 
-- [ ] Task 1: 抽 publish 字段清理 helper
+- [x] Task 1: 抽 publish 字段清理 helper
 
-**要解决的复杂度：** 现在 `id/name` 的版本差异删除、`ssl.validity_*` 清理、`stream_route.labels` 清理散落在多个 `putXxx()/PutXxx()` 里。修改某个发布字段规则时，最容易出现“改了一个资源，漏了另一个资源”。
+**要解决的复杂度：** 现在 `publish.go` 内部真正发生的字段清理散落在多个 `putXxx()/PutXxx()` 里，包括 `consumer.id`、若干资源的 `name` 版本差异、`ssl.validity_*`、以及 `stream_route.labels`。修改某个发布字段规则时，最容易出现“改了一个资源，漏了另一个资源”。
+
+**代码真实情况：** `publish.go` 内部 cleanup 行为和 `publish + sync` 的黑盒结果并不完全一致。当前 seam 下，`consumer_group.name` 在 `3.11` / `3.13` 的 synced payload 中都会保留，`stream_route.labels` 也仍会出现在 synced payload 中。因此 Task 1 同时保留 seam test 和 helper test，分别锁黑盒结果与内部 cleanup 分支。
 
 **为什么这个任务适合单独提 PR：** 只处理 payload 清理，不动依赖发布顺序，不动 `EtcdPublisher`，不会同时引入新的 orchestration 抽象。
 
@@ -179,7 +183,7 @@ git commit -m "test: lock publish and validator seams"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
-- [ ] **Step 1: 先补现有 publish seam 的 characterization tests**
+- [x] **Step 1: 先补现有 publish seam 的 characterization tests**
 
 在 `publish_test.go` 增加下面这组测试，直接通过现有发布路径锁定最终同步后的 `GatewaySyncData.Config`：
 
@@ -215,7 +219,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 		assert.Equal(t, "consumer1", gjson.GetBytes(synced.Config, "username").String())
 	})
 
-	t.Run("consumer group removes name in 3.11 but keeps it in 3.13", func(t *testing.T) {
+	t.Run("consumer group synced payload keeps name across versions", func(t *testing.T) {
 		makeGateway := func(version string, name string) *model.Gateway {
 			gw := data.Gateway1WithBkAPISIX()
 			gw.Name = name
@@ -248,11 +252,11 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 			assert.Equal(t, wantName, gotName)
 		}
 
-		runCase(t, "3.11.0", "gateway-publish-cg-311", false)
+		runCase(t, "3.11.0", "gateway-publish-cg-311", true)
 		runCase(t, "3.13.0", "gateway-publish-cg-313", true)
 	})
 
-	t.Run("ssl removes internal validity fields", func(t *testing.T) {
+	t.Run("ssl synced payload removes internal validity fields", func(t *testing.T) {
 		gateway := data.Gateway1WithBkAPISIX()
 		gateway.Name = "gateway-publish-ssl"
 		if err := CreateGateway(context.Background(), gateway); err != nil {
@@ -281,7 +285,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam tests，确认当前行为已经被锁住**
+- [x] **Step 2: 运行 seam tests，确认当前行为已经被锁住**
 
 Run:
 
@@ -292,7 +296,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 helper test，让它先失败**
+- [x] **Step 3: 再补 helper test，让它先失败**
+
+**执行备注（按代码真实情况）：** 最终落地的 helper test 额外覆盖了 `global_rule`、`proto`、`stream_route.name` 的版本差异，以及 `route/service/upstream` “整体保持原样”的断言；它锁的是 `publish.go` 内部 cleanup 分支，而不是最终 synced payload。
 
 在 `publish_payload_helpers_test.go` 增加：
 
@@ -388,7 +394,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: cleanupPublishPayloadFields` 或 `undefined: publishPayloadCleanupInput`
 
-- [ ] **Step 4: 用最小实现抽出 publish 字段清理 helper，并接回现有 `putXxx()`**
+- [x] **Step 4: 用最小实现抽出 publish 字段清理 helper，并接回现有 `putXxx()`**
+
+**执行备注（按代码真实情况）：** 最终 helper 规则表只保留原始 `publish.go` 里真实发生过的字段删除：`consumer.id`、`consumer_group.name`、`global_rule.name`、`proto.name`、`ssl.name/validity_*`、`stream_route.name/labels`。`plugin_config` 当前接入 helper 但规则表为空，因此不会改动 payload；`putRoutes/putServices/putUpstreams` 继续不接入 helper。
 
 **【Blocker修正】（review）：** 原计划第一版 helper 用 `ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id"/"name", version)` 做统一判断，但原代码并非所有资源都调用这个方法：`putRoutes/putServices/putUpstreams` 不对 `id` 调，`Routes/Consumer` 不对 `name` 调。统一调用会把字段清理规则扩散到原本不清理的资源上，产生**静默字段丢失**（上线不易察觉）。改用 **resource-specific policy table** 表达清理规则：
 
@@ -471,7 +479,7 @@ resource.Config = cleanupPublishPayloadFields(publishPayloadCleanupInput{
 })
 ```
 
-- [ ] **Step 5: 运行任务相关测试，确认 seam 和 helper 都通过**
+- [x] **Step 5: 运行任务相关测试，确认 seam 和 helper 都通过**
 
 Run:
 
@@ -482,7 +490,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_payload_helpers.go src/apiserver/pkg/biz/publish_payload_helpers_test.go
@@ -491,7 +499,7 @@ git commit -m "refactor: extract publish payload cleanup helper"
 
 ### Task 2: 抽 simple publish payload builder helper
 
-- [ ] Task 2: 抽 simple publish payload builder helper
+- [x] Task 2: 抽 simple publish payload builder helper
 
 **要解决的复杂度：** `plugin_config`、`plugin_metadata`、`consumer_group`、`global_rule`、`proto`、`ssl` 这些资源都在重复做 `BaseInfo` 序列化、`jsonx.MergeJson(...)`、`ResourceOperation` 组装。重复逻辑多，资源特例又掺在里面，`putXxx()` 很难一眼看出真正的资源特有部分。
 
@@ -503,7 +511,7 @@ git commit -m "refactor: extract publish payload cleanup helper"
 - Modify: `src/apiserver/pkg/biz/publish_payload_helpers.go`
 - Modify: `src/apiserver/pkg/biz/publish_payload_helpers_test.go`
 
-- [ ] **Step 1: 先补现有 simple publish seam 的 characterization tests**
+- [x] **Step 1: 先补现有 simple publish seam 的 characterization tests**
 
 在 `publish_test.go` 增加：
 
@@ -563,7 +571,7 @@ func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam tests，确认当前外部行为已经被锁住**
+- [x] **Step 2: 运行 seam tests，确认当前外部行为已经被锁住**
 
 Run:
 
@@ -574,7 +582,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 helper test，让它先失败**
+- [x] **Step 3: 再补 helper test，让它先失败**
 
 在 `publish_payload_helpers_test.go` 追加：
 
@@ -643,7 +651,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: publishResourceOperationInput` 或 `undefined: buildPublishResourceOperation`
 
-- [ ] **Step 4: 用最小实现抽出 simple publish payload builder，并迁移 simple 资源**
+- [x] **Step 4: 用最小实现抽出 simple publish payload builder，并迁移 simple 资源**
+
+**执行备注（按代码真实情况）：** 最终 helper 统一承接 `BaseInfo` 序列化、`jsonx.MergeJson(...)`、Task 1 的 cleanup helper，以及 `publisher.ResourceOperation` 组装。迁移范围保持在 simple publish loops：`putPluginConfigs(...)`、`putPluginMetadatas(...)`、`putConsumerGroups(...)`、`putGlobalRules(...)`、`PutProtos(...)`、`PutSSLs(...)`。
 
 **设计注释（review）：** helper 返回值使用值类型 `publisher.ResourceOperation`，让 `MergeJson` 失败时零值 op 不会被误用（调用者遇到 err 必须立即返回，不能跟着 append）。主要用意图通过 Task 2 seam test 和各调用处 `if err != nil { return err }` 模式保证。
 
@@ -709,7 +719,7 @@ if err != nil {
 pluginMetadataOps = append(pluginMetadataOps, op)
 ```
 
-- [ ] **Step 5: 运行任务相关测试**
+- [x] **Step 5: 运行任务相关测试**
 
 Run:
 
@@ -720,7 +730,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_payload_helpers.go src/apiserver/pkg/biz/publish_payload_helpers_test.go
@@ -729,7 +739,7 @@ git commit -m "refactor: extract simple publish payload builder"
 
 ### Task 3: 拆依赖资源发布 helper
 
-- [ ] Task 3: 拆依赖资源发布 helper
+- [x] Task 3: 拆依赖资源发布 helper
 
 **要解决的复杂度：** `putRoutes()`、`putServices()`、`putUpstreams()`、`putConsumers()`、`PutStreamRoutes()` 现在把“读取资源”“收集依赖 ID”“递归发布依赖”“构造自身 payload”混在一起，读起来像 5 个相似但不完全一致的大函数。
 
@@ -741,7 +751,9 @@ git commit -m "refactor: extract simple publish payload builder"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
-- [ ] **Step 0: 前置检查 `model.Upstream.GetSSLID()` 存在（review 补充）**
+- [x] **Step 0: 前置检查 `model.Upstream.GetSSLID()` 存在（review 补充）**
+
+**执行备注（按代码真实情况）：** `GetSSLID()` 不是定义在 `upstream.go`，而是来自嵌入的 `ResourceCommonModel`，位置在 `pkg/entity/model/common.go`。当前实现读取的是 `tls.client_key`，Task 3 helper 继续保持这条现状。
 
 Task 3 中 `collectUpstreamPublishDependencies` 使用了 `upstream.GetSSLID()`，在开始实现前先确认此 method 在 `pkg/entity/model/upstream.go` 中已存在：
 
@@ -751,7 +763,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && grep -n 
 
 如果上面输出 `MISSING`，需在本 Task 的第一个 commit 里先补齐 getter（只加方法、不改资源字段定义）。
 
-- [ ] **Step 1: 先补现有依赖发布 seam 的 characterization tests**
+- [x] **Step 1: 先补现有依赖发布 seam 的 characterization tests**
+
+**执行备注（按代码真实情况）：** 这组 seam tests 已在 Task 0 以 `TestPublishDependencyFanout_CurrentSeams` 落地，因此 Task 3 直接复用并重新运行，而不是再复制一份新的 characterization test。当前黑盒现状仍然包括：当 upstream 只带 `tls.client_cert_id` 时，不会自动带出 `ssl`。
 
 在 `publish_test.go` 增加：
 
@@ -926,7 +940,7 @@ func TestPublishDependencies_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam tests，确认依赖 fan-out 行为被锁住**
+- [x] **Step 2: 运行 seam tests，确认依赖 fan-out 行为被锁住**
 
 Run:
 
@@ -937,7 +951,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 dependency helper tests，让它先失败**
+- [x] **Step 3: 再补 dependency helper tests，让它先失败**
 
 在 `publish_dependency_helpers_test.go` 增加：
 
@@ -987,7 +1001,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: collectRoutePublishDependencies` 等
 
-- [ ] **Step 4: 用最小实现抽出 dependency helper，并迁移 dependent 资源**
+- [x] **Step 4: 用最小实现抽出 dependency helper，并迁移 dependent 资源**
+
+**执行备注（按代码真实情况）：** 新增 `publish_dependency_helpers.go`，落地了 `route/service/upstream/consumer/stream_route` 五组 collect helper，并把 `putRoutes(...)`、`putServices(...)`、`putUpstreams(...)`、`putConsumers(...)`、`PutStreamRoutes(...)` 的“依赖收集”与“自身 payload 构造”拆开。`service.UpstreamID == ""` 的分支保持原样，不强行接入 builder，避免静默改变当前 payload。
 
 在 `publish_dependency_helpers.go` 新增：
 
@@ -1110,7 +1126,7 @@ if len(deps.PluginConfigIDs) > 0 {
 
 同时让这些函数内部 payload 构造统一走 Task 2 的 `buildPublishResourceOperation(...)`。
 
-- [ ] **Step 5: 运行任务相关测试**
+- [x] **Step 5: 运行任务相关测试**
 
 Run:
 
@@ -1121,7 +1137,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_dependency_helpers.go src/apiserver/pkg/biz/publish_dependency_helpers_test.go src/apiserver/pkg/biz/publish_payload_helpers.go src/apiserver/pkg/biz/publish_payload_helpers_test.go
@@ -1130,7 +1146,7 @@ git commit -m "refactor: split publish dependency helpers"
 
 ### Task 4: 抽 publish persist helper
 
-- [ ] Task 4: 抽 publish persist helper
+- [x] Task 4: 抽 publish persist helper
 
 **要解决的复杂度：** 每个 `putXxx()` 结尾都在重复 `batchCreateEtcdResource(...)` + `BatchUpdateResourceStatus(...)` + 中文错误包装。重复多，`putXxx()` 长度被进一步拉大，而且将来改发布成功后的统一动作时必须逐个资源修改。
 
@@ -1142,7 +1158,7 @@ git commit -m "refactor: split publish dependency helpers"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
-- [ ] **Step 1: 先补现有 persist seam 的 characterization tests**
+- [x] **Step 1: 先补现有 persist seam 的 characterization tests**
 
 在 `publish_test.go` 增加一个成功路径 characterization test，继续锁定“写 etcd + 更新状态”这个现有出口：
 
@@ -1176,7 +1192,7 @@ func TestPublishPersist_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam test，确认当前持久化出口已经被锁住**
+- [x] **Step 2: 运行 seam test，确认当前持久化出口已经被锁住**
 
 Run:
 
@@ -1187,7 +1203,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 persist helper test，让它先失败**
+- [x] **Step 3: 再补 persist helper test，让它先失败**
 
 在 `publish_persist_helpers_test.go` 增加：
 
@@ -1251,7 +1267,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: persistPublishedOperations`
 
-- [ ] **Step 4: 用最小实现抽出 persist helper，并迁移所有 put 路径**
+- [x] **Step 4: 用最小实现抽出 persist helper，并迁移所有 put 路径**
+
+**执行备注（按代码真实情况）：** 这一步最后仍然值得做。当前 `putXxx()/PutXxx()` 成功出口仍重复同一段“写 etcd + 更新成功状态 + 中文错误包装”，抽成 `persistPublishedOperations(...)` 后没有改 payload，也没有改依赖发布顺序，只收口成功持久化尾部。
 
 在 `publish_persist_helpers.go` 新增：
 
@@ -1303,7 +1321,7 @@ if err = BatchUpdateResourceStatus(...); err != nil {
 return persistPublishedOperations(ctx, constant.PluginConfig, pluginConfigIDs, pluginConfigOps, "插件组发布错误")
 ```
 
-- [ ] **Step 5: 运行任务相关测试**
+- [x] **Step 5: 运行任务相关测试**
 
 Run:
 
@@ -1314,7 +1332,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_persist_helpers.go src/apiserver/pkg/biz/publish_persist_helpers_test.go
@@ -1323,7 +1341,7 @@ git commit -m "refactor: extract publish persist helper"
 
 ### Task 5: 抽 `EtcdPublisher` 最终校验 helper
 
-- [ ] Task 5: 抽 `EtcdPublisher` 最终校验 helper
+- [x] Task 5: 抽 `EtcdPublisher` 最终校验 helper
 
 **要解决的复杂度：** `EtcdPublisher.Validate()` 现在把“版本解析”“custom plugin schema 获取”“构造 `ETCD` validator”“执行最终校验”都压在一个方法里，而 `Create/Update/BatchCreate/BatchUpdate` 又各自直接循环调用它。当前测试主要 patch 掉 `Validate()`，没有真正锁住最终发布校验的组装契约。
 
@@ -1333,7 +1351,9 @@ git commit -m "refactor: extract publish persist helper"
 - Modify: `src/apiserver/pkg/publisher/etcd.go`
 - Modify: `src/apiserver/pkg/publisher/etcd_test.go`
 
-- [ ] **Step 1: 先补现有 `EtcdPublisher` seam 的 characterization tests**
+- [x] **Step 1: 先补现有 `EtcdPublisher` seam 的 characterization tests**
+
+**执行备注（按代码真实情况）：** 这组 seam tests 已在 Task 0 落地，当前直接复用 `Validate` 与 `BatchCreate/BatchUpdate` 的现有 characterization coverage，而不是重复新增一套同义黑盒测试。
 
 在 `etcd_test.go` 增加一个直接锁 `Validate()` 组装行为的 `Describe`：
 
@@ -1395,7 +1415,7 @@ func (s validatorStub) Validate(_ json.RawMessage) error {
 }
 ```
 
-- [ ] **Step 2: 运行 seam test，确认当前最终校验契约被锁住**
+- [x] **Step 2: 运行 seam test，确认当前最终校验契约被锁住**
 
 Run:
 
@@ -1406,7 +1426,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 helper-level tests，让它先失败**
+- [x] **Step 3: 再补 helper-level tests，让它先失败**
 
 继续在 `etcd_test.go` 增加：
 
@@ -1447,7 +1467,9 @@ Describe("validatePublishOperations", func() {
 Expected:
 - FAIL，报 `p.validatePublishOperations undefined`
 
-- [ ] **Step 4: 用最小实现抽出最终校验 helper，并接回 `Create/Update/BatchCreate/BatchUpdate`**
+- [x] **Step 4: 用最小实现抽出最终校验 helper，并接回 `Create/Update/BatchCreate/BatchUpdate`**
+
+**执行备注（按代码真实情况）：** 新增了 `buildETCDValidator(...)` 与 `validatePublishOperations(...)` 两个本地 helper。`Validate(...)` 现在只负责“build validator + validate”，`BatchCreate(...)` / `BatchUpdate(...)` 改为先统一校验，再组装 `resourcesMap`。失败时对外 side effect 仍然为零。
 
 **短路语义变化注释（review）：** `BatchCreate/BatchUpdate` 原行为是“逐条校验+组装 resourcesMap，某条校验失败时前面的 resourcesMap 已部分组装完成（但没写入 etcd）”；抽出 helper 后变为“先全部校验，校验失败直接 return，resourcesMap 根本不会开始组装”。**对外部 side effect 是零差异**（两种情况下失败时都未写入 etcd），但在 Step 4 的改动注释 / commit message 里要标注这一 short-circuit 顺序变化。
 
@@ -1483,7 +1505,7 @@ func (s *EtcdPublisher) validatePublishOperations(resources []ResourceOperation)
 
 这样 `Create(...)` / `Update(...)` 仍保留原来的单资源出口，但 batch 路径不再内联一份重复循环。
 
-- [ ] **Step 5: 运行 publisher 任务相关测试**
+- [x] **Step 5: 运行 publisher 任务相关测试**
 
 Run:
 
@@ -1494,7 +1516,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/publisher/etcd.go src/apiserver/pkg/publisher/etcd_test.go

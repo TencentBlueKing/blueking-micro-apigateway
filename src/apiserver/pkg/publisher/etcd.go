@@ -76,17 +76,30 @@ func (s *EtcdPublisher) List(ctx context.Context, prefix string) (any, error) {
 	return s.etcdStore.List(ctx, prefix)
 }
 
-// Validate 验证
-func (s *EtcdPublisher) Validate(resourceType constant.APISIXResource, config json.RawMessage) (err error) {
+func (s *EtcdPublisher) buildETCDValidator(resourceType constant.APISIXResource) (schema.Validator, error) {
 	apisixVersion, _ := version.ToXVersion(s.gatewayInfo.APISIXVersion)
 	customizePluginSchemaMap := GetCustomizePluginSchemaMap(s.ctx, s.gatewayInfo.ID)
-	validator, err := schema.NewAPISIXJsonSchemaValidator(
+	return schema.NewAPISIXJsonSchemaValidator(
 		apisixVersion,
 		resourceType,
 		"main."+string(resourceType),
 		customizePluginSchemaMap,
 		constant.ETCD,
 	)
+}
+
+func (s *EtcdPublisher) validatePublishOperations(resources []ResourceOperation) error {
+	for _, resource := range resources {
+		if err := s.Validate(resource.Type, resource.Config); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate 验证
+func (s *EtcdPublisher) Validate(resourceType constant.APISIXResource, config json.RawMessage) (err error) {
+	validator, err := s.buildETCDValidator(resourceType)
 	if err != nil {
 		return err
 	}
@@ -128,11 +141,11 @@ func (s *EtcdPublisher) Update(ctx context.Context, resource ResourceOperation, 
 
 // BatchCreate 批量创建
 func (s *EtcdPublisher) BatchCreate(ctx context.Context, resources []ResourceOperation) error {
+	if err := s.validatePublishOperations(resources); err != nil {
+		return err
+	}
 	resourcesMap := make(map[string]string)
 	for _, resource := range resources {
-		if err := s.Validate(resource.Type, resource.Config); err != nil {
-			return err
-		}
 		resourcesMap[resource.GetKey()] = string(resource.Config)
 	}
 	if err := s.etcdStore.BatchCreate(ctx, resourcesMap); err != nil {
@@ -143,11 +156,11 @@ func (s *EtcdPublisher) BatchCreate(ctx context.Context, resources []ResourceOpe
 
 // BatchUpdate 批量更新
 func (s *EtcdPublisher) BatchUpdate(ctx context.Context, resources []ResourceOperation) error {
+	if err := s.validatePublishOperations(resources); err != nil {
+		return err
+	}
 	resourcesMap := make(map[string]string)
 	for _, resource := range resources {
-		if err := s.Validate(resource.Type, resource.Config); err != nil {
-			return err
-		}
 		resourcesMap[resource.GetKey()] = string(resource.Config)
 	}
 	if err := s.etcdStore.BatchCreate(ctx, resourcesMap); err != nil {

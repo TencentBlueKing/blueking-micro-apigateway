@@ -689,24 +689,9 @@ func (s *UnifyOp) kvToResource(
 	ctx context.Context,
 	kvList []storage.KeyValuePair,
 ) []*model.GatewaySyncData {
-	var resources []*model.GatewaySyncData
-	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
-	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
-	for _, kv := range kvList {
-		resourceInfo, ok := buildSyncedResourceFromKV(normalizedPrefix, s.gatewayInfo.ID, kv)
-		if !ok {
-			logging.Errorf("key is not validate: %s", kv.Key)
-			continue
-		}
-		resources = append(resources, resourceInfo)
-	}
-	if err := reconcilePluginMetadataSyncIDs(ctx, resources); err != nil {
-		logging.Errorf("reconcile plugin metadata sync ids error: %s", err.Error())
-		return nil
-	}
-
-	if err := backfillStoredSnapshotFields(ctx, resources); err != nil {
-		logging.Errorf("backfill stored snapshot fields error: %s", err.Error())
+	resources, err := buildSyncSnapshotResources(ctx, s.gatewayInfo, kvList)
+	if err != nil {
+		logging.Errorf("build sync snapshot resources error: %s", err.Error())
 		return nil
 	}
 	return resources

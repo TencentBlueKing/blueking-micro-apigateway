@@ -199,3 +199,42 @@ func TestReconcilePluginMetadataSyncIDs_AlreadyDBID(t *testing.T) {
 	assert.Equal(t, existing.ID, resources[0].ID)
 	assert.Equal(t, existing.Name, resources[0].GetName())
 }
+
+func TestBuildSyncSnapshotResources(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	pluginConfig := data.PluginConfig1WithNoRelation(gatewayInfo, constant.ResourceStatusSuccess)
+	pluginConfig.Name = "pc-from-db-" + suffix
+	assert.NoError(t, CreatePluginConfig(ctx, *pluginConfig))
+
+	existingMetadata := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusSuccess)
+	existingMetadata.Name = "limit-count-" + suffix
+	existingMetadata.ID = idx.GenResourceID(constant.PluginMetadata)
+	assert.NoError(t, CreatePluginMetadata(ctx, *existingMetadata))
+
+	kvList := []storage.KeyValuePair{
+		{
+			Key:         gatewayInfo.GetEtcdPrefixForList() + "routes/route-id",
+			Value:       `{"uri":"/demo","create_time":1,"update_time":2}`,
+			ModRevision: 1,
+		},
+		{
+			Key:         gatewayInfo.GetEtcdPrefixForList() + "plugin_configs/" + pluginConfig.ID,
+			Value:       `{"plugins":{}}`,
+			ModRevision: 2,
+		},
+		{
+			Key:         gatewayInfo.GetEtcdPrefixForList() + "plugin_metadata/" + existingMetadata.Name,
+			Value:       `{"value":{"disable":false}}`,
+			ModRevision: 3,
+		},
+	}
+
+	resources, err := buildSyncSnapshotResources(ctx, gatewayInfo, kvList)
+	assert.NoError(t, err)
+	assert.Len(t, resources, 3)
+	assert.Equal(t, "routes_route-id", gjson.GetBytes(resources[0].Config, "name").String())
+	assert.Equal(t, pluginConfig.Name, gjson.GetBytes(resources[1].Config, "name").String())
+	assert.Equal(t, existingMetadata.ID, resources[2].ID)
+}

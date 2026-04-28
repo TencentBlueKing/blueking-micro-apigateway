@@ -28,6 +28,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
@@ -242,4 +243,40 @@ func reconcilePluginMetadataSyncIDs(ctx context.Context, resources []*model.Gate
 		resource.ID = idx.GenResourceID(constant.PluginMetadata)
 	}
 	return nil
+}
+
+// buildSyncSnapshotResources is the sync-data read-side orchestration:
+//  1. normalize each etcd KV (buildSyncedResourceFromKV)
+//  2. reconcile plugin_metadata IDs to DB IDs (reconcilePluginMetadataSyncIDs)
+//  3. backfill DB-authoritative snapshot fields (backfillStoredSnapshotFields)
+//
+// Ordering note: plugin_metadata reconciliation runs before DB field backfill
+// to preserve the original kvToResource behavior.
+//
+// Invalid KV keys are logged (not silently dropped) to preserve the existing
+// observability contract.
+func buildSyncSnapshotResources(
+	ctx context.Context,
+	gatewayInfo *model.Gateway,
+	kvList []storage.KeyValuePair,
+) ([]*model.GatewaySyncData, error) {
+	normalizedPrefix := model.NormalizeEtcdPrefix(gatewayInfo.EtcdConfig.Prefix)
+	resources := make([]*model.GatewaySyncData, 0, len(kvList))
+
+	for _, kv := range kvList {
+		resource, ok := buildSyncedResourceFromKV(normalizedPrefix, gatewayInfo.ID, kv)
+		if !ok {
+			logging.Errorf("key is not validate: %s", kv.Key)
+			continue
+		}
+		resources = append(resources, resource)
+	}
+
+	if err := reconcilePluginMetadataSyncIDs(ctx, resources); err != nil {
+		return nil, err
+	}
+	if err := backfillStoredSnapshotFields(ctx, resources); err != nil {
+		return nil, err
+	}
+	return resources, nil
 }

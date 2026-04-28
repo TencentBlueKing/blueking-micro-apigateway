@@ -21,17 +21,23 @@ package biz
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
 
 // TestSyncWithPrefix_UpsertLogic tests the UPSERT logic in SyncWithPrefix
@@ -433,6 +439,160 @@ func TestSyncWithPrefix_BatchProcessing(t *testing.T) {
 		Find()
 	assert.NoError(t, err)
 	assert.Equal(t, resourceCount, len(allResources))
+}
+
+func TestSyncWithPrefix_SnapshotConfigShaping_CurrentSeam(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	u := repo.GatewaySyncData
+	_, err := repo.Q.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(gatewayInfo.ID)).Delete()
+	assert.NoError(t, err)
+
+	routeID := idx.GenResourceID(constant.Route)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	existingMetadata := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusSuccess)
+	existingMetadata.Name = "limit-count-" + suffix
+	assert.NoError(t, CreatePluginMetadata(ctx, *existingMetadata))
+
+	existingGroup := data.ConsumerGroup1WithNoRelation(gatewayInfo, constant.ResourceStatusSuccess)
+	existingGroup.Name = "cg-from-db-" + suffix
+	assert.NoError(t, CreateConsumerGroup(ctx, *existingGroup))
+
+	existingStreamRoute := data.StreamRoute1WithNoRelationResource(
+		gatewayInfo, constant.ResourceStatusSuccess,
+	)
+	existingStreamRoute.Name = "sr-from-db-" + suffix
+	existingStreamRoute.Config, _ = sjson.SetBytes(
+		existingStreamRoute.Config, "labels", map[string]string{"env": "test"},
+	)
+	assert.NoError(t, CreateStreamRoute(ctx, *existingStreamRoute))
+
+	prefix := gatewayInfo.GetEtcdPrefixForList()
+	syncer := &UnifyOp{
+		etcdStore: &mockEtcdStore{
+			data: map[string]string{
+				prefix + "routes/" + routeID:                        `{"uri":"/from-etcd","create_time":111,"update_time":222}`,
+				prefix + "plugin_metadata/" + existingMetadata.Name: `{"value":{"disable":false}}`,
+				prefix + "consumer_groups/" + existingGroup.ID:      `{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+				prefix + "stream_routes/" + existingStreamRoute.ID:  `{"server_addr":"127.0.0.1","server_port":8080}`,
+			},
+		},
+		gatewayInfo: gatewayInfo,
+		isLeader:    true,
+	}
+
+	_, err = syncer.SyncWithPrefix(ctx, prefix)
+	assert.NoError(t, err)
+
+	routeSnapshot, err := GetSyncedItemByResourceTypeAndID(ctx, constant.Route, routeID)
+	assert.NoError(t, err)
+	assert.Equal(t, "routes_"+routeID, gjson.GetBytes(routeSnapshot.Config, "name").String())
+	assert.False(t, gjson.GetBytes(routeSnapshot.Config, "create_time").Exists())
+	assert.False(t, gjson.GetBytes(routeSnapshot.Config, "update_time").Exists())
+
+	metadataSnapshot, err := GetSyncedItemByResourceTypeAndID(
+		ctx, constant.PluginMetadata, existingMetadata.ID,
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, existingMetadata.Name, metadataSnapshot.GetName())
+
+	groupSnapshot, err := GetSyncedItemByResourceTypeAndID(ctx, constant.ConsumerGroup, existingGroup.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, existingGroup.ID, gjson.GetBytes(groupSnapshot.Config, "id").String())
+	assert.Equal(t, existingGroup.Name, gjson.GetBytes(groupSnapshot.Config, "name").String())
+
+	streamRouteSnapshot, err := GetSyncedItemByResourceTypeAndID(
+		ctx, constant.StreamRoute, existingStreamRoute.ID,
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, existingStreamRoute.Name, gjson.GetBytes(streamRouteSnapshot.Config, "name").String())
+	assert.Equal(t, "test", gjson.GetBytes(streamRouteSnapshot.Config, "labels.env").String())
+}
+
+func TestSyncWithPrefix_ReturnsOnlyNewSnapshotCounts(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	prefix := gatewayInfo.GetEtcdPrefixForList()
+	u := repo.GatewaySyncData
+	_, err := repo.Q.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(gatewayInfo.ID)).Delete()
+	assert.NoError(t, err)
+
+	existingID := idx.GenResourceID(constant.Route)
+	newID := idx.GenResourceID(constant.Route)
+
+	assert.NoError(t, repo.Q.GatewaySyncData.WithContext(ctx).Create(&model.GatewaySyncData{
+		ID:          existingID,
+		GatewayID:   gatewayInfo.ID,
+		Type:        constant.Route,
+		Config:      datatypes.JSON(`{"id":"` + existingID + `","name":"existing-route","uri":"/existing"}`),
+		ModRevision: 1,
+	}))
+
+	syncer := &UnifyOp{
+		etcdStore: &mockEtcdStore{
+			data: map[string]string{
+				prefix + "routes/" + existingID: `{"name":"existing-route-updated","uri":"/updated"}`,
+				prefix + "routes/" + newID:      `{"name":"new-route","uri":"/new"}`,
+			},
+		},
+		gatewayInfo: gatewayInfo,
+		isLeader:    true,
+	}
+
+	counts, err := syncer.SyncWithPrefix(ctx, prefix)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, counts[constant.Route])
+}
+
+func TestSyncWithPrefix_ReturnsErrorOnHelperLookupFailure(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	prefix := gatewayInfo.GetEtcdPrefixForList()
+	u := repo.GatewaySyncData
+	_, err := repo.Q.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(gatewayInfo.ID)).Delete()
+	assert.NoError(t, err)
+
+	existingID := idx.GenResourceID(constant.Route)
+	assert.NoError(t, repo.Q.GatewaySyncData.WithContext(ctx).Create(&model.GatewaySyncData{
+		ID:          existingID,
+		GatewayID:   gatewayInfo.ID,
+		Type:        constant.Route,
+		Config:      datatypes.JSON(`{"id":"` + existingID + `","name":"existing-route","uri":"/existing"}`),
+		ModRevision: 1,
+	}))
+
+	db := database.Client()
+	assert.NoError(t, db.Migrator().DropTable(&model.PluginMetadata{}))
+	t.Cleanup(func() {
+		restoreErr := db.Exec(
+			"CREATE TABLE `plugin_metadata` (`name` varchar(255),`creator` varchar(32),`updater` varchar(32),`created_at` datetime,`updated_at` datetime,`auto_id` integer PRIMARY KEY AUTOINCREMENT,`id` varchar(255),`gateway_id` integer,`config` JSON,`status` varchar(32))",
+		).Error
+		if restoreErr != nil {
+			t.Fatalf("restore plugin_metadata table: %v", restoreErr)
+		}
+	})
+
+	syncer := &UnifyOp{
+		etcdStore: &mockEtcdStore{
+			data: map[string]string{
+				prefix + "plugin_metadata/failing-plugin": `{"value":{"disable":false}}`,
+			},
+		},
+		gatewayInfo: gatewayInfo,
+		isLeader:    true,
+	}
+
+	_, err = syncer.SyncWithPrefix(ctx, prefix)
+	assert.Error(t, err)
+
+	storedSnapshot, err := GetSyncedItemByResourceTypeAndID(ctx, constant.Route, existingID)
+	assert.NoError(t, err)
+	assert.Equal(t, existingID, storedSnapshot.ID)
+	assert.Equal(t, 1, storedSnapshot.ModRevision)
+
+	allSnapshots, err := repo.Q.GatewaySyncData.WithContext(ctx).
+		Where(u.GatewayID.Eq(gatewayInfo.ID)).
+		Find()
+	assert.NoError(t, err)
+	assert.Len(t, allSnapshots, 1)
 }
 
 // mockEtcdStore is a mock implementation of storage.StorageInterface for testing

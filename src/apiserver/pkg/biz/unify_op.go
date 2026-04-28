@@ -23,11 +23,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -509,12 +507,9 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	if err != nil {
 		return nil, err
 	}
-	resourceList := s.kvToResource(ctx, kvList)
-
-	// 获取 etcd 资源
-	etcdResourceMap := make(map[string]*model.GatewaySyncData)
-	for _, resource := range resourceList {
-		etcdResourceMap[resource.GetResourceKey()] = resource
+	resourceList, err := s.kvToResource(ctx, kvList)
+	if err != nil {
+		return nil, err
 	}
 
 	// 获取已同步资源
@@ -526,40 +521,12 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	for _, item := range syncedItems {
 		databaseResourceMap[item.GetResourceKey()] = item
 	}
-
-	// step1: 获取需要删除的资源
-	var resourcesToDelete []int // auto_id list
-	for key, dbResource := range databaseResourceMap {
-		// If resource exists in DB but not in etcd, mark for deletion
-		if _, existsInEtcd := etcdResourceMap[key]; !existsInEtcd {
-			resourcesToDelete = append(resourcesToDelete, dbResource.AutoID)
-		}
-	}
-
-	// step2: 获取需要创建/更新的资源
-	var resourcesToCreate []*model.GatewaySyncData
-	var resourcesToUpdate []*model.GatewaySyncData
-	for key, etcdResource := range etcdResourceMap {
-		if dbResource, exists := databaseResourceMap[key]; exists {
-			// Only update if the resource has actually changed in etcd
-			// ModRevision comparison is sufficient - etcd guarantees that if ModRevision
-			// hasn't changed, the value hasn't changed
-			if dbResource.ModRevision != etcdResource.ModRevision {
-				dbResource.Config = etcdResource.Config
-				dbResource.ModRevision = etcdResource.ModRevision
-				resourcesToUpdate = append(resourcesToUpdate, dbResource)
-			}
-			// else: skip update, resource hasn't changed in etcd
-		} else {
-			// Create new record
-			resourcesToCreate = append(resourcesToCreate, etcdResource)
-		}
-	}
+	changeSet := buildSyncChangeSet(resourceList, syncedItems)
 
 	u := repo.GatewaySyncData
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		// Execute updates in batches using ON CONFLICT (upsert)
-		if len(resourcesToUpdate) > 0 {
+		if len(changeSet.ToUpdate) > 0 {
 			err = tx.GatewaySyncData.WithContext(ctx).
 				Clauses(clause.OnConflict{
 					Columns: []clause.Column{{Name: "auto_id"}},
@@ -567,25 +534,25 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 						[]string{"config", "mod_revision", "updated_at"},
 					),
 				}).
-				CreateInBatches(resourcesToUpdate, 500)
+				CreateInBatches(changeSet.ToUpdate, 500)
 			if err != nil {
 				return err
 			}
 		}
 
 		// Execute creates in batches
-		if len(resourcesToCreate) > 0 {
-			err = tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourcesToCreate, 500)
+		if len(changeSet.ToCreate) > 0 {
+			err = tx.GatewaySyncData.WithContext(ctx).CreateInBatches(changeSet.ToCreate, 500)
 			if err != nil {
 				return err
 			}
 		}
 
 		// Execute deletes in batches
-		if len(resourcesToDelete) > 0 {
-			for i := 0; i < len(resourcesToDelete); i += 500 {
-				end := min(i+500, len(resourcesToDelete))
-				batch := resourcesToDelete[i:end]
+		if len(changeSet.ToDeleteAutoIDs) > 0 {
+			for i := 0; i < len(changeSet.ToDeleteAutoIDs); i += 500 {
+				end := min(i+500, len(changeSet.ToDeleteAutoIDs))
+				batch := changeSet.ToDeleteAutoIDs[i:end]
 				_, err = tx.GatewaySyncData.WithContext(ctx).
 					Where(u.AutoID.In(batch...)).
 					Delete()
@@ -672,7 +639,10 @@ func (s *UnifyOp) RevertConfigByIDList(
 	if err != nil {
 		return err
 	}
-	etcdResourceList := s.kvToResource(ctx, kvList)
+	etcdResourceList, err := s.kvToResource(ctx, kvList)
+	if err != nil {
+		return err
+	}
 	var needRevertResourceList []*model.GatewaySyncData
 	for _, etcdResource := range etcdResourceList {
 		// 过滤掉不需要回滚的资源
@@ -690,196 +660,13 @@ func (s *UnifyOp) RevertConfigByIDList(
 func (s *UnifyOp) kvToResource(
 	ctx context.Context,
 	kvList []storage.KeyValuePair,
-) []*model.GatewaySyncData {
-	var resources []*model.GatewaySyncData
-	var metadataNames []string
-	metadataNameMap := make(map[string]*model.GatewaySyncData)
-	globalRuleIdMap := make(map[string]*model.GatewaySyncData)
-	pluginConfigIdMap := make(map[string]*model.GatewaySyncData)
-	consumerGroupIdMap := make(map[string]*model.GatewaySyncData)
-	protoIdMap := make(map[string]*model.GatewaySyncData)
-	streamRouteIdMap := make(map[string]*model.GatewaySyncData)
-	var globalRuleIDs []string
-	var pluginConfigIDs []string
-	var consumerGroupIDs []string
-	var protoIDs []string
-	var streamRouteIDs []string
-	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
-	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
-	for _, kv := range kvList {
-		resourceKeyWithoutPrefix := strings.TrimPrefix(kv.Key, normalizedPrefix)
-		resourceKeyList := strings.Split(resourceKeyWithoutPrefix, "/")
-		if len(resourceKeyList) != 2 {
-			// key 不合法
-			logging.Errorf("key is not validate: %s", kv.Key)
-			continue
-		}
-		resourceTypeValue := resourceKeyList[0]
-		id := resourceKeyList[1]
-		resourceType := constant.ResourcePrefixTypeMap[resourceTypeValue]
-		if resourceType == "" {
-			logging.Errorf("key is not validate without resource type: %s", kv.Key)
-			continue
-		}
-		resourceInfo := &model.GatewaySyncData{
-			ID:          id,
-			GatewayID:   s.gatewayInfo.ID,
-			Type:        resourceType,
-			Config:      datatypes.JSON(kv.Value),
-			ModRevision: int(kv.ModRevision),
-		}
-		// config 中去除 update_time/create_time，避免影响资源的 diff
-		resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "update_time")
-		resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "create_time")
-		if resourceType != constant.PluginMetadata && resourceInfo.GetName() == "" {
-			resourceInfo.SetName(fmt.Sprintf("%s_%s", resourceTypeValue, id))
-		} else if resourceType == constant.PluginMetadata {
-			// 插件元数据的名称就是取 id
-			resourceInfo.SetName(id)
-		}
-		resources = append(resources, resourceInfo)
-		if resourceType == constant.PluginMetadata {
-			metadataNames = append(metadataNames, id)
-			metadataNameMap[id] = resourceInfo
-		}
-		// global rule name 需要特殊处理
-		if resourceType == constant.GlobalRule {
-			globalRuleIdMap[id] = resourceInfo
-			globalRuleIDs = append(globalRuleIDs, id)
-		}
-		// PluginConfig name 需要特殊处理
-		if resourceType == constant.PluginConfig {
-			pluginConfigIdMap[id] = resourceInfo
-			pluginConfigIDs = append(pluginConfigIDs, id)
-		}
-		// Consumer id，name 需要特殊处理
-		if resourceType == constant.ConsumerGroup {
-			consumerGroupIdMap[id] = resourceInfo
-			consumerGroupIDs = append(consumerGroupIDs, id)
-		}
-		// Proto name 需要特殊处理
-		if resourceType == constant.Proto {
-			protoIdMap[id] = resourceInfo
-			protoIDs = append(protoIDs, id)
-		}
-		// StreamRoute name，labels 需要特殊处理
-		if resourceType == constant.StreamRoute {
-			streamRouteIdMap[id] = resourceInfo
-			streamRouteIDs = append(streamRouteIDs, id)
-		}
+) ([]*model.GatewaySyncData, error) {
+	resources, err := buildSyncSnapshotResources(ctx, s.gatewayInfo, kvList)
+	if err != nil {
+		logging.Errorf("build sync snapshot resources error: %s", err.Error())
+		return nil, err
 	}
-	if len(metadataNames) > 0 {
-		// 反向查找 ID
-		metadatas, err := QueryPluginMetadatas(
-			ctx,
-			map[string]any{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
-		)
-		if err != nil {
-			logging.Errorf("SearchPluginMetadata error: %s", err.Error())
-			return nil
-		}
-		idNameMap := make(map[string]string)
-		for _, metadata := range metadatas {
-			idNameMap[metadata.Name] = metadata.ID
-		}
-		for _, metadata := range metadataNameMap {
-			if _, ok := idNameMap[metadata.ID]; ok {
-				metadata.ID = idNameMap[metadata.ID]
-			} else {
-				metadata.ID = idx.GenResourceID(constant.PluginMetadata)
-			}
-		}
-	}
-
-	// 处理 global rule name
-	if len(globalRuleIDs) > 0 {
-		globalRules, err := QueryGlobalRules(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         globalRuleIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchGlobalRule error: %s", err.Error())
-			return nil
-		}
-		for _, globalRule := range globalRules {
-			if g, ok := globalRuleIdMap[globalRule.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", globalRule.Name)
-			}
-		}
-	}
-
-	// 处理 PluginConfig name
-	if len(pluginConfigIDs) > 0 {
-		pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         pluginConfigIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchPluginConfig error: %s", err.Error())
-			return nil
-		}
-		for _, pluginConfig := range pluginConfigs {
-			if g, ok := pluginConfigIdMap[pluginConfig.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", pluginConfig.Name)
-			}
-		}
-	}
-
-	// 处理 ConsumerGroup id，name
-	if len(consumerGroupIDs) > 0 {
-		consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         consumerGroupIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchConsumerGroup error: %s", err.Error())
-			return nil
-		}
-		for _, consumerGroup := range consumerGroups {
-			if g, ok := consumerGroupIdMap[consumerGroup.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "id", consumerGroup.ID)
-				g.Config, _ = sjson.SetBytes(g.Config, "name", consumerGroup.Name)
-			}
-		}
-	}
-
-	// 处理 Proto name
-	if len(protoIDs) > 0 {
-		protos, err := QueryProtos(ctx, map[string]any{
-			"gateway_id": s.gatewayInfo.ID,
-			"id":         protoIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchProto error: %s", err.Error())
-			return nil
-		}
-		for _, proto := range protos {
-			if g, ok := protoIdMap[proto.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", proto.Name)
-			}
-		}
-	}
-
-	// 处理 StreamRoute name，labels
-	if len(streamRouteIDs) > 0 {
-		streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{
-			"id": streamRouteIDs,
-		})
-		if err != nil {
-			logging.Errorf("SearchStreamRoute error: %s", err.Error())
-			return nil
-		}
-		for _, streamRoute := range streamRoutes {
-			if g, ok := streamRouteIdMap[streamRoute.ID]; ok {
-				g.Config, _ = sjson.SetBytes(g.Config, "name", streamRoute.Name)
-				labels := streamRoute.GetLabels()
-				if labels != nil {
-					g.Config, _ = sjson.SetBytes(g.Config, "labels", labels)
-				}
-			}
-		}
-	}
-	return resources
+	return resources, nil
 }
 
 // SyncedResourceToAPISIXResource 将同步的资源转换为 apisix 的资源
@@ -1302,5 +1089,5 @@ func (s *UnifyOp) ExportEtcdResources(ctx context.Context) ([]*model.GatewaySync
 		return nil, err
 	}
 	logging.Infof("export [gateway:%s] end ", s.gatewayInfo.Name)
-	return s.kvToResource(ctx, kvList), nil
+	return s.kvToResource(ctx, kvList)
 }

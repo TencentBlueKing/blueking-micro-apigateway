@@ -298,6 +298,13 @@ All resource models implement a `HandleConfig()` method called by GORM hooks (Be
 
 **Purpose**: Sync database column values into the config JSON for internal use and APISIX compatibility.
 
+**Persistence Contract**:
+
+- `HandleConfig()` is the save-time materialization boundary for all 11 APISIX resource models.
+- Before a row is inserted or updated, `HandleConfig()` must write the model-owned identity fields and association fields back into `config`.
+- Therefore, the `config` stored in the database is expected to be a complete persisted config, not a raw request payload and not a publish-time temporary shape.
+- Refactors, cleanups, publish/sync optimizations, and similar changes must not move, weaken, or bypass this contract. If behavior changes are needed, treat them as explicit contract changes and prove them with targeted `HandleConfig()` tests first.
+
 **Example** (`pkg/entity/model/route.go`):
 
 ```go

@@ -133,7 +133,7 @@ git commit -m "test: lock import upload characterization seams"
 
 ### Task 1: 抽出 import 本地 `ignore_fields` overlay helper
 
-- [ ] Task 1: 抽出 import 本地 `ignore_fields` overlay helper
+- [x] Task 1: 抽出 import 本地 `ignore_fields` overlay helper
 
 **要解决的复杂度：** overlay 逻辑现在埋在 `handleResources(...)` 的双层循环里，后面想看“导入为什么被旧字段覆盖了”必须先通读整个 import 主流程。
 
@@ -144,7 +144,7 @@ git commit -m "test: lock import upload characterization seams"
 - Create: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:281-297`
 
-- [ ] **Step 1: 先补 overlay 当前行为的失败测试**
+- [x] **Step 1: 先补 overlay 当前行为的失败测试**
 
 在 `import_resource_helpers_test.go` 里新增：
 
@@ -204,7 +204,7 @@ func TestApplyImportIgnoreFields(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -215,7 +215,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: applyImportIgnoreFields`
 
-- [ ] **Step 3: 实现 overlay helper，并替换 `handleResources(...)` 内联逻辑**
+- [x] **Step 3: 实现 overlay helper，并替换 `handleResources(...)` 内联逻辑**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -256,7 +256,7 @@ if len(ignoreFields[resourceType]) > 0 && ok {
 }
 ```
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -267,7 +267,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go

@@ -25,7 +25,6 @@ import (
 	"fmt"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -281,18 +280,13 @@ func handleResources(
 			// 如果已经存在，则需要判断是否有跳过规则
 			oldResource, ok := allResourceMap[imp.GetResourceKey()]
 			if len(ignoreFields[resourceType]) > 0 && ok {
-				for _, skipRule := range ignoreFields[resourceType] {
-					result := gjson.GetBytes(oldResource.Config, skipRule)
-					if result.Exists() {
-						imp.Config, err = sjson.SetBytes(
-							imp.Config,
-							skipRule,
-							json.RawMessage(result.Raw),
-						)
-						if err != nil {
-							return nil, fmt.Errorf("set config failed, err: %w", err)
-						}
-					}
+				imp.Config, err = applyImportIgnoreFields(
+					imp.Config,
+					oldResource.Config,
+					ignoreFields[resourceType],
+				)
+				if err != nil {
+					return nil, fmt.Errorf("set config failed, err: %w", err)
 				}
 			}
 			allResourceIdMap[imp.GetResourceKey()] = struct{}{}

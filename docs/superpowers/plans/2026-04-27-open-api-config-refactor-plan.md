@@ -398,7 +398,7 @@ git commit -m "refactor: extract open update draft builder"
 
 > **按 review 要求拆为 3a / 3b 两个 PR：**
 > - [x] **Task 3a（correctness fix，failing-then-green）：** 将 `OpenAPIResourceCheck()` 中 `constant.ResourceRequiresIDInSchema(resourceType)` 替换为 `constant.ResourceRequiresIDInSchemaForVersion(resourceType, version)`（后者已在 `constant/resource_schema.go` 中存在，不需新增）；make Task 0 中“ConsumerGroup on 3.2.15 不应包含 id”的 failing test 转绿；不引入新 helper。
-> - [ ] **Task 3b（纯 refactor）：** 再抽 `prepareOpenValidationPayload(...)` helper。
+> - [x] **Task 3b（纯 refactor）：** 再抽 `prepareOpenValidationPayload(...)` helper。
 
 ### Task 3: 抽出 Open middleware 的 validation payload helper
 

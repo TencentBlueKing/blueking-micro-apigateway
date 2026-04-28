@@ -48,6 +48,19 @@ var noneValidateSchemaHandlerMap = map[string]bool{
 	"handler.ResourcePublish": false,
 }
 
+func prepareOpenValidationPayload(
+	resourceType constant.APISIXResource,
+	version constant.APISIXVersion,
+	configRaw string,
+) json.RawMessage {
+	validationRaw := configRaw
+	if constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) &&
+		gjson.Get(validationRaw, "id").String() == "" {
+		validationRaw, _ = sjson.Set(validationRaw, "id", idx.GenResourceID(resourceType))
+	}
+	return biz.BuildConfigRawForValidation(validationRaw, resourceType, version)
+}
+
 // OpenAPIResourceCheck 资源操作校验
 func OpenAPIResourceCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -134,21 +147,10 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			}
 			configRaw := config.Get("config").Raw
 
-			// Inject auto-generated ID before validation for resources that need it
-			// This handles the case where schema requires 'id' but users expect auto-generation
-			if constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) {
-				id := gjson.Get(configRaw, "id").String()
-				if id == "" {
-					// Temporarily inject ID for validation - will be regenerated in handler if
-					// needed
-					configRaw, _ = sjson.Set(configRaw, "id", idx.GenResourceID(resourceType))
-				}
-			}
-
-			configRawForValidation := biz.BuildConfigRawForValidation(
-				configRaw,
+			configRawForValidation := prepareOpenValidationPayload(
 				resourceType,
 				version,
+				configRaw,
 			)
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {

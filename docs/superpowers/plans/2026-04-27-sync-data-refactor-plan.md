@@ -98,6 +98,11 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
   - consumer_group / stream_route 这类资源会通过数据库现有记录回填 `name` / `id` / `labels`
 - Task 0 完成后，Task 1-4 才允许把断言下沉到 helper；否则后续很难判断是 helper 行为变了，还是同步入口行为本来就没锁住。
 
+**Task 0 依赖明确化（review 补充）：** 下面示例代码中的 `mockEtcdStore` **当前不存在于 `unify_op_sync_test.go`**。Task 0 中 Step 1 开头必须先在 `unify_op_sync_test.go` 里新增一个最小 `mockEtcdStore`（用 `storage.Interface` 接口 + `map[string]string` 内部存储）的实现，或者改用 `gomonkey.ApplyMethod` patch 真实 `etcdStore.List`。推荐前者，patch 方案对 race 不友好。
+
+**行为不变量显式声明（review 补充）：** Task 0 要标明下面 side effect 在本次重构中 **必须原样保留**，不会因为 helper 抽移而丢失：
+- 非法 etcd key（不符合 `<prefix>/<resourceType>/<id>` 格式）触发 `logging.Errorf("key is not validate: %s", kv.Key)` 的日志行为——Task 1 helper `buildSyncedResourceFromKV` 返回 `(nil, false)` 时上层必须再行 `logging.Errorf`，不能静默 continue。
+
 ### Task 0: 补 sync snapshot characterization tests
 
 - [ ] Task 0: 补 sync snapshot characterization tests
@@ -309,9 +314,19 @@ Expected:
 
 - [ ] **Step 3: 实现 helper，并替换 `kvToResource(...)` 的内联规范化逻辑**
 
-在 `unify_op_sync_helpers.go` 里新增：
+在 `unify_op_sync_helpers.go` 里新增（**review 必改**：helper 内部结构有意与原 `if / else if` 不同，但语义等价；注释说明这一点）：
 
 ```go
+// buildSyncedResourceFromKV normalizes one etcd KV into a GatewaySyncData snapshot.
+//
+// Returns (nil, false) when the KV key cannot be parsed. Caller MUST emit
+// logging.Errorf("key is not validate: %s", kv.Key) on the false branch so that
+// the existing operational observability is preserved (see Task 0 invariants).
+//
+// The internal branch layout is slightly different from the original inline
+// code in kvToResource(...) (if-else-if -> explicit switch on resource type),
+// but behavior is equivalent: PluginMetadata always has SetName(id); other
+// types set fallback name only when GetName() == "".
 func buildSyncedResourceFromKV(
 	normalizedPrefix string,
 	gatewayID int,
@@ -364,7 +379,7 @@ if resourceType != constant.PluginMetadata && resourceInfo.GetName() == "" {
 }
 ```
 
-替换成：
+替换成（**不要丢失 logging.Errorf**）：
 
 ```go
 resourceInfo, ok := buildSyncedResourceFromKV(normalizedPrefix, s.gatewayInfo.ID, kv)
@@ -456,6 +471,8 @@ func TestBackfillStoredSnapshotFields(t *testing.T) {
 
 同文件再补一个 `global_rule` 子测试，断言它和 `plugin_config` 一样会把数据库列上的 `Name` 回填进 snapshot `config.name`。
 
+**补充测试（review 要求）：** 再补一个 “DB 没有对应记录时 helper 是 no-op” 的子测试：传入一个 `ID` 不存在于 DB 的 plugin_config snapshot，期望 helper 返回后 `resources[0].Config` 里原本的 name / 其他字段不被覆盖为空串。这一条是 negative path，防止未来改成 `sjson.SetBytes(_, "name", "")` 的错误实现。
+
 - [ ] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
@@ -469,9 +486,15 @@ Expected:
 
 - [ ] **Step 3: 实现 helper，并替换 `kvToResource(...)` 里的 5 段数据库回填逻辑**
 
-在 `unify_op_sync_helpers.go` 里新增：
+在 `unify_op_sync_helpers.go` 里新增（**review TODO**：内部 5 次 `QueryXxx` 当前串行，和原代码一致；将来可用 `errgroup` 并行化引入明显性能收益，在函数头部留 TODO 标记）：
 
 ```go
+// backfillStoredSnapshotFields fills snapshot Config fields (name/id/labels)
+// from the matching DB rows for global_rule / plugin_config / consumer_group /
+// proto / stream_route. Resource types not in this list are passed through.
+//
+// TODO(perf): these 5 QueryXxx calls are serial today (preserving the original
+// kvToResource(...) behavior). A follow-up can move them behind an errgroup.
 func backfillStoredSnapshotFields(ctx context.Context, resources []*model.GatewaySyncData) error {
 	globalRuleMap := make(map[string]*model.GatewaySyncData)
 	pluginConfigMap := make(map[string]*model.GatewaySyncData)
@@ -616,7 +639,7 @@ git commit -m "refactor: extract sync snapshot field backfill helper"
 
 - [ ] **Step 1: 先补 plugin metadata ID 对齐 helper 的失败测试**
 
-在 `unify_op_sync_helpers_test.go` 增加：
+在 `unify_op_sync_helpers_test.go` 增加（**review 补充**：额外覆盖 “ID 已经等于 DB id” 的 no-op 分支）：
 
 ```go
 func TestReconcilePluginMetadataSyncIDs(t *testing.T) {
@@ -652,6 +675,31 @@ func TestReconcilePluginMetadataSyncIDs(t *testing.T) {
 	assert.NotEqual(t, "new-plugin", resources[1].ID)
 	assert.Equal(t, "new-plugin", resources[1].GetName())
 }
+
+// review 补充：ID 已经等于 DB id 时，reconcile 是 no-op
+func TestReconcilePluginMetadataSyncIDs_AlreadyDBID(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	existing := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusSuccess)
+	existing.Name = "limit-count-" + suffix
+	existing.ID = idx.GenResourceID(constant.PluginMetadata)
+	assert.NoError(t, CreatePluginMetadata(ctx, *existing))
+
+	resources := []*model.GatewaySyncData{
+		{
+			ID:        existing.Name, // 从 etcd key 来的 id = name
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.PluginMetadata,
+			Config:    datatypes.JSON(`{"value":{"disable":false}}`),
+		},
+	}
+	resources[0].SetName(existing.Name)
+
+	assert.NoError(t, reconcilePluginMetadataSyncIDs(ctx, resources))
+	assert.Equal(t, existing.ID, resources[0].ID)
+	assert.Equal(t, existing.Name, resources[0].GetName())
+}
 ```
 
 - [ ] **Step 2: 运行测试，确认 helper 还不存在**
@@ -667,18 +715,25 @@ Expected:
 
 - [ ] **Step 3: 实现 helper，并替换 `kvToResource(...)` 里的 plugin metadata 分支**
 
-在 `unify_op_sync_helpers.go` 里新增：
+在 `unify_op_sync_helpers.go` 里新增（**review 命名提示**：当前内部变量叫 `metadataByName`，但 key 实际上是 `resource.ID`（== etcd key 里的 metadata name）；变量名建议采用 `metadataByEtcdKey` 以明成意图，注释里说明与 `resource.ID` 的关系）：
 
 ```go
+// reconcilePluginMetadataSyncIDs aligns plugin_metadata snapshot IDs with the
+// DB's authoritative ID when a row already exists. On entry, resource.ID is
+// the etcd-key-derived name (because buildSyncedResourceFromKV sets ID == id
+// and for plugin_metadata id == etcd key segment == name). We look up that
+// name in the DB; if found, we overwrite resource.ID with the DB id, otherwise
+// we synthesize a fresh id via idx.GenResourceID.
 func reconcilePluginMetadataSyncIDs(ctx context.Context, resources []*model.GatewaySyncData) error {
-	metadataByName := make(map[string]*model.GatewaySyncData)
+	metadataByEtcdKey := make(map[string]*model.GatewaySyncData)
 	var names []string
 
 	for _, resource := range resources {
 		if resource.Type != constant.PluginMetadata {
 			continue
 		}
-		metadataByName[resource.ID] = resource
+		// resource.ID here is the etcd-key-derived name
+		metadataByEtcdKey[resource.ID] = resource
 		names = append(names, resource.ID)
 	}
 	if len(names) == 0 {
@@ -698,7 +753,7 @@ func reconcilePluginMetadataSyncIDs(ctx context.Context, resources []*model.Gate
 		existingIDByName[metadata.Name] = metadata.ID
 	}
 
-	for name, resource := range metadataByName {
+	for name, resource := range metadataByEtcdKey {
 		if existingID, ok := existingIDByName[name]; ok {
 			resource.ID = existingID
 			continue
@@ -809,9 +864,20 @@ Expected:
 
 - [ ] **Step 3: 实现 orchestration helper，并让 `kvToResource(...)` 只做包装**
 
-在 `unify_op_sync_helpers.go` 里新增：
+在 `unify_op_sync_helpers.go` 里新增（**review 必改**：对非法 key 要保留日志，不要静默 continue；同时在注释中显式写明 “backfill 必须在 reconcile plugin metadata ID 之前” 的排序语义）：
 
 ```go
+// buildSyncSnapshotResources is the sync-data read-side orchestration:
+//   1. normalize each etcd KV (buildSyncedResourceFromKV)
+//   2. backfill DB-authoritative snapshot fields (backfillStoredSnapshotFields)
+//   3. reconcile plugin_metadata IDs to DB IDs (reconcilePluginMetadataSyncIDs)
+//
+// Ordering note: backfill MUST run BEFORE plugin_metadata reconcile, because
+// plugin_metadata reconciliation only decides its final ID after other DB
+// fields have been stabilized (matching the original kvToResource behavior).
+//
+// Invalid KV keys are logged (not silently dropped) to preserve the original
+// observability contract Task 0 locks.
 func buildSyncSnapshotResources(
 	ctx context.Context,
 	gatewayInfo *model.Gateway,
@@ -823,6 +889,7 @@ func buildSyncSnapshotResources(
 	for _, kv := range kvList {
 		resource, ok := buildSyncedResourceFromKV(normalizedPrefix, gatewayInfo.ID, kv)
 		if !ok {
+			logging.Errorf("key is not validate: %s", kv.Key)
 			continue
 		}
 		resources = append(resources, resource)
@@ -889,7 +956,7 @@ git commit -m "refactor: thin kvToResource orchestration"
 
 - [ ] **Step 1: 先补 change-set planner 的失败测试**
 
-在 `unify_op_sync_helpers_test.go` 增加：
+在 `unify_op_sync_helpers_test.go` 增加（**review 补充**：额外覆盖 etcd / DB 两端为空的边界 case，防止首次同步 / 网关暂停场景漏覆盖）：
 
 ```go
 func TestBuildSyncChangeSet(t *testing.T) {
@@ -958,6 +1025,30 @@ func TestBuildSyncChangeSet(t *testing.T) {
 	assert.Equal(t, 2, changeSet.ToUpdate[0].ModRevision)
 	assert.Equal(t, 22, changeSet.ToDeleteAutoIDs[0])
 }
+
+// review 补充：etcd 端为空（网关暂停场景），期望所有 DB 资源都进入 ToDeleteAutoIDs
+func TestBuildSyncChangeSet_EmptyEtcd(t *testing.T) {
+	databaseResources := []*model.GatewaySyncData{
+		{AutoID: 1, ID: "r1", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+		{AutoID: 2, ID: "r2", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+	}
+	changeSet := buildSyncChangeSet(nil, databaseResources)
+	assert.Empty(t, changeSet.ToCreate)
+	assert.Empty(t, changeSet.ToUpdate)
+	assert.ElementsMatch(t, []int{1, 2}, changeSet.ToDeleteAutoIDs)
+}
+
+// review 补充：DB 端为空（首次同步场景），期望所有 etcd 资源都进入 ToCreate
+func TestBuildSyncChangeSet_EmptyDB(t *testing.T) {
+	etcdResources := []*model.GatewaySyncData{
+		{ID: "r1", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+		{ID: "r2", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+	}
+	changeSet := buildSyncChangeSet(etcdResources, nil)
+	assert.Len(t, changeSet.ToCreate, 2)
+	assert.Empty(t, changeSet.ToUpdate)
+	assert.Empty(t, changeSet.ToDeleteAutoIDs)
+}
 ```
 
 - [ ] **Step 2: 运行测试，确认 helper 还不存在**
@@ -973,9 +1064,18 @@ Expected:
 
 - [ ] **Step 3: 实现 change-set planner，并让 `SyncWithPrefix(...)` 复用它**
 
-在 `unify_op_sync_helpers.go` 里新增：
+在 `unify_op_sync_helpers.go` 里新增（**review 必改**：helper 对 dbResource 做 in-place 修改，与原代码行为一致；在注释里明确标注这一 side-effect，避免将来调用者复用 dbResource slice 踩坑）：
 
 ```go
+// buildSyncChangeSet diffs etcd snapshot vs DB snapshot and returns the three
+// buckets SyncWithPrefix needs to apply.
+//
+// SIDE EFFECT: for items in the update bucket, the underlying dbResource
+// pointer passed in through databaseResources is mutated in place
+// (.Config / .ModRevision are overwritten from the etcd-side values). This
+// mirrors the pre-refactor behavior of SyncWithPrefix. Callers MUST NOT reuse
+// the input databaseResources slice for anything other than the subsequent
+// ToUpdate batch persistence.
 type syncChangeSet struct {
 	ToCreate        []*model.GatewaySyncData
 	ToUpdate        []*model.GatewaySyncData

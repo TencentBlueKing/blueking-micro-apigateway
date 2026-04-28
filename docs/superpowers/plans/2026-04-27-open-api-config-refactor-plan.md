@@ -18,11 +18,13 @@
 
 ## 执行顺序（修订）
 
-1. Task 0：独立补 Open characterization tests。
-2. Task 2：先修正 update 路径 `name/config` 一致性，再抽本地 update builder。
-3. Task 1：整理 batch create builder。
-4. Task 3：抽 middleware validation payload helper，并改成 version-aware 的临时 `id` 注入判断。
-5. Task 4-5：仅当 Task 1-3 后仍存在 create 校验/持久化 identity 不一致时再执行。
+1. Task 0：独立补 Open characterization tests（包括显式标注 bug vs 锁现状）。
+2. Task 2a：先用 failing-then-green 方式修正 update 路径 outer `name` 不回写 `config` 的 correctness bug。
+3. Task 2b：再抽 Open update draft builder（纯 refactor，不改行为）。
+4. Task 1：整理 batch create builder。
+5. Task 3a：修正 middleware 当前 `ResourceRequiresIDInSchema` 为 version-aware `ResourceRequiresIDInSchemaForVersion`（correctness fix）。
+6. Task 3b：抽 middleware validation payload helper（纯 refactor）。
+7. Task 4-5：**仅当 Task 0 或 Task 1-3 的 characterization test 既实 “校验 id ≠ 落库 id” 这一不一致时**才执行。
 
 ## 范围
 
@@ -85,9 +87,17 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 重构前测试前置阶段（独立）
 
-- Task 0 至少覆盖 4 类现状：batch create 会按资源类型补 `name/username` 并生成 `id`；update 如果只改 outer `name` 目前会出现 `config` 与 typed name 不一致；middleware 在 3.11/3.13 的 validation payload 形态；middleware 对旧版本 schema 的临时 `id` 注入行为。
+- Task 0 至少覆盖 5 类现状，**每条显式标注性质**：
+  - 【锁现状】batch create 会按资源类型补 `name/username` 并生成 `id`
+  - 【**failing-then-green 条款 ／ 表达期望行为**】update 传入 `name=foo` 时最终落库 config 应该含 `name=foo`（用来捕捉当前 `ResourceUpdateRequest.ToCommonResource(...)` 不回写的 bug，Task 2a 负责修绿）
+  - 【锁现状】middleware 在 3.11 / 3.13 下构造出的 validation payload 形态
+  - 【**failing-then-green 条款**】middleware 针对旧版本 schema （3.2.15 等）的临时 `id` 注入行为需要满足“ConsumerGroup on 3.2.15 → id 不应出现”（Task 3a 负责修绿）
+  - 【锁现状】handler batch create 的 id 与 middleware 校验所用 id 是否一致：直接拿两者的实际值做断言；如果 Task 0 这条 test 证明两者一致，Task 4-5 可以直接 defer / drop；如果不一致，Task 4-5 有明确的落地价值
+
+**明确区分 “锁现状” vs “固定期望行为”（review 必改）：** 每一条 Task 0 assertion 在 PR 描述中都要记一笔它属于哪一类，避免将未来 Task 2a / Task 3a 需要修正的 bug “锁”成现状。
+
 - Task 0 完成前，不要引入 `OpenResolvedDraft` 这类 carrier；否则很难分清是在修真实问题，还是在给未锁住的行为加结构。
-- 如果 Task 0 跑完后发现仅通过 update normalization 和 version-aware validation helper 就能消掉主要重复，Task 4-5 可以直接 defer。
+- 如果 Task 0 跑完后发现仅通过 update normalization（Task 2a）和 version-aware validation（Task 3a）就能消掉主要重复，Task 4-5 可以直接 defer。
 
 ### Task 0: 补 Open handler / middleware characterization tests
 
@@ -103,12 +113,13 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 - [ ] **Step 1: 在真实请求路径上补 Open characterization tests**
 
-至少覆盖下面 4 类现状，全部走现有 handler / middleware seam：
+至少覆盖下面 5 类现状，全部走现有 handler / middleware seam，**每条标注性质（锁现状 ／ failing-then-green）**：
 
-- batch create 会按资源类型补 `name/username`，并在缺失时生成 `id`
-- update 只修改 outer `name` 时，当前请求路径对 `config` 的处理形态
-- middleware 在 3.11 / 3.13 下构造出的 validation payload 形态
-- middleware 针对旧版本 schema 的临时 `id` 注入边界
+- 【锁现状】batch create 会按资源类型补 `name/username`，并在缺失时生成 `id`
+- 【**failing-then-green**】update 传入 `name=foo` + `config` 无 `name` 时，落库 `config` **应该**含 `name=foo`；此 test 当前会失败（bug），Task 2a make it green
+- 【锁现状】middleware 在 3.11 / 3.13 下构造出的 validation payload 形态
+- 【**failing-then-green**】`resource=ConsumerGroup` + `version=3.2.15` 时，`validationRaw` **不应**出现 `id` 字段；此 test 当前会因为不看 version 而失败，Task 3a make it green
+- 【锁现状，但同时作为 Task 4-5 是否落地的判定依据】batch create 完整走一遍 handler + middleware 后，分别拿 middleware 计算出的 `id` 与 serializer 最终落库的 `id` 做对比断言；若两者一致则 Task 4-5 可 defer，若不一致则 Task 4-5 需落地
 
 - [ ] **Step 2: 运行 Open seam tests，确认入口行为已经被锁住**
 
@@ -207,7 +218,7 @@ Expected:
 
 - [ ] **Step 3: 实现本地 builder，并让 `ToCommonResource(...)` 复用它**
 
-在 `resource.go` 里新增：
+在 `resource.go` 里新增（**review 重点要求：验证 `model.GetResourceNameKey(Consumer)` 的返回值**）：原代码判断的是 `gjson.GetBytes(r.Config, "name").String()` （**固定字面量 `name`**），helper 用的是 `GetResourceNameKey(resourceType)`。若 `GetResourceNameKey(Consumer) == "username"`，则对 Consumer 的判断从“name 是否为空”变成“username 是否为空”——这是一个行为差异，必须在 Task 0 characterization test 里显式记一笔并接受这种对齐（或者严格按原行为将 helper 改成固定判 `"name"`）。推荐前者：代码更一致。
 
 ```go
 func buildOpenCreateDraft(
@@ -259,6 +270,14 @@ Expected:
 git add src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers.go src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go src/apiserver/pkg/apis/open/serializer/resource.go
 git commit -m "refactor: extract open batch create draft builder"
 ```
+
+### Task 2: 修正 Open update outer name 回写 + 抽出 update draft builder
+
+> **按 review 要求拆为 2a / 2b 两个 PR：**
+> - **Task 2a（correctness fix，failing-then-green）：** 在 Task 0 的“update 传 `name=foo` 时落库 config 应含 `name=foo`”质问下，让 `ResourceUpdateRequest.ToCommonResource(...)` 在执行前对 `r.Config` 做 `sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)` 注入；make previously-failing characterization test green；不引入新 helper。
+> - **Task 2b（纯 refactor）：** 再抽出 `buildOpenUpdateDraft(...)` helper，绑定 Task 2a 的行为。
+>
+> 理由：bugfix 和 refactor 不混在同一个 PR，便于 review 和 cherry-pick。
 
 ### Task 2: 抽出 Open update 的本地 draft builder
 
@@ -317,14 +336,14 @@ Expected:
 
 - [ ] **Step 3: 实现 helper，并让 update path 复用**
 
-在 `resource.go` 增加：
+**实现前提（review 必改）：** Task 2a 已经在 `ResourceUpdateRequest.ToCommonResource(...)` 的开头做了 `config = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)` 注入；Task 2b（本步）只做纯 refactor，把“note 注入后的 `config` 传入 helper”这步预先完成。在 `resource.go` 增加：
 
 ```go
 func buildOpenUpdateDraft(
 	c *gin.Context,
 	resourceID string,
 	status constant.ResourceStatus,
-	config json.RawMessage,
+	config json.RawMessage, // caller MUST already have injected outer name back into config (see Task 2a)
 ) *model.ResourceCommonModel {
 	return &model.ResourceCommonModel{
 		ID:        resourceID,
@@ -338,7 +357,19 @@ func buildOpenUpdateDraft(
 }
 ```
 
-然后把 `ResourceUpdateRequest.ToCommonResource(...)` 改成直接返回这个 helper 的结果。
+然后把 `ResourceUpdateRequest.ToCommonResource(...)` 改成“先注入 outer name（Task 2a 已实现），再调 helper”：
+
+```go
+func (r ResourceUpdateRequest) ToCommonResource(c *gin.Context, resourceType constant.APISIXResource, status constant.ResourceStatus) *model.ResourceCommonModel {
+	config := r.Config
+	if r.Name != "" {
+		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)
+	}
+	return buildOpenUpdateDraft(c, r.ID, status, config)
+}
+```
+
+**显式接口约定：** helper 的 doc comment 写明“caller must inject outer name before calling”，避免未来添加调用者时忘记注入。
 
 - [ ] **Step 4: 运行 serializer 包测试**
 
@@ -357,6 +388,12 @@ Expected:
 git add src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers.go src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go src/apiserver/pkg/apis/open/serializer/resource.go
 git commit -m "refactor: extract open update draft builder"
 ```
+
+### Task 3: 修正 middleware version-aware 校验 + 抽出 validation payload helper
+
+> **按 review 要求拆为 3a / 3b 两个 PR：**
+> - **Task 3a（correctness fix，failing-then-green）：** 将 `OpenAPIResourceCheck()` 中 `constant.ResourceRequiresIDInSchema(resourceType)` 替换为 `constant.ResourceRequiresIDInSchemaForVersion(resourceType, version)`（后者已在 `constant/resource_schema.go` 中存在，不需新增）；make Task 0 中“ConsumerGroup on 3.2.15 不应包含 id”的 failing test 转绿；不引入新 helper。
+> - **Task 3b（纯 refactor）：** 再抽 `prepareOpenValidationPayload(...)` helper。
 
 ### Task 3: 抽出 Open middleware 的 validation payload helper
 
@@ -485,6 +522,8 @@ git commit -m "refactor: extract open validation payload helper"
 
 ### Task 4: 引入 Open 域内的 resolved draft 上下文载体
 
+> **review YAGNI修正：** 原计划的 `OpenResolvedDraft` 同时包含 `ValidationConfig` 和 `StorageConfig`。Task 5 Step 3 的示例代码实际只消费了 `StorageConfig`，`ValidationConfig` 从诞生就是 dead code。**本次落地时 Task 4 的结构体只留 `ID` / `Name` / `StorageConfig` 3 个字段**，一旦将来有明确的“校验 id ≠ 落库 id”测试 demonstrate 证据，再补 `ValidationConfig` 字段。
+
 - [ ] Task 4: 引入 Open 域内的 resolved draft 上下文载体
 
 **要解决的复杂度：** middleware 现在即使将来算出了更完整的 request identity，也没有一个 Open 域内明确的传递载体；后续很容易继续靠重复计算把逻辑摊回 serializer。
@@ -538,14 +577,19 @@ Expected:
 
 - [ ] **Step 3: 实现 resolved draft 结构和 context helper**
 
-在 `open_resolved_draft_context.go` 里新增：
+在 `open_resolved_draft_context.go` 里新增（**YAGNI：暂不加 ValidationConfig 字段**）：
 
 ```go
+// OpenResolvedDraft carries middleware-computed identity + normalized storage payload
+// across gin.Context into the serializer layer.
+//
+// Intentionally omits ValidationConfig for now: Task 5 only consumes StorageConfig.
+// Add a ValidationConfig field here only after a characterization test demonstrates
+// that validation-time id differs from storage-time id.
 type OpenResolvedDraft struct {
-	ID               string
-	Name             string
-	ValidationConfig json.RawMessage
-	StorageConfig    json.RawMessage
+	ID            string
+	Name          string
+	StorageConfig json.RawMessage
 }
 
 const openResolvedDraftsContextKey = "openapi_resolved_drafts"
@@ -562,6 +606,19 @@ func GetOpenResolvedDrafts(c *gin.Context) ([]OpenResolvedDraft, bool) {
 	drafts, ok := value.([]OpenResolvedDraft)
 	return drafts, ok
 }
+```
+
+**补充测试（review 要求）：** 在 `open_resolved_draft_context_test.go` 里额外加一条测试，锁住“context key 被占用但类型不对”的行为（`c.Set(openResolvedDraftsContextKey, "not-a-draft-slice")` 后 `GetOpenResolvedDrafts` 应返回 `(nil, false)`）：
+
+```go
+t.Run("context key occupied with wrong type returns ok=false", func(t *testing.T) {
+    w := httptest.NewRecorder()
+    c, _ := gin.CreateTestContext(w)
+    c.Set(openResolvedDraftsContextKey, "not-a-draft-slice")
+    got, ok := GetOpenResolvedDrafts(c)
+    assert.False(t, ok)
+    assert.Nil(t, got)
+})
 ```
 
 - [ ] **Step 4: 运行 serializer 包测试**
@@ -583,6 +640,8 @@ git commit -m "refactor: add open resolved draft context helpers"
 ```
 
 ### Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
+
+> **Review 必改：范围声明补充**——本 Task 需要修改 `ResourceBatchCreateRequest.ToCommonResource(...)` 的签名（从 `(gatewayID int, resourceType)` 改为 `(c *gin.Context, resourceType)`），这属于 public API change，需同步修改 `handler/resource.go` 中的所有调用点（目前只有 batch create handler 调用了它）。
 
 - [ ] Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
 
@@ -650,14 +709,13 @@ Expected:
 
 按下面顺序改：
 
-1. 在 middleware 校验循环里为每个请求项生成 `OpenResolvedDraft`
+1. 在 middleware 校验循环里为每个请求项生成 `OpenResolvedDraft`（**不再写入 `ValidationConfig`**）：
 
 ```go
 drafts = append(drafts, serializer.OpenResolvedDraft{
-	ID:               gjson.GetBytes(configRawForValidation, "id").String(),
-	Name:             config.Get("name").String(),
-	ValidationConfig: configRawForValidation,
-	StorageConfig:    []byte(configRaw),
+	ID:            gjson.GetBytes(configRawForValidation, "id").String(),
+	Name:          config.Get("name").String(),
+	StorageConfig: []byte(configRaw),
 })
 serializer.SetOpenResolvedDrafts(c, drafts)
 ```
@@ -674,9 +732,10 @@ func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int, resourceTyp
 func (rs ResourceBatchCreateRequest) ToCommonResource(c *gin.Context, resourceType constant.APISIXResource) []*model.ResourceCommonModel
 ```
 
-3. 在 `ToCommonResource(...)` 里优先消费 middleware 放进来的 draft：
+3. 在 `ToCommonResource(...)` 里优先消费 middleware 放进来的 draft（**review 补充测试**：`len(drafts) != len(rs)` 的 fallback 路径必须有显式 test 覆盖）：
 
 ```go
+resources := make([]*model.ResourceCommonModel, 0, len(rs))
 if drafts, ok := GetOpenResolvedDrafts(c); ok && len(drafts) == len(rs) {
 	for idx, req := range rs {
 		draft := drafts[idx]
@@ -690,7 +749,14 @@ if drafts, ok := GetOpenResolvedDrafts(c); ok && len(drafts) == len(rs) {
 	}
 	return resources
 }
+// Fallback path: when drafts are missing or count mismatches, fall back to local builder.
+for _, r := range rs {
+	resources = append(resources, buildOpenCreateDraft(ginx.GetGatewayInfo(c).ID, resourceType, r))
+}
+return resources
 ```
+
+**必补测试（review）：** 在 `TestResourceBatchCreateUsesOpenResolvedDrafts` 基础上再加一条 `len(drafts) != len(rs)` 的子用例，断言 fallback 路径产出的 resources 数量 == `len(rs)`，而非空 slice。
 
 4. `handler/resource.go` 里改成：
 

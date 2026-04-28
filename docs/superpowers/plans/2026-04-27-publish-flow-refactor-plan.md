@@ -104,9 +104,22 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 重构前测试前置阶段（独立）
 
-- Task 0 至少覆盖 4 类现状：最终同步后的 payload 字段形态、版本差异字段是否保留/删除、依赖资源是否跟随主资源一起发布、`EtcdPublisher.Validate()` 是否按网关版本构造 `ETCD` profile validator。
+- Task 0 至少覆盖 6 类现状：
+  - 最终同步后的 payload 字段形态
+  - 版本差异字段是否保留/删除
+  - **每个资源实际上“clean 了哪些字段”的当前行为**——特别包括 `putRoutes/putServices/putUpstreams` **不会对 `id` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`**，`Consumer/Routes` **不会对 `name` 调**；只有 `ConsumerGroup/GlobalRule/Proto/SSL/PluginConfig/Consumer/ConsumerGroup` 特定子集会调。这一差异必须在 Task 0 里以 seam test 锁住，防止 Task 1 helper 统一运用时把规则错扩到其他资源。
+  - `stream_route.labels` 在最终标 payload 中被删除
+  - 依赖资源是否跟随主资源一起发布（**包括 `service→upstream`、`upstream→ssl`、`stream_route→service/upstream` 3 条原先漏覆盖的 fan-out**，不只是 `route→deps` 和 `consumer→consumer_group`）
+  - `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
 - Task 0 完成后，Task 1-3 和 Task 5 才有足够稳定的黑盒约束；否则 helper 抽完后很容易只验证“代码变短了”，却没验证最终 payload 还对。
 - Task 4 只有在前面的任务都落完后，`putXxx()` 结尾的持久化收口仍然明显拖累可读性时再执行；它不是本轮最高杠杆点。
+
+**行为不变量清单（review 必改）：** 以下现有行为被认为是不变的，helper 抽出后必须保持，由 Task 0 的 seam test 锁住：
+1. `putRoutes/putServices/putUpstreams` **不**对 payload 的 `id` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`（这 3 种资源的 `id` 必须保留）。
+2. `Routes/Consumer` **不**对 payload 的 `name` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`。
+3. `stream_route.labels` 无论在任何版本下都会被删除。
+4. `ssl.validity_start/validity_end` 无论在任何版本下都会被删除。
+5. `BatchCreate/BatchUpdate` 在有任何一条校验失败时短路返回，不再继续校验后续资源。
 
 ### Task 0: 补 publish / validator characterization tests
 
@@ -122,12 +135,14 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 - [ ] **Step 1: 扩充现有 seam tests，先锁发布结果和 validator 组装**
 
-至少覆盖下面 4 类现状，全部断言现有黑盒结果：
+至少覆盖下面 6 类现状，全部断言现有黑盒结果：
 
-- 最终同步后的 payload 字段形态
-- 不同网关版本下字段的保留/删除差异
-- 依赖资源是否跟随主资源一起发布
+- 最终同步后的 payload 字段形态（包含 `stream_route.labels` 被删除的断言，避免 Task 1 helper 对该字段的处理无 seam 护栏）
+- 不同网关版本下字段的保留/删除差异（`ConsumerGroup` on 3.11 vs 3.13 等）
+- 依赖资源是否跟随主资源一起发布：**至少覆盖 `route→upstream/service/plugin_config`、`consumer→consumer_group`、`service→upstream`、`upstream→ssl`、`stream_route→service/upstream` 5 条 fan-out**（Task 3 要迁移的 5 个 put 函数必须有 1:1 的 seam 护栏）
+- **每个资源“clean 了哪些字段”的当前行为**：`putRoutes/putServices/putUpstreams` 不清 `id`；`Routes/Consumer` 不清 `name`（锁住当前差异，防止 Task 1 误扩）
 - `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
+- `BatchCreate/BatchUpdate` 在任一条资源校验失败时短路返回
 
 - [ ] **Step 2: 运行 publish seam tests，确认现状已经被锁住**
 
@@ -323,8 +338,30 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			name:         "stream route removes labels",
 			resourceType: constant.StreamRoute,
 			version:      constant.APISIXVersion311,
-			rawConfig:    `{"id":"sr-id","labels":{"env":"prod"},"server_addr":"0.0.0.0","server_port":9100,"upstream":{"nodes":[{"host":"127.0.0.1","port":80,"weight":1],"type":"roundrobin"}}`,
-			wantConfig:   `{"id":"sr-id","server_addr":"0.0.0.0","server_port":9100,"upstream":{"nodes":[{"host":"127.0.0.1","port":80,"weight":1],"type":"roundrobin"}}`,
+			rawConfig:    `{"id":"sr-id","labels":{"env":"prod"},"server_addr":"0.0.0.0","server_port":9100,"upstream":{"nodes":[{"host":"127.0.0.1","port":80,"weight":1}],"type":"roundrobin"}}`,
+			wantConfig:   `{"id":"sr-id","server_addr":"0.0.0.0","server_port":9100,"upstream":{"nodes":[{"host":"127.0.0.1","port":80,"weight":1}],"type":"roundrobin"}}`,
+		},
+		// review 补充：锁住“id 不应在 route/service/upstream 上被清除”
+		{
+			name:         "route keeps id regardless of version",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion311,
+			rawConfig:    `{"id":"route-id","uri":"/demo"}`,
+			wantConfig:   `{"id":"route-id","uri":"/demo"}`,
+		},
+		{
+			name:         "service keeps id regardless of version",
+			resourceType: constant.Service,
+			version:      constant.APISIXVersion313,
+			rawConfig:    `{"id":"svc-id","upstream_id":"u-id"}`,
+			wantConfig:   `{"id":"svc-id","upstream_id":"u-id"}`,
+		},
+		{
+			name:         "upstream keeps id regardless of version",
+			resourceType: constant.Upstream,
+			version:      constant.APISIXVersion313,
+			rawConfig:    `{"id":"u-id","nodes":[]}`,
+			wantConfig:   `{"id":"u-id","nodes":[]}`,
 		},
 	}
 
@@ -352,6 +389,8 @@ Expected:
 
 - [ ] **Step 4: 用最小实现抽出 publish 字段清理 helper，并接回现有 `putXxx()`**
 
+**【Blocker修正】（review）：** 原计划第一版 helper 用 `ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id"/"name", version)` 做统一判断，但原代码并非所有资源都调用这个方法：`putRoutes/putServices/putUpstreams` 不对 `id` 调，`Routes/Consumer` 不对 `name` 调。统一调用会把字段清理规则扩散到原本不清理的资源上，产生**静默字段丢失**（上线不易察觉）。改用 **resource-specific policy table** 表达清理规则：
+
 在 `publish_payload_helpers.go` 新增：
 
 ```go
@@ -371,29 +410,45 @@ type publishPayloadCleanupInput struct {
 	RawConfig    json.RawMessage
 }
 
+// cleanupRule describes a single field cleanup decision for a resource type.
+// Field          : JSON path to delete.
+// VersionGated   : if true, only delete when
+//                  constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, field, version) == true.
+//                  Otherwise always delete.
+type cleanupRule struct {
+	Field        string
+	VersionGated bool
+}
+
+// cleanupRules is the resource-specific policy table. Add a row here ONLY for
+// resources whose original putXxx()/PutXxx() actually removed the given field.
+// Do NOT add id/name rows for Route/Service/Upstream: their original behavior
+// does NOT strip id/name, so adding them here would be a silent regression.
+var cleanupRules = map[constant.APISIXResource][]cleanupRule{
+	constant.PluginConfig:   {{Field: "id", VersionGated: true}},
+	constant.Consumer:       {{Field: "id", VersionGated: true}},
+	constant.ConsumerGroup:  {{Field: "id", VersionGated: true}, {Field: "name", VersionGated: true}},
+	constant.GlobalRule:     {{Field: "id", VersionGated: true}, {Field: "name", VersionGated: true}},
+	constant.Proto:          {{Field: "id", VersionGated: true}, {Field: "name", VersionGated: true}},
+	constant.SSL:            {{Field: "id", VersionGated: true}, {Field: "name", VersionGated: true}, {Field: "validity_start"}, {Field: "validity_end"}},
+	constant.StreamRoute:    {{Field: "labels"}},
+	// Route/Service/Upstream intentionally absent: they do not strip id/name in master.
+}
+
 func cleanupPublishPayloadFields(input publishPayloadCleanupInput) json.RawMessage {
 	cleaned := append(json.RawMessage(nil), input.RawConfig...)
-
-	if constant.ShouldRemoveFieldBeforeValidationOrPublish(input.ResourceType, "id", input.Version) {
-		cleaned, _ = sjson.DeleteBytes(cleaned, "id")
+	for _, rule := range cleanupRules[input.ResourceType] {
+		if rule.VersionGated &&
+			!constant.ShouldRemoveFieldBeforeValidationOrPublish(input.ResourceType, rule.Field, input.Version) {
+			continue
+		}
+		cleaned, _ = sjson.DeleteBytes(cleaned, rule.Field)
 	}
-	if constant.ShouldRemoveFieldBeforeValidationOrPublish(input.ResourceType, "name", input.Version) {
-		cleaned, _ = sjson.DeleteBytes(cleaned, "name")
-	}
-
-	switch input.ResourceType {
-	case constant.SSL:
-		cleaned, _ = sjson.DeleteBytes(cleaned, "validity_start")
-		cleaned, _ = sjson.DeleteBytes(cleaned, "validity_end")
-	case constant.StreamRoute:
-		cleaned, _ = sjson.DeleteBytes(cleaned, "labels")
-	}
-
 	return cleaned
 }
 ```
 
-然后把下面这些散落的删字段逻辑改成统一调用：
+然后把下面这些函数里重复的删字段逻辑改成统一调用（**仅对表里有规则的资源**）：
 
 - `putPluginConfigs(...)`
 - `putConsumers(...)`
@@ -402,6 +457,8 @@ func cleanupPublishPayloadFields(input publishPayloadCleanupInput) json.RawMessa
 - `PutProtos(...)`
 - `PutSSLs(...)`
 - `PutStreamRoutes(...)`
+
+`putRoutes/putServices/putUpstreams` **不要**接入（它们本来就不做字段清理）。
 
 接入方式统一改成：
 
@@ -587,6 +644,8 @@ Expected:
 
 - [ ] **Step 4: 用最小实现抽出 simple publish payload builder，并迁移 simple 资源**
 
+**设计注释（review）：** helper 返回值使用值类型 `publisher.ResourceOperation`，让 `MergeJson` 失败时零值 op 不会被误用（调用者遇到 err 必须立即返回，不能跟着 append）。主要用意图通过 Task 2 seam test 和各调用处 `if err != nil { return err }` 模式保证。
+
 在 `publish_payload_helpers.go` 追加：
 
 ```go
@@ -681,6 +740,16 @@ git commit -m "refactor: extract simple publish payload builder"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
+- [ ] **Step 0: 前置检查 `model.Upstream.GetSSLID()` 存在（review 补充）**
+
+Task 3 中 `collectUpstreamPublishDependencies` 使用了 `upstream.GetSSLID()`，在开始实现前先确认此 method 在 `pkg/entity/model/upstream.go` 中已存在：
+
+```bash
+cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && grep -n 'func.*Upstream.*GetSSLID' pkg/entity/model/upstream.go || echo 'MISSING'
+```
+
+如果上面输出 `MISSING`，需在本 Task 的第一个 commit 里先补齐 getter（只加方法、不改资源字段定义）。
+
 - [ ] **Step 1: 先补现有依赖发布 seam 的 characterization tests**
 
 在 `publish_test.go` 增加：
@@ -760,7 +829,97 @@ func TestPublishDependencies_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err := GetSyncedItemByResourceTypeAndID(ctx, constant.ConsumerGroup, group.ID)
+		_, err = GetSyncedItemByResourceTypeAndID(ctx, constant.ConsumerGroup, group.ID)
+		assert.NoError(t, err)
+	})
+
+	// review 补充 3 条原先漏覆盖的 fan-out，给 Task 3 的 5 个 collect* helper 1:1 的 seam 护栏
+	t.Run("publishing service also publishes related upstream", func(t *testing.T) {
+		gateway := data.Gateway1WithBkAPISIX()
+		gateway.Name = "gateway-publish-service-deps"
+		if err := CreateGateway(context.Background(), gateway); err != nil {
+			t.Fatal(err)
+		}
+		ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		service := data.Service1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		service.UpstreamID = upstream.ID
+		if err := CreateService(ctx, *service); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishServices(ctx, []string{service.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := GetSyncedItemByResourceTypeAndID(ctx, constant.Upstream, upstream.ID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("publishing upstream also publishes related ssl", func(t *testing.T) {
+		gateway := data.Gateway1WithBkAPISIX()
+		gateway.Name = "gateway-publish-upstream-ssl"
+		if err := CreateGateway(context.Background(), gateway); err != nil {
+			t.Fatal(err)
+		}
+		ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+
+		ssl := data.SSL1(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateSSL(ctx, ssl); err != nil {
+			t.Fatal(err)
+		}
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		upstream.Config, _ = sjson.SetBytes(upstream.Config, "tls.client_cert_id", ssl.ID)
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishUpstreams(ctx, []string{upstream.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := GetSyncedItemByResourceTypeAndID(ctx, constant.SSL, ssl.ID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("publishing stream route also publishes related service and upstream", func(t *testing.T) {
+		gateway := data.Gateway1WithBkAPISIX()
+		gateway.Name = "gateway-publish-stream-deps"
+		if err := CreateGateway(context.Background(), gateway); err != nil {
+			t.Fatal(err)
+		}
+		ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+		service := data.Service1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		service.UpstreamID = upstream.ID
+		if err := CreateService(ctx, *service); err != nil {
+			t.Fatal(err)
+		}
+
+		sr := data.StreamRoute1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+		sr.ServiceID = service.ID
+		sr.UpstreamID = upstream.ID
+		if err := CreateStreamRoute(ctx, *sr); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := PublishStreamRoutes(ctx, []string{sr.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := GetSyncedItemByResourceTypeAndID(ctx, constant.Service, service.ID)
+		assert.NoError(t, err)
+		_, err = GetSyncedItemByResourceTypeAndID(ctx, constant.Upstream, upstream.ID)
 		assert.NoError(t, err)
 	})
 }
@@ -1288,6 +1447,8 @@ Expected:
 - FAIL，报 `p.validatePublishOperations undefined`
 
 - [ ] **Step 4: 用最小实现抽出最终校验 helper，并接回 `Create/Update/BatchCreate/BatchUpdate`**
+
+**短路语义变化注释（review）：** `BatchCreate/BatchUpdate` 原行为是“逐条校验+组装 resourcesMap，某条校验失败时前面的 resourcesMap 已部分组装完成（但没写入 etcd）”；抽出 helper 后变为“先全部校验，校验失败直接 return，resourcesMap 根本不会开始组装”。**对外部 side effect 是零差异**（两种情况下失败时都未写入 etcd），但在 Step 4 的改动注释 / commit message 里要标注这一 short-circuit 顺序变化。
 
 在 `etcd.go` 中补两个本地 helper：
 

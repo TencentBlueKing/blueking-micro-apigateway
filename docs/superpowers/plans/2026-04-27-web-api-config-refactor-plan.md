@@ -87,7 +87,8 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 重构前测试前置阶段（独立）
 
-- Task 0 至少覆盖 4 类现状：`CheckAPISIXConfig()` 的 identity fallback；`CheckAPISIXConfig()` 的 validation payload 整形；特殊 3 条 create handler 的“先生成 ID 再校验”；默认 create handler 的“先校验再生成 ID，但 draft 组装一致”。
+- Task 0 至少覆盖 5 类现状：`CheckAPISIXConfig()` 的 identity fallback；`CheckAPISIXConfig()` 的 validation payload 整形；特殊 3 条 create handler 的“先生成 ID 再校验”；默认 create handler 的“先校验再生成 ID，但 draft 组装一致”；**`SSLCreate` 的 create 路径**（证书解析 + `validity_start/validity_end` 处理 + 默认组装）的当前行为，避免 Task 5 迁移 SSL 时黑盒改动。
+- **Task 0 必须显式断言当前特殊 3 条 create handler（`PluginConfigCreate` / `ConsumerGroupCreate` / `GlobalRuleCreate`）写入 `ResourceCommonModel` 时 `Updater` 字段是否为空**：当前原代码只写入 `Creator`，`Updater` 为空字符串。Task 4 `buildWebCreateDraft` 会同时写入 `Updater = userID`——这是**行为变化**，必须在 Task 0 先锁定当前“Updater 为空”的现状，在 Task 4 落地时再同步更新断言为“Updater == Creator == userID”（并在 commit message 里记录行为差异）。
 - `create_handlers_test.go` 负责锁 handler 入口行为；`web_create_helpers_test.go` 只在 helper 抽出后再补第二层单测。
 - 如果 Task 0 还没建好，不要直接推进 Task 3-5；否则后面很难分清是 handler 入口行为变了，还是 helper 自己写错了。
 
@@ -105,12 +106,16 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 - [ ] **Step 1: 在现有 serializer 和 create handler seam 上补 characterization tests**
 
-至少覆盖下面 4 类现状，避免直接从 `web_create_helpers_test.go` 或新 helper 起手：
+至少覆盖下面 5 类现状，避免直接从 `web_create_helpers_test.go` 或新 helper 起手：
 
 - `CheckAPISIXConfig()` 的 identity fallback
 - `CheckAPISIXConfig()` 的 validation payload 整形
 - `PluginConfigCreate`、`ConsumerGroupCreate`、`GlobalRuleCreate` 这 3 条特殊 create 路径的“先生成 ID 再校验”
 - 至少一条默认 create handler（如 `RouteCreate`）的“先校验再生成 ID，但 draft 组装一致”
+- **`SSLCreate` 的 create 路径**：证书字段、`validity_start/validity_end`、默认 draft 组装同时被锁住，作为 Task 5 迁移 SSL 时的黑盒护栏
+
+**额外断言（review 补充，行为变化锁定）：**
+在上面第 3 点的 3 条特殊 create handler 测试里，除了断言 `req.ID` 已填充、`Creator == userID` 外，**还要显式断言 `Updater == ""`**（当前现状）。这一组断言会在 Task 4 一起同步更新为 `Updater == userID`，获得一条于原代码一致的行为 drift 质问链。
 
 - [ ] **Step 2: 运行 Web seam tests，确认入口行为已经被锁住**
 
@@ -211,13 +216,14 @@ Expected:
 
 - [ ] **Step 3: 用最小实现抽出 identity helper，并接回 `CheckAPISIXConfig()`**
 
-在 `common.go` 里新增本地输入结构和 helper：
+在 `common.go` 里新增本地输入结构和 helper（**review 修正**：Task 1 的 `webValidationInput` 只放 resolveWebValidationIdentity 真正需要的 4 个字段，`Version` / `ResourceID` 等字段由 Task 2 在扩结构体时再次加进去，避免 Task 1 PR 的改动面无端变大）：
 
 ```go
+// webValidationInput is grown in two steps:
+//   Task 1: 4 fields needed by resolveWebValidationIdentity (ResourceType/Name/Username/RawConfig)
+//   Task 2: extend with Version + ResourceID for prepareWebValidationPayload
 type webValidationInput struct {
 	ResourceType constant.APISIXResource
-	Version      constant.APISIXVersion
-	ResourceID   string
 	Name         string
 	Username     string
 	RawConfig    json.RawMessage
@@ -249,8 +255,6 @@ if resourceIdentification == "" {
 ```go
 input := webValidationInput{
 	ResourceType: resourceType,
-	Version:      gatewayInfo.GetAPISIXVersionX(),
-	ResourceID:   fl.Parent().FieldByName("ID").String(),
 	Name:         fl.Parent().FieldByName("Name").String(),
 	Username:     fl.Parent().FieldByName("Username").String(),
 	RawConfig:    rawConfig,
@@ -280,6 +284,12 @@ git commit -m "refactor: extract web validation identity helper"
 ```
 
 ### Task 2: 抽出 Web 本地 validation payload helper
+
+> **Review 建议（范围控制）：** 本 Task 外表上是抽一个 helper，实际上 `prepareWebValidationPayload` 同时涉及 `injectGeneratedIDForValidation` / `shouldInjectResourceNameForValidation` / `GetResourceNameKey` / `PluginMetadata` 特判 4 件事，对 `CheckAPISIXConfig()` 核心分支是整体搬迁。落地时允许再拆为两个 PR：
+> - Task 2a：先抽 `id` 注入部分（`injectGeneratedIDForValidation`），保留原 `CheckAPISIXConfig()` 的 `name` 注入和 `plugin_metadata` 特判在原处
+> - Task 2b：再抽 `name` 注入 + `plugin_metadata.id = name` 特判，让 helper 达到下面的最终形态
+>
+> 如果 PR 体积在可接受范围内（e.g. <200 行改动），可以不拆；但执行者需明确意识到 helper 在一次抽多层行为。
 
 - [ ] Task 2: 抽出 Web 本地 validation payload helper
 
@@ -369,10 +379,25 @@ Expected:
 
 - [ ] **Step 3: 提取 payload builder，并让 `CheckAPISIXConfig()` 只做 orchestration**
 
-在 `common.go` 增加：
+**注意（review 修正）：** `prepareWebValidationPayload` **内部会调用一次 `resolveWebValidationIdentity`**；为避免 `CheckAPISIXConfig()` 外部再算一次 identity 导致重复计算，Task 2 的 helper 返回 `(rawConfig, identity)` 二元组，`CheckAPISIXConfig()` 消费后不再自行调用 identity helper。
+
+同时在 Task 1 的 `webValidationInput` 基础上扩充 `Version` / `ResourceID`。在 `common.go` 增加：
 
 ```go
-func prepareWebValidationPayload(input webValidationInput) json.RawMessage {
+// Task 2 extends Task 1's webValidationInput with Version + ResourceID;
+// prepareWebValidationPayload returns both the normalized rawConfig AND the
+// identity it computed, so that CheckAPISIXConfig() does not re-run
+// resolveWebValidationIdentity a second time.
+type webValidationInput struct {
+	ResourceType constant.APISIXResource
+	Version      constant.APISIXVersion
+	ResourceID   string
+	Name         string
+	Username     string
+	RawConfig    json.RawMessage
+}
+
+func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, string) {
 	rawConfig := injectGeneratedIDForValidation(
 		input.RawConfig,
 		input.ResourceType,
@@ -382,8 +407,6 @@ func prepareWebValidationPayload(input webValidationInput) json.RawMessage {
 
 	identity := resolveWebValidationIdentity(webValidationInput{
 		ResourceType: input.ResourceType,
-		Version:      input.Version,
-		ResourceID:   input.ResourceID,
 		Name:         input.Name,
 		Username:     input.Username,
 		RawConfig:    rawConfig,
@@ -395,7 +418,7 @@ func prepareWebValidationPayload(input webValidationInput) json.RawMessage {
 	if input.ResourceType == constant.PluginMetadata {
 		rawConfig, _ = sjson.SetBytes(rawConfig, "id", input.Name)
 	}
-	return rawConfig
+	return rawConfig, identity
 }
 ```
 
@@ -410,16 +433,15 @@ input := webValidationInput{
 	Username:     fl.Parent().FieldByName("Username").String(),
 	RawConfig:    rawConfig,
 }
-rawConfig = prepareWebValidationPayload(input)
-resourceIdentification := resolveWebValidationIdentity(webValidationInput{
-	ResourceType: input.ResourceType,
-	Version:      input.Version,
-	ResourceID:   input.ResourceID,
-	Name:         input.Name,
-	Username:     input.Username,
-	RawConfig:    rawConfig,
-})
+rawConfig, resourceIdentification := prepareWebValidationPayload(input)
+if resourceIdentification == "" {
+	resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
+}
 ```
+
+**补充测试（review 要求 — identity integration）：** 在 `common_test.go` 里再增一条矩阵 case，锁住“`ConsumerGroup` on 3.13 + outer `Name` 为空 + `Config` 已有 `id` → payload prep 后 identity 与 payload.id 一致且稳定”，防止 Task 2 在 helper 内重新算 identity 时跳层带回 regression。
+
+**测试补充（review 要求 — update 路径）：** `PluginMetadata` 的 `id = name` 特规则不仅影响 create 路径。`common_test.go` 里要在原矩阵基础上再补一条 update 路径 case，驱动 `CheckAPISIXConfig()` 通过 `apisixConfig` tag 触发时，`PluginMetadata` 的 update payload 也会带上 `id=name`。
 
 - [ ] **Step 4: 运行 serializer 包测试**
 
@@ -456,7 +478,7 @@ git commit -m "refactor: extract web validation payload helper"
 
 - [ ] **Step 1: 先补这 3 条 create 顺序的失败测试**
 
-在 `web_create_helpers_test.go` 里新增：
+在 `web_create_helpers_test.go` 里新增（**review 要求**：3 个子测试必须一次性全部写出来，不要留“同文件再补”）：
 
 ```go
 func TestBindAndValidateWebCreateWithGeneratedID(t *testing.T) {
@@ -485,7 +507,9 @@ func TestBindAndValidateWebCreateWithGeneratedID(t *testing.T) {
 }
 ```
 
-同文件再补 `consumer_group`、`global_rule` 两个子测试，断言点保持一致：`err == nil` 且 `req.ID` 已经被填充。
+同文件再补 `consumer_group`、`global_rule` 两个子测试（**review**：完整给出，不仅是在注释里记一笔），断言点保持一致：`err == nil`、`req.ID` 已被填充；在 Task 0 已锁定“`Updater==""`”的前提下，本步不改组装逻辑，因此不断言 `Updater`。
+
+**注意 Step 3 的实现签名（review 建议记录设计理由）：** helper 使用 `setResourceID func(string)` 回调而非反射设置 `req.ID`，是为了避免在 hot path 里引入反射。属于有意识的取舍，需在注释里写明原因。
 
 - [ ] **Step 2: 运行测试，确认 helper 尚未实现**
 
@@ -609,7 +633,7 @@ Expected:
 
 - [ ] **Step 3: 实现 helper，并让 3 个 handler 复用**
 
-在 `web_create_helpers.go` 增加：
+在 `web_create_helpers.go` 增加（**行为变化标注**：当前特殊 3 条 create handler 原代码不写 `Updater`，helper 统一写入 `Updater = userID`；Task 0 已锁住“旧行为：Updater 为空”，在本步一起更新断言为“新行为：Updater == Creator”）：
 
 ```go
 func buildWebCreateDraft(
@@ -642,6 +666,8 @@ pluginConfig := &model.PluginConfig{
 
 `consumer_group` / `global_rule` 同样只保留资源本地字段，`ResourceCommonModel` 统一走 helper。
 
+**行为变化同步（review）：** 同步将 Task 0 在 `create_handlers_test.go` 里断言的 `Updater == ""` 更新为 `Updater == ginx.GetUserID(c)`（== `Creator`），并在 commit message 里记录“behavior change: PluginConfigCreate / ConsumerGroupCreate / GlobalRuleCreate now write Updater on create draft (previously empty)”。
+
 - [ ] **Step 4: 运行 handler 包测试**
 
 Run:
@@ -661,6 +687,8 @@ git commit -m "refactor: extract web create draft builder for special handlers"
 ```
 
 ### Task 5: 把其余 Web create handler 统一迁移到本地 draft helper
+
+> **Review 建议（Files 语义描述）：** 下面 `Files:` 里出现的行号（如 `route.go:61-69`）是押当前 master 的满包描述，落地时位置可能漂移。执行者应以“对应 handler 中 `ResourceCommonModel:` 字面量所在行段”为准，而非硬绑行号。SSL 迁移时务必保留证书解析 + `validity_start/validity_end` 处理逻辑（由 Task 0 的 SSLCreate characterization test 兑保）。
 
 - [ ] Task 5: 把其余 Web create handler 统一迁移到本地 draft helper
 

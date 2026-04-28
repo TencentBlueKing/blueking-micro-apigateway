@@ -74,8 +74,14 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 ## 重构前测试前置阶段（独立）
 
 - Task 0 的目标不是引入 helper，而是先把现状锁住；建议单独落一组 characterization tests 到 `resource_slz_import_test.go`。
-- Task 0 至少覆盖 4 类现状：`ignore_fields` 会从旧资源覆盖导入配置、空 `resource_id` 会直接失败、缺失关联资源会在 `HandleUploadResources(...)` 阶段报错、add/update map 的资源数与输入一致。
+- Task 0 至少覆盖 5 类现状：`ignore_fields` 会从旧资源覆盖导入配置；**旧资源上没有该字段时，导入配置原样保留（overlay 仅在 `gjson.GetBytes(existing, skipRule).Exists()==true` 时生效）**；空 `resource_id` 会直接失败；缺失关联资源会在 `HandleUploadResources(...)` 阶段报错；add/update map 的资源数与输入一致。
 - Task 0 完成后，后续 Task 1-5 才允许把断言下沉到 `handleResources(...)` 或新 helper。
+
+**命名一致性约束（review 补充）：**
+
+- 落地时统一使用 `allResourceIDs` 作为 helper 导出/入参命名（与 Go 合语一致）；当前 `resource_slz.go` 内部仍叫 `allResourceIdMap` 时作为局部变量保留、不零散伸到 helper 签名。
+- 所有 helper 参数顺序遵循 `(ctx, resourceType, ...)` 或 `(ctx, ...)` 的 context-first 风格；orchestration helper `prepareImportResources(ctx, resourcesImport, allResourceIDs, ignoreFields)` 作为唯一例外（多 map 输入），在 doc comment 里用注释解释这一点。
+- 所有会对入参 map 做 in-place 写入的 helper（Task 2 `loadExistingImportResources` / Task 4 `prepareImportResources` / Task 5 `prepareImportValidationInput`）都必须在头部 doc comment 写明 `// mutates allResourceIDs: appends every encountered resource key`，避免后来维护者误以为是纯函数。
 
 ### Task 0: 补 import 入口 characterization tests
 
@@ -90,9 +96,10 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 - [ ] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
 
-至少覆盖下面 4 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
+至少覆盖下面 5 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
 
 - `ignore_fields` 会用旧资源上的字段覆盖导入配置
+- **旧资源上没有 `ignore_fields` 指定的字段时，导入配置原样保留（锁住 `gjson.Exists==false 时静默跳过` 的现状，避免 Task 1 不小心改成 always-overwrite）**
 - 空 `resource_id` 会在进入后续入库前直接失败
 - 缺失关联资源会在 `HandleUploadResources(...)` 阶段报错
 - add/update map 的资源数与输入一致；必要时可用 `HandlerResourceIndexMap(...)` 辅助准备断言输入
@@ -165,6 +172,14 @@ func TestApplyImportIgnoreFields(t *testing.T) {
 			existing:     `{"name":"route-a"}`,
 			ignoreFields: []string{"plugins.limit-count"},
 			want:         `{"plugins":{}}`,
+		},
+		// review 补充：锁住“多个 ignoreFields 混合，其中部分字段在旧资源不存在”的行为
+		{
+			name:         "partial missing fields - only present fields are overlaid",
+			imported:     `{"desc":"new-desc","plugins":{"limit-count":{"count":10}}}`,
+			existing:     `{"desc":"old-desc"}`,
+			ignoreFields: []string{"desc", "plugins.limit-count.count"},
+			want:         `{"desc":"old-desc","plugins":{"limit-count":{"count":10}}}`,
 		},
 	}
 
@@ -267,7 +282,7 @@ git commit -m "refactor: extract import ignore-fields overlay helper"
 
 - [ ] **Step 1: 先补旧资源装载测试**
 
-在 `import_resource_helpers_test.go` 里新增：
+在 `import_resource_helpers_test.go` 里新增（除 happy path 外，review 要求补一条 empty-DB 边界断言）：
 
 ```go
 func TestLoadExistingImportResources(t *testing.T) {
@@ -293,6 +308,15 @@ func TestLoadExistingImportResources(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, got, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
 	assert.Contains(t, allResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
+
+	// review 补充：DB 中没有该类型资源时 helper 返回空 map + nil error
+	t.Run("empty DB returns empty map", func(t *testing.T) {
+		empty := map[string]struct{}{}
+		got, err := loadExistingImportResources(gatewayCtx, constant.Upstream, empty)
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+		assert.Empty(t, empty)
+	})
 }
 ```
 
@@ -307,11 +331,17 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: loadExistingImportResources`
 
-- [ ] **Step 3: 把“取 DB 资源 + 组 map + 回填 allResourceIds”抽成 helper**
+- [ ] **Step 3: 把“取 DB 资源 + 组 map + 回填 allResourceIDs”抽成 helper**
 
-在 `import_resource_helpers.go` 里新增：
+在 `import_resource_helpers.go` 里新增（**注意 doc comment 显式标注 side-effect**）：
 
 ```go
+// loadExistingImportResources fetches all stored resources of the given type for
+// the current gateway and returns them keyed by GetResourceKey(resourceType, id).
+//
+// mutates allResourceIDs: every loaded resource key is appended to the passed-in
+// set so that the import orchestration can build a global id set across all
+// resource types without re-querying the DB.
 func loadExistingImportResources(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
@@ -332,7 +362,7 @@ func loadExistingImportResources(
 }
 ```
 
-然后把 `handleResources(...)` 里原来的 9 行 DB 装载逻辑替换为这个 helper 调用。
+然后把 `handleResources(...)` 里原来的 9 行 DB 装载逻辑替换为这个 helper 调用。本地变量仍用 `allResourceIdMap` 名字以保持结果最小改动，helper 签名则统一走 `allResourceIDs`。
 
 - [ ] **Step 4: 运行 common 包测试**
 
@@ -450,6 +480,15 @@ git commit -m "refactor: extract import sync-data builder"
 ```
 
 ### Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
+
+> **Review 补充价值陈述：** Task 1-3 已经把 `handleResources(...)` 内部 3 个纯 helper 抽出；Task 4 的价值**不是继续降复杂度**，而是让 `HandleUploadResources(...)` 的调用层拿到一个显式的“import 整套准备完成” seam（`prepareImportResources(...)`）：
+> - 可以把 DB helper / overlay helper / sync-data helper 的组合用法用一个公共入口保存下来；
+> - Task 5 在引入 validation seam 时可以直接复用它而不是再写一套；
+> - 将来想做内存级 mock / import dry-run 时，有明确替换点。
+>
+> 如果不做 Task 4，`handleResources(...)` 仍然是“将 3 个 helper 在 handler 层拼回去”的写法，并非 blocker，但 Task 5 的 validation seam 会因为没有此层 helper 而需要在外层手写两次类似的拼装。
+>
+> **review 补充测试**：在 `import_resource_helpers_test.go` 的 `TestPrepareImportResources` 中补一条锁定 Schema 跳过语义的 case——`prepareImportResources` 入参同时包含 `constant.Schema` 和 `constant.Route` 时，返回 map 不含 `constant.Schema`。
 
 - [ ] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
 
@@ -605,7 +644,7 @@ git commit -m "refactor: split import resource preparation orchestration"
 
 - [ ] **Step 1: 先补 validation input 组装测试**
 
-在 `import_resource_helpers_test.go` 里新增：
+在 `import_resource_helpers_test.go` 里新增（**review 补充**：Add 和 Update 同时非空，锁住 `allResourceIDs` 跨两次调用累加语义）：
 
 ```go
 func TestPrepareImportValidationInput(t *testing.T) {
@@ -613,28 +652,57 @@ func TestPrepareImportValidationInput(t *testing.T) {
 
 	ctx := ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{ID: 31})
 
-	input, err := prepareImportValidationInput(
-		ctx,
-		&ResourceUploadInfo{
-			Add: map[constant.APISIXResource][]*ResourceInfo{
-				constant.Route: {
-					{
-						ResourceType: constant.Route,
-						ResourceID:   "route-1",
-						Name:         "route-demo",
-						Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uri":"/demo"}`),
+	t.Run("add only", func(t *testing.T) {
+		input, err := prepareImportValidationInput(
+			ctx,
+			&ResourceUploadInfo{
+				Add: map[constant.APISIXResource][]*ResourceInfo{
+					constant.Route: {
+						{
+							ResourceType: constant.Route,
+							ResourceID:   "route-1",
+							Name:         "route-demo",
+							Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uri":"/demo"}`),
+						},
+					},
+				},
+				Update: map[constant.APISIXResource][]*ResourceInfo{},
+			},
+			nil,
+		)
+		assert.NoError(t, err)
+		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"))
+		assert.Len(t, input.Add, 1)
+		assert.Len(t, input.Add[constant.Route], 1)
+		assert.Empty(t, input.Update)
+	})
+
+	// review 补充：Add 和 Update 同时非空时，allResourceIDs 上会同时出现 add 和 update 的 key
+	t.Run("add and update accumulate all resource ids", func(t *testing.T) {
+		input, err := prepareImportValidationInput(
+			ctx,
+			&ResourceUploadInfo{
+				Add: map[constant.APISIXResource][]*ResourceInfo{
+					constant.Route: {
+						{ResourceType: constant.Route, ResourceID: "route-new", Name: "route-new",
+							Config: json.RawMessage(`{"id":"route-new","uri":"/a"}`)},
+					},
+				},
+				Update: map[constant.APISIXResource][]*ResourceInfo{
+					constant.Route: {
+						{ResourceType: constant.Route, ResourceID: "route-upd", Name: "route-upd",
+							Config: json.RawMessage(`{"id":"route-upd","uri":"/b"}`)},
 					},
 				},
 			},
-			Update: map[constant.APISIXResource][]*ResourceInfo{},
-		},
-		nil,
-	)
-	assert.NoError(t, err)
-	assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"))
-	assert.Len(t, input.Add, 1)
-	assert.Len(t, input.Add[constant.Route], 1)
-	assert.Empty(t, input.Update)
+			nil,
+		)
+		assert.NoError(t, err)
+		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-new"))
+		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-upd"))
+		assert.Len(t, input.Add[constant.Route], 1)
+		assert.Len(t, input.Update[constant.Route], 1)
+	})
 }
 ```
 

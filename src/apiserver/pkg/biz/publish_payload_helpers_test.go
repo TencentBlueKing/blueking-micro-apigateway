@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
 )
 
 func TestCleanupPublishPayloadFields(t *testing.T) {
@@ -124,6 +125,60 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 				RawConfig:    json.RawMessage(tt.rawConfig),
 			})
 			assert.JSONEq(t, tt.wantConfig, string(got))
+		})
+	}
+}
+
+func TestBuildPublishResourceOperation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		input      publishResourceOperationInput
+		wantKey    string
+		wantConfig string
+	}{
+		{
+			name: "plugin metadata uses plugin name as key and id",
+			input: publishResourceOperationInput{
+				ResourceType: constant.PluginMetadata,
+				ResourceKey:  "limit-count",
+				BaseInfo: entity.BaseInfo{
+					ID:         "limit-count",
+					CreateTime: 1700000000,
+					UpdateTime: 1700000001,
+				},
+				Version:   constant.APISIXVersion311,
+				RawConfig: json.RawMessage(`{"config":{"log_format":{"client_ip":"$remote_addr"}},"name":"limit-count"}`),
+			},
+			wantKey:    "limit-count",
+			wantConfig: `{"id":"limit-count","create_time":1700000000,"update_time":1700000001,"config":{"log_format":{"client_ip":"$remote_addr"}},"name":"limit-count"}`,
+		},
+		{
+			name: "consumer group keeps id and removes name in 3.11",
+			input: publishResourceOperationInput{
+				ResourceType: constant.ConsumerGroup,
+				ResourceKey:  "cg-id",
+				BaseInfo: entity.BaseInfo{
+					ID:         "cg-id",
+					CreateTime: 1700000000,
+					UpdateTime: 1700000001,
+				},
+				Version:   constant.APISIXVersion311,
+				RawConfig: json.RawMessage(`{"id":"cg-id","name":"cg-demo","plugins":{}}`),
+			},
+			wantKey:    "cg-id",
+			wantConfig: `{"id":"cg-id","create_time":1700000000,"update_time":1700000001,"plugins":{}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildPublishResourceOperation(tt.input)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantKey, got.Key)
+			assert.Equal(t, tt.input.ResourceType, got.Type)
+			assert.JSONEq(t, tt.wantConfig, string(got.Config))
 		})
 	}
 }

@@ -996,29 +996,21 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 
 	var pluginConfigOps []publisher.ResourceOperation
 	for _, pluginConfig := range pluginConfigs {
-		baseInfo := entity.BaseInfo{
-			ID:         pluginConfig.ID,
-			CreateTime: pluginConfig.CreatedAt.Unix(),
-			UpdateTime: pluginConfig.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal plugin config base info failed: %w", marshalErr)
-		}
-		pluginConfig.Config, err = jsonx.MergeJson(pluginConfig.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.PluginConfig,
+			ResourceKey:  pluginConfig.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         pluginConfig.ID,
+				CreateTime: pluginConfig.CreatedAt.Unix(),
+				UpdateTime: pluginConfig.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(pluginConfig.Config),
+		})
 		if err != nil {
 			return err
 		}
-		pluginConfig.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.PluginConfig,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(pluginConfig.Config),
-		}))
-		pluginConfigOps = append(pluginConfigOps, publisher.ResourceOperation{
-			Key:    pluginConfig.ID,
-			Config: json.RawMessage(pluginConfig.Config),
-			Type:   constant.PluginConfig,
-		})
+		pluginConfigOps = append(pluginConfigOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1049,26 +1041,27 @@ func putPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) error {
 		)
 		return fmt.Errorf("未找到指定的插件元数据资源 IDs %v", pluginMetadataIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
 	var pluginMetadataOps []publisher.ResourceOperation
 	for _, pluginMetadata := range pluginMetadatas {
-		baseInfo := entity.BaseInfo{
-			ID:         pluginMetadata.Name, // pluginMetadata.Name 必须是 pluginName
-			CreateTime: pluginMetadata.CreatedAt.Unix(),
-			UpdateTime: pluginMetadata.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal plugin metadata base info failed: %w", marshalErr)
-		}
-		pluginMetadata.Config, err = jsonx.MergeJson(pluginMetadata.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.PluginMetadata,
+			ResourceKey:  pluginMetadata.Name,
+			BaseInfo: entity.BaseInfo{
+				ID:         pluginMetadata.Name, // pluginMetadata.Name 必须是 pluginName
+				CreateTime: pluginMetadata.CreatedAt.Unix(),
+				UpdateTime: pluginMetadata.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(pluginMetadata.Config),
+		})
 		if err != nil {
 			return err
 		}
-		pluginMetadataOps = append(pluginMetadataOps, publisher.ResourceOperation{
-			Key:    pluginMetadata.Name,
-			Config: json.RawMessage(pluginMetadata.Config),
-			Type:   constant.PluginMetadata,
-		})
+		pluginMetadataOps = append(pluginMetadataOps, op)
 	}
 	// 先创建 etcd 的数据
 	err = batchCreateEtcdResource(ctx, pluginMetadataOps)
@@ -1169,29 +1162,21 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 
 	var consumerGroupOps []publisher.ResourceOperation
 	for _, consumerGroup := range consumerGroups {
-		baseInfo := entity.BaseInfo{
-			ID:         consumerGroup.ID,
-			CreateTime: consumerGroup.CreatedAt.Unix(),
-			UpdateTime: consumerGroup.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal consumer group base info failed: %w", marshalErr)
-		}
-		consumerGroup.Config, err = jsonx.MergeJson(consumerGroup.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.ConsumerGroup,
+			ResourceKey:  consumerGroup.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         consumerGroup.ID,
+				CreateTime: consumerGroup.CreatedAt.Unix(),
+				UpdateTime: consumerGroup.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(consumerGroup.Config),
+		})
 		if err != nil {
 			return err
 		}
-		consumerGroup.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.ConsumerGroup,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(consumerGroup.Config),
-		}))
-		consumerGroupOps = append(consumerGroupOps, publisher.ResourceOperation{
-			Key:    consumerGroup.ID,
-			Config: json.RawMessage(consumerGroup.Config),
-			Type:   constant.ConsumerGroup,
-		})
+		consumerGroupOps = append(consumerGroupOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1225,29 +1210,21 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 
 	var globalRuleOps []publisher.ResourceOperation
 	for _, globalRule := range globalRules {
-		baseInfo := entity.BaseInfo{
-			ID:         globalRule.ID,
-			CreateTime: globalRule.CreatedAt.Unix(),
-			UpdateTime: globalRule.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal global rule base info failed: %w", marshalErr)
-		}
-		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.GlobalRule,
+			ResourceKey:  globalRule.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         globalRule.ID,
+				CreateTime: globalRule.CreatedAt.Unix(),
+				UpdateTime: globalRule.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(globalRule.Config),
+		})
 		if err != nil {
 			return err
 		}
-		globalRule.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.GlobalRule,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(globalRule.Config),
-		}))
-		globalRuleOps = append(globalRuleOps, publisher.ResourceOperation{
-			Key:    globalRule.ID,
-			Config: json.RawMessage(globalRule.Config),
-			Type:   constant.GlobalRule,
-		})
+		globalRuleOps = append(globalRuleOps, op)
 	}
 	// 先创建 etcd 的数据
 	err = batchCreateEtcdResource(ctx, globalRuleOps)
@@ -1284,30 +1261,21 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 
 	var protoOps []publisher.ResourceOperation
 	for _, pb := range protos {
-		baseInfo := entity.BaseInfo{
-			ID:         pb.ID,
-			CreateTime: pb.CreatedAt.Unix(),
-			UpdateTime: pb.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal proto base info failed: %w", marshalErr)
-		}
-		pb.Config, err = jsonx.MergeJson(pb.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.Proto,
+			ResourceKey:  pb.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         pb.ID,
+				CreateTime: pb.CreatedAt.Unix(),
+				UpdateTime: pb.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(pb.Config),
+		})
 		if err != nil {
 			return err
 		}
-		pb.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.Proto,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(pb.Config),
-		}))
-
-		protoOps = append(protoOps, publisher.ResourceOperation{
-			Key:    pb.ID,
-			Config: json.RawMessage(pb.Config),
-			Type:   constant.Proto,
-		})
+		protoOps = append(protoOps, op)
 	}
 
 	// 先创建 etcd 的数据
@@ -1340,30 +1308,21 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 
 	var sslOps []publisher.ResourceOperation
 	for _, ssl := range ssls {
-		baseInfo := entity.BaseInfo{
-			ID:         ssl.ID,
-			CreateTime: ssl.CreatedAt.Unix(),
-			UpdateTime: ssl.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal ssl base info failed: %w", marshalErr)
-		}
-		ssl.Config, err = jsonx.MergeJson(ssl.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.SSL,
+			ResourceKey:  ssl.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         ssl.ID,
+				CreateTime: ssl.CreatedAt.Unix(),
+				UpdateTime: ssl.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(ssl.Config),
+		})
 		if err != nil {
 			return err
 		}
-		ssl.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.SSL,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(ssl.Config),
-		}))
-
-		sslOps = append(sslOps, publisher.ResourceOperation{
-			Key:    ssl.ID,
-			Config: json.RawMessage(ssl.Config),
-			Type:   constant.SSL,
-		})
+		sslOps = append(sslOps, op)
 	}
 
 	// 先创建 etcd 的数据

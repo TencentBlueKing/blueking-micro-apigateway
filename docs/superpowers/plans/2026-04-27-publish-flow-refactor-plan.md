@@ -499,7 +499,7 @@ git commit -m "refactor: extract publish payload cleanup helper"
 
 ### Task 2: 抽 simple publish payload builder helper
 
-- [ ] Task 2: 抽 simple publish payload builder helper
+- [x] Task 2: 抽 simple publish payload builder helper
 
 **要解决的复杂度：** `plugin_config`、`plugin_metadata`、`consumer_group`、`global_rule`、`proto`、`ssl` 这些资源都在重复做 `BaseInfo` 序列化、`jsonx.MergeJson(...)`、`ResourceOperation` 组装。重复逻辑多，资源特例又掺在里面，`putXxx()` 很难一眼看出真正的资源特有部分。
 
@@ -511,7 +511,7 @@ git commit -m "refactor: extract publish payload cleanup helper"
 - Modify: `src/apiserver/pkg/biz/publish_payload_helpers.go`
 - Modify: `src/apiserver/pkg/biz/publish_payload_helpers_test.go`
 
-- [ ] **Step 1: 先补现有 simple publish seam 的 characterization tests**
+- [x] **Step 1: 先补现有 simple publish seam 的 characterization tests**
 
 在 `publish_test.go` 增加：
 
@@ -571,7 +571,7 @@ func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam tests，确认当前外部行为已经被锁住**
+- [x] **Step 2: 运行 seam tests，确认当前外部行为已经被锁住**
 
 Run:
 
@@ -582,7 +582,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 helper test，让它先失败**
+- [x] **Step 3: 再补 helper test，让它先失败**
 
 在 `publish_payload_helpers_test.go` 追加：
 
@@ -651,7 +651,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: publishResourceOperationInput` 或 `undefined: buildPublishResourceOperation`
 
-- [ ] **Step 4: 用最小实现抽出 simple publish payload builder，并迁移 simple 资源**
+- [x] **Step 4: 用最小实现抽出 simple publish payload builder，并迁移 simple 资源**
+
+**执行备注（按代码真实情况）：** 最终 helper 统一承接 `BaseInfo` 序列化、`jsonx.MergeJson(...)`、Task 1 的 cleanup helper，以及 `publisher.ResourceOperation` 组装。迁移范围保持在 simple publish loops：`putPluginConfigs(...)`、`putPluginMetadatas(...)`、`putConsumerGroups(...)`、`putGlobalRules(...)`、`PutProtos(...)`、`PutSSLs(...)`。
 
 **设计注释（review）：** helper 返回值使用值类型 `publisher.ResourceOperation`，让 `MergeJson` 失败时零值 op 不会被误用（调用者遇到 err 必须立即返回，不能跟着 append）。主要用意图通过 Task 2 seam test 和各调用处 `if err != nil { return err }` 模式保证。
 
@@ -717,7 +719,7 @@ if err != nil {
 pluginMetadataOps = append(pluginMetadataOps, op)
 ```
 
-- [ ] **Step 5: 运行任务相关测试**
+- [x] **Step 5: 运行任务相关测试**
 
 Run:
 
@@ -728,7 +730,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_payload_helpers.go src/apiserver/pkg/biz/publish_payload_helpers_test.go

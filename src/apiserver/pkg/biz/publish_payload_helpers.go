@@ -24,6 +24,9 @@ import (
 	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/publisher"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 type publishPayloadCleanupInput struct {
@@ -35,6 +38,14 @@ type publishPayloadCleanupInput struct {
 type publishPayloadCleanupRule struct {
 	Field        string
 	VersionGated bool
+}
+
+type publishResourceOperationInput struct {
+	ResourceType constant.APISIXResource
+	ResourceKey  string
+	BaseInfo     entity.BaseInfo
+	Version      constant.APISIXVersion
+	RawConfig    json.RawMessage
 }
 
 var publishPayloadCleanupRules = map[constant.APISIXResource][]publishPayloadCleanupRule{
@@ -71,4 +82,25 @@ func cleanupPublishPayloadFields(input publishPayloadCleanupInput) json.RawMessa
 		cleaned, _ = sjson.DeleteBytes(cleaned, rule.Field)
 	}
 	return cleaned
+}
+
+func buildPublishResourceOperation(input publishResourceOperationInput) (publisher.ResourceOperation, error) {
+	baseConfig, err := json.Marshal(input.BaseInfo)
+	if err != nil {
+		return publisher.ResourceOperation{}, err
+	}
+	merged, err := jsonx.MergeJson(input.RawConfig, baseConfig)
+	if err != nil {
+		return publisher.ResourceOperation{}, err
+	}
+	cleaned := cleanupPublishPayloadFields(publishPayloadCleanupInput{
+		ResourceType: input.ResourceType,
+		Version:      input.Version,
+		RawConfig:    merged,
+	})
+	return publisher.ResourceOperation{
+		Key:    input.ResourceKey,
+		Config: cleaned,
+		Type:   input.ResourceType,
+	}, nil
 }

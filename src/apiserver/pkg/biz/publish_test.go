@@ -521,6 +521,40 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 	})
 }
 
+func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
+	t.Run("plugin metadata uses plugin name as final payload id", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		pm := data.PluginMetadata1(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreatePluginMetadata(ctx, *pm); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishPluginMetadatas(ctx, []string{pm.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		synced := mustSyncAndGetSyncedItem(t, ctx, constant.PluginMetadata, pm.ID)
+		assert.Equal(t, pm.Name, gjson.GetBytes(synced.Config, "id").String())
+		assert.Equal(t, pm.Name, gjson.GetBytes(synced.Config, "name").String())
+	})
+
+	t.Run("proto keeps name on 3.13", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.13.0")
+
+		pb := data.Proto1(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreateProto(ctx, *pb); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishProtos(ctx, []string{pb.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		synced := mustSyncAndGetSyncedItem(t, ctx, constant.Proto, pb.ID)
+		assert.Equal(t, pb.Name, gjson.GetBytes(synced.Config, "name").String())
+		assert.Equal(t, pb.ID, gjson.GetBytes(synced.Config, "id").String())
+	})
+}
+
 func TestPublishRoutes(t *testing.T) {
 	type args struct {
 		ctx   context.Context

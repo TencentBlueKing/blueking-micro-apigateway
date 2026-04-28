@@ -56,18 +56,9 @@ func UpstreamCreate(c *gin.Context) {
 	}
 
 	upstream := model.Upstream{
-		Name:  req.Name,
-		SSLID: req.SSLID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Upstream),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		SSLID:               req.SSLID,
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Upstream), req.Config),
 	}
 
 	if err := biz.CreateUpstream(c.Request.Context(), upstream); err != nil {

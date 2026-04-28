@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/datatypes"
-
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
@@ -33,7 +31,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/goroutinex"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // FuncPublishResource ...
@@ -798,57 +795,47 @@ func putRoutes(ctx context.Context, routeIDs []string) error {
 		logging.ErrorFWithContext(ctx, "no routes found for the specified routeIDs %v", routeIDs)
 		return fmt.Errorf("未找到指定的路由资源 IDs %v", routeIDs)
 	}
-	var serviceIDs []string
-	var upstreamIDs []string
-	var pluginConfigIDs []string
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
+	deps := collectRoutePublishDependencies(routes)
 	var routeOps []publisher.ResourceOperation
 	for _, route := range routes {
-		baseInfo := entity.BaseInfo{
-			ID:         route.ID,
-			Name:       route.Name,
-			CreateTime: route.CreatedAt.Unix(),
-			UpdateTime: route.UpdatedAt.Unix(),
-		}
-		if route.ServiceID != "" {
-			serviceIDs = append(serviceIDs, route.ServiceID)
-		}
-		if route.UpstreamID != "" {
-			upstreamIDs = append(upstreamIDs, route.UpstreamID)
-		}
-		if route.PluginConfigID != "" {
-			pluginConfigIDs = append(pluginConfigIDs, route.PluginConfigID)
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal route base info failed: %w", marshalErr)
-		}
-		route.Config, err = jsonx.MergeJson(route.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.Route,
+			ResourceKey:  route.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         route.ID,
+				Name:       route.Name,
+				CreateTime: route.CreatedAt.Unix(),
+				UpdateTime: route.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(route.Config),
+		})
 		if err != nil {
 			return err
 		}
-		routeOps = append(routeOps, publisher.ResourceOperation{
-			Key:    route.ID,
-			Config: json.RawMessage(route.Config),
-			Type:   constant.Route,
-		})
+		routeOps = append(routeOps, op)
 	}
 	// 发布 upstream
-	if len(upstreamIDs) > 0 {
-		if err := putUpstreams(ctx, upstreamIDs); err != nil {
+	if len(deps.UpstreamIDs) > 0 {
+		if err := putUpstreams(ctx, deps.UpstreamIDs); err != nil {
 			return err
 		}
 	}
 
 	// 发布 service
-	if len(serviceIDs) > 0 {
-		if err := putServices(ctx, serviceIDs); err != nil {
+	if len(deps.ServiceIDs) > 0 {
+		if err := putServices(ctx, deps.ServiceIDs); err != nil {
 			return err
 		}
 	}
 
 	// 发布 pluginConfig
-	if len(pluginConfigIDs) > 0 {
-		if err := putPluginConfigs(ctx, pluginConfigIDs); err != nil {
+	if len(deps.PluginConfigIDs) > 0 {
+		if err := putPluginConfigs(ctx, deps.PluginConfigIDs); err != nil {
 			return err
 		}
 	}
@@ -876,34 +863,41 @@ func putServices(ctx context.Context, serviceIDs []string) error {
 		logging.ErrorFWithContext(ctx, "no services found for the specified serviceIDs %v", serviceIDs)
 		return fmt.Errorf("未找到指定的服务资源 IDs %v", serviceIDs)
 	}
-	var upstreamIDs []string
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
+	deps := collectServicePublishDependencies(services)
 	var serviceOps []publisher.ResourceOperation
 	for _, service := range services {
-		baseInfo := entity.BaseInfo{
-			ID:         service.ID,
-			CreateTime: service.CreatedAt.Unix(),
-			UpdateTime: service.UpdatedAt.Unix(),
+		if service.UpstreamID == "" {
+			serviceOps = append(serviceOps, publisher.ResourceOperation{
+				Key:    service.ID,
+				Config: json.RawMessage(service.Config),
+				Type:   constant.Service,
+			})
+			continue
 		}
-		if service.UpstreamID != "" {
-			upstreamIDs = append(upstreamIDs, service.UpstreamID)
-			baseConfig, marshalErr := json.Marshal(baseInfo)
-			if marshalErr != nil {
-				return fmt.Errorf("marshal service base info failed: %w", marshalErr)
-			}
-			service.Config, err = jsonx.MergeJson(service.Config, baseConfig)
-			if err != nil {
-				return err
-			}
-		}
-		serviceOps = append(serviceOps, publisher.ResourceOperation{
-			Key:    service.ID,
-			Config: json.RawMessage(service.Config),
-			Type:   constant.Service,
+
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.Service,
+			ResourceKey:  service.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         service.ID,
+				CreateTime: service.CreatedAt.Unix(),
+				UpdateTime: service.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(service.Config),
 		})
+		if err != nil {
+			return err
+		}
+		serviceOps = append(serviceOps, op)
 	}
 	// 发布 upstream
-	if len(upstreamIDs) > 0 {
-		if err = putUpstreams(ctx, upstreamIDs); err != nil {
+	if len(deps.UpstreamIDs) > 0 {
+		if err = putUpstreams(ctx, deps.UpstreamIDs); err != nil {
 			return err
 		}
 	}
@@ -932,33 +926,31 @@ func putUpstreams(ctx context.Context, upstreamIDs []string) error {
 		logging.ErrorFWithContext(ctx, "no upstreams found for the specified upstreamIDs %v", upstreamIDs)
 		return fmt.Errorf("未找到指定的上游资源 IDs %v", upstreamIDs)
 	}
+
+	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+	apisixVersion := gatewayInfo.GetAPISIXVersionX()
+
+	deps := collectUpstreamPublishDependencies(upstreams)
 	var upstreamOps []publisher.ResourceOperation
-	var sslIDs []string
 	for _, upstream := range upstreams {
-		baseInfo := entity.BaseInfo{
-			ID:         upstream.ID,
-			CreateTime: upstream.CreatedAt.Unix(),
-			UpdateTime: upstream.UpdatedAt.Unix(),
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal upstream base info failed: %w", marshalErr)
-		}
-		upstream.Config, err = jsonx.MergeJson(upstream.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.Upstream,
+			ResourceKey:  upstream.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         upstream.ID,
+				CreateTime: upstream.CreatedAt.Unix(),
+				UpdateTime: upstream.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(upstream.Config),
+		})
 		if err != nil {
 			return err
 		}
-		if upstream.GetSSLID() != "" {
-			sslIDs = append(sslIDs, upstream.GetSSLID())
-		}
-		upstreamOps = append(upstreamOps, publisher.ResourceOperation{
-			Key:    upstream.ID,
-			Config: json.RawMessage(upstream.Config),
-			Type:   constant.Upstream,
-		})
+		upstreamOps = append(upstreamOps, op)
 	}
-	if len(sslIDs) > 0 {
-		if err = PutSSLs(ctx, sslIDs); err != nil {
+	if len(deps.SSLIDs) > 0 {
+		if err = PutSSLs(ctx, deps.SSLIDs); err != nil {
 			return err
 		}
 	}
@@ -1091,38 +1083,27 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	apisixVersion := gatewayInfo.GetAPISIXVersionX()
 
+	deps := collectConsumerPublishDependencies(consumers)
 	var consumerOps []publisher.ResourceOperation
-	var consumerGroupIDs []string
 	for _, consumer := range consumers {
-		baseInfo := entity.BaseInfo{
-			CreateTime: consumer.CreatedAt.Unix(),
-			UpdateTime: consumer.UpdatedAt.Unix(),
-		}
-		if consumer.GroupID != "" {
-			consumerGroupIDs = append(consumerGroupIDs, consumer.GroupID)
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal consumer base info failed: %w", marshalErr)
-		}
-		consumer.Config, err = jsonx.MergeJson(consumer.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.Consumer,
+			ResourceKey:  consumer.ID,
+			BaseInfo: entity.BaseInfo{
+				CreateTime: consumer.CreatedAt.Unix(),
+				UpdateTime: consumer.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(consumer.Config),
+		})
 		if err != nil {
 			return err
 		}
-		consumer.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.Consumer,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(consumer.Config),
-		}))
-		consumerOps = append(consumerOps, publisher.ResourceOperation{
-			Key:    consumer.ID,
-			Config: json.RawMessage(consumer.Config),
-			Type:   constant.Consumer,
-		})
+		consumerOps = append(consumerOps, op)
 	}
 
-	if len(consumerGroupIDs) > 0 {
-		err = putConsumerGroups(ctx, consumerGroupIDs)
+	if len(deps.ConsumerGroupIDs) > 0 {
+		err = putConsumerGroups(ctx, deps.ConsumerGroupIDs)
 		if err != nil {
 			return err
 		}
@@ -1357,49 +1338,34 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	apisixVersion := gatewayInfo.GetAPISIXVersionX()
 
-	var upstreamIDs []string
-	var serviceIDs []string
+	deps := collectStreamRoutePublishDependencies(streamRoutes)
 	var streamRouteOps []publisher.ResourceOperation
 	for _, sr := range streamRoutes {
-		baseInfo := entity.BaseInfo{
-			ID:         sr.ID,
-			CreateTime: sr.CreatedAt.Unix(),
-			UpdateTime: sr.UpdatedAt.Unix(),
-		}
-		if sr.UpstreamID != "" {
-			upstreamIDs = append(upstreamIDs, sr.UpstreamID)
-		}
-		if sr.ServiceID != "" {
-			serviceIDs = append(serviceIDs, sr.ServiceID)
-		}
-		baseConfig, marshalErr := json.Marshal(baseInfo)
-		if marshalErr != nil {
-			return fmt.Errorf("marshal stream route base info failed: %w", marshalErr)
-		}
-		sr.Config, err = jsonx.MergeJson(sr.Config, baseConfig)
+		op, err := buildPublishResourceOperation(publishResourceOperationInput{
+			ResourceType: constant.StreamRoute,
+			ResourceKey:  sr.ID,
+			BaseInfo: entity.BaseInfo{
+				ID:         sr.ID,
+				CreateTime: sr.CreatedAt.Unix(),
+				UpdateTime: sr.UpdatedAt.Unix(),
+			},
+			Version:   apisixVersion,
+			RawConfig: json.RawMessage(sr.Config),
+		})
 		if err != nil {
 			return err
 		}
-		sr.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
-			ResourceType: constant.StreamRoute,
-			Version:      apisixVersion,
-			RawConfig:    json.RawMessage(sr.Config),
-		}))
-		streamRouteOps = append(streamRouteOps, publisher.ResourceOperation{
-			Key:    sr.ID,
-			Config: json.RawMessage(sr.Config),
-			Type:   constant.StreamRoute,
-		})
+		streamRouteOps = append(streamRouteOps, op)
 	}
 	// 发布 upstream
-	if len(upstreamIDs) > 0 {
-		if err := putUpstreams(ctx, upstreamIDs); err != nil {
+	if len(deps.UpstreamIDs) > 0 {
+		if err := putUpstreams(ctx, deps.UpstreamIDs); err != nil {
 			return err
 		}
 	}
 	// 发布 service
-	if len(serviceIDs) > 0 {
-		if err := putServices(ctx, serviceIDs); err != nil {
+	if len(deps.ServiceIDs) > 0 {
+		if err := putServices(ctx, deps.ServiceIDs); err != nil {
 			return err
 		}
 	}

@@ -739,7 +739,7 @@ git commit -m "refactor: extract simple publish payload builder"
 
 ### Task 3: 拆依赖资源发布 helper
 
-- [ ] Task 3: 拆依赖资源发布 helper
+- [x] Task 3: 拆依赖资源发布 helper
 
 **要解决的复杂度：** `putRoutes()`、`putServices()`、`putUpstreams()`、`putConsumers()`、`PutStreamRoutes()` 现在把“读取资源”“收集依赖 ID”“递归发布依赖”“构造自身 payload”混在一起，读起来像 5 个相似但不完全一致的大函数。
 
@@ -751,7 +751,9 @@ git commit -m "refactor: extract simple publish payload builder"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
-- [ ] **Step 0: 前置检查 `model.Upstream.GetSSLID()` 存在（review 补充）**
+- [x] **Step 0: 前置检查 `model.Upstream.GetSSLID()` 存在（review 补充）**
+
+**执行备注（按代码真实情况）：** `GetSSLID()` 不是定义在 `upstream.go`，而是来自嵌入的 `ResourceCommonModel`，位置在 `pkg/entity/model/common.go`。当前实现读取的是 `tls.client_key`，Task 3 helper 继续保持这条现状。
 
 Task 3 中 `collectUpstreamPublishDependencies` 使用了 `upstream.GetSSLID()`，在开始实现前先确认此 method 在 `pkg/entity/model/upstream.go` 中已存在：
 
@@ -761,7 +763,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && grep -n 
 
 如果上面输出 `MISSING`，需在本 Task 的第一个 commit 里先补齐 getter（只加方法、不改资源字段定义）。
 
-- [ ] **Step 1: 先补现有依赖发布 seam 的 characterization tests**
+- [x] **Step 1: 先补现有依赖发布 seam 的 characterization tests**
+
+**执行备注（按代码真实情况）：** 这组 seam tests 已在 Task 0 以 `TestPublishDependencyFanout_CurrentSeams` 落地，因此 Task 3 直接复用并重新运行，而不是再复制一份新的 characterization test。当前黑盒现状仍然包括：当 upstream 只带 `tls.client_cert_id` 时，不会自动带出 `ssl`。
 
 在 `publish_test.go` 增加：
 
@@ -936,7 +940,7 @@ func TestPublishDependencies_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam tests，确认依赖 fan-out 行为被锁住**
+- [x] **Step 2: 运行 seam tests，确认依赖 fan-out 行为被锁住**
 
 Run:
 
@@ -947,7 +951,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 dependency helper tests，让它先失败**
+- [x] **Step 3: 再补 dependency helper tests，让它先失败**
 
 在 `publish_dependency_helpers_test.go` 增加：
 
@@ -997,7 +1001,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: collectRoutePublishDependencies` 等
 
-- [ ] **Step 4: 用最小实现抽出 dependency helper，并迁移 dependent 资源**
+- [x] **Step 4: 用最小实现抽出 dependency helper，并迁移 dependent 资源**
+
+**执行备注（按代码真实情况）：** 新增 `publish_dependency_helpers.go`，落地了 `route/service/upstream/consumer/stream_route` 五组 collect helper，并把 `putRoutes(...)`、`putServices(...)`、`putUpstreams(...)`、`putConsumers(...)`、`PutStreamRoutes(...)` 的“依赖收集”与“自身 payload 构造”拆开。`service.UpstreamID == ""` 的分支保持原样，不强行接入 builder，避免静默改变当前 payload。
 
 在 `publish_dependency_helpers.go` 新增：
 
@@ -1120,7 +1126,7 @@ if len(deps.PluginConfigIDs) > 0 {
 
 同时让这些函数内部 payload 构造统一走 Task 2 的 `buildPublishResourceOperation(...)`。
 
-- [ ] **Step 5: 运行任务相关测试**
+- [x] **Step 5: 运行任务相关测试**
 
 Run:
 
@@ -1131,7 +1137,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_dependency_helpers.go src/apiserver/pkg/biz/publish_dependency_helpers_test.go src/apiserver/pkg/biz/publish_payload_helpers.go src/apiserver/pkg/biz/publish_payload_helpers_test.go

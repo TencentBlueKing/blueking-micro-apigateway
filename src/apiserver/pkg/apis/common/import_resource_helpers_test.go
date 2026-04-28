@@ -140,3 +140,86 @@ func TestBuildImportSyncData(t *testing.T) {
 	assert.Equal(t, 23, got.GatewayID)
 	assert.JSONEq(t, `{"id":"route-1","name":"route-demo","uri":"/demo"}`, string(got.Config))
 }
+
+func TestPrepareImportResources(t *testing.T) {
+	util.InitEmbedDb()
+
+	ctx := context.Background()
+	gateway := &model.Gateway{
+		Name:          "prepare-import-gateway",
+		APISIXVersion: string(constant.APISIXVersion313),
+	}
+	assert.NoError(t, biz.CreateGateway(ctx, gateway))
+	gatewayCtx := ginx.SetGatewayInfoToContext(ctx, gateway)
+
+	existing := model.PluginConfig{
+		Name: "pc-demo",
+		ResourceCommonModel: model.ResourceCommonModel{
+			ID:        "pc-1",
+			GatewayID: gateway.ID,
+			Config: datatypes.JSON([]byte(
+				`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+			)),
+			Status: constant.ResourceStatusSuccess,
+		},
+	}
+	assert.NoError(t, biz.CreatePluginConfig(gatewayCtx, existing))
+
+	resources, err := prepareImportResources(
+		gatewayCtx,
+		map[constant.APISIXResource][]*ResourceInfo{
+			constant.PluginConfig: {
+				{
+					ResourceType: constant.PluginConfig,
+					ResourceID:   "pc-1",
+					Name:         "pc-demo",
+					Config: json.RawMessage(
+						`{"id":"pc-1","name":"pc-demo","desc":"new-desc","plugins":{"limit-count":{"count":10,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+					),
+				},
+			},
+		},
+		map[string]struct{}{},
+		map[constant.APISIXResource][]string{
+			constant.PluginConfig: {"desc"},
+		},
+	)
+	assert.NoError(t, err)
+	if !assert.Len(t, resources[constant.PluginConfig], 1) {
+		return
+	}
+	assert.JSONEq(
+		t,
+		`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":10,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		string(resources[constant.PluginConfig][0].Config),
+	)
+
+	t.Run("schema resources are skipped", func(t *testing.T) {
+		got, err := prepareImportResources(
+			gatewayCtx,
+			map[constant.APISIXResource][]*ResourceInfo{
+				constant.Schema: {
+					{
+						ResourceType: constant.Schema,
+						ResourceID:   "schema-1",
+						Name:         "demo-plugin",
+						Config:       json.RawMessage(`{"name":"demo-plugin"}`),
+					},
+				},
+				constant.Route: {
+					{
+						ResourceType: constant.Route,
+						ResourceID:   "route-1",
+						Name:         "route-demo",
+						Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uris":["/demo"]}`),
+					},
+				},
+			},
+			map[string]struct{}{},
+			nil,
+		)
+		assert.NoError(t, err)
+		assert.NotContains(t, got, constant.Schema)
+		assert.Len(t, got[constant.Route], 1)
+	})
+}

@@ -90,3 +90,51 @@ func buildImportSyncData(
 		GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
 	}
 }
+
+// prepareImportResources transforms import payloads into sync-data groups for
+// later validation and upload. It keeps the import-specific argument order
+// because this orchestration helper accepts multiple resource maps together.
+//
+// mutates allResourceIDs: appends every encountered resource key from both
+// stored resources and imported resources while building the returned map.
+func prepareImportResources(
+	ctx context.Context,
+	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
+	allResourceIDs map[string]struct{},
+	ignoreFields map[constant.APISIXResource][]string,
+) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
+	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+	for resourceType, resourceInfoList := range resourcesImport {
+		if resourceType == constant.Schema {
+			continue
+		}
+
+		existingMap, err := loadExistingImportResources(ctx, resourceType, allResourceIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, imp := range resourceInfoList {
+			if imp.ResourceID == "" {
+				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
+			}
+			if oldResource, ok := existingMap[imp.GetResourceKey()]; ok && len(ignoreFields[resourceType]) > 0 {
+				imp.Config, err = applyImportIgnoreFields(
+					imp.Config,
+					oldResource.Config,
+					ignoreFields[resourceType],
+				)
+				if err != nil {
+					return nil, fmt.Errorf("set config failed, err: %w", err)
+				}
+			}
+
+			allResourceIDs[imp.GetResourceKey()] = struct{}{}
+			resourceTypeMap[resourceType] = append(
+				resourceTypeMap[resourceType],
+				buildImportSyncData(ctx, resourceType, imp),
+			)
+		}
+	}
+	return resourceTypeMap, nil
+}

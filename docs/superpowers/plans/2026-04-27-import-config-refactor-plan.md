@@ -501,7 +501,7 @@ git commit -m "refactor: extract import sync-data builder"
 >
 > **review 补充边界**：`prepareImportResources(...)` 虽然汇总 add/update 资源，但仍停在 prepare 阶段；不要把 `biz.UploadResources(...)` 的事务、审计、schema update 顺序搬进来，否则会把“orchestration 重排”变成“跨层事务重构”。
 
-- [ ] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
+- [x] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
 
 **要解决的复杂度：** 现在 `handleResources(...)` 同时做资源遍历、旧资源装载、overlay、resource_id 校验、sync-data append，是典型的大函数混合职责。
 
@@ -512,7 +512,7 @@ git commit -m "refactor: extract import sync-data builder"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:256-313`
 
-- [ ] **Step 1: 先补大函数当前行为保护测试**
+- [x] **Step 1: 先补大函数当前行为保护测试**
 
 在 `import_resource_helpers_test.go` 里新增：
 
@@ -559,7 +559,7 @@ func TestPrepareImportResources(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认新 orchestration helper 还不存在**
+- [x] **Step 2: 运行测试，确认新 orchestration helper 还不存在**
 
 Run:
 
@@ -570,7 +570,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: prepareImportResources`
 
-- [ ] **Step 3: 实现 orchestration helper，并让 `handleResources(...)` 只做代理**
+- [x] **Step 3: 实现 orchestration helper，并让 `handleResources(...)` 只做代理**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -622,7 +622,7 @@ func handleResources(...) (map[constant.APISIXResource][]*model.GatewaySyncData,
 }
 ```
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -633,7 +633,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go

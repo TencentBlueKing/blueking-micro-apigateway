@@ -258,40 +258,5 @@ func handleResources(
 	allResourceIdMap map[string]struct{},
 	ignoreFields map[constant.APISIXResource][]string,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
-	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for resourceType, resourceInfoList := range resourcesImport {
-		if resourceType == constant.Schema {
-			continue
-		}
-		allResourceMap, err := loadExistingImportResources(ctx, resourceType, allResourceIdMap)
-		if err != nil {
-			return nil, err
-		}
-		for _, imp := range resourceInfoList {
-			// 如果 id 为空，直接报错
-			if imp.ResourceID == "" {
-				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
-			}
-			// 如果已经存在，则需要判断是否有跳过规则
-			oldResource, ok := allResourceMap[imp.GetResourceKey()]
-			if len(ignoreFields[resourceType]) > 0 && ok {
-				imp.Config, err = applyImportIgnoreFields(
-					imp.Config,
-					oldResource.Config,
-					ignoreFields[resourceType],
-				)
-				if err != nil {
-					return nil, fmt.Errorf("set config failed, err: %w", err)
-				}
-			}
-			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
-			resourceImp := buildImportSyncData(ctx, resourceType, imp)
-			if _, ok := resourceTypeMap[imp.ResourceType]; !ok {
-				resourceTypeMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeMap[resourceType] = append(resourceTypeMap[resourceType], resourceImp)
-		}
-	}
-	return resourceTypeMap, nil
+	return prepareImportResources(ctx, resourcesImport, allResourceIdMap, ignoreFields)
 }

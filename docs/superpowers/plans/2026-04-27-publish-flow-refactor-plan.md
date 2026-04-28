@@ -1339,7 +1339,7 @@ git commit -m "refactor: extract publish persist helper"
 
 ### Task 5: 抽 `EtcdPublisher` 最终校验 helper
 
-- [ ] Task 5: 抽 `EtcdPublisher` 最终校验 helper
+- [x] Task 5: 抽 `EtcdPublisher` 最终校验 helper
 
 **要解决的复杂度：** `EtcdPublisher.Validate()` 现在把“版本解析”“custom plugin schema 获取”“构造 `ETCD` validator”“执行最终校验”都压在一个方法里，而 `Create/Update/BatchCreate/BatchUpdate` 又各自直接循环调用它。当前测试主要 patch 掉 `Validate()`，没有真正锁住最终发布校验的组装契约。
 
@@ -1349,7 +1349,9 @@ git commit -m "refactor: extract publish persist helper"
 - Modify: `src/apiserver/pkg/publisher/etcd.go`
 - Modify: `src/apiserver/pkg/publisher/etcd_test.go`
 
-- [ ] **Step 1: 先补现有 `EtcdPublisher` seam 的 characterization tests**
+- [x] **Step 1: 先补现有 `EtcdPublisher` seam 的 characterization tests**
+
+**执行备注（按代码真实情况）：** 这组 seam tests 已在 Task 0 落地，当前直接复用 `Validate` 与 `BatchCreate/BatchUpdate` 的现有 characterization coverage，而不是重复新增一套同义黑盒测试。
 
 在 `etcd_test.go` 增加一个直接锁 `Validate()` 组装行为的 `Describe`：
 
@@ -1411,7 +1413,7 @@ func (s validatorStub) Validate(_ json.RawMessage) error {
 }
 ```
 
-- [ ] **Step 2: 运行 seam test，确认当前最终校验契约被锁住**
+- [x] **Step 2: 运行 seam test，确认当前最终校验契约被锁住**
 
 Run:
 
@@ -1422,7 +1424,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 helper-level tests，让它先失败**
+- [x] **Step 3: 再补 helper-level tests，让它先失败**
 
 继续在 `etcd_test.go` 增加：
 
@@ -1463,7 +1465,9 @@ Describe("validatePublishOperations", func() {
 Expected:
 - FAIL，报 `p.validatePublishOperations undefined`
 
-- [ ] **Step 4: 用最小实现抽出最终校验 helper，并接回 `Create/Update/BatchCreate/BatchUpdate`**
+- [x] **Step 4: 用最小实现抽出最终校验 helper，并接回 `Create/Update/BatchCreate/BatchUpdate`**
+
+**执行备注（按代码真实情况）：** 新增了 `buildETCDValidator(...)` 与 `validatePublishOperations(...)` 两个本地 helper。`Validate(...)` 现在只负责“build validator + validate”，`BatchCreate(...)` / `BatchUpdate(...)` 改为先统一校验，再组装 `resourcesMap`。失败时对外 side effect 仍然为零。
 
 **短路语义变化注释（review）：** `BatchCreate/BatchUpdate` 原行为是“逐条校验+组装 resourcesMap，某条校验失败时前面的 resourcesMap 已部分组装完成（但没写入 etcd）”；抽出 helper 后变为“先全部校验，校验失败直接 return，resourcesMap 根本不会开始组装”。**对外部 side effect 是零差异**（两种情况下失败时都未写入 etcd），但在 Step 4 的改动注释 / commit message 里要标注这一 short-circuit 顺序变化。
 
@@ -1499,7 +1503,7 @@ func (s *EtcdPublisher) validatePublishOperations(resources []ResourceOperation)
 
 这样 `Create(...)` / `Update(...)` 仍保留原来的单资源出口，但 batch 路径不再内联一份重复循环。
 
-- [ ] **Step 5: 运行 publisher 任务相关测试**
+- [x] **Step 5: 运行 publisher 任务相关测试**
 
 Run:
 
@@ -1510,7 +1514,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/publisher/etcd.go src/apiserver/pkg/publisher/etcd_test.go

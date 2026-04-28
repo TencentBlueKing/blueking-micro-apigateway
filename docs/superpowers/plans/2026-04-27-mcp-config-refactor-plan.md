@@ -123,7 +123,7 @@ git commit -m "test: lock mcp resource handler seams"
 
 ### Task 1: 抽出 MCP create 的 config 注入 helper
 
-- [ ] Task 1: 抽出 MCP create 的 config 注入 helper
+- [x] Task 1: 抽出 MCP create 的 config 注入 helper
 
 **要解决的复杂度：** `createResourceHandler(...)` 现在把“marshal config”“按资源类型写入 name/username”“校验写入结果”都内联在主流程里，create 逻辑很快就会继续膨胀。
 
@@ -135,7 +135,7 @@ git commit -m "test: lock mcp resource handler seams"
 - Create: `src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud.go:287-303`
 
-- [ ] **Step 1: 先补 MCP create config 注入的失败测试**
+- [x] **Step 1: 先补 MCP create config 注入的失败测试**
 
 在 `mcp_resource_crud_helpers_test.go` 里新增：
 
@@ -182,7 +182,7 @@ func TestPrepareMCPCreateConfig(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -194,7 +194,7 @@ Expected:
 
 - FAIL，报 `undefined: prepareMCPCreateConfig`
 
-- [ ] **Step 3: 实现 helper，并让 create handler 复用**
+- [x] **Step 3: 实现 helper，并让 create handler 复用**
 
 在 `mcp_resource_crud_helpers.go` 里新增（注意 doc comment 明确标注 defensive check 的来源）：
 
@@ -252,7 +252,7 @@ if err != nil {
 }
 ```
 
-- [ ] **Step 4: 运行 MCP tools 包测试**
+- [x] **Step 4: 运行 MCP tools 包测试**
 
 Run:
 
@@ -264,7 +264,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers.go src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go src/apiserver/pkg/apis/mcp/tools/resource_crud.go

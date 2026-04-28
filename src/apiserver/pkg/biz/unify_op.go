@@ -690,8 +690,6 @@ func (s *UnifyOp) kvToResource(
 	kvList []storage.KeyValuePair,
 ) []*model.GatewaySyncData {
 	var resources []*model.GatewaySyncData
-	var metadataNames []string
-	metadataNameMap := make(map[string]*model.GatewaySyncData)
 	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
 	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
 	for _, kv := range kvList {
@@ -700,35 +698,11 @@ func (s *UnifyOp) kvToResource(
 			logging.Errorf("key is not validate: %s", kv.Key)
 			continue
 		}
-		resourceType := resourceInfo.Type
-		id := resourceInfo.ID
 		resources = append(resources, resourceInfo)
-		if resourceType == constant.PluginMetadata {
-			metadataNames = append(metadataNames, id)
-			metadataNameMap[id] = resourceInfo
-		}
 	}
-	if len(metadataNames) > 0 {
-		// 反向查找 ID
-		metadatas, err := QueryPluginMetadatas(
-			ctx,
-			map[string]any{"gateway_id": s.gatewayInfo.ID, "name": metadataNames},
-		)
-		if err != nil {
-			logging.Errorf("SearchPluginMetadata error: %s", err.Error())
-			return nil
-		}
-		idNameMap := make(map[string]string)
-		for _, metadata := range metadatas {
-			idNameMap[metadata.Name] = metadata.ID
-		}
-		for _, metadata := range metadataNameMap {
-			if _, ok := idNameMap[metadata.ID]; ok {
-				metadata.ID = idNameMap[metadata.ID]
-			} else {
-				metadata.ID = idx.GenResourceID(constant.PluginMetadata)
-			}
-		}
+	if err := reconcilePluginMetadataSyncIDs(ctx, resources); err != nil {
+		logging.Errorf("reconcile plugin metadata sync ids error: %s", err.Error())
+		return nil
 	}
 
 	if err := backfillStoredSnapshotFields(ctx, resources); err != nil {

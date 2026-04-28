@@ -141,3 +141,61 @@ func TestBackfillStoredSnapshotFields(t *testing.T) {
 		assert.True(t, gjson.GetBytes(missingResources[0].Config, "plugins.example").Exists())
 	})
 }
+
+func TestReconcilePluginMetadataSyncIDs(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	existing := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusSuccess)
+	existing.Name = "limit-count-" + suffix
+	existing.ID = idx.GenResourceID(constant.PluginMetadata)
+	assert.NoError(t, CreatePluginMetadata(ctx, *existing))
+
+	resources := []*model.GatewaySyncData{
+		{
+			ID:        existing.Name,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.PluginMetadata,
+			Config:    datatypes.JSON(`{"value":{"disable":false}}`),
+		},
+		{
+			ID:        "new-plugin",
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.PluginMetadata,
+			Config:    datatypes.JSON(`{"value":{"disable":true}}`),
+		},
+	}
+	resources[0].SetName(existing.Name)
+	resources[1].SetName("new-plugin")
+
+	err := reconcilePluginMetadataSyncIDs(ctx, resources)
+	assert.NoError(t, err)
+	assert.Equal(t, existing.ID, resources[0].ID)
+	assert.NotEmpty(t, resources[1].ID)
+	assert.NotEqual(t, "new-plugin", resources[1].ID)
+	assert.Equal(t, "new-plugin", resources[1].GetName())
+}
+
+func TestReconcilePluginMetadataSyncIDs_AlreadyDBID(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	existing := data.PluginMetadata1(gatewayInfo, constant.ResourceStatusSuccess)
+	existing.Name = "limit-count-" + suffix
+	existing.ID = idx.GenResourceID(constant.PluginMetadata)
+	assert.NoError(t, CreatePluginMetadata(ctx, *existing))
+
+	resources := []*model.GatewaySyncData{
+		{
+			ID:        existing.Name,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.PluginMetadata,
+			Config:    datatypes.JSON(`{"value":{"disable":false}}`),
+		},
+	}
+	resources[0].SetName(existing.Name)
+
+	assert.NoError(t, reconcilePluginMetadataSyncIDs(ctx, resources))
+	assert.Equal(t, existing.ID, resources[0].ID)
+	assert.Equal(t, existing.Name, resources[0].GetName())
+}

@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // buildSyncedResourceFromKV normalizes one etcd KV into a GatewaySyncData snapshot.
@@ -198,5 +199,47 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 		}
 	}
 
+	return nil
+}
+
+// reconcilePluginMetadataSyncIDs aligns plugin_metadata snapshot IDs with the
+// DB's authoritative ID when a row already exists. On entry, resource.ID is
+// the etcd-key-derived name.
+func reconcilePluginMetadataSyncIDs(ctx context.Context, resources []*model.GatewaySyncData) error {
+	metadataByEtcdKey := make(map[string]*model.GatewaySyncData)
+	var names []string
+
+	for _, resource := range resources {
+		if resource.Type != constant.PluginMetadata {
+			continue
+		}
+		// resource.ID here is the etcd-key-derived name
+		metadataByEtcdKey[resource.ID] = resource
+		names = append(names, resource.ID)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+
+	metadatas, err := QueryPluginMetadatas(ctx, map[string]any{
+		"gateway_id": ginx.GetGatewayInfoFromContext(ctx).ID,
+		"name":       names,
+	})
+	if err != nil {
+		return err
+	}
+
+	existingIDByName := make(map[string]string)
+	for _, metadata := range metadatas {
+		existingIDByName[metadata.Name] = metadata.ID
+	}
+
+	for name, resource := range metadataByEtcdKey {
+		if existingID, ok := existingIDByName[name]; ok {
+			resource.ID = existingID
+			continue
+		}
+		resource.ID = idx.GenResourceID(constant.PluginMetadata)
+	}
 	return nil
 }

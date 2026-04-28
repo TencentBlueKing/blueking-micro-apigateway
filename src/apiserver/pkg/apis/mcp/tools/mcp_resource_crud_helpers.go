@@ -46,6 +46,7 @@ func prepareMCPCreateConfig(
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
 
+	// FIXME: config modified logical
 	nameKey := model.GetResourceNameKey(resourceType)
 	config, err = sjson.SetBytes(config, nameKey, name)
 	if err != nil {
@@ -77,6 +78,7 @@ func prepareMCPUpdateConfig(
 		return config, nil
 	}
 
+	// FIXME: config modified logical
 	nameKey := model.GetResourceNameKey(resourceType)
 	config, err = sjson.SetBytes(config, nameKey, name)
 	if err != nil {

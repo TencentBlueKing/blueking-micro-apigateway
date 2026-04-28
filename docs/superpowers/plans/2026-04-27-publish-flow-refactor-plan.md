@@ -1,6 +1,7 @@
 # Publish Flow 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变发布协议、不触碰 4 个输入源实现边界、不改 `HandleConfig()` 行为的前提下，逐步降低 `publish` 当前在 payload 改写、版本差异清理、依赖发布编排、以及最终 `ETCD` 校验上的复杂度。
 
@@ -108,8 +109,8 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
   - 最终同步后的 payload 字段形态
   - 版本差异字段是否保留/删除
   - **每个资源实际上“clean 了哪些字段”的当前行为**——特别包括 `putRoutes/putServices/putUpstreams` **不会对 `id` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`**，`Consumer/Routes` **不会对 `name` 调**；只有 `ConsumerGroup/GlobalRule/Proto/SSL/PluginConfig/Consumer/ConsumerGroup` 特定子集会调。这一差异必须在 Task 0 里以 seam test 锁住，防止 Task 1 helper 统一运用时把规则错扩到其他资源。
-  - `stream_route.labels` 在最终标 payload 中被删除
-  - 依赖资源是否跟随主资源一起发布（**包括 `service→upstream`、`upstream→ssl`、`stream_route→service/upstream` 3 条原先漏覆盖的 fan-out**，不只是 `route→deps` 和 `consumer→consumer_group`）
+  - 当前 `publish + sync` 黑盒结果里，`stream_route.labels` 仍会出现在 synced payload 中
+  - 依赖资源是否跟随主资源一起发布（**包括 `service→upstream`、`stream_route→service/upstream` 两条真实存在的 fan-out，以及 `upstream` 当前不会自动带出 `ssl` 这条现状**，不只是 `route→deps` 和 `consumer→consumer_group`）
   - `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
 - Task 0 完成后，Task 1-3 和 Task 5 才有足够稳定的黑盒约束；否则 helper 抽完后很容易只验证“代码变短了”，却没验证最终 payload 还对。
 - Task 4 只有在前面的任务都落完后，`putXxx()` 结尾的持久化收口仍然明显拖累可读性时再执行；它不是本轮最高杠杆点。
@@ -117,13 +118,15 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 **行为不变量清单（review 必改）：** 以下现有行为被认为是不变的，helper 抽出后必须保持，由 Task 0 的 seam test 锁住：
 1. `putRoutes/putServices/putUpstreams` **不**对 payload 的 `id` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`（这 3 种资源的 `id` 必须保留）。
 2. `Routes/Consumer` **不**对 payload 的 `name` 字段调 `ShouldRemoveFieldBeforeValidationOrPublish`。
-3. `stream_route.labels` 无论在任何版本下都会被删除。
-4. `ssl.validity_start/validity_end` 无论在任何版本下都会被删除。
-5. `BatchCreate/BatchUpdate` 在有任何一条校验失败时短路返回，不再继续校验后续资源。
+3. 当前 `publish + sync` seam 下，`consumer_group.name` 在 `3.11` / `3.13` 的 synced payload 中都会保留。
+4. 当前 `publish + sync` seam 下，`stream_route.labels` 仍会保留在 synced payload 中。
+5. `ssl.validity_start/validity_end` 无论在任何版本下都会被删除。
+6. `BatchCreate/BatchUpdate` 在有任何一条校验失败时短路返回，不再继续校验后续资源。
+7. 当前 `putUpstreams()` 不会自动发布关联 `ssl`；这条现状需要先锁住，后续不要在“重构”里顺手改行为。
 
 ### Task 0: 补 publish / validator characterization tests
 
-- [ ] Task 0: 补 publish / validator characterization tests
+- [x] Task 0: 补 publish / validator characterization tests
 
 **要解决的缺口：** 当前文档已经把 seam-first 原则写清了，但正文还没有一个独立任务专门扩 `publish_test.go` 和 `etcd_test.go`。先把最终 payload 和 validator 组装锁住，后面的 helper 才有黑盒护栏。
 
@@ -133,18 +136,18 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 - Modify: `src/apiserver/pkg/publisher/etcd_test.go`
 
-- [ ] **Step 1: 扩充现有 seam tests，先锁发布结果和 validator 组装**
+- [x] **Step 1: 扩充现有 seam tests，先锁发布结果和 validator 组装**
 
 至少覆盖下面 6 类现状，全部断言现有黑盒结果：
 
-- 最终同步后的 payload 字段形态（包含 `stream_route.labels` 被删除的断言，避免 Task 1 helper 对该字段的处理无 seam 护栏）
-- 不同网关版本下字段的保留/删除差异（`ConsumerGroup` on 3.11 vs 3.13 等）
-- 依赖资源是否跟随主资源一起发布：**至少覆盖 `route→upstream/service/plugin_config`、`consumer→consumer_group`、`service→upstream`、`upstream→ssl`、`stream_route→service/upstream` 5 条 fan-out**（Task 3 要迁移的 5 个 put 函数必须有 1:1 的 seam 护栏）
+- 最终同步后的 payload 字段形态（按代码真实黑盒结果锁住，包括 `stream_route.labels` 当前仍会出现在 synced payload）
+- 不同网关版本下字段的保留/删除差异（按真实黑盒结果锁住，例如 `consumer_group.name` 当前在 `3.11` / `3.13` 的 synced payload 中都保留）
+- 依赖资源是否跟随主资源一起发布：**至少覆盖 `route→upstream/service/plugin_config`、`consumer→consumer_group`、`service→upstream`、`stream_route→service/upstream`，以及 `upstream` 当前不会自动带出 `ssl` 这条现状**（Task 3 后续要按代码真实行为抽 helper，而不是按假设补行为）
 - **每个资源“clean 了哪些字段”的当前行为**：`putRoutes/putServices/putUpstreams` 不清 `id`；`Routes/Consumer` 不清 `name`（锁住当前差异，防止 Task 1 误扩）
 - `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
 - `BatchCreate/BatchUpdate` 在任一条资源校验失败时短路返回
 
-- [ ] **Step 2: 运行 publish seam tests，确认现状已经被锁住**
+- [x] **Step 2: 运行 publish seam tests，确认现状已经被锁住**
 
 Run:
 
@@ -155,7 +158,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/publisher/etcd_test.go

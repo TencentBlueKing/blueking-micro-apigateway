@@ -10,6 +10,19 @@
 
 ---
 
+## 代码复核结论
+
+- 重构目的判断：基本正确，真正复杂度集中在 `handleResources(...)` 同时承担旧资源装载、overlay、`GatewaySyncData` 组装和 `allResourceIdMap` 回填。
+- 复杂度评估：整体中等；代码拆分本身不重，主要成本在前置测试，因为当前仓库里几乎没有 import 链路的直接测试。
+- 本次修正：把“重构前测试”提升为独立阶段；seam 优先级改为先锁 `HandleUploadResources(...)`，再在同包测试里补 `handleResources(...)`，helper 单测一律后置。
+
+## 执行顺序（修订）
+
+1. Task 0：独立补 import characterization tests。
+2. Task 1-3：拆纯 helper（overlay / 旧资源装载 / sync-data 组装）。
+3. Task 4：仅做 orchestration 重排。
+4. Task 5：最后显式化 validation seam。
+
 ## 范围
 
 - 只处理 `src/apiserver/pkg/apis/common/resource_slz.go`
@@ -27,6 +40,8 @@
 
 - `src/apiserver/pkg/apis/common/resource_slz.go`
   - 保留 import 主 orchestration
+- `src/apiserver/pkg/apis/common/resource_slz_import_test.go`
+  - import seam-first characterization tests，优先覆盖 `HandleUploadResources(...)`
 - `src/apiserver/pkg/apis/common/import_resource_helpers.go`
   - import 本地 helper：overlay、旧资源装载、sync-data 组装、validation input 准备
 - `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
@@ -43,19 +58,68 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 测试策略（必须）
 
+- 新增 `Task 0` 作为独立步骤或独立 PR；在 `Task 0` 合并前，不开始 Task 1-5。
 - 每个任务的第一组测试，必须先打在“重构前已经存在的 seam”上，不能直接从计划中新引入的 helper 开始写测试。
 - helper 测试只能作为第二层测试：
-  - 第一层：先锁定 `handleResources(...)` / `HandleUploadResources(...)` 这些现有 import 入口的行为
+  - 第一层：先锁定 `HandleUploadResources(...)` 这条真实 import 入口的行为
   - 第二层：helper 抽出后再补 helper 单测
 - Import 计划里的现有 seam 优先级如下：
-  - Task 1-4：优先测现有 `handleResources(...)`
-  - Task 5：优先测现有 `HandleUploadResources(...)`
+  - Task 0：优先测现有 `HandleUploadResources(...)`，覆盖 add/update 分流、`ignore_fields` overlay、空 `resource_id` 失败、关联资源校验失败
+  - Task 1-4：在 Task 0 已覆盖入口行为后，再在同包测试里补 `handleResources(...)`，把重构面缩小到本地 orchestration
+  - Task 5：继续以 `HandleUploadResources(...)` 为主，补“prepare 完成后进入 `biz.ValidateResource(...)` 之前”的边界断言
+- `HandlerResourceIndexMap(...)` 可以作为辅助 characterization seam，用来锁 `existsResourceIdList` / `allResourceIdList` 组装，但不能代替 `HandleUploadResources(...)`。
 - 只有当第一层 seam 测试已经锁住行为时，才允许在同一个 PR 里为 `apply...` / `load...` / `build...` / `prepare...` helper 增加第二层单测。
 - 执行时，如果任务正文里的示例代码先写了 helper 测试，应按上面的 seam 规则落地：先补现有 seam 的 characterization test，再补 helper test。
+
+## 重构前测试前置阶段（独立）
+
+- Task 0 的目标不是引入 helper，而是先把现状锁住；建议单独落一组 characterization tests 到 `resource_slz_import_test.go`。
+- Task 0 至少覆盖 4 类现状：`ignore_fields` 会从旧资源覆盖导入配置、空 `resource_id` 会直接失败、缺失关联资源会在 `HandleUploadResources(...)` 阶段报错、add/update map 的资源数与输入一致。
+- Task 0 完成后，后续 Task 1-5 才允许把断言下沉到 `handleResources(...)` 或新 helper。
+
+### Task 0: 补 import 入口 characterization tests
+
+- [ ] Task 0: 补 import 入口 characterization tests
+
+**要解决的缺口：** 当前文档已经要求 seam-first，但正文还没有独立任务把 `HandleUploadResources(...)` 的现状锁住。先把入口行为补成单独任务，后面的 helper 提取才不是“边改边猜”。
+
+**为什么这个任务适合单独提 PR：** 只新增 import 入口测试，不修改 `resource_slz.go` 的生产逻辑。
+
+**Files:**
+- Create: `src/apiserver/pkg/apis/common/resource_slz_import_test.go`
+
+- [ ] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
+
+至少覆盖下面 4 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
+
+- `ignore_fields` 会用旧资源上的字段覆盖导入配置
+- 空 `resource_id` 会在进入后续入库前直接失败
+- 缺失关联资源会在 `HandleUploadResources(...)` 阶段报错
+- add/update map 的资源数与输入一致；必要时可用 `HandlerResourceIndexMap(...)` 辅助准备断言输入
+
+- [ ] **Step 2: 运行 import seam tests，确认当前入口行为已经被锁住**
+
+Run:
+
+```bash
+cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .envrc && go test ./pkg/apis/common -run 'TestHandleUploadResources|TestHandlerResourceIndexMap' -count=1
+```
+
+Expected:
+- PASS
+
+- [ ] **Step 3: 提交这个 PR**
+
+```bash
+git add src/apiserver/pkg/apis/common/resource_slz_import_test.go
+git commit -m "test: lock import upload characterization seams"
+```
 
 ---
 
 ### Task 1: 抽出 import 本地 `ignore_fields` overlay helper
+
+- [ ] Task 1: 抽出 import 本地 `ignore_fields` overlay helper
 
 **要解决的复杂度：** overlay 逻辑现在埋在 `handleResources(...)` 的双层循环里，后面想看“导入为什么被旧字段覆盖了”必须先通读整个 import 主流程。
 
@@ -190,6 +254,8 @@ git commit -m "refactor: extract import ignore-fields overlay helper"
 
 ### Task 2: 抽出 import 本地“装载旧资源” helper
 
+- [ ] Task 2: 抽出 import 本地“装载旧资源” helper
+
 **要解决的复杂度：** `handleResources(...)` 每轮循环都要自己取 DB 资源、组 map、回填 `allResourceIDs`，这块和 overlay / sync-data 组装混在一起，不利于单测。
 
 **为什么这个任务适合单独提 PR：** 这一步只把 DB 读取和 map 组装从大函数里抽出来，不调整 overlay 语义。
@@ -288,6 +354,8 @@ git commit -m "refactor: extract import existing-resource loader"
 
 ### Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
 
+- [ ] Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
+
 **要解决的复杂度：** `GatewaySyncData` 组装现在直接夹在 `handleResources(...)` 末尾，和 resource_id 校验、overlay、map append 混在一个循环里。
 
 **为什么这个任务适合单独提 PR：** 这是 import 本地纯组装 helper，不会改变 validate 或 upload 流程边界。
@@ -382,6 +450,8 @@ git commit -m "refactor: extract import sync-data builder"
 ```
 
 ### Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
+
+- [ ] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
 
 **要解决的复杂度：** 现在 `handleResources(...)` 同时做资源遍历、旧资源装载、overlay、resource_id 校验、sync-data append，是典型的大函数混合职责。
 
@@ -521,6 +591,8 @@ git commit -m "refactor: split import resource preparation orchestration"
 ```
 
 ### Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
+
+- [ ] Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
 
 **要解决的复杂度：** 现在 `HandleUploadResources(...)` 一边准备 add/update map，一边直接调用 `biz.ValidateResource(...)`，没有一个明确的“import 进入 DATABASE 校验前”的本地边界。
 

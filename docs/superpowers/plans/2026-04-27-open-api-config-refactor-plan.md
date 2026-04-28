@@ -2,13 +2,27 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在不改变 Open API 外部协议的前提下，逐步收敛 `open api` 当前分散在 middleware、serializer、handler 三处的 `config` 整形、draft 组装和 request identity 复算问题。
+**Goal:** 在不改变 Open API 外部协议的前提下，先修正 `update` 路径 outer `name` 未回写到 storage config、以及 middleware 对旧版本 schema 的临时 `id` 注入不够精确这两个已确认问题，再逐步收敛 `open api` 当前分散在 middleware、serializer、handler 三处的 `config` 整形、draft 组装和 request identity 复算问题。
 
-**Architecture:** 本计划先把 Open 域内部自己能收敛的东西做干净，再为后续共享抽象埋点。顺序固定为：先把 batch create / update 的 draft 组装 helper 化，再把 middleware 的校验 payload 整理成纯函数，接着显式引入 Open 域内的 resolved draft 载体，最后让 middleware 和 serializer 复用同一份 resolved identity，而不是各算各的。
+**Architecture:** 本计划先把 Open 域内部已经确认的行为问题修正掉，再做本地收敛。执行顺序调整为：先独立补 handler / serializer / middleware characterization tests；然后优先修正 update draft 组装与 outer `name` 注入，再整理 batch create builder，再抽 middleware 的 validation payload helper。`resolved draft` context 只在 Task 1-3 完成后仍然存在 create 校验/落库 identity 不一致时才引入，不作为默认必做项。
 
 **Tech Stack:** Go, Gin, `gjson` / `sjson`, `testify`, `go test`, `make lint`, `make test`
 
 ---
+
+## 代码复核结论
+
+- 重构目的判断：整体方向正确，但这里不只是“降低复杂度”。代码复核已经确认两个现状问题：`ResourceUpdateRequest.ToCommonResource(...)` 不消费 outer `Name`，以及 `OpenAPIResourceCheck()` 目前使用了非 version-aware 的 `ResourceRequiresIDInSchema(...)`。
+- 复杂度评估：整体偏高；不是因为 helper 很难抽，而是因为当前仓库里几乎没有 Open handler / middleware 的直接测试，前置 characterization test 成本不低。
+- 本次修正：把测试前置阶段独立出来；执行顺序改为先修正 update 和 middleware 的正确性问题，再决定是否需要 `resolved draft` carrier。
+
+## 执行顺序（修订）
+
+1. Task 0：独立补 Open characterization tests。
+2. Task 2：先修正 update 路径 `name/config` 一致性，再抽本地 update builder。
+3. Task 1：整理 batch create builder。
+4. Task 3：抽 middleware validation payload helper，并改成 version-aware 的临时 `id` 注入判断。
+5. Task 4-5：仅当 Task 1-3 后仍存在 create 校验/持久化 identity 不一致时再执行。
 
 ## 范围
 
@@ -27,6 +41,8 @@
 
 - `src/apiserver/pkg/apis/open/serializer/resource.go`
   - Open create / update 的 `ResourceCommonModel` 组装逻辑
+- `src/apiserver/pkg/apis/open/handler/resource_test.go`
+  - Open handler characterization tests，先覆盖 batch create / update 的现状
 - `src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go`
   - create / update builder 的行为测试
 - `src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers.go`
@@ -53,20 +69,70 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 测试策略（必须）
 
+- 新增 `Task 0` 作为独立步骤或独立 PR；在 `Task 0` 合并前，不开始 Task 1-5。
 - 每个任务的第一组测试，必须先打在“重构前已经存在的 seam”上，不能直接从计划中新引入的 helper 或 context carrier 开始写测试。
 - helper / context helper 测试只能作为第二层测试：
   - 第一层：锁定 Open 现有请求路径、middleware 路径、serializer 路径
   - 第二层：在 helper 抽出后补 helper 单测
+- 当前仓库里没有 Open handler / middleware 的测试文件；Task 0 需要先把 `resource_test.go` 和 `openapi_resource_check_test.go` 补出来，而不是直接从 helper test 开始。
 - Open 计划里的现有 seam 优先级如下：
+  - Task 0：优先测现有 `ResourceBatchCreate(...)`、`ResourceUpdate(...)`、`OpenAPIResourceCheck()`，先锁真实请求路径
   - Task 1：优先测现有 `ResourceBatchCreateRequest.ToCommonResource(...)`
   - Task 2：优先测现有 `ResourceUpdateRequest.ToCommonResource(...)`
   - Task 3：优先测现有 `OpenAPIResourceCheck()` middleware 行为
-  - Task 4-5：优先测现有 `ResourceBatchCreate` handler 与 middleware 串起来的路径，确认校验和持久化使用的是同一份 request identity
+  - Task 4-5：只有在决定继续做 context carrier 时，才优先测现有 `ResourceBatchCreate` handler 与 middleware 串起来的路径，确认校验和持久化使用的是同一份 request identity
 - 执行时，如果任务正文里的示例代码先写了 helper 测试，应按上面的 seam 规则落地：先补现有 seam 的 characterization test，再补 helper test。
+
+## 重构前测试前置阶段（独立）
+
+- Task 0 至少覆盖 4 类现状：batch create 会按资源类型补 `name/username` 并生成 `id`；update 如果只改 outer `name` 目前会出现 `config` 与 typed name 不一致；middleware 在 3.11/3.13 的 validation payload 形态；middleware 对旧版本 schema 的临时 `id` 注入行为。
+- Task 0 完成前，不要引入 `OpenResolvedDraft` 这类 carrier；否则很难分清是在修真实问题，还是在给未锁住的行为加结构。
+- 如果 Task 0 跑完后发现仅通过 update normalization 和 version-aware validation helper 就能消掉主要重复，Task 4-5 可以直接 defer。
+
+### Task 0: 补 Open handler / middleware characterization tests
+
+- [ ] Task 0: 补 Open handler / middleware characterization tests
+
+**要解决的缺口：** 当前文档把 Task 0 写进了执行顺序和策略，但正文还没有单独任务去锁 `ResourceBatchCreate(...)`、`ResourceUpdate(...)` 和 `OpenAPIResourceCheck()` 的现状。先把真实请求路径测起来，后面再抽 builder / middleware helper。
+
+**为什么这个任务适合单独提 PR：** 只新增 Open handler 与 middleware 的 characterization tests，不改 serializer、middleware 和 handler 生产逻辑。
+
+**Files:**
+- Create: `src/apiserver/pkg/apis/open/handler/resource_test.go`
+- Create: `src/apiserver/pkg/middleware/openapi_resource_check_test.go`
+
+- [ ] **Step 1: 在真实请求路径上补 Open characterization tests**
+
+至少覆盖下面 4 类现状，全部走现有 handler / middleware seam：
+
+- batch create 会按资源类型补 `name/username`，并在缺失时生成 `id`
+- update 只修改 outer `name` 时，当前请求路径对 `config` 的处理形态
+- middleware 在 3.11 / 3.13 下构造出的 validation payload 形态
+- middleware 针对旧版本 schema 的临时 `id` 注入边界
+
+- [ ] **Step 2: 运行 Open seam tests，确认入口行为已经被锁住**
+
+Run:
+
+```bash
+cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .envrc && go test ./pkg/apis/open/handler ./pkg/middleware -count=1
+```
+
+Expected:
+- PASS
+
+- [ ] **Step 3: 提交这个 PR**
+
+```bash
+git add src/apiserver/pkg/apis/open/handler/resource_test.go src/apiserver/pkg/middleware/openapi_resource_check_test.go
+git commit -m "test: lock open handler and middleware seams"
+```
 
 ---
 
 ### Task 1: 抽出 Open batch create 的本地 draft builder
+
+- [ ] Task 1: 抽出 Open batch create 的本地 draft builder
 
 **要解决的复杂度：** `ResourceBatchCreateRequest.ToCommonResource(...)` 把“补 name”“生成 id”“组装 `ResourceCommonModel`”揉在一个循环里，后续只要多一种 create 变体就容易继续复制这段逻辑。
 
@@ -196,6 +262,10 @@ git commit -m "refactor: extract open batch create draft builder"
 
 ### Task 2: 抽出 Open update 的本地 draft builder
 
+- [ ] Task 2: 抽出 Open update 的本地 draft builder
+
+> **代码复核修正：** 这里不是纯 helper 提取。现状代码里 `ResourceUpdateRequest.ToCommonResource(...)` 不会把 outer `Name` 写回 `Config`，所以 Step 1 必须先锁这件事，再谈 builder 抽取。
+
 **要解决的复杂度：** update 路径虽然比 create 简单，但同样把 `GatewayID`、`Status`、`Updater`、`Config` 组装埋在 `ToCommonResource(...)` 里，不利于之后统一 Open 域的 builder 形态。
 
 **为什么这个任务适合单独提 PR：** 只扩展 Task 1 引入的测试文件和 `resource.go`，仍然不触碰 middleware。
@@ -289,6 +359,10 @@ git commit -m "refactor: extract open update draft builder"
 ```
 
 ### Task 3: 抽出 Open middleware 的 validation payload helper
+
+- [ ] Task 3: 抽出 Open middleware 的 validation payload helper
+
+> **代码复核修正：** 这里同时承担一个 correctness fix：把当前 `ResourceRequiresIDInSchema(...)` 的判断改为 version-aware 变体，避免 3.2 / 3.3 等旧 schema 被多注入临时 `id`。
 
 **要解决的复杂度：** middleware 里“补临时 id -> 再走 `BuildConfigRawForValidation()`”这一段属于纯整形逻辑，但现在夹在 schema 校验循环中间，改动成本高。
 
@@ -411,6 +485,8 @@ git commit -m "refactor: extract open validation payload helper"
 
 ### Task 4: 引入 Open 域内的 resolved draft 上下文载体
 
+- [ ] Task 4: 引入 Open 域内的 resolved draft 上下文载体
+
 **要解决的复杂度：** middleware 现在即使将来算出了更完整的 request identity，也没有一个 Open 域内明确的传递载体；后续很容易继续靠重复计算把逻辑摊回 serializer。
 
 **为什么这个任务适合单独提 PR：** 这是纯粹的 Open 本地埋点，只引入结构和 context helper，不立即改最终业务行为。
@@ -507,6 +583,8 @@ git commit -m "refactor: add open resolved draft context helpers"
 ```
 
 ### Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
+
+- [ ] Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
 
 **要解决的复杂度：** 当前 middleware 和 serializer 各自推导一次 request identity，create/batch create 很容易出现“校验时是一个 id，落库时是另一个 id”。
 

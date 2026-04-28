@@ -4,11 +4,24 @@
 
 **Goal:** 在不改变 Web API 协议、不触碰 `HandleConfig()` 边界的前提下，逐步收敛 `web api` 当前分散在 serializer 和 handler 中的 `config` 校验整形、生成 ID 时机、以及 create draft 组装重复逻辑。
 
-**Architecture:** 本计划只处理 `pkg/apis/web` 域内复杂度，不提前抽跨领域共享 helper。重构顺序固定为：先把 `CheckAPISIXConfig()` 的 identity / payload 逻辑拆清，再把 create handler 里“先生成 ID 再校验”和“组装 `ResourceCommonModel`”两类重复动作收拢成 Web 本地 helper。每一个任务都先补现状测试，再用 TDD 做最小重构。
+**Architecture:** 本计划只处理 `pkg/apis/web` 域内复杂度，不提前抽跨领域共享 helper。执行顺序调整为：先独立补 `CheckAPISIXConfig()` 和 create handler 的 characterization tests，再把 `CheckAPISIXConfig()` 的 identity / payload 逻辑拆清，最后收拢 create handler 里“先生成 ID 再校验”和“组装 `ResourceCommonModel`”两类重复动作。
 
 **Tech Stack:** Go, Gin, `validator`, `testify`, `go test`, `make lint`, `make test`
 
 ---
+
+## 代码复核结论
+
+- 重构目的判断：基本正确。`CheckAPISIXConfig()` 的前置整形逻辑和 Web create handler 的 draft 组装重复，都是当前代码里的真实复杂度来源。
+- 复杂度评估：Task 1-2 为低到中等；Task 3-5 为中等，因为当前仓库里还没有 `pkg/apis/web/handler` 的直接测试，前置测试基座需要先补。
+- 本次修正：把 create handler characterization tests 提升为独立前置阶段；先锁特殊 3 条 create 路径，再迁移其余 handler，避免 helper 先行。
+
+## 执行顺序（修订）
+
+1. Task 0：独立补 serializer / create handler characterization tests。
+2. Task 1-2：先清理 `CheckAPISIXConfig()` 的 identity / payload 逻辑。
+3. Task 3-4：再处理 `plugin_config` / `consumer_group` / `global_rule` 这 3 条“先生成 ID 再校验”的特殊 create 路径。
+4. Task 5：最后把其余 create handler 迁移到本地 draft helper。
 
 ## 范围
 
@@ -29,6 +42,8 @@
   - `CheckAPISIXConfig()` 的校验前整形逻辑
 - `src/apiserver/pkg/apis/web/serializer/common_test.go`
   - `CheckAPISIXConfig()` 本地 helper 与校验 payload 行为矩阵
+- `src/apiserver/pkg/apis/web/handler/create_handlers_test.go`
+  - Web create handler 的 seam-first characterization tests
 - `src/apiserver/pkg/apis/web/handler/web_create_helpers.go`
   - Web create handler 本地 helper，只服务 `pkg/apis/web/handler`
 - `src/apiserver/pkg/apis/web/handler/web_create_helpers_test.go`
@@ -57,19 +72,69 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 测试策略（必须）
 
+- 新增 `Task 0` 作为独立步骤或独立 PR；在 `Task 0` 合并前，不开始 Task 1-5。
 - 每个任务的第一组测试，必须先打在“重构前已经存在的 seam”上，不能直接从计划中新引入的 helper 开始写测试。
 - helper 测试只能作为第二层测试：
   - 第一层：锁定现有行为，确保重构前能跑、重构后继续通过
   - 第二层：在 helper 抽出后补 helper 单测，避免 helper 自己再退化
+- 当前仓库里没有 `pkg/apis/web/handler` 的测试文件；Task 0 需要先补 create handler characterization tests，不能直接从 `web_create_helpers_test.go` 起手。
 - Web 计划里的现有 seam 优先级如下：
+  - Task 0：优先直接测 `PluginConfigCreate`、`ConsumerGroupCreate`、`GlobalRuleCreate` 和至少一个默认 create handler（如 `RouteCreate`）
   - Task 1-2：优先通过 `validation.ValidateStruct(...)` 触发带 `apisixConfig` tag 的现有 serializer 校验路径，从外部行为锁定 `CheckAPISIXConfig()`
   - Task 3-4：优先直接测 `PluginConfigCreate`、`ConsumerGroupCreate`、`GlobalRuleCreate` 这 3 个现有 handler
   - Task 5：优先直接测其余现有 `XxxCreate` handler，而不是先测 `buildWebCreateDraft(...)`
 - 执行时，如果任务正文里的示例代码先写了 helper 测试，应按上面的 seam 规则落地：先补现有 seam 的 characterization test，再补 helper test。
 
+## 重构前测试前置阶段（独立）
+
+- Task 0 至少覆盖 4 类现状：`CheckAPISIXConfig()` 的 identity fallback；`CheckAPISIXConfig()` 的 validation payload 整形；特殊 3 条 create handler 的“先生成 ID 再校验”；默认 create handler 的“先校验再生成 ID，但 draft 组装一致”。
+- `create_handlers_test.go` 负责锁 handler 入口行为；`web_create_helpers_test.go` 只在 helper 抽出后再补第二层单测。
+- 如果 Task 0 还没建好，不要直接推进 Task 3-5；否则后面很难分清是 handler 入口行为变了，还是 helper 自己写错了。
+
+### Task 0: 补 Web serializer / create handler characterization tests
+
+- [ ] Task 0: 补 Web serializer / create handler characterization tests
+
+**要解决的缺口：** 现在文档只在说明里提了 Task 0，但正文还没有一个真正独立的前置补测任务。先把 `CheckAPISIXConfig()` 和 create handler 入口行为锁住，后面的 helper 提取才不会把“重构”和“补洞”混在一起。
+
+**为什么这个任务适合单独提 PR：** 只新增 serializer / handler 的 characterization tests，不改 `pkg/apis/web` 的生产逻辑。
+
+**Files:**
+- Modify: `src/apiserver/pkg/apis/web/serializer/common_test.go`
+- Create: `src/apiserver/pkg/apis/web/handler/create_handlers_test.go`
+
+- [ ] **Step 1: 在现有 serializer 和 create handler seam 上补 characterization tests**
+
+至少覆盖下面 4 类现状，避免直接从 `web_create_helpers_test.go` 或新 helper 起手：
+
+- `CheckAPISIXConfig()` 的 identity fallback
+- `CheckAPISIXConfig()` 的 validation payload 整形
+- `PluginConfigCreate`、`ConsumerGroupCreate`、`GlobalRuleCreate` 这 3 条特殊 create 路径的“先生成 ID 再校验”
+- 至少一条默认 create handler（如 `RouteCreate`）的“先校验再生成 ID，但 draft 组装一致”
+
+- [ ] **Step 2: 运行 Web seam tests，确认入口行为已经被锁住**
+
+Run:
+
+```bash
+cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .envrc && go test ./pkg/apis/web/serializer ./pkg/apis/web/handler -count=1
+```
+
+Expected:
+- PASS
+
+- [ ] **Step 3: 提交这个 PR**
+
+```bash
+git add src/apiserver/pkg/apis/web/serializer/common_test.go src/apiserver/pkg/apis/web/handler/create_handlers_test.go
+git commit -m "test: lock web serializer and create handler seams"
+```
+
 ---
 
 ### Task 1: 抽出 `CheckAPISIXConfig()` 的 identity 决策 helper
+
+- [ ] Task 1: 抽出 `CheckAPISIXConfig()` 的 identity 决策 helper
 
 **要解决的复杂度：** `CheckAPISIXConfig()` 同时负责“读 config 识别 identity”和“继续做 schema 校验”，identity 决策散在函数中间，后续规则变化容易改漏。
 
@@ -215,6 +280,8 @@ git commit -m "refactor: extract web validation identity helper"
 ```
 
 ### Task 2: 抽出 Web 本地 validation payload helper
+
+- [ ] Task 2: 抽出 Web 本地 validation payload helper
 
 **要解决的复杂度：** 现在 `id` 注入、`name/username` 注入、`plugin_metadata.id = name` 都埋在 `CheckAPISIXConfig()` 主流程里，修改时必须通读整段 validator。
 
@@ -374,6 +441,8 @@ git commit -m "refactor: extract web validation payload helper"
 
 ### Task 3: 收拢 3 个“先生成 ID 再校验”的 create 路径
 
+- [ ] Task 3: 收拢 3 个“先生成 ID 再校验”的 create 路径
+
 **要解决的复杂度：** `plugin_config`、`consumer_group`、`global_rule` 三个 handler 现在都手写一遍 `ShouldBindJSON -> GenResourceID -> ValidateStruct`，同一类顺序逻辑重复 3 次。
 
 **为什么这个任务适合单独提 PR：** 只动 3 个特殊 create handler 和一个新的 Web 本地 helper 文件，不影响其他 create 路径。
@@ -485,6 +554,8 @@ git commit -m "refactor: unify generated-id web create validation flow"
 
 ### Task 4: 抽出特殊 create handler 的 draft 组装 helper
 
+- [ ] Task 4: 抽出特殊 create handler 的 draft 组装 helper
+
 **要解决的复杂度：** 上一步收拢了校验顺序，但 3 个特殊 handler 里仍然各自手写一份相同的 `ResourceCommonModel` 组装。
 
 **为什么这个任务适合单独提 PR：** 只影响已经归到同一类的 3 个 handler，风险边界清晰。
@@ -590,6 +661,8 @@ git commit -m "refactor: extract web create draft builder for special handlers"
 ```
 
 ### Task 5: 把其余 Web create handler 统一迁移到本地 draft helper
+
+- [ ] Task 5: 把其余 Web create handler 统一迁移到本地 draft helper
 
 **要解决的复杂度：** 其余 create handler 仍然各自内联组装 `ResourceCommonModel`，即使生成 ID 的时机不同，draft 组装本身仍是重复代码。
 

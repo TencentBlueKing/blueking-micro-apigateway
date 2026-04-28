@@ -4,11 +4,26 @@
 
 **Goal:** 在不改变发布协议、不触碰 4 个输入源实现边界、不改 `HandleConfig()` 行为的前提下，逐步降低 `publish` 当前在 payload 改写、版本差异清理、依赖发布编排、以及最终 `ETCD` 校验上的复杂度。
 
-**Architecture:** 本计划只处理 `publish` 领域自己的复杂度，不要求和 `web/open api/import/mcp` 做强一致，也不提前抽跨领域共享 builder。重构顺序固定为：先用现有 publish seam 锁住最终 `ETCD` payload 和依赖发布行为，再抽本地 payload cleanup helper、payload builder helper、dependency helper、persist helper，最后收拢 `EtcdPublisher` 的最终校验 helper。每一个任务都先补现状测试，再用 TDD 做最小重构。
+**Architecture:** 本计划只处理 `publish` 领域自己的复杂度，不要求和 `web/open api/import/mcp` 做强一致，也不提前抽跨领域共享 builder。执行顺序调整为：先独立扩充现有 publish seam tests，优先收拢 payload cleanup、simple payload builder、dependency helper 和 `EtcdPublisher` validator 组装；`persist helper` 作为最后的低优先级收口，只在前 4 步完成后仍然明显改善可读性时再做。
 
 **Tech Stack:** Go, GORM, `testify`, `gomonkey`, `ginkgo`, `gomock`, `go test`, `make lint`, `make test`
 
 ---
+
+## 代码复核结论
+
+- 重构目的判断：基本正确。当前 publish 的主要复杂度确实集中在 payload 清理、依赖 fan-out 和最终 validator 组装，而不是 CRUD 输入层。
+- 复杂度评估：整体偏高，主要因为要补的是集成型 seam tests，而不是 helper 本身。`publish_test.go` 当前 mostly 只锁 happy path；`etcd_test.go` 也大量通过 patch `Validate()` 跳过了 validator 组装细节。
+- 本次修正：把 seam-first 测试明确提成独立阶段；保留 Task 1-3 和 Task 5 为高优先级；Task 4 `persist helper` 降为最后的低优先级收口，因为当前已经有 `batchCreateEtcdResource(...)` 这层抽象。
+
+## 执行顺序（修订）
+
+1. Task 0：独立扩充 `publish_test.go` / `etcd_test.go` 的 characterization tests。
+2. Task 1：先锁并抽字段清理 helper。
+3. Task 2：再收 simple payload builder。
+4. Task 3：之后拆依赖发布 helper。
+5. Task 5：单独收拢 `EtcdPublisher` 的 validator 组装与 batch 校验。
+6. Task 4：最后再评估是否值得加 `persist helper`。
 
 ## 范围
 
@@ -69,12 +84,15 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ## 测试策略（必须）
 
+- 新增 `Task 0` 作为独立步骤或独立 PR；在 `Task 0` 合并前，不开始 Task 1-5。
 - 每个任务的第一组测试，必须先打在“重构前已经存在的 seam”上，不能直接从计划中新引入的 helper 开始写测试。
 - characterization test 的目标不是证明“新 helper 没问题”，而是锁住当前 `master` 已有行为，保证重构前后同一组黑盒断言继续成立。
 - helper 测试只能作为第二层测试：
   - 第一层：现有 publish seam
   - 第二层：抽出的 helper 单测
+- `publish_test.go` 和 `etcd_test.go` 已经有可用基座，但当前覆盖 mostly 是 happy path；Task 0 先扩它们，不要新起 helper test 代替现有 seam。
 - publish 计划里的现有 seam 优先级如下：
+  - Task 0：优先扩 `publish_test.go` 的 payload / dependency 断言，以及 `etcd_test.go` 的 validator 组装断言
   - Task 1-4：优先直接测现有 `PublishXxx()` / `putXxx()` 路径，并通过 `GetSyncedItemByResourceTypeAndID(...)`、`GetXxx(...)`、`DiffResources(...)` 断言最终结果
   - Task 5：优先直接测现有 `EtcdPublisher.Validate()`、`BatchCreate()`、`BatchUpdate()`
 - 执行时，每个任务固定使用下面的节奏：
@@ -84,9 +102,56 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
   4. 用最小实现完成重构
   5. 重新运行 seam test + helper test
 
+## 重构前测试前置阶段（独立）
+
+- Task 0 至少覆盖 4 类现状：最终同步后的 payload 字段形态、版本差异字段是否保留/删除、依赖资源是否跟随主资源一起发布、`EtcdPublisher.Validate()` 是否按网关版本构造 `ETCD` profile validator。
+- Task 0 完成后，Task 1-3 和 Task 5 才有足够稳定的黑盒约束；否则 helper 抽完后很容易只验证“代码变短了”，却没验证最终 payload 还对。
+- Task 4 只有在前面的任务都落完后，`putXxx()` 结尾的持久化收口仍然明显拖累可读性时再执行；它不是本轮最高杠杆点。
+
+### Task 0: 补 publish / validator characterization tests
+
+- [ ] Task 0: 补 publish / validator characterization tests
+
+**要解决的缺口：** 当前文档已经把 seam-first 原则写清了，但正文还没有一个独立任务专门扩 `publish_test.go` 和 `etcd_test.go`。先把最终 payload 和 validator 组装锁住，后面的 helper 才有黑盒护栏。
+
+**为什么这个任务适合单独提 PR：** 只扩现有测试文件，不改 `publish.go`、`etcd.go` 或发布主流程。
+
+**Files:**
+- Modify: `src/apiserver/pkg/biz/publish_test.go`
+- Modify: `src/apiserver/pkg/publisher/etcd_test.go`
+
+- [ ] **Step 1: 扩充现有 seam tests，先锁发布结果和 validator 组装**
+
+至少覆盖下面 4 类现状，全部断言现有黑盒结果：
+
+- 最终同步后的 payload 字段形态
+- 不同网关版本下字段的保留/删除差异
+- 依赖资源是否跟随主资源一起发布
+- `EtcdPublisher.Validate()` 是否按网关版本组装正确的 `ETCD` profile validator
+
+- [ ] **Step 2: 运行 publish seam tests，确认现状已经被锁住**
+
+Run:
+
+```bash
+cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .envrc && go test ./pkg/biz ./pkg/publisher -count=1
+```
+
+Expected:
+- PASS
+
+- [ ] **Step 3: 提交这个 PR**
+
+```bash
+git add src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/publisher/etcd_test.go
+git commit -m "test: lock publish and validator seams"
+```
+
 ---
 
 ### Task 1: 抽 publish 字段清理 helper
+
+- [ ] Task 1: 抽 publish 字段清理 helper
 
 **要解决的复杂度：** 现在 `id/name` 的版本差异删除、`ssl.validity_*` 清理、`stream_route.labels` 清理散落在多个 `putXxx()/PutXxx()` 里。修改某个发布字段规则时，最容易出现“改了一个资源，漏了另一个资源”。
 
@@ -368,6 +433,8 @@ git commit -m "refactor: extract publish payload cleanup helper"
 
 ### Task 2: 抽 simple publish payload builder helper
 
+- [ ] Task 2: 抽 simple publish payload builder helper
+
 **要解决的复杂度：** `plugin_config`、`plugin_metadata`、`consumer_group`、`global_rule`、`proto`、`ssl` 这些资源都在重复做 `BaseInfo` 序列化、`jsonx.MergeJson(...)`、`ResourceOperation` 组装。重复逻辑多，资源特例又掺在里面，`putXxx()` 很难一眼看出真正的资源特有部分。
 
 **为什么这个任务适合单独提 PR：** 只收敛“无依赖资源”的 payload 组装，不碰 route/service/upstream/consumer/stream_route 的依赖发布顺序。
@@ -601,6 +668,8 @@ git commit -m "refactor: extract simple publish payload builder"
 ```
 
 ### Task 3: 拆依赖资源发布 helper
+
+- [ ] Task 3: 拆依赖资源发布 helper
 
 **要解决的复杂度：** `putRoutes()`、`putServices()`、`putUpstreams()`、`putConsumers()`、`PutStreamRoutes()` 现在把“读取资源”“收集依赖 ID”“递归发布依赖”“构造自身 payload”混在一起，读起来像 5 个相似但不完全一致的大函数。
 
@@ -901,6 +970,8 @@ git commit -m "refactor: split publish dependency helpers"
 
 ### Task 4: 抽 publish persist helper
 
+- [ ] Task 4: 抽 publish persist helper
+
 **要解决的复杂度：** 每个 `putXxx()` 结尾都在重复 `batchCreateEtcdResource(...)` + `BatchUpdateResourceStatus(...)` + 中文错误包装。重复多，`putXxx()` 长度被进一步拉大，而且将来改发布成功后的统一动作时必须逐个资源修改。
 
 **为什么这个任务适合单独提 PR：** 这是 publish 领域自己的收口动作，不改变 payload 形态，也不改变依赖发布顺序。
@@ -1091,6 +1162,8 @@ git commit -m "refactor: extract publish persist helper"
 ```
 
 ### Task 5: 抽 `EtcdPublisher` 最终校验 helper
+
+- [ ] Task 5: 抽 `EtcdPublisher` 最终校验 helper
 
 **要解决的复杂度：** `EtcdPublisher.Validate()` 现在把“版本解析”“custom plugin schema 获取”“构造 `ETCD` validator”“执行最终校验”都压在一个方法里，而 `Create/Update/BatchCreate/BatchUpdate` 又各自直接循环调用它。当前测试主要 patch 掉 `Validate()`，没有真正锁住最终发布校验的组装契约。
 

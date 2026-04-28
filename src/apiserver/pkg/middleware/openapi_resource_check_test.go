@@ -171,3 +171,32 @@ func TestOpenAPIResourceCheckBuildsCurrentValidationPayloads(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAPIResourceCheckDoesNotInjectIDForOldConsumerGroupSchema(t *testing.T) {
+	var validationPayloads []string
+
+	patches := patchOpenResourceCheckValidation(t, func(raw json.RawMessage) error {
+		validationPayloads = append(validationPayloads, string(raw))
+		return nil
+	})
+	defer patches.Reset()
+
+	router := newOpenResourceCheckRouter("3.2.15")
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/open/gateways/demo/resources/consumer_groups/",
+		strings.NewReader(`[{"name":"cg-demo","config":{"plugins":{}}}]`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, req)
+
+	if !assert.Equal(t, http.StatusNoContent, recorder.Code) {
+		return
+	}
+	if !assert.Len(t, validationPayloads, 1) {
+		return
+	}
+	assert.False(t, gjson.Get(validationPayloads[0], "id").Exists())
+}

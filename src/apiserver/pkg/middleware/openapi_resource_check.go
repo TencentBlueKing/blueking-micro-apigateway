@@ -121,9 +121,10 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		}
 		// validate config schema
 		configs := gjson.ParseBytes(reqBody).Array()
+		version := ginx.GetGatewayInfo(c).GetAPISIXVersionX()
 		for _, config := range configs {
 			schemaValidator, err := schema.NewAPISIXSchemaValidator(
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+				version,
 				"main."+resourceType.String(),
 			)
 			if err != nil {
@@ -135,7 +136,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 
 			// Inject auto-generated ID before validation for resources that need it
 			// This handles the case where schema requires 'id' but users expect auto-generation
-			if constant.ResourceRequiresIDInSchema(resourceType) {
+			if constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) {
 				id := gjson.Get(configRaw, "id").String()
 				if id == "" {
 					// Temporarily inject ID for validation - will be regenerated in handler if
@@ -147,7 +148,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			configRawForValidation := biz.BuildConfigRawForValidation(
 				configRaw,
 				resourceType,
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+				version,
 			)
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {
@@ -164,7 +165,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+				version,
 				resourceType,
 				"main."+string(resourceType),
 				customizePluginSchemaMap,

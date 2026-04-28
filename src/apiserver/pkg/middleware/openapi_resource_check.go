@@ -54,12 +54,13 @@ func prepareOpenValidationPayload(
 	version constant.APISIXVersion,
 	configRaw string,
 ) json.RawMessage {
-	validationRaw := configRaw
-	if constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) &&
-		gjson.Get(validationRaw, "id").String() == "" {
-		validationRaw, _ = sjson.Set(validationRaw, "id", idx.GenResourceID(resourceType))
-	}
-	return biz.BuildConfigRawForValidation(validationRaw, resourceType, version)
+	validationRaw := biz.InjectGeneratedIDForValidation(
+		json.RawMessage(configRaw),
+		resourceType,
+		version,
+		idx.GenResourceID(resourceType),
+	)
+	return biz.BuildConfigRawForValidation(string(validationRaw), resourceType, version)
 }
 
 // OpenAPIResourceCheck 资源操作校验
@@ -162,6 +163,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				resolvedID = idx.GenResourceID(resourceType)
 			}
 			storageConfig := json.RawMessage(configRaw)
+			// FIXME: config modified logical
 			if gjson.GetBytes(storageConfig, "name").String() == "" {
 				storageConfig, _ = sjson.SetBytes(
 					storageConfig,

@@ -46,6 +46,16 @@ func TestPrepareOpenValidationPayload(t *testing.T) {
 			},
 		},
 		{
+			name:         "existing id is preserved during validation payload preparation",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"id":"client-id","plugins":{}}`,
+			assertPayload: func(t *testing.T, payload string) {
+				t.Helper()
+				assert.Equal(t, "client-id", gjson.Get(payload, "id").String())
+			},
+		},
+		{
 			name:         "proto on 3.11 strips unsupported name before validation",
 			resourceType: constant.Proto,
 			version:      constant.APISIXVersion311,

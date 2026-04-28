@@ -130,6 +130,7 @@ func (r ResourceUpdateRequest) ToCommonResource(
 ) *model.ResourceCommonModel {
 	config := r.Config
 	if r.Name != "" {
+		// FIXME: config modified logical
 		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)
 	}
 	return buildOpenUpdateDraft(c, id, status, config)

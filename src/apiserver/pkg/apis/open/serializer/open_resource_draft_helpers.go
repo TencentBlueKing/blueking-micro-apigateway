@@ -38,10 +38,12 @@ func buildOpenCreateDraft(
 	req ResourceCreateRequest,
 ) *model.ResourceCommonModel {
 	config := req.Config
+	// FIXME: config modified logical
 	if gjson.GetBytes(config, "name").String() == "" {
 		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), req.Name)
 	}
 
+	// FIXME: config modified logical
 	id := gjson.GetBytes(config, "id").String()
 	if id == "" {
 		id = idx.GenResourceID(resourceType)

@@ -67,3 +67,40 @@ func TestPrepareMCPCreateConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestPrepareMCPUpdateConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("route injects name when provided", func(t *testing.T) {
+		config, err := prepareMCPUpdateConfig(
+			constant.Route,
+			map[string]any{"uri": "/demo"},
+			"route-demo",
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, "route-demo", gjson.GetBytes(config, "name").String())
+		assert.Equal(t, "/demo", gjson.GetBytes(config, "uri").String())
+	})
+
+	t.Run("route keeps config untouched when name is empty", func(t *testing.T) {
+		config, err := prepareMCPUpdateConfig(
+			constant.Route,
+			map[string]any{"uri": "/demo"},
+			"",
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, "/demo", gjson.GetBytes(config, "uri").String())
+		assert.False(t, gjson.GetBytes(config, "name").Exists())
+	})
+
+	t.Run("consumer injects username when name is provided", func(t *testing.T) {
+		config, err := prepareMCPUpdateConfig(
+			constant.Consumer,
+			map[string]any{"plugins": map[string]any{}},
+			"consumer-demo",
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, "consumer-demo", gjson.GetBytes(config, "username").String())
+		assert.False(t, gjson.GetBytes(config, "name").Exists())
+	})
+}

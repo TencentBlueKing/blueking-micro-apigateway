@@ -274,7 +274,7 @@ git commit -m "refactor: extract mcp create config helper"
 
 ### Task 2: 抽出 MCP update 的 config 注入 helper
 
-- [ ] Task 2: 抽出 MCP update 的 config 注入 helper
+- [x] Task 2: 抽出 MCP update 的 config 注入 helper
 
 **要解决的复杂度：** update 路径和 create 路径一样，也在 handler 里手写了 `marshal + optional name inject`，只是分支略有不同；这类重复最容易导致两个入口后续越改越不一致。
 
@@ -286,7 +286,7 @@ git commit -m "refactor: extract mcp create config helper"
 - Modify: `src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud.go:366-376`
 
-- [ ] **Step 1: 先补 MCP update config 注入测试**
+- [x] **Step 1: 先补 MCP update config 注入测试**
 
 在 `mcp_resource_crud_helpers_test.go` 里新增（注意：Consumer 使用 `username` 而非 `name`，补子测试锁住差异）：
 
@@ -330,7 +330,7 @@ func TestPrepareMCPUpdateConfig(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -342,7 +342,7 @@ Expected:
 
 - FAIL，报 `undefined: prepareMCPUpdateConfig`
 
-- [ ] **Step 3: 实现 helper，并让 update handler 复用**
+- [x] **Step 3: 实现 helper，并让 update handler 复用**
 
 在 `mcp_resource_crud_helpers.go` 里新增（**行为变化标记**：helper 把原 handler 里 `_ = err` 的静默错误改为向上 `return err`）：
 
@@ -400,7 +400,7 @@ if err != nil {
 
 **提交前同步更新 Task 0 中 “update 静默忽略 sjson 错误” 的 characterization 断言**：由“不会报错”更新为“会返回错误”，并在 commit message 里标注“behavior change: sjson failure during update now surfaces as an error”。
 
-- [ ] **Step 4: 运行 MCP tools 包测试**
+- [x] **Step 4: 运行 MCP tools 包测试**
 
 Run:
 
@@ -412,7 +412,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers.go src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go src/apiserver/pkg/apis/mcp/tools/resource_crud.go

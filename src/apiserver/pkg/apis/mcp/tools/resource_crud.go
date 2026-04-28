@@ -20,12 +20,10 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -349,16 +347,9 @@ func updateResourceHandler(
 		return errorResult(err), nil, nil
 	}
 
-	// Marshal config to JSON bytes
-	config, err := json.Marshal(input.Config)
+	config, err := prepareMCPUpdateConfig(resourceType, input.Config, input.Name)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
-	}
-
-	// If name is provided, inject it into config using the correct key for the resource type
-	if input.Name != "" {
-		nameKey := model.GetResourceNameKey(resourceType)
-		config, _ = sjson.SetBytes(config, nameKey, input.Name)
+		return errorResult(err), nil, nil
 	}
 
 	// Use UpdateResourceByTypeAndID which properly handles name updates

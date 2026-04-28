@@ -45,7 +45,6 @@ func prepareMCPCreateConfig(
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	// -- FIXME: config modified logical
 	nameKey := model.GetResourceNameKey(resourceType)
 	config, err = sjson.SetBytes(config, nameKey, name)
 	if err != nil {
@@ -53,6 +52,34 @@ func prepareMCPCreateConfig(
 	}
 	if !gjson.GetBytes(config, nameKey).Exists() {
 		return nil, fmt.Errorf("name field not found in config after injection")
+	}
+
+	return config, nil
+}
+
+// prepareMCPUpdateConfig mirrors prepareMCPCreateConfig but keeps the original
+// config untouched when the caller does not provide a new outer name.
+//
+// Behavior change vs. the previous inline updateResourceHandler code:
+// sjson.SetBytes errors are now returned to the caller instead of being
+// silently ignored.
+func prepareMCPUpdateConfig(
+	resourceType constant.APISIXResource,
+	inputConfig any,
+	name string,
+) ([]byte, error) {
+	config, err := json.Marshal(inputConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
+	}
+	if name == "" {
+		return config, nil
+	}
+
+	nameKey := model.GetResourceNameKey(resourceType)
+	config, err = sjson.SetBytes(config, nameKey, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inject name into config: %w", err)
 	}
 
 	return config, nil

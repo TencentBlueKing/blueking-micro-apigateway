@@ -30,6 +30,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 func applyImportIgnoreFields(
@@ -75,4 +76,17 @@ func loadExistingImportResources(
 		allResourceIDs[key] = struct{}{}
 	}
 	return allResourceMap, nil
+}
+
+func buildImportSyncData(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	imp *ResourceInfo,
+) *model.GatewaySyncData {
+	return &model.GatewaySyncData{
+		Type:      resourceType,
+		ID:        imp.ResourceID,
+		Config:    datatypes.JSON(imp.Config),
+		GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
+	}
 }

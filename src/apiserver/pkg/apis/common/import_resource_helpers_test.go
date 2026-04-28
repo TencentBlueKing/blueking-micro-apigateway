@@ -122,3 +122,21 @@ func TestLoadExistingImportResources(t *testing.T) {
 		assert.Empty(t, empty)
 	})
 }
+
+func TestBuildImportSyncData(t *testing.T) {
+	t.Parallel()
+
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{ID: 23})
+	info := &ResourceInfo{
+		ResourceType: constant.Route,
+		ResourceID:   "route-1",
+		Name:         "route-demo",
+		Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uri":"/demo"}`),
+	}
+
+	got := buildImportSyncData(ctx, constant.Route, info)
+	assert.Equal(t, constant.Route, got.Type)
+	assert.Equal(t, "route-1", got.ID)
+	assert.Equal(t, 23, got.GatewayID)
+	assert.JSONEq(t, `{"id":"route-1","name":"route-demo","uri":"/demo"}`, string(got.Config))
+}

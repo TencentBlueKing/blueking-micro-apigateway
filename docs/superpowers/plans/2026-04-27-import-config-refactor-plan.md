@@ -391,7 +391,7 @@ git commit -m "refactor: extract import existing-resource loader"
 
 ### Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
 
-- [ ] Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
+- [x] Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
 
 **要解决的复杂度：** `GatewaySyncData` 组装现在直接夹在 `handleResources(...)` 末尾，和 resource_id 校验、overlay、map append 混在一个循环里。
 
@@ -402,7 +402,7 @@ git commit -m "refactor: extract import existing-resource loader"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:298-309`
 
-- [ ] **Step 1: 先补 sync-data 组装测试**
+- [x] **Step 1: 先补 sync-data 组装测试**
 
 在 `import_resource_helpers_test.go` 里新增：
 
@@ -426,7 +426,7 @@ func TestBuildImportSyncData(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -437,7 +437,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: buildImportSyncData`
 
-- [ ] **Step 3: 实现 sync-data helper，并替换 `handleResources(...)` 里的内联组装**
+- [x] **Step 3: 实现 sync-data helper，并替换 `handleResources(...)` 里的内联组装**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -470,7 +470,7 @@ resourceImp := buildImportSyncData(ctx, resourceType, imp)
 
 **边界提醒（人工 review 补充）：** `buildImportSyncData(...)` 只消费上传进来的 `imp.ResourceID`。不要在这个 helper 里生成、修正、回填资源 ID；一旦这里开始碰 ID 语义，就不再是“sync-data 组装”，而是在偷偷改导入协议。
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -481,7 +481,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go

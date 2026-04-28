@@ -285,12 +285,7 @@ func handleResources(
 				}
 			}
 			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
-			resourceImp := &model.GatewaySyncData{
-				Type:      resourceType,
-				ID:        imp.ResourceID,
-				Config:    datatypes.JSON(imp.Config),
-				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
-			}
+			resourceImp := buildImportSyncData(ctx, resourceType, imp)
 			if _, ok := resourceTypeMap[imp.ResourceType]; !ok {
 				resourceTypeMap[resourceType] = []*model.GatewaySyncData{resourceImp}
 				continue

@@ -103,8 +103,12 @@ func TestLoadExistingImportResources(t *testing.T) {
 		ResourceCommonModel: model.ResourceCommonModel{
 			ID:        "pc-1",
 			GatewayID: gateway.ID,
-			Config:    datatypes.JSON([]byte(`{"id":"pc-1","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)),
-			Status:    constant.ResourceStatusSuccess,
+			Config: datatypes.JSON(
+				[]byte(
+					`{"id":"pc-1","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+				),
+			),
+			Status: constant.ResourceStatusSuccess,
 		},
 	}))
 
@@ -211,7 +215,9 @@ func TestPrepareImportResources(t *testing.T) {
 						ResourceType: constant.Route,
 						ResourceID:   "route-1",
 						Name:         "route-demo",
-						Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uris":["/demo"]}`),
+						Config: json.RawMessage(
+							`{"id":"route-1","name":"route-demo","uris":["/demo"]}`,
+						),
 					},
 				},
 			},
@@ -239,7 +245,9 @@ func TestPrepareImportValidationInput(t *testing.T) {
 							ResourceType: constant.Route,
 							ResourceID:   "route-1",
 							Name:         "route-demo",
-							Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uri":"/demo"}`),
+							Config: json.RawMessage(
+								`{"id":"route-1","name":"route-demo","uri":"/demo"}`,
+							),
 						},
 					},
 				},
@@ -248,7 +256,11 @@ func TestPrepareImportValidationInput(t *testing.T) {
 			nil,
 		)
 		assert.NoError(t, err)
-		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"))
+		assert.Contains(
+			t,
+			input.AllResourceIDs,
+			fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"),
+		)
 		assert.Len(t, input.Add, 1)
 		assert.Len(t, input.Add[constant.Route], 1)
 		assert.Empty(t, input.Update)
@@ -282,8 +294,16 @@ func TestPrepareImportValidationInput(t *testing.T) {
 			nil,
 		)
 		assert.NoError(t, err)
-		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-new"))
-		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-upd"))
+		assert.Contains(
+			t,
+			input.AllResourceIDs,
+			fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-new"),
+		)
+		assert.Contains(
+			t,
+			input.AllResourceIDs,
+			fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-upd"),
+		)
 		assert.Len(t, input.Add[constant.Route], 1)
 		assert.Len(t, input.Update[constant.Route], 1)
 	})

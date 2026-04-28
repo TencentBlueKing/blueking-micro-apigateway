@@ -118,7 +118,8 @@ func prepareImportResources(
 			if imp.ResourceID == "" {
 				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
 			}
-			if oldResource, ok := existingMap[imp.GetResourceKey()]; ok && len(ignoreFields[resourceType]) > 0 {
+			if oldResource, ok := existingMap[imp.GetResourceKey()]; ok &&
+				len(ignoreFields[resourceType]) > 0 {
 				imp.Config, err = applyImportIgnoreFields(
 					imp.Config,
 					oldResource.Config,

@@ -37,8 +37,13 @@ import (
 func TestHandleUploadResources(t *testing.T) {
 	t.Run("ignore_fields overlays existing config field", func(t *testing.T) {
 		gatewayCtx, gateway := setupImportGatewayContext(t, "import-overlay")
-		createPluginConfigForImportTest(t, gatewayCtx, gateway.ID, "pc-1",
-			`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)
+		createPluginConfigForImportTest(
+			t,
+			gatewayCtx,
+			gateway.ID,
+			"pc-1",
+			`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		)
 
 		got, err := HandleUploadResources(
 			gatewayCtx,
@@ -77,8 +82,13 @@ func TestHandleUploadResources(t *testing.T) {
 
 	t.Run("missing ignore_fields source keeps imported config", func(t *testing.T) {
 		gatewayCtx, gateway := setupImportGatewayContext(t, "import-ignore-missing")
-		createPluginConfigForImportTest(t, gatewayCtx, gateway.ID, "pc-2",
-			`{"id":"pc-2","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)
+		createPluginConfigForImportTest(
+			t,
+			gatewayCtx,
+			gateway.ID,
+			"pc-2",
+			`{"id":"pc-2","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		)
 
 		got, err := HandleUploadResources(
 			gatewayCtx,
@@ -117,8 +127,13 @@ func TestHandleUploadResources(t *testing.T) {
 
 	t.Run("keeps provided resource ids and add update counts", func(t *testing.T) {
 		gatewayCtx, gateway := setupImportGatewayContext(t, "import-id-preserve")
-		createPluginConfigForImportTest(t, gatewayCtx, gateway.ID, "pc-existing",
-			`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)
+		createPluginConfigForImportTest(
+			t,
+			gatewayCtx,
+			gateway.ID,
+			"pc-existing",
+			`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		)
 
 		got, err := HandleUploadResources(
 			gatewayCtx,
@@ -218,8 +233,13 @@ func TestHandleUploadResources(t *testing.T) {
 
 func TestHandlerResourceIndexMap(t *testing.T) {
 	gatewayCtx, gateway := setupImportGatewayContext(t, "import-index-map")
-	createPluginConfigForImportTest(t, gatewayCtx, gateway.ID, "pc-existing",
-		`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)
+	createPluginConfigForImportTest(
+		t,
+		gatewayCtx,
+		gateway.ID,
+		"pc-existing",
+		`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+	)
 
 	got, err := HandlerResourceIndexMap(
 		gatewayCtx,
@@ -242,9 +262,21 @@ func TestHandlerResourceIndexMap(t *testing.T) {
 	if !assert.Len(t, got.ResourceTypeMap[constant.PluginConfig], 1) {
 		return
 	}
-	assert.Contains(t, got.ExistsResourceIdList, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"))
-	assert.Contains(t, got.AllResourceIdList, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"))
-	assert.Contains(t, got.AllResourceIdList, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-new"))
+	assert.Contains(
+		t,
+		got.ExistsResourceIdList,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"),
+	)
+	assert.Contains(
+		t,
+		got.AllResourceIdList,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"),
+	)
+	assert.Contains(
+		t,
+		got.AllResourceIdList,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-new"),
+	)
 	assert.Equal(t, "pc-new", got.ResourceTypeMap[constant.PluginConfig][0].ID)
 }
 

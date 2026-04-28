@@ -23,14 +23,11 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // ResourceCreateRequest 资源创建
@@ -62,20 +59,7 @@ func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int,
 ) []*model.ResourceCommonModel {
 	var resources []*model.ResourceCommonModel
 	for _, r := range rs {
-		if gjson.GetBytes(r.Config, "name").String() == "" {
-			r.Config, _ = sjson.SetBytes(r.Config, model.GetResourceNameKey(resourceType), r.Name)
-		}
-		id := gjson.GetBytes(r.Config, "id").String()
-		if id == "" {
-			id = idx.GenResourceID(resourceType)
-		}
-		resource := &model.ResourceCommonModel{
-			ID:        id,
-			GatewayID: gatewayID,
-			Config:    datatypes.JSON(r.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-		}
-		resources = append(resources, resource)
+		resources = append(resources, buildOpenCreateDraft(gatewayID, resourceType, r))
 	}
 	return resources
 }

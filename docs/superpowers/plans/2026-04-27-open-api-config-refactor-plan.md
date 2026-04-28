@@ -146,7 +146,7 @@ git commit -m "test: lock open handler and middleware seams"
 
 ### Task 1: 抽出 Open batch create 的本地 draft builder
 
-- [ ] Task 1: 抽出 Open batch create 的本地 draft builder
+- [x] Task 1: 抽出 Open batch create 的本地 draft builder
 
 **要解决的复杂度：** `ResourceBatchCreateRequest.ToCommonResource(...)` 把“补 name”“生成 id”“组装 `ResourceCommonModel`”揉在一个循环里，后续只要多一种 create 变体就容易继续复制这段逻辑。
 
@@ -157,7 +157,7 @@ git commit -m "test: lock open handler and middleware seams"
 - Create: `src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/open/serializer/resource.go:57-82`
 
-- [ ] **Step 1: 先补 batch create 当前组装逻辑的失败测试**
+- [x] **Step 1: 先补 batch create 当前组装逻辑的失败测试**
 
 在 `open_resource_draft_helpers_test.go` 里新增：
 
@@ -208,7 +208,7 @@ func TestBuildOpenCreateDraft(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -219,7 +219,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: buildOpenCreateDraft`
 
-- [ ] **Step 3: 实现本地 builder，并让 `ToCommonResource(...)` 复用它**
+- [x] **Step 3: 实现本地 builder，并让 `ToCommonResource(...)` 复用它**
+
+执行备注（2026-04-28）：为保持 Task 1 为纯 refactor，本次 helper 保留了现有 create 路径对固定字面量 `name` 的判空逻辑，没有改成按 `GetResourceNameKey(resourceType)` 判空。
 
 在 `resource.go` 里新增（**review 重点要求：验证 `model.GetResourceNameKey(Consumer)` 的返回值**）：原代码判断的是 `gjson.GetBytes(r.Config, "name").String()` （**固定字面量 `name`**），helper 用的是 `GetResourceNameKey(resourceType)`。若 `GetResourceNameKey(Consumer) == "username"`，则对 Consumer 的判断从“name 是否为空”变成“username 是否为空”——这是一个行为差异，必须在 Task 0 characterization test 里显式记一笔并接受这种对齐（或者严格按原行为将 helper 改成固定判 `"name"`）。推荐前者：代码更一致。
 
@@ -256,7 +258,7 @@ for _, r := range rs {
 }
 ```
 
-- [ ] **Step 4: 运行 serializer 包测试**
+- [x] **Step 4: 运行 serializer 包测试**
 
 Run:
 
@@ -267,7 +269,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers.go src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go src/apiserver/pkg/apis/open/serializer/resource.go

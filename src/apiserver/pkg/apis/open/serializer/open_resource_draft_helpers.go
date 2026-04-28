@@ -22,12 +22,38 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
+
+func buildOpenCreateDraft(
+	gatewayID int,
+	resourceType constant.APISIXResource,
+	req ResourceCreateRequest,
+) *model.ResourceCommonModel {
+	config := req.Config
+	if gjson.GetBytes(config, "name").String() == "" {
+		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), req.Name)
+	}
+
+	id := gjson.GetBytes(config, "id").String()
+	if id == "" {
+		id = idx.GenResourceID(resourceType)
+	}
+
+	return &model.ResourceCommonModel{
+		ID:        id,
+		GatewayID: gatewayID,
+		Config:    datatypes.JSON(config),
+		Status:    constant.ResourceStatusCreateDraft,
+	}
+}
 
 // buildOpenUpdateDraft assumes caller already wrote any outer name back into config.
 func buildOpenUpdateDraft(

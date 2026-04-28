@@ -25,12 +25,71 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	testingutil "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/testing"
 )
+
+func TestBuildOpenCreateDraft(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		req          ResourceCreateRequest
+		assertDraft  func(t *testing.T, got *model.ResourceCommonModel)
+	}{
+		{
+			name:         "route injects name and generates id",
+			resourceType: constant.Route,
+			req: ResourceCreateRequest{
+				Name:   "route-demo",
+				Config: json.RawMessage(`{"uri":"/demo"}`),
+			},
+			assertDraft: func(t *testing.T, got *model.ResourceCommonModel) {
+				t.Helper()
+				assert.NotEmpty(t, got.ID)
+				assert.Equal(t, "route-demo", gjson.GetBytes(got.Config, "name").String())
+				assert.Equal(t, "/demo", gjson.GetBytes(got.Config, "uri").String())
+				assert.Equal(t, constant.ResourceStatusCreateDraft, got.Status)
+			},
+		},
+		{
+			name:         "consumer writes username when config omits it",
+			resourceType: constant.Consumer,
+			req: ResourceCreateRequest{
+				Name:   "consumer-demo",
+				Config: json.RawMessage(`{"plugins":{}}`),
+			},
+			assertDraft: func(t *testing.T, got *model.ResourceCommonModel) {
+				t.Helper()
+				assert.Equal(t, "consumer-demo", gjson.GetBytes(got.Config, "username").String())
+				assert.False(t, gjson.GetBytes(got.Config, "name").Exists())
+			},
+		},
+		{
+			name:         "consumer still overwrites username because create path checks literal name",
+			resourceType: constant.Consumer,
+			req: ResourceCreateRequest{
+				Name:   "outer-name",
+				Config: json.RawMessage(`{"username":"config-name"}`),
+			},
+			assertDraft: func(t *testing.T, got *model.ResourceCommonModel) {
+				t.Helper()
+				assert.Equal(t, "outer-name", gjson.GetBytes(got.Config, "username").String())
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildOpenCreateDraft(10, tt.resourceType, tt.req)
+			assert.Equal(t, 10, got.GatewayID)
+			tt.assertDraft(t, got)
+		})
+	}
+}
 
 func TestBuildOpenUpdateDraft(t *testing.T) {
 	gin.SetMode(gin.TestMode)

@@ -1146,7 +1146,7 @@ git commit -m "refactor: split publish dependency helpers"
 
 ### Task 4: 抽 publish persist helper
 
-- [ ] Task 4: 抽 publish persist helper
+- [x] Task 4: 抽 publish persist helper
 
 **要解决的复杂度：** 每个 `putXxx()` 结尾都在重复 `batchCreateEtcdResource(...)` + `BatchUpdateResourceStatus(...)` + 中文错误包装。重复多，`putXxx()` 长度被进一步拉大，而且将来改发布成功后的统一动作时必须逐个资源修改。
 
@@ -1158,7 +1158,7 @@ git commit -m "refactor: split publish dependency helpers"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
-- [ ] **Step 1: 先补现有 persist seam 的 characterization tests**
+- [x] **Step 1: 先补现有 persist seam 的 characterization tests**
 
 在 `publish_test.go` 增加一个成功路径 characterization test，继续锁定“写 etcd + 更新状态”这个现有出口：
 
@@ -1192,7 +1192,7 @@ func TestPublishPersist_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam test，确认当前持久化出口已经被锁住**
+- [x] **Step 2: 运行 seam test，确认当前持久化出口已经被锁住**
 
 Run:
 
@@ -1203,7 +1203,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 persist helper test，让它先失败**
+- [x] **Step 3: 再补 persist helper test，让它先失败**
 
 在 `publish_persist_helpers_test.go` 增加：
 
@@ -1267,7 +1267,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: persistPublishedOperations`
 
-- [ ] **Step 4: 用最小实现抽出 persist helper，并迁移所有 put 路径**
+- [x] **Step 4: 用最小实现抽出 persist helper，并迁移所有 put 路径**
+
+**执行备注（按代码真实情况）：** 这一步最后仍然值得做。当前 `putXxx()/PutXxx()` 成功出口仍重复同一段“写 etcd + 更新成功状态 + 中文错误包装”，抽成 `persistPublishedOperations(...)` 后没有改 payload，也没有改依赖发布顺序，只收口成功持久化尾部。
 
 在 `publish_persist_helpers.go` 新增：
 
@@ -1319,7 +1321,7 @@ if err = BatchUpdateResourceStatus(...); err != nil {
 return persistPublishedOperations(ctx, constant.PluginConfig, pluginConfigIDs, pluginConfigOps, "插件组发布错误")
 ```
 
-- [ ] **Step 5: 运行任务相关测试**
+- [x] **Step 5: 运行任务相关测试**
 
 Run:
 
@@ -1330,7 +1332,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_persist_helpers.go src/apiserver/pkg/biz/publish_persist_helpers_test.go

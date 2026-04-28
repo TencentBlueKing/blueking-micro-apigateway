@@ -555,6 +555,29 @@ func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
 	})
 }
 
+func TestPublishPersist_CurrentSeams(t *testing.T) {
+	t.Run("plugin config publish still writes synced config and updates status", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		pluginConfig := data.PluginConfig1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
+		if err := CreatePluginConfig(ctx, *pluginConfig); err != nil {
+			t.Fatal(err)
+		}
+		if err := PublishPluginConfigs(ctx, []string{pluginConfig.ID}); err != nil {
+			t.Fatal(err)
+		}
+
+		synced := mustSyncAndGetSyncedItem(t, ctx, constant.PluginConfig, pluginConfig.ID)
+		assert.Equal(t, pluginConfig.ID, synced.ID)
+
+		stored, err := GetPluginConfig(ctx, pluginConfig.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, constant.ResourceStatusSuccess, stored.Status)
+	})
+}
+
 func TestPublishRoutes(t *testing.T) {
 	type args struct {
 		ctx   context.Context

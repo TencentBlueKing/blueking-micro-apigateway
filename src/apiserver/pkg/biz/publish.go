@@ -839,19 +839,7 @@ func putRoutes(ctx context.Context, routeIDs []string) error {
 			return err
 		}
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, routeOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.Route, routeIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "routes status change err: %s", err.Error())
-		return fmt.Errorf("路由发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.Route, routeIDs, routeOps, "路由发布错误")
 }
 
 func putServices(ctx context.Context, serviceIDs []string) error {
@@ -901,20 +889,7 @@ func putServices(ctx context.Context, serviceIDs []string) error {
 			return err
 		}
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, serviceOps)
-	if err != nil {
-		return err
-	}
-
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.Service, serviceIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "services status change err: %s", err.Error())
-		return fmt.Errorf("服务发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.Service, serviceIDs, serviceOps, "服务发布错误")
 }
 
 func putUpstreams(ctx context.Context, upstreamIDs []string) error {
@@ -954,18 +929,7 @@ func putUpstreams(ctx context.Context, upstreamIDs []string) error {
 			return err
 		}
 	}
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, upstreamOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.Upstream, upstreamIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "upstreams status change err: %s", err.Error())
-		return fmt.Errorf("上游发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.Upstream, upstreamIDs, upstreamOps, "上游发布错误")
 }
 
 // putPluginConfigs ...
@@ -1004,19 +968,7 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		}
 		pluginConfigOps = append(pluginConfigOps, op)
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, pluginConfigOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.PluginConfig, pluginConfigIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "pluginConfigs status change err: %s", err.Error())
-		return fmt.Errorf("插件组发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.PluginConfig, pluginConfigIDs, pluginConfigOps, "插件组发布错误")
 }
 
 // putPluginMetadatas ...
@@ -1055,18 +1007,13 @@ func putPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) error {
 		}
 		pluginMetadataOps = append(pluginMetadataOps, op)
 	}
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, pluginMetadataOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.PluginMetadata, pluginMetadataIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "pluginMetadatas status change err: %s", err.Error())
-		return fmt.Errorf("插件元数据发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(
+		ctx,
+		constant.PluginMetadata,
+		pluginMetadataIDs,
+		pluginMetadataOps,
+		"插件元数据发布错误",
+	)
 }
 
 // putConsumers ...
@@ -1108,19 +1055,7 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 			return err
 		}
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, consumerOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.Consumer, consumerIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "consumers status change err: %s", err.Error())
-		return fmt.Errorf("消费者发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.Consumer, consumerIDs, consumerOps, "消费者发布错误")
 }
 
 // putConsumerGroups ...
@@ -1159,20 +1094,13 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 		}
 		consumerGroupOps = append(consumerGroupOps, op)
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, consumerGroupOps)
-	if err != nil {
-		return err
-	}
-
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.ConsumerGroup, consumerGroupIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "consumerGroups status change err: %s", err.Error())
-		return fmt.Errorf("消费者组发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(
+		ctx,
+		constant.ConsumerGroup,
+		consumerGroupIDs,
+		consumerGroupOps,
+		"消费者组发布错误",
+	)
 }
 
 // putGlobalRules ...
@@ -1207,19 +1135,7 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 		}
 		globalRuleOps = append(globalRuleOps, op)
 	}
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, globalRuleOps)
-	if err != nil {
-		return err
-	}
-
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.GlobalRule, globalRuleIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "globalRules status change err: %s", err.Error())
-		return fmt.Errorf("全局规则发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.GlobalRule, globalRuleIDs, globalRuleOps, "全局规则发布错误")
 }
 
 // PutProtos  ...
@@ -1258,19 +1174,7 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		}
 		protoOps = append(protoOps, op)
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, protoOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.Proto, protoIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "Protos status change err: %s", err.Error())
-		return fmt.Errorf("protos 发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.Proto, protoIDs, protoOps, "protos 发布错误")
 }
 
 // PutSSLs ...
@@ -1305,19 +1209,7 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		}
 		sslOps = append(sslOps, op)
 	}
-
-	// 先创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, sslOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.SSL, sslIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "ssls status change err: %s", err.Error())
-		return fmt.Errorf("ssls 发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(ctx, constant.SSL, sslIDs, sslOps, "ssls 发布错误")
 }
 
 // PutStreamRoutes ...
@@ -1369,17 +1261,11 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 			return err
 		}
 	}
-
-	// 创建 etcd 的数据
-	err = batchCreateEtcdResource(ctx, streamRouteOps)
-	if err != nil {
-		return err
-	}
-	// 变更资源状态为发布成功
-	if err = BatchUpdateResourceStatus(
-		ctx, constant.StreamRoute, streamRouteIDs, constant.ResourceStatusSuccess); err != nil {
-		logging.ErrorFWithContext(ctx, "streamRoutes status change err: %s", err.Error())
-		return fmt.Errorf("streamRoutes 发布错误：%w", err)
-	}
-	return nil
+	return persistPublishedOperations(
+		ctx,
+		constant.StreamRoute,
+		streamRouteIDs,
+		streamRouteOps,
+		"streamRoutes 发布错误",
+	)
 }

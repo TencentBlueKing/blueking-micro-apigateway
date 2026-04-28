@@ -56,16 +56,7 @@ func PluginMetadataCreate(c *gin.Context) {
 
 	pluginMetadata := model.PluginMetadata{
 		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.PluginMetadata),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.PluginMetadata), req.Config),
 	}
 
 	if err := biz.CreatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {

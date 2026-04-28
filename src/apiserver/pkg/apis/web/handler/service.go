@@ -57,16 +57,7 @@ func ServiceCreate(c *gin.Context) {
 	service := model.Service{
 		Name:       req.Name,
 		UpstreamID: req.UpstreamID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Service),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Service), req.Config),
 	}
 
 	if err := biz.CreateService(c.Request.Context(), service); err != nil {

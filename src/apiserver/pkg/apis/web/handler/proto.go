@@ -54,16 +54,7 @@ func ProtoCreate(c *gin.Context) {
 	}
 	proto := model.Proto{
 		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Proto),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Proto), req.Config),
 	}
 	if err := biz.CreateProto(c.Request.Context(), proto); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)

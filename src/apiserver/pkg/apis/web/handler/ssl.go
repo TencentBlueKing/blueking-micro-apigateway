@@ -107,16 +107,7 @@ func SSLCreate(c *gin.Context) {
 	}
 	err = biz.CreateSSL(c, &model.SSL{
 		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.SSL),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.SSL), req.Config),
 	})
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)

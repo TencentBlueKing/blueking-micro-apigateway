@@ -130,3 +130,15 @@ func TestBuildWebCreateDraft(t *testing.T) {
 	assert.Equal(t, "tester", draft.Updater)
 	assert.JSONEq(t, `{"plugins":{"limit-count":{"count":1}}}`, string(draft.Config))
 }
+
+func TestBuildWebCreateDraftDoesNotGenerateID(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	c, _ := newWebCreateTestContext(t, "{}", &model.Gateway{ID: 21}, "tester")
+
+	draft := buildWebCreateDraft(c, "route-generated-later", json.RawMessage(`{"uri":"/demo"}`))
+
+	assert.Equal(t, "route-generated-later", draft.ID)
+	assert.JSONEq(t, `{"uri":"/demo"}`, string(draft.Config))
+}

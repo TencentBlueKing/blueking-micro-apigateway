@@ -697,7 +697,7 @@ git commit -m "refactor: extract web create draft builder for special handlers"
 
 > **Review 建议（Files 语义描述）：** 下面 `Files:` 里出现的行号（如 `route.go:61-69`）是押当前 master 的满包描述，落地时位置可能漂移。执行者应以“对应 handler 中 `ResourceCommonModel:` 字面量所在行段”为准，而非硬绑行号。SSL 迁移时务必保留证书解析 + `validity_start/validity_end` 处理逻辑（由 Task 0 的 SSLCreate characterization test 兑保）。
 
-- [ ] Task 5: 把其余 Web create handler 统一迁移到本地 draft helper
+- [x] Task 5: 把其余 Web create handler 统一迁移到本地 draft helper
 
 **要解决的复杂度：** 其余 create handler 仍然各自内联组装 `ResourceCommonModel`，即使生成 ID 的时机不同，draft 组装本身仍是重复代码。
 
@@ -714,7 +714,7 @@ git commit -m "refactor: extract web create draft builder for special handlers"
 - Modify: `src/apiserver/pkg/apis/web/handler/plugin_metadata.go:58-66`
 - Modify: `src/apiserver/pkg/apis/web/handler/ssl.go:109-117`
 
-- [ ] **Step 1: 先补迁移保护测试**
+- [x] **Step 1: 先补迁移保护测试**
 
 在 `web_create_helpers_test.go` 增加一个面向默认 create 路径的测试，锁定“helper 只负责组装，不影响 ID 生成时机”：
 
@@ -735,7 +735,7 @@ func TestBuildWebCreateDraftDoesNotGenerateID(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认它先保护住 helper 合约**
+- [x] **Step 2: 运行测试，确认它先保护住 helper 合约**
 
 Run:
 
@@ -746,7 +746,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 逐个迁移剩余 create handler，只替换 draft 组装，不改顺序**
+- [x] **Step 3: 逐个迁移剩余 create handler，只替换 draft 组装，不改顺序**
 
 把类似下面这段：
 
@@ -777,7 +777,7 @@ ResourceCommonModel: buildWebCreateDraft(
 - `ssl` 仍保留自己证书相关字段处理
 - 不顺手改 update 路径
 
-- [ ] **Step 4: 运行 handler 包测试，再跑一次 Web serializer 包测试**
+- [x] **Step 4: 运行 handler 包测试，再跑一次 Web serializer 包测试**
 
 Run:
 
@@ -788,7 +788,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/web/handler/web_create_helpers_test.go src/apiserver/pkg/apis/web/handler/route.go src/apiserver/pkg/apis/web/handler/service.go src/apiserver/pkg/apis/web/handler/upstream.go src/apiserver/pkg/apis/web/handler/consumer.go src/apiserver/pkg/apis/web/handler/stream_route.go src/apiserver/pkg/apis/web/handler/proto.go src/apiserver/pkg/apis/web/handler/plugin_metadata.go src/apiserver/pkg/apis/web/handler/ssl.go

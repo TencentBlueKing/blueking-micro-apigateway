@@ -58,16 +58,7 @@ func ConsumerCreate(c *gin.Context) {
 	consumer := model.Consumer{
 		Username: req.Name,
 		GroupID:  req.GroupID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Consumer), // todo: generate
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Consumer), req.Config),
 	}
 
 	if err := biz.CreateConsumer(c.Request.Context(), consumer); err != nil {

@@ -524,40 +524,12 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	for _, item := range syncedItems {
 		databaseResourceMap[item.GetResourceKey()] = item
 	}
-
-	// step1: 获取需要删除的资源
-	var resourcesToDelete []int // auto_id list
-	for key, dbResource := range databaseResourceMap {
-		// If resource exists in DB but not in etcd, mark for deletion
-		if _, existsInEtcd := etcdResourceMap[key]; !existsInEtcd {
-			resourcesToDelete = append(resourcesToDelete, dbResource.AutoID)
-		}
-	}
-
-	// step2: 获取需要创建/更新的资源
-	var resourcesToCreate []*model.GatewaySyncData
-	var resourcesToUpdate []*model.GatewaySyncData
-	for key, etcdResource := range etcdResourceMap {
-		if dbResource, exists := databaseResourceMap[key]; exists {
-			// Only update if the resource has actually changed in etcd
-			// ModRevision comparison is sufficient - etcd guarantees that if ModRevision
-			// hasn't changed, the value hasn't changed
-			if dbResource.ModRevision != etcdResource.ModRevision {
-				dbResource.Config = etcdResource.Config
-				dbResource.ModRevision = etcdResource.ModRevision
-				resourcesToUpdate = append(resourcesToUpdate, dbResource)
-			}
-			// else: skip update, resource hasn't changed in etcd
-		} else {
-			// Create new record
-			resourcesToCreate = append(resourcesToCreate, etcdResource)
-		}
-	}
+	changeSet := buildSyncChangeSet(resourceList, syncedItems)
 
 	u := repo.GatewaySyncData
 	err = repo.Q.Transaction(func(tx *repo.Query) error {
 		// Execute updates in batches using ON CONFLICT (upsert)
-		if len(resourcesToUpdate) > 0 {
+		if len(changeSet.ToUpdate) > 0 {
 			err = tx.GatewaySyncData.WithContext(ctx).
 				Clauses(clause.OnConflict{
 					Columns: []clause.Column{{Name: "auto_id"}},
@@ -565,25 +537,25 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 						[]string{"config", "mod_revision", "updated_at"},
 					),
 				}).
-				CreateInBatches(resourcesToUpdate, 500)
+				CreateInBatches(changeSet.ToUpdate, 500)
 			if err != nil {
 				return err
 			}
 		}
 
 		// Execute creates in batches
-		if len(resourcesToCreate) > 0 {
-			err = tx.GatewaySyncData.WithContext(ctx).CreateInBatches(resourcesToCreate, 500)
+		if len(changeSet.ToCreate) > 0 {
+			err = tx.GatewaySyncData.WithContext(ctx).CreateInBatches(changeSet.ToCreate, 500)
 			if err != nil {
 				return err
 			}
 		}
 
 		// Execute deletes in batches
-		if len(resourcesToDelete) > 0 {
-			for i := 0; i < len(resourcesToDelete); i += 500 {
-				end := min(i+500, len(resourcesToDelete))
-				batch := resourcesToDelete[i:end]
+		if len(changeSet.ToDeleteAutoIDs) > 0 {
+			for i := 0; i < len(changeSet.ToDeleteAutoIDs); i += 500 {
+				end := min(i+500, len(changeSet.ToDeleteAutoIDs))
+				batch := changeSet.ToDeleteAutoIDs[i:end]
 				_, err = tx.GatewaySyncData.WithContext(ctx).
 					Where(u.AutoID.In(batch...)).
 					Delete()

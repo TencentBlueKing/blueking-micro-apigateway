@@ -280,3 +280,44 @@ func buildSyncSnapshotResources(
 	}
 	return resources, nil
 }
+
+type syncChangeSet struct {
+	ToCreate        []*model.GatewaySyncData
+	ToUpdate        []*model.GatewaySyncData
+	ToDeleteAutoIDs []int
+}
+
+func buildSyncChangeSet(
+	etcdResources []*model.GatewaySyncData,
+	databaseResources []*model.GatewaySyncData,
+) syncChangeSet {
+	changeSet := syncChangeSet{}
+
+	etcdResourceMap := make(map[string]*model.GatewaySyncData, len(etcdResources))
+	for _, resource := range etcdResources {
+		etcdResourceMap[resource.GetResourceKey()] = resource
+	}
+
+	databaseResourceMap := make(map[string]*model.GatewaySyncData, len(databaseResources))
+	for _, resource := range databaseResources {
+		key := resource.GetResourceKey()
+		databaseResourceMap[key] = resource
+		if _, existsInEtcd := etcdResourceMap[key]; !existsInEtcd {
+			changeSet.ToDeleteAutoIDs = append(changeSet.ToDeleteAutoIDs, resource.AutoID)
+		}
+	}
+
+	for key, etcdResource := range etcdResourceMap {
+		if dbResource, exists := databaseResourceMap[key]; exists {
+			if dbResource.ModRevision != etcdResource.ModRevision {
+				dbResource.Config = etcdResource.Config
+				dbResource.ModRevision = etcdResource.ModRevision
+				changeSet.ToUpdate = append(changeSet.ToUpdate, dbResource)
+			}
+			continue
+		}
+		changeSet.ToCreate = append(changeSet.ToCreate, etcdResource)
+	}
+
+	return changeSet
+}

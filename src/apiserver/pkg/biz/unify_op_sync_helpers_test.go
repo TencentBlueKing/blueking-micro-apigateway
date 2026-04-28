@@ -238,3 +238,94 @@ func TestBuildSyncSnapshotResources(t *testing.T) {
 	assert.Equal(t, pluginConfig.Name, gjson.GetBytes(resources[1].Config, "name").String())
 	assert.Equal(t, existingMetadata.ID, resources[2].ID)
 }
+
+func TestBuildSyncChangeSet(t *testing.T) {
+	route1ID := idx.GenResourceID(constant.Route)
+	route2ID := idx.GenResourceID(constant.Route)
+	route3ID := idx.GenResourceID(constant.Route)
+	route4ID := idx.GenResourceID(constant.Route)
+
+	databaseResources := []*model.GatewaySyncData{
+		{
+			AutoID:      11,
+			ID:          route1ID,
+			GatewayID:   gatewayInfo.ID,
+			Type:        constant.Route,
+			Config:      datatypes.JSON(`{"name":"route-1-old"}`),
+			ModRevision: 1,
+		},
+		{
+			AutoID:      22,
+			ID:          route2ID,
+			GatewayID:   gatewayInfo.ID,
+			Type:        constant.Route,
+			Config:      datatypes.JSON(`{"name":"route-2-delete"}`),
+			ModRevision: 1,
+		},
+		{
+			AutoID:      44,
+			ID:          route4ID,
+			GatewayID:   gatewayInfo.ID,
+			Type:        constant.Route,
+			Config:      datatypes.JSON(`{"name":"route-4-keep"}`),
+			ModRevision: 5,
+		},
+	}
+
+	etcdResources := []*model.GatewaySyncData{
+		{
+			ID:          route1ID,
+			GatewayID:   gatewayInfo.ID,
+			Type:        constant.Route,
+			Config:      datatypes.JSON(`{"name":"route-1-new"}`),
+			ModRevision: 2,
+		},
+		{
+			ID:          route3ID,
+			GatewayID:   gatewayInfo.ID,
+			Type:        constant.Route,
+			Config:      datatypes.JSON(`{"name":"route-3-new"}`),
+			ModRevision: 1,
+		},
+		{
+			ID:          route4ID,
+			GatewayID:   gatewayInfo.ID,
+			Type:        constant.Route,
+			Config:      datatypes.JSON(`{"name":"route-4-keep"}`),
+			ModRevision: 5,
+		},
+	}
+
+	changeSet := buildSyncChangeSet(etcdResources, databaseResources)
+	assert.Len(t, changeSet.ToCreate, 1)
+	assert.Len(t, changeSet.ToUpdate, 1)
+	assert.Len(t, changeSet.ToDeleteAutoIDs, 1)
+	assert.Equal(t, route3ID, changeSet.ToCreate[0].ID)
+	assert.Equal(t, 11, changeSet.ToUpdate[0].AutoID)
+	assert.Equal(t, 2, changeSet.ToUpdate[0].ModRevision)
+	assert.Equal(t, 22, changeSet.ToDeleteAutoIDs[0])
+}
+
+func TestBuildSyncChangeSet_EmptyEtcd(t *testing.T) {
+	databaseResources := []*model.GatewaySyncData{
+		{AutoID: 1, ID: "r1", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+		{AutoID: 2, ID: "r2", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+	}
+
+	changeSet := buildSyncChangeSet(nil, databaseResources)
+	assert.Empty(t, changeSet.ToCreate)
+	assert.Empty(t, changeSet.ToUpdate)
+	assert.ElementsMatch(t, []int{1, 2}, changeSet.ToDeleteAutoIDs)
+}
+
+func TestBuildSyncChangeSet_EmptyDB(t *testing.T) {
+	etcdResources := []*model.GatewaySyncData{
+		{ID: "r1", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+		{ID: "r2", GatewayID: gatewayInfo.ID, Type: constant.Route, ModRevision: 1},
+	}
+
+	changeSet := buildSyncChangeSet(etcdResources, nil)
+	assert.Len(t, changeSet.ToCreate, 2)
+	assert.Empty(t, changeSet.ToUpdate)
+	assert.Empty(t, changeSet.ToDeleteAutoIDs)
+}

@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	validator "github.com/go-playground/validator/v10"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -164,14 +163,7 @@ func injectGeneratedIDForValidation(
 	version constant.APISIXVersion,
 	resourceID string,
 ) json.RawMessage {
-	if !constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) || resourceID == "" {
-		return rawConfig
-	}
-	if gjson.GetBytes(rawConfig, "id").Exists() {
-		return rawConfig
-	}
-	rawConfig, _ = sjson.SetBytes(rawConfig, "id", resourceID)
-	return rawConfig
+	return biz.InjectGeneratedIDForValidation(rawConfig, resourceType, version, resourceID)
 }
 
 func shouldInjectResourceNameForValidation(

@@ -212,6 +212,52 @@ func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
 	})
 }
 
+func TestResolveWebValidationIdentity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		input            webValidationInput
+		wantIdentity     string
+		wantUsedFallback bool
+	}{
+		{
+			name: "falls back to provided identity when config id is absent",
+			input: webValidationInput{
+				RawConfig:        json.RawMessage(`{"plugins":{}}`),
+				FallbackIdentity: "route-a",
+			},
+			wantIdentity:     "route-a",
+			wantUsedFallback: true,
+		},
+		{
+			name: "existing config id wins",
+			input: webValidationInput{
+				RawConfig:        json.RawMessage(`{"id":"route-fixed","plugins":{}}`),
+				FallbackIdentity: "route-a",
+			},
+			wantIdentity:     "route-fixed",
+			wantUsedFallback: false,
+		},
+		{
+			name: "empty fallback is preserved when no config id exists",
+			input: webValidationInput{
+				RawConfig: json.RawMessage(`{"plugins":{}}`),
+			},
+			wantIdentity:     "",
+			wantUsedFallback: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIdentity, gotUsedFallback := resolveWebValidationIdentity(tt.input)
+			assert.Equal(t, tt.wantIdentity, gotIdentity)
+			assert.Equal(t, tt.wantUsedFallback, gotUsedFallback)
+		})
+	}
+}
+
 func TestShouldInjectResourceNameForValidation(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -140,9 +140,11 @@ git commit -m "test: lock web serializer and create handler seams"
 
 ### Task 1: 抽出 `CheckAPISIXConfig()` 的 identity 决策 helper
 
-- [ ] Task 1: 抽出 `CheckAPISIXConfig()` 的 identity 决策 helper
+- [x] Task 1: 抽出 `CheckAPISIXConfig()` 的 identity 决策 helper
 
 **要解决的复杂度：** `CheckAPISIXConfig()` 同时负责“读 config 识别 identity”和“继续做 schema 校验”，identity 决策散在函数中间，后续规则变化容易改漏。
+
+> **当前代码实况修正：** 当前 `web` consumer serializer 并没有单独的 `Username` 字段，只有 `Name` 字段；而 `CheckAPISIXConfig()` 现状仍通过 `getResourceNameByResourceType(...)` 在调用点决定 fallback identity。Task 1 先抽“config identity vs caller-provided fallback identity”的决策 helper，不在这一 PR 里顺手改 consumer fallback 语义。
 
 **为什么这个任务适合单独提 PR：** 只碰 `serializer/common.go` 和对应测试，不改变 handler 行为，也不涉及跨文件迁移。
 
@@ -150,7 +152,7 @@ git commit -m "test: lock web serializer and create handler seams"
 - Modify: `src/apiserver/pkg/apis/web/serializer/common.go:49-127`
 - Modify: `src/apiserver/pkg/apis/web/serializer/common_test.go`
 
-- [ ] **Step 1: 先补当前 identity 决策的测试**
+- [x] **Step 1: 先补当前 identity 决策的测试**
 
 在 `common_test.go` 增加下面这组失败测试：
 
@@ -159,52 +161,50 @@ func TestResolveWebValidationIdentity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input webValidationInput
-		want  string
+		name             string
+		input            webValidationInput
+		wantIdentity     string
+		wantUsedFallback bool
 	}{
 		{
-			name: "consumer falls back to username",
+			name: "falls back to provided identity when config id is absent",
 			input: webValidationInput{
-				ResourceType: constant.Consumer,
-				RawConfig:    json.RawMessage(`{"plugins":{}}`),
-				Username:     "demo-user",
-				Name:         "ignored",
+				RawConfig:         json.RawMessage(`{"plugins":{}}`),
+				FallbackIdentity: "route-a",
 			},
-			want: "demo-user",
-		},
-		{
-			name: "route falls back to outer name",
-			input: webValidationInput{
-				ResourceType: constant.Route,
-				RawConfig:    json.RawMessage(`{"plugins":{}}`),
-				Name:         "route-a",
-			},
-			want: "route-a",
+			wantIdentity:     "route-a",
+			wantUsedFallback: true,
 		},
 		{
 			name: "existing config id wins",
 			input: webValidationInput{
-				ResourceType: constant.Route,
-				RawConfig:    json.RawMessage(`{"id":"route-fixed","plugins":{}}`),
-				Name:         "route-a",
+				RawConfig:         json.RawMessage(`{"id":"route-fixed","plugins":{}}`),
+				FallbackIdentity: "route-a",
 			},
-			want: "route-fixed",
+			wantIdentity:     "route-fixed",
+			wantUsedFallback: false,
+		},
+		{
+			name: "empty fallback is preserved when no config id exists",
+			input: webValidationInput{
+				RawConfig: json.RawMessage(`{"plugins":{}}`),
+			},
+			wantIdentity:     "",
+			wantUsedFallback: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := resolveWebValidationIdentity(tt.input)
-			if got != tt.want {
-				t.Fatalf("unexpected identity: got %q want %q", got, tt.want)
-			}
+			gotIdentity, gotUsedFallback := resolveWebValidationIdentity(tt.input)
+			assert.Equal(t, tt.wantIdentity, gotIdentity)
+			assert.Equal(t, tt.wantUsedFallback, gotUsedFallback)
 		})
 	}
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认它先失败**
+- [x] **Step 2: 运行测试，确认它先失败**
 
 Run:
 
@@ -215,29 +215,21 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: webValidationInput` 或 `undefined: resolveWebValidationIdentity`
 
-- [ ] **Step 3: 用最小实现抽出 identity helper，并接回 `CheckAPISIXConfig()`**
+- [x] **Step 3: 用最小实现抽出 identity helper，并接回 `CheckAPISIXConfig()`**
 
-在 `common.go` 里新增本地输入结构和 helper（**review 修正**：Task 1 的 `webValidationInput` 只放 resolveWebValidationIdentity 真正需要的 4 个字段，`Version` / `ResourceID` 等字段由 Task 2 在扩结构体时再次加进去，避免 Task 1 PR 的改动面无端变大）：
+在 `common.go` 里新增本地输入结构和 helper（**当前代码实况修正**：Task 1 不假设 web consumer 有单独的 `Username` 字段；helper 只处理“config identity vs 调用点已算好的 fallback identity”）：
 
 ```go
-// webValidationInput is grown in two steps:
-//   Task 1: 4 fields needed by resolveWebValidationIdentity (ResourceType/Name/Username/RawConfig)
-//   Task 2: extend with Version + ResourceID for prepareWebValidationPayload
 type webValidationInput struct {
-	ResourceType constant.APISIXResource
-	Name         string
-	Username     string
-	RawConfig    json.RawMessage
+	RawConfig         json.RawMessage
+	FallbackIdentity string
 }
 
-func resolveWebValidationIdentity(input webValidationInput) string {
+func resolveWebValidationIdentity(input webValidationInput) (string, bool) {
 	if identity := schema.GetResourceIdentification(input.RawConfig); identity != "" {
-		return identity
+		return identity, false
 	}
-	if input.ResourceType == constant.Consumer {
-		return input.Username
-	}
-	return input.Name
+	return input.FallbackIdentity, true
 }
 ```
 
@@ -254,19 +246,16 @@ if resourceIdentification == "" {
 改成：
 
 ```go
-input := webValidationInput{
-	ResourceType: resourceType,
-	Name:         fl.Parent().FieldByName("Name").String(),
-	Username:     fl.Parent().FieldByName("Username").String(),
-	RawConfig:    rawConfig,
-}
-resourceIdentification := resolveWebValidationIdentity(input)
-if resourceIdentification == "" {
-	resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
+resourceIdentification, usedFallback := resolveWebValidationIdentity(webValidationInput{
+	RawConfig:         rawConfig,
+	FallbackIdentity: getResourceNameByResourceType(resourceTypeName, fl),
+})
+if usedFallback {
+	...
 }
 ```
 
-- [ ] **Step 4: 运行 serializer 包测试，确认行为不变**
+- [x] **Step 4: 运行 serializer 包测试，确认行为不变**
 
 Run:
 
@@ -277,7 +266,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/web/serializer/common.go src/apiserver/pkg/apis/web/serializer/common_test.go

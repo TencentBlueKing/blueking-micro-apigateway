@@ -46,6 +46,18 @@ type ResourceCommonPathParam struct {
 	Type      constant.APISIXResource `json:"type" uri:"type"`
 }
 
+type webValidationInput struct {
+	RawConfig        json.RawMessage
+	FallbackIdentity string
+}
+
+func resolveWebValidationIdentity(input webValidationInput) (string, bool) {
+	if identity := schema.GetResourceIdentification(input.RawConfig); identity != "" {
+		return identity, false
+	}
+	return input.FallbackIdentity, true
+}
+
 // CheckAPISIXConfig 校验 APISIX 配置 schema
 func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	rawConfig, ok := fl.Field().Interface().(json.RawMessage)
@@ -66,17 +78,16 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		gatewayInfo.GetAPISIXVersionX(),
 		fl.Parent().FieldByName("ID").String(),
 	)
-	resourceIdentification := schema.GetResourceIdentification(rawConfig)
-	if resourceIdentification == "" {
-		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
-		resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
-		if shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
-			rawConfig, _ = sjson.SetBytes(
-				rawConfig,
-				model.GetResourceNameKey(resourceType),
-				resourceIdentification,
-			)
-		}
+	resourceIdentification, usedFallback := resolveWebValidationIdentity(webValidationInput{
+		RawConfig:        rawConfig,
+		FallbackIdentity: getResourceNameByResourceType(resourceTypeName, fl),
+	})
+	if usedFallback && shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
+		rawConfig, _ = sjson.SetBytes(
+			rawConfig,
+			model.GetResourceNameKey(resourceType),
+			resourceIdentification,
+		)
 	}
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(

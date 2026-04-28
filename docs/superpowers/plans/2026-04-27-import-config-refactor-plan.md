@@ -1,6 +1,7 @@
 # Import Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在保留 `import.ignore_fields` 本地语义不变的前提下，把 import 链路里当前混在 `handleResources(...)` 和 `HandleUploadResources(...)` 里的 overlay、旧资源装载、sync-data 组装、校验前准备几个步骤拆开，使 import 的本地复杂度降下来。
 
@@ -90,7 +91,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ### Task 0: 补 import 入口 characterization tests
 
-- [ ] Task 0: 补 import 入口 characterization tests
+- [x] Task 0: 补 import 入口 characterization tests
 
 **要解决的缺口：** 当前文档已经要求 seam-first，但正文还没有独立任务把 `HandleUploadResources(...)` 的现状锁住。先把入口行为补成单独任务，后面的 helper 提取才不是“边改边猜”。
 
@@ -99,7 +100,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 **Files:**
 - Create: `src/apiserver/pkg/apis/common/resource_slz_import_test.go`
 
-- [ ] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
+- [x] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
 
 至少覆盖下面 6 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
 
@@ -110,7 +111,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - 缺失关联资源会在 `HandleUploadResources(...)` 阶段报错
 - add/update map 的资源数与输入一致；必要时可用 `HandlerResourceIndexMap(...)` 辅助准备断言输入
 
-- [ ] **Step 2: 运行 import seam tests，确认当前入口行为已经被锁住**
+- [x] **Step 2: 运行 import seam tests，确认当前入口行为已经被锁住**
 
 Run:
 
@@ -121,7 +122,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/resource_slz_import_test.go

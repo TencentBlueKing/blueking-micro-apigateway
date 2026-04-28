@@ -32,6 +32,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -540,6 +541,58 @@ func TestSyncWithPrefix_ReturnsOnlyNewSnapshotCounts(t *testing.T) {
 	counts, err := syncer.SyncWithPrefix(ctx, prefix)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, counts[constant.Route])
+}
+
+func TestSyncWithPrefix_ReturnsErrorOnHelperLookupFailure(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	prefix := gatewayInfo.GetEtcdPrefixForList()
+	u := repo.GatewaySyncData
+	_, err := repo.Q.GatewaySyncData.WithContext(ctx).Where(u.GatewayID.Eq(gatewayInfo.ID)).Delete()
+	assert.NoError(t, err)
+
+	existingID := idx.GenResourceID(constant.Route)
+	assert.NoError(t, repo.Q.GatewaySyncData.WithContext(ctx).Create(&model.GatewaySyncData{
+		ID:          existingID,
+		GatewayID:   gatewayInfo.ID,
+		Type:        constant.Route,
+		Config:      datatypes.JSON(`{"id":"` + existingID + `","name":"existing-route","uri":"/existing"}`),
+		ModRevision: 1,
+	}))
+
+	db := database.Client()
+	assert.NoError(t, db.Migrator().DropTable(&model.PluginMetadata{}))
+	t.Cleanup(func() {
+		restoreErr := db.Exec(
+			"CREATE TABLE `plugin_metadata` (`name` varchar(255),`creator` varchar(32),`updater` varchar(32),`created_at` datetime,`updated_at` datetime,`auto_id` integer PRIMARY KEY AUTOINCREMENT,`id` varchar(255),`gateway_id` integer,`config` JSON,`status` varchar(32))",
+		).Error
+		if restoreErr != nil {
+			t.Fatalf("restore plugin_metadata table: %v", restoreErr)
+		}
+	})
+
+	syncer := &UnifyOp{
+		etcdStore: &mockEtcdStore{
+			data: map[string]string{
+				prefix + "plugin_metadata/failing-plugin": `{"value":{"disable":false}}`,
+			},
+		},
+		gatewayInfo: gatewayInfo,
+		isLeader:    true,
+	}
+
+	_, err = syncer.SyncWithPrefix(ctx, prefix)
+	assert.Error(t, err)
+
+	storedSnapshot, err := GetSyncedItemByResourceTypeAndID(ctx, constant.Route, existingID)
+	assert.NoError(t, err)
+	assert.Equal(t, existingID, storedSnapshot.ID)
+	assert.Equal(t, 1, storedSnapshot.ModRevision)
+
+	allSnapshots, err := repo.Q.GatewaySyncData.WithContext(ctx).
+		Where(u.GatewayID.Eq(gatewayInfo.ID)).
+		Find()
+	assert.NoError(t, err)
+	assert.Len(t, allSnapshots, 1)
 }
 
 // mockEtcdStore is a mock implementation of storage.StorageInterface for testing

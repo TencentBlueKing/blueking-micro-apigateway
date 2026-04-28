@@ -125,6 +125,8 @@ func backfillStoredSnapshotFields(ctx context.Context, resources []*model.Gatewa
 
 	gatewayID := ginx.GetGatewayInfoFromContext(ctx).ID
 
+	// FIXME: config modified logical
+
 	// global rule name 需要特殊处理
 	if len(globalRuleIDs) > 0 {
 		globalRules, err := QueryGlobalRules(ctx, map[string]any{

@@ -507,12 +507,9 @@ func (s *UnifyOp) SyncWithPrefix(ctx context.Context, prefix string) (map[consta
 	if err != nil {
 		return nil, err
 	}
-	resourceList := s.kvToResource(ctx, kvList)
-
-	// 获取 etcd 资源
-	etcdResourceMap := make(map[string]*model.GatewaySyncData)
-	for _, resource := range resourceList {
-		etcdResourceMap[resource.GetResourceKey()] = resource
+	resourceList, err := s.kvToResource(ctx, kvList)
+	if err != nil {
+		return nil, err
 	}
 
 	// 获取已同步资源
@@ -642,7 +639,10 @@ func (s *UnifyOp) RevertConfigByIDList(
 	if err != nil {
 		return err
 	}
-	etcdResourceList := s.kvToResource(ctx, kvList)
+	etcdResourceList, err := s.kvToResource(ctx, kvList)
+	if err != nil {
+		return err
+	}
 	var needRevertResourceList []*model.GatewaySyncData
 	for _, etcdResource := range etcdResourceList {
 		// 过滤掉不需要回滚的资源
@@ -660,13 +660,13 @@ func (s *UnifyOp) RevertConfigByIDList(
 func (s *UnifyOp) kvToResource(
 	ctx context.Context,
 	kvList []storage.KeyValuePair,
-) []*model.GatewaySyncData {
+) ([]*model.GatewaySyncData, error) {
 	resources, err := buildSyncSnapshotResources(ctx, s.gatewayInfo, kvList)
 	if err != nil {
 		logging.Errorf("build sync snapshot resources error: %s", err.Error())
-		return nil
+		return nil, err
 	}
-	return resources
+	return resources, nil
 }
 
 // SyncedResourceToAPISIXResource 将同步的资源转换为 apisix 的资源
@@ -1089,5 +1089,5 @@ func (s *UnifyOp) ExportEtcdResources(ctx context.Context) ([]*model.GatewaySync
 		return nil, err
 	}
 	logging.Infof("export [gateway:%s] end ", s.gatewayInfo.Name)
-	return s.kvToResource(ctx, kvList), nil
+	return s.kvToResource(ctx, kvList)
 }

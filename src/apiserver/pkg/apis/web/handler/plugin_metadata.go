@@ -55,7 +55,7 @@ func PluginMetadataCreate(c *gin.Context) {
 	}
 
 	pluginMetadata := model.PluginMetadata{
-		Name: req.Name,
+		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.PluginMetadata), req.Config),
 	}
 

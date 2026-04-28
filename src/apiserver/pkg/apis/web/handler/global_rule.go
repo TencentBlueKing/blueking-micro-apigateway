@@ -57,7 +57,7 @@ func GlobalRuleCreate(c *gin.Context) {
 		return
 	}
 	globalRule := model.GlobalRule{
-		Name: req.Name,
+		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 	if err := biz.CreateGlobalRule(c.Request.Context(), globalRule); err != nil {

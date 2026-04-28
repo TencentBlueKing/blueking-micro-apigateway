@@ -106,7 +106,7 @@ func SSLCreate(c *gin.Context) {
 		return
 	}
 	err = biz.CreateSSL(c, &model.SSL{
-		Name: req.Name,
+		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.SSL), req.Config),
 	})
 	if err != nil {

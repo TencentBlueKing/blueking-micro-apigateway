@@ -78,9 +78,14 @@ func TestBindAndValidateWebCreateWithGeneratedID(t *testing.T) {
 		c, _ := newWebCreateTestContext(t, body, gateway, "helper-tester")
 
 		var req serializer.ConsumerGroupInfo
-		err := bindAndValidateWebCreateWithGeneratedID(c, &req, constant.ConsumerGroup, func(resourceID string) {
-			req.ID = resourceID
-		})
+		err := bindAndValidateWebCreateWithGeneratedID(
+			c,
+			&req,
+			constant.ConsumerGroup,
+			func(resourceID string) {
+				req.ID = resourceID
+			},
+		)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, req.ID)
 	})

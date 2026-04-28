@@ -56,8 +56,8 @@ func ConsumerCreate(c *gin.Context) {
 		return
 	}
 	consumer := model.Consumer{
-		Username: req.Name,
-		GroupID:  req.GroupID,
+		Username:            req.Name,
+		GroupID:             req.GroupID,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Consumer), req.Config),
 	}
 

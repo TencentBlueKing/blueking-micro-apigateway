@@ -53,9 +53,9 @@ func StreamRouteCreate(c *gin.Context) {
 		return
 	}
 	streamRoute := model.StreamRoute{
-		Name:       req.Name,
-		ServiceID:  req.ServiceID,
-		UpstreamID: req.UpstreamID,
+		Name:                req.Name,
+		ServiceID:           req.ServiceID,
+		UpstreamID:          req.UpstreamID,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.StreamRoute), req.Config),
 	}
 

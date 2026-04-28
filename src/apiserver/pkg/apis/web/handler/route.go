@@ -55,10 +55,10 @@ func RouteCreate(c *gin.Context) {
 	}
 
 	route := model.Route{
-		Name:           req.Name,
-		ServiceID:      req.ServiceID,
-		UpstreamID:     req.UpstreamID,
-		PluginConfigID: req.PluginConfigID,
+		Name:                req.Name,
+		ServiceID:           req.ServiceID,
+		UpstreamID:          req.UpstreamID,
+		PluginConfigID:      req.PluginConfigID,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Route), req.Config),
 	}
 

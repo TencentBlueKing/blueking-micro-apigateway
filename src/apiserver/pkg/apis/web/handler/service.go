@@ -55,8 +55,8 @@ func ServiceCreate(c *gin.Context) {
 		return
 	}
 	service := model.Service{
-		Name:       req.Name,
-		UpstreamID: req.UpstreamID,
+		Name:                req.Name,
+		UpstreamID:          req.UpstreamID,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Service), req.Config),
 	}
 

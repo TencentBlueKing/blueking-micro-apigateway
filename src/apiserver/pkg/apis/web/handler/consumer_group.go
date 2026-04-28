@@ -58,7 +58,7 @@ func ConsumerGroupCreate(c *gin.Context) {
 		return
 	}
 	consumerGroup := model.ConsumerGroup{
-		Name: req.Name,
+		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 

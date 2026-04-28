@@ -53,7 +53,7 @@ func ProtoCreate(c *gin.Context) {
 		return
 	}
 	proto := model.Proto{
-		Name: req.Name,
+		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Proto), req.Config),
 	}
 	if err := biz.CreateProto(c.Request.Context(), proto); err != nil {

@@ -157,7 +157,11 @@ func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
 
 		err := validation.ValidateStruct(ctx.Request.Context(), &req)
 		assert.Error(t, err)
-		assert.Contains(t, ginx.GetValidateErrorInfoFromContext(ctx.Request.Context()).Err.Error(), "resource:identity-probe validate failed")
+		assert.Contains(
+			t,
+			ginx.GetValidateErrorInfoFromContext(ctx.Request.Context()).Err.Error(),
+			"resource:identity-probe validate failed",
+		)
 	})
 
 	t.Run("consumer group validation accepts generated id and outer name on 3.13", func(t *testing.T) {

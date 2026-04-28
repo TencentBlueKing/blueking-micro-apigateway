@@ -56,8 +56,8 @@ func UpstreamCreate(c *gin.Context) {
 	}
 
 	upstream := model.Upstream{
-		Name:  req.Name,
-		SSLID: req.SSLID,
+		Name:                req.Name,
+		SSLID:               req.SSLID,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Upstream), req.Config),
 	}
 

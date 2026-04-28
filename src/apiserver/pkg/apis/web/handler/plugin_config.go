@@ -58,7 +58,7 @@ func PluginConfigCreate(c *gin.Context) {
 	}
 
 	pluginConfig := model.PluginConfig{
-		Name: req.Name,
+		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 

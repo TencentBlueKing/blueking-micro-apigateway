@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -707,36 +706,13 @@ func (s *UnifyOp) kvToResource(
 	// 使用标准化的 prefix 进行替换，确保正确处理前缀（带斜线结尾）
 	normalizedPrefix := model.NormalizeEtcdPrefix(s.gatewayInfo.EtcdConfig.Prefix)
 	for _, kv := range kvList {
-		resourceKeyWithoutPrefix := strings.TrimPrefix(kv.Key, normalizedPrefix)
-		resourceKeyList := strings.Split(resourceKeyWithoutPrefix, "/")
-		if len(resourceKeyList) != 2 {
-			// key 不合法
+		resourceInfo, ok := buildSyncedResourceFromKV(normalizedPrefix, s.gatewayInfo.ID, kv)
+		if !ok {
 			logging.Errorf("key is not validate: %s", kv.Key)
 			continue
 		}
-		resourceTypeValue := resourceKeyList[0]
-		id := resourceKeyList[1]
-		resourceType := constant.ResourcePrefixTypeMap[resourceTypeValue]
-		if resourceType == "" {
-			logging.Errorf("key is not validate without resource type: %s", kv.Key)
-			continue
-		}
-		resourceInfo := &model.GatewaySyncData{
-			ID:          id,
-			GatewayID:   s.gatewayInfo.ID,
-			Type:        resourceType,
-			Config:      datatypes.JSON(kv.Value),
-			ModRevision: int(kv.ModRevision),
-		}
-		// config 中去除 update_time/create_time，避免影响资源的 diff
-		resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "update_time")
-		resourceInfo.Config, _ = sjson.DeleteBytes(resourceInfo.Config, "create_time")
-		if resourceType != constant.PluginMetadata && resourceInfo.GetName() == "" {
-			resourceInfo.SetName(fmt.Sprintf("%s_%s", resourceTypeValue, id))
-		} else if resourceType == constant.PluginMetadata {
-			// 插件元数据的名称就是取 id
-			resourceInfo.SetName(id)
-		}
+		resourceType := resourceInfo.Type
+		id := resourceInfo.ID
 		resources = append(resources, resourceInfo)
 		if resourceType == constant.PluginMetadata {
 			metadataNames = append(metadataNames, id)

@@ -25,7 +25,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -60,21 +59,29 @@ func ConsumerGroupCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	consumerGroup := model.ConsumerGroup{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.ConsumerGroup,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		nil,
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	consumerGroup, err := toTypedResourceModel[*model.ConsumerGroup](resource, constant.ConsumerGroup)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.CreateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {
+	if err := biz.CreateConsumerGroup(c.Request.Context(), *consumerGroup); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -119,20 +126,29 @@ func ConsumerGroupUpdate(c *gin.Context) {
 		return
 	}
 
-	consumerGroup := model.ConsumerGroup{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.ConsumerGroup,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		nil,
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	consumerGroup, err := toTypedResourceModel[*model.ConsumerGroup](resource, constant.ConsumerGroup)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.UpdateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {
+	if err := biz.UpdateConsumerGroup(c.Request.Context(), *consumerGroup); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -169,7 +185,7 @@ func ConsumerGroupList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	consumerGroups, total, err := biz.ListPagedConsumerGroups(
+	consumerGroups, total, err := biz.ListPagedConsumerGroupsForRead(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -223,7 +239,7 @@ func ConsumerGroupGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	consumerGroup, err := biz.GetConsumerGroup(c.Request.Context(), pathParam.ID)
+	consumerGroup, err := biz.GetConsumerGroupForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

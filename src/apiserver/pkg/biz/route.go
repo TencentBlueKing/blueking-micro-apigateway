@@ -71,7 +71,10 @@ func GetRouteOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedRoutes 分页查询网关路由列表
+// ListPagedRoutes 分页查询网关路由列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedRoutesForRead。
 func ListPagedRoutes(
 	ctx context.Context,
 	param map[string]any,
@@ -146,6 +149,49 @@ func ListPagedRoutes(
 		FindByPage(page.Offset, page.Limit)
 }
 
+// ListPagedRoutesForRead 分页查询网关路由列表，并在返回前执行显式 read-time restore。
+func ListPagedRoutesForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	path string,
+	method string,
+	serviceID string,
+	upstreamID string,
+	orderBy string,
+	page PageParam,
+) ([]*model.Route, int64, error) {
+	routes, total, err := ListPagedRoutes(
+		ctx,
+		param,
+		label,
+		status,
+		name,
+		updater,
+		path,
+		method,
+		serviceID,
+		upstreamID,
+		orderBy,
+		page,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, route := range routes {
+		if route == nil {
+			continue
+		}
+		if err := route.ResourceCommonModel.RestoreConfigForRead(constant.Route); err != nil {
+			return nil, 0, err
+		}
+	}
+	return routes, total, nil
+}
+
 // CreateRoute 创建路由
 func CreateRoute(ctx context.Context, route model.Route) error {
 	return repo.Route.WithContext(ctx).Create(&route)
@@ -174,10 +220,25 @@ func UpdateRoute(ctx context.Context, route model.Route) error {
 	return err
 }
 
-// GetRoute 查询路由详情
+// GetRoute 查询路由详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetRouteForRead。
 func GetRoute(ctx context.Context, id string) (*model.Route, error) {
 	u := repo.Route
 	return buildRouteQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetRouteForRead 查询路由详情，并在返回前执行显式 read-time restore。
+func GetRouteForRead(ctx context.Context, id string) (*model.Route, error) {
+	route, err := GetRoute(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := route.ResourceCommonModel.RestoreConfigForRead(constant.Route); err != nil {
+		return nil, err
+	}
+	return route, nil
 }
 
 // QueryRoutes 搜索路由

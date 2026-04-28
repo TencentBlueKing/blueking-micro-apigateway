@@ -24,11 +24,17 @@ var _ = Describe("Upstream", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id and name into the Config", func() {
+		It("should preserve stored config and explicitly restore upstream read fields", func() {
 			err := upstream.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
+			err = json.Unmarshal(upstream.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			upstream.ResourceCommonModel.NameValue = upstream.Name
+			err = upstream.ResourceCommonModel.RestoreConfigForRead("upstream")
+			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(upstream.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))
@@ -50,6 +56,15 @@ var _ = Describe("Upstream", func() {
 			err = json.Unmarshal(upstream.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap).NotTo(HaveKey("name"))
+		})
+
+		It("should preserve name and ssl id from typed fields even when config omits them", func() {
+			upstream.ResourceCommonModel.NameValue = "typed-upstream-name"
+			upstream.ResourceCommonModel.SSLIDValue = "typed-ssl-id"
+
+			typedUpstream := upstream.ResourceCommonModel.ToResourceModel("upstream").(*model.Upstream)
+			Expect(typedUpstream.Name).To(Equal("typed-upstream-name"))
+			Expect(typedUpstream.SSLID).To(Equal("typed-ssl-id"))
 		})
 	})
 })

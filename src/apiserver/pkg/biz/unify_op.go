@@ -40,6 +40,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/goroutinex"
@@ -915,6 +916,59 @@ func SyncedResourceToAPISIXResource(
 	return nil
 }
 
+func normalizeSyncedConfigForStorage(syncedResource *model.GatewaySyncData) datatypes.JSON {
+	if syncedResource == nil {
+		return nil
+	}
+
+	draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+		Source:       resourcecodec.SourceImport,
+		Operation:    constant.OperationImport,
+		GatewayID:    syncedResource.GatewayID,
+		ResourceType: syncedResource.Type,
+		PathID:       syncedResource.ID,
+		OuterName:    syncedResource.GetName(),
+		OuterFields:  syncedResourceOuterFields(syncedResource),
+		Config:       json.RawMessage(syncedResource.Config),
+	})
+	if err != nil {
+		return syncedResource.Config
+	}
+
+	config, err := resourcecodec.BuildStorageConfig(draft)
+	if err != nil {
+		return syncedResource.Config
+	}
+	return datatypes.JSON(config)
+}
+
+func syncedResourceOuterFields(syncedResource *model.GatewaySyncData) map[string]any {
+	if syncedResource == nil {
+		return nil
+	}
+
+	fields := map[string]any{}
+	if name := syncedResource.GetName(); name != "" {
+		fields[model.GetResourceNameKey(syncedResource.Type)] = name
+	}
+	if serviceID := syncedResource.GetServiceID(); serviceID != "" {
+		fields["service_id"] = serviceID
+	}
+	if upstreamID := syncedResource.GetUpstreamID(); upstreamID != "" {
+		fields["upstream_id"] = upstreamID
+	}
+	if pluginConfigID := syncedResource.GetPluginConfigID(); pluginConfigID != "" {
+		fields["plugin_config_id"] = pluginConfigID
+	}
+	if groupID := syncedResource.GetGroupID(); groupID != "" {
+		fields["group_id"] = groupID
+	}
+	if sslID := syncedResource.GetSSLID(); sslID != "" {
+		fields["tls.client_cert_id"] = sslID
+	}
+	return fields
+}
+
 func syncedResourceToAPISIXRoute(
 	syncedResources []*model.GatewaySyncData,
 	status constant.ResourceStatus,
@@ -934,7 +988,7 @@ func syncedResourceToAPISIXRoute(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 			OperationType: OperationType,
@@ -955,7 +1009,7 @@ func syncedServiceToAPISIXRoute(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -974,7 +1028,7 @@ func syncedResourceToAPISIXUpstream(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -993,7 +1047,7 @@ func syncedResourceToAPISIXPluginConfig(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1016,7 +1070,7 @@ func syncedResourceToAPISIXPluginMetadata(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1035,7 +1089,7 @@ func syncedResourceToAPISIXConsumer(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1054,7 +1108,7 @@ func syncedResourceToAPISIXConsumerGroup(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1073,7 +1127,7 @@ func syncedResourceToAPISIXGlobalRule(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1089,7 +1143,7 @@ func syncedResourceToAPISIXSSL(syncedResources []*model.GatewaySyncData, status 
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1108,7 +1162,7 @@ func syncedResourceToAPISIXProto(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1129,7 +1183,7 @@ func syncedResourceToAPISIXStreamRoute(
 			ResourceCommonModel: model.ResourceCommonModel{
 				ID:        syncedResource.ID,
 				GatewayID: syncedResource.GatewayID,
-				Config:    syncedResource.Config,
+				Config:    normalizeSyncedConfigForStorage(syncedResource),
 				Status:    status,
 			},
 		})
@@ -1276,6 +1330,9 @@ func GetResourceConfigDiffDetail(
 	// 获取编辑区资源配置
 	resourceInfo, err := GetResourceByID(ctx, resourceType, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := resourceInfo.RestoreConfigForRead(resourceType); err != nil {
 		return nil, err
 	}
 	// 删除状态需要特殊处理

@@ -24,11 +24,17 @@ var _ = Describe("PluginConfig", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id and name into the Config", func() {
+		It("should preserve stored config and explicitly restore plugin-config read fields", func() {
 			err := pluginConfig.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
+			err = json.Unmarshal(pluginConfig.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			pluginConfig.ResourceCommonModel.NameValue = pluginConfig.Name
+			err = pluginConfig.ResourceCommonModel.RestoreConfigForRead("plugin_config")
+			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(pluginConfig.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))

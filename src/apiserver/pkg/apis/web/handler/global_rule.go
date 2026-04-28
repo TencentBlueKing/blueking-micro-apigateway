@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -60,20 +59,28 @@ func GlobalRuleCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	globalRule := model.GlobalRule{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.GlobalRule,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		nil,
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
-	if err := biz.CreateGlobalRule(c.Request.Context(), globalRule); err != nil {
+	globalRule, err := toTypedResourceModel[*model.GlobalRule](resource, constant.GlobalRule)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	if err := biz.CreateGlobalRule(c.Request.Context(), *globalRule); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -118,20 +125,29 @@ func GlobalRuleUpdate(c *gin.Context) {
 		return
 	}
 
-	globalRule := model.GlobalRule{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.GlobalRule,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		nil,
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	globalRule, err := toTypedResourceModel[*model.GlobalRule](resource, constant.GlobalRule)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.UpdateGlobalRule(c.Request.Context(), globalRule); err != nil {
+	if err := biz.UpdateGlobalRule(c.Request.Context(), *globalRule); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -163,7 +179,7 @@ func GlobalRuleList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	globalRules, total, err := biz.ListPagedGlobalRules(
+	globalRules, total, err := biz.ListPagedGlobalRulesForRead(
 		c.Request.Context(),
 		queryParam,
 		strings.Split(req.Status, ","),
@@ -216,7 +232,7 @@ func GlobalRuleGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	globalRule, err := biz.GetGlobalRule(c.Request.Context(), pathParam.ID)
+	globalRule, err := biz.GetGlobalRuleForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

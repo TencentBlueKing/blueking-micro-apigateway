@@ -24,13 +24,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/filex"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -79,7 +79,12 @@ func ResourceBatchCreate(c *gin.Context) {
 			errors.New("resource name is duplicated with existing"))
 		return
 	}
-	resources := req.ToCommonResource(ginx.GetGatewayInfo(c).ID, ginx.GetResourceType(c))
+	resolvedDrafts, _ := middleware.GetOpenAPIRequestDrafts(c)
+	resources := req.ToCommonResourceWithDrafts(
+		ginx.GetGatewayInfo(c).ID,
+		ginx.GetResourceType(c),
+		resolvedDrafts,
+	)
 	// 批量创建资源
 	err = biz.BatchCreateResources(c.Request.Context(), ginx.GetResourceType(c), resources)
 	if err != nil {
@@ -89,11 +94,8 @@ func ResourceBatchCreate(c *gin.Context) {
 	var res []serializer.ResourceCreateResponse
 	for _, resource := range resources {
 		res = append(res, serializer.ResourceCreateResponse{
-			ID: resource.ID,
-			Name: gjson.GetBytes(
-				resource.Config,
-				model.GetResourceNameKey(ginx.GetResourceType(c)),
-			).String(),
+			ID:   resource.ID,
+			Name: resource.GetName(ginx.GetResourceType(c)),
 		})
 	}
 	ginx.SuccessJSONResponse(c, res)
@@ -118,7 +120,7 @@ func ResourceBatchGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	resources, err := biz.BatchGetResources(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
+	resources, err := biz.BatchGetResourcesForRead(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -198,7 +200,7 @@ func ResourceGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	resource, err := biz.GetResourceByID(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
+	resource, err := biz.GetResourceByIDForRead(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

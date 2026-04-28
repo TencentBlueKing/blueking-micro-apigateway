@@ -28,7 +28,6 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/sslx"
 )
 
@@ -93,6 +92,10 @@ func (s *SSL) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err er
 	if s.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(constant.SSL, s.Config, s.ID, s.Name, nil)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -100,29 +103,23 @@ func (s *SSL) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err er
 		if err := tx.First(&origin, "id = ?", s.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
-	}
-	return auditCallback(tx,
-		s.GatewayID, s.ID, s.Updater, s.Status, operation, constant.SSL, originConfig, s.Config)
-}
-
-// HandleConfig 处理配置
-func (s *SSL) HandleConfig() (err error) {
-	s.Config, err = sjson.SetBytes(s.Config, "id", s.ID)
-	if err != nil {
-		return err
-	}
-	if s.Name != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "name", s.Name)
+		originConfig, err = buildRestoredConfig(
+			constant.SSL,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			nil,
+		)
 		if err != nil {
 			return err
 		}
 	}
-	// Remove empty fields
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(s.Config))
-	if err == nil {
-		s.Config = []byte(config)
-	}
+	return auditCallback(tx,
+		s.GatewayID, s.ID, s.Updater, s.Status, operation, constant.SSL, originConfig, currentConfig)
+}
+
+// HandleConfig 处理配置
+func (s *SSL) HandleConfig() (err error) {
 	crt := gjson.GetBytes(s.Config, "cert").String()
 	key := gjson.GetBytes(s.Config, "key").String()
 	sins := gjson.GetBytes(s.Config, "snis").String()

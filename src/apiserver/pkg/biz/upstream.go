@@ -68,7 +68,10 @@ func GetUpstreamOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedUpstreams 分页查询 upstream 列表
+// ListPagedUpstreams 分页查询 upstream 列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedUpstreamsForRead。
 func ListPagedUpstreams(
 	ctx context.Context,
 	param map[string]any,
@@ -104,6 +107,32 @@ func ListPagedUpstreams(
 		FindByPage(page.Offset, page.Limit)
 }
 
+// ListPagedUpstreamsForRead 分页查询 upstream 列表，并在返回前执行显式 read-time restore。
+func ListPagedUpstreamsForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
+) ([]*model.Upstream, int64, error) {
+	upstreams, total, err := ListPagedUpstreams(ctx, param, label, status, name, updater, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, upstream := range upstreams {
+		if upstream == nil {
+			continue
+		}
+		if err := upstream.ResourceCommonModel.RestoreConfigForRead(constant.Upstream); err != nil {
+			return nil, 0, err
+		}
+	}
+	return upstreams, total, nil
+}
+
 // CreateUpstream 创建 upstream
 func CreateUpstream(ctx context.Context, upstream model.Upstream) error {
 	return repo.Upstream.WithContext(ctx).Create(&upstream)
@@ -130,10 +159,25 @@ func UpdateUpstream(ctx context.Context, upstream model.Upstream) error {
 	return err
 }
 
-// GetUpstream 查询 upstream 详情
+// GetUpstream 查询 upstream 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetUpstreamForRead。
 func GetUpstream(ctx context.Context, id string) (*model.Upstream, error) {
 	u := repo.Upstream
 	return buildUpstreamQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetUpstreamForRead 查询 upstream 详情，并在返回前执行显式 read-time restore。
+func GetUpstreamForRead(ctx context.Context, id string) (*model.Upstream, error) {
+	upstream, err := GetUpstream(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := upstream.ResourceCommonModel.RestoreConfigForRead(constant.Upstream); err != nil {
+		return nil, err
+	}
+	return upstream, nil
 }
 
 // QueryUpstreams 搜索 upstream

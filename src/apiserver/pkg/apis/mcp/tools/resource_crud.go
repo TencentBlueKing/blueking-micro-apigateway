@@ -25,13 +25,11 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
-	"gorm.io/datatypes"
 
+	apicommon "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
@@ -290,37 +288,28 @@ func createResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	// Inject name into config so ToResourceModel.GetName() picks it up
-	nameKey := model.GetResourceNameKey(resourceType)
-	config, err = sjson.SetBytes(config, nameKey, input.Name)
+	requestInput := resourcecodec.RequestInput{
+		Source:       "mcp",
+		Operation:    constant.OperationTypeCreate,
+		GatewayID:    gateway.ID,
+		ResourceType: resourceType,
+		Version:      gateway.GetAPISIXVersionX(),
+		PathID:       resourceID,
+		OuterName:    input.Name,
+		OuterFields:  mcpOuterFields(resourceType, input.Config),
+		Config:       config,
+	}
+	prepared, err := apicommon.PrepareStoredResource(requestInput)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to inject name into config: %w", err)), nil, nil
+		prepared = apicommon.BuildFallbackStoredResource(requestInput)
 	}
-
-	// Verify name was successfully injected
-	if !gjson.GetBytes(config, nameKey).Exists() {
-		return errorResult(fmt.Errorf("name field not found in config after injection")), nil, nil
-	}
-
-	// Create resource model
-	resource := model.ResourceCommonModel{
-		ID:        resourceID,
-		GatewayID: gateway.ID,
-		Config:    datatypes.JSON(config),
-		Status:    constant.ResourceStatusCreateDraft,
-		BaseModel: model.BaseModel{
-			Creator: "mcp",
-			Updater: "mcp",
-		},
-	}
-
-	// Convert to specific resource type and create
+	resource := apicommon.BuildResourceCommonModel(prepared, constant.ResourceStatusCreateDraft, "mcp", "mcp")
 	specificResource := resource.ToResourceModel(resourceType)
 	if specificResource == nil {
 		return errorResult(fmt.Errorf("unsupported resource type: %s", input.ResourceType)), nil, nil
 	}
 
-	err = biz.CreateResource(ctx, resourceType, specificResource, input.Name)
+	err = biz.CreateTypedResource(ctx, specificResource)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -369,10 +358,20 @@ func updateResourceHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	// If name is provided, inject it into config using the correct key for the resource type
-	if input.Name != "" {
-		nameKey := model.GetResourceNameKey(resourceType)
-		config, _ = sjson.SetBytes(config, nameKey, input.Name)
+	requestInput := resourcecodec.RequestInput{
+		Source:       "mcp",
+		Operation:    constant.OperationTypeUpdate,
+		GatewayID:    gateway.ID,
+		ResourceType: resourceType,
+		Version:      gateway.GetAPISIXVersionX(),
+		PathID:       input.ResourceID,
+		OuterName:    input.Name,
+		OuterFields:  mcpOuterFields(resourceType, input.Config),
+		Config:       config,
+	}
+	prepared, prepareErr := apicommon.PrepareStoredResource(requestInput)
+	if prepareErr != nil {
+		prepared = apicommon.BuildFallbackStoredResource(requestInput)
 	}
 
 	// Use UpdateResourceByTypeAndID which properly handles name updates
@@ -380,9 +379,9 @@ func updateResourceHandler(
 		ctx,
 		resourceType,
 		input.ResourceID,
-		input.Name,
-		datatypes.JSON(config),
+		prepared.StorageConfig,
 		updateStatus,
+		prepared.ResolvedValues,
 	)
 	if err != nil {
 		return errorResult(err), nil, nil
@@ -394,6 +393,23 @@ func updateResourceHandler(
 		"resource_type": input.ResourceType,
 		"status":        updateStatus,
 	}), nil, nil
+}
+
+func mcpOuterFields(resourceType constant.APISIXResource, config map[string]any) map[string]any {
+	outer := map[string]any{}
+	for _, key := range []string{"service_id", "upstream_id", "plugin_config_id", "group_id"} {
+		if value, ok := config[key]; ok {
+			outer[key] = value
+		}
+	}
+	if resourceType == constant.Upstream {
+		if tlsRaw, ok := config["tls"].(map[string]any); ok {
+			if value, ok := tlsRaw["client_cert_id"]; ok {
+				outer["tls.client_cert_id"] = value
+			}
+		}
+	}
+	return outer
 }
 
 // deleteResourceHandler handles the delete_resource tool call

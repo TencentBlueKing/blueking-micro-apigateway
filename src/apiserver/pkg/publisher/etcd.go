@@ -29,6 +29,7 @@ import (
 	log "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/version"
 )
@@ -79,6 +80,15 @@ func (s *EtcdPublisher) List(ctx context.Context, prefix string) (any, error) {
 // Validate 验证
 func (s *EtcdPublisher) Validate(resourceType constant.APISIXResource, config json.RawMessage) (err error) {
 	apisixVersion, _ := version.ToXVersion(s.gatewayInfo.APISIXVersion)
+	builtPayload, err := resourcecodec.ValidateBuiltPayloadShape(resourcecodec.ValidationPayloadInput{
+		ResourceType: resourceType,
+		Version:      apisixVersion,
+		Profile:      constant.ETCD,
+		Payload:      config,
+	})
+	if err != nil {
+		return err
+	}
 	customizePluginSchemaMap := GetCustomizePluginSchemaMap(s.ctx, s.gatewayInfo.ID)
 	validator, err := schema.NewAPISIXJsonSchemaValidator(
 		apisixVersion,
@@ -90,7 +100,7 @@ func (s *EtcdPublisher) Validate(resourceType constant.APISIXResource, config js
 	if err != nil {
 		return err
 	}
-	return validator.Validate(config)
+	return validator.Validate(builtPayload.Payload)
 }
 
 // Create 创建

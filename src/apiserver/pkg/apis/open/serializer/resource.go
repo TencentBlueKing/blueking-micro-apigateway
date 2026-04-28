@@ -23,15 +23,12 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // ResourceCreateRequest 资源创建
@@ -61,24 +58,64 @@ type ResourceBatchCreateRequest []ResourceCreateRequest
 func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int,
 	resourceType constant.APISIXResource,
 ) []*model.ResourceCommonModel {
+	return rs.ToCommonResourceWithDrafts(gatewayID, resourceType, nil)
+}
+
+// ToCommonResourceWithDrafts reuses drafts resolved earlier in the request pipeline when available.
+func (rs ResourceBatchCreateRequest) ToCommonResourceWithDrafts(
+	gatewayID int,
+	resourceType constant.APISIXResource,
+	resolvedDrafts []resourcecodec.ResourceDraft,
+) []*model.ResourceCommonModel {
 	var resources []*model.ResourceCommonModel
-	for _, r := range rs {
-		if gjson.GetBytes(r.Config, "name").String() == "" {
-			r.Config, _ = sjson.SetBytes(r.Config, model.GetResourceNameKey(resourceType), r.Name)
+	for i, r := range rs {
+		requestInput := resourcecodec.RequestInput{
+			Source:       resourcecodec.SourceOpenAPI,
+			Operation:    constant.OperationTypeCreate,
+			GatewayID:    gatewayID,
+			ResourceType: resourceType,
+			OuterName:    r.Name,
+			OuterFields: map[string]any{
+				model.GetResourceNameKey(resourceType): r.Name,
+			},
+			Config: r.Config,
 		}
-		id := gjson.GetBytes(r.Config, "id").String()
-		if id == "" {
-			id = idx.GenResourceID(resourceType)
+		draft, ok := openAPICreateDraftAt(resolvedDrafts, i, resourceType)
+		var (
+			prepared common.PreparedStoredResource
+			err      error
+		)
+		if !ok {
+			prepared, err = common.PrepareStoredResource(requestInput)
+		} else {
+			prepared, err = common.PrepareStoredResourceFromDraft(draft)
 		}
-		resource := &model.ResourceCommonModel{
-			ID:        id,
-			GatewayID: gatewayID,
-			Config:    datatypes.JSON(r.Config),
-			Status:    constant.ResourceStatusCreateDraft,
+		if err != nil {
+			prepared = common.BuildFallbackStoredResource(requestInput)
 		}
-		resources = append(resources, resource)
+		resources = append(resources, common.BuildResourceCommonModel(
+			prepared,
+			constant.ResourceStatusCreateDraft,
+			"",
+			"",
+		))
 	}
 	return resources
+}
+
+func openAPICreateDraftAt(
+	resolvedDrafts []resourcecodec.ResourceDraft,
+	index int,
+	resourceType constant.APISIXResource,
+) (resourcecodec.ResourceDraft, bool) {
+	if index >= len(resolvedDrafts) {
+		return resourcecodec.ResourceDraft{}, false
+	}
+	draft := resolvedDrafts[index]
+	if draft.ResourceType != resourceType {
+		return resourcecodec.ResourceDraft{}, false
+	}
+	return draft, true
 }
 
 // ResourceBatchGetRequest 资源获取参数
@@ -131,16 +168,23 @@ func (r ResourceUpdateRequest) ToCommonResource(
 	id string,
 	status constant.ResourceStatus,
 ) *model.ResourceCommonModel {
-	resource := &model.ResourceCommonModel{
-		ID:        id,
-		GatewayID: ginx.GetGatewayInfo(c).ID,
-		Config:    datatypes.JSON(r.Config),
-		Status:    status,
-		BaseModel: model.BaseModel{
-			Updater: ginx.GetUserID(c),
+	requestInput := resourcecodec.RequestInput{
+		Source:       resourcecodec.SourceOpenAPI,
+		Operation:    constant.OperationTypeUpdate,
+		GatewayID:    ginx.GetGatewayInfo(c).ID,
+		ResourceType: ginx.GetResourceType(c),
+		PathID:       id,
+		OuterName:    r.Name,
+		OuterFields: map[string]any{
+			model.GetResourceNameKey(ginx.GetResourceType(c)): r.Name,
 		},
+		Config: r.Config,
 	}
-	return resource
+	prepared, err := common.PrepareStoredResource(requestInput)
+	if err != nil {
+		prepared = common.BuildFallbackStoredResource(requestInput)
+	}
+	return common.BuildResourceCommonModel(prepared, status, "", ginx.GetUserID(c))
 }
 
 // ResourceImportRequest 资源导入请求

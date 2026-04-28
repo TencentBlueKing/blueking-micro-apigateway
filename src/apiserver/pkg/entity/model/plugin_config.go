@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // PluginConfig  plugin_config 表
@@ -86,6 +84,10 @@ func (p *PluginConfig) AddAuditLog(tx *gorm.DB, operation constant.OperationType
 	if p.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(constant.PluginConfig, p.Config, p.ID, p.Name, nil)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate && p.ID != "" {
 		// 获取原始数据
@@ -93,29 +95,22 @@ func (p *PluginConfig) AddAuditLog(tx *gorm.DB, operation constant.OperationType
 		if err := tx.First(&origin, "id = ?", p.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
-	}
-	return auditCallback(tx,
-		p.GatewayID, p.ID, p.Updater, p.Status, operation, constant.PluginConfig, originConfig, p.Config)
-}
-
-// HandleConfig 处理配置
-func (p *PluginConfig) HandleConfig() (err error) {
-	p.Config, err = sjson.SetBytes(p.Config, "id", p.ID)
-	if err != nil {
-		return err
-	}
-
-	if p.Name != "" {
-		p.Config, err = sjson.SetBytes(p.Config, "name", p.Name)
+		originConfig, err = buildRestoredConfig(
+			constant.PluginConfig,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			nil,
+		)
 		if err != nil {
 			return err
 		}
 	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(p.Config))
-	if err == nil {
-		p.Config = []byte(config)
-	}
+	return auditCallback(tx,
+		p.GatewayID, p.ID, p.Updater, p.Status, operation, constant.PluginConfig, originConfig, currentConfig)
+}
+
+// HandleConfig 处理配置
+func (p *PluginConfig) HandleConfig() (err error) {
 	return nil
 }

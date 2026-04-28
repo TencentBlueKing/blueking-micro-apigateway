@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // Upstream upstream 表
@@ -76,6 +74,16 @@ func (u *Upstream) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 	if u.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.Upstream,
+		u.Config,
+		u.ID,
+		u.Name,
+		map[string]string{"tls.client_cert_id": u.SSLID},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate && u.ID != "" {
 		// 获取原始数据
@@ -83,38 +91,22 @@ func (u *Upstream) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 		if err := tx.First(&origin, "id = ?", u.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Upstream,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			map[string]string{"tls.client_cert_id": origin.SSLID},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		u.GatewayID, u.ID, u.Updater, u.Status, operation, constant.Upstream, originConfig, u.Config)
+		u.GatewayID, u.ID, u.Updater, u.Status, operation, constant.Upstream, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (u *Upstream) HandleConfig() (err error) {
-	u.Config, err = sjson.SetBytes(u.Config, "id", u.ID)
-	if err != nil {
-		return err
-	}
-
-	if u.Name != "" {
-		u.Config, err = sjson.SetBytes(u.Config, "name", u.Name)
-		if err != nil {
-			return err
-		}
-	}
-	if u.SSLID != "" {
-		u.Config, err = sjson.SetBytes(u.Config, "tls.client_cert_id", u.SSLID)
-		if err != nil {
-			return err
-		}
-	} else {
-		u.Config, _ = sjson.DeleteBytes(u.Config, "tls.client_cert_id")
-	}
-
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(u.Config))
-	if err == nil {
-		u.Config = []byte(config)
-	}
 	return nil
 }

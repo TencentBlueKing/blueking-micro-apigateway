@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // Service is the APISIX service resource model.
@@ -86,6 +84,16 @@ func (s *Service) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (er
 	if s.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.Service,
+		s.Config,
+		s.ID,
+		s.Name,
+		map[string]string{"upstream_id": s.UpstreamID},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -93,36 +101,22 @@ func (s *Service) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (er
 		if err := tx.First(&origin, "id = ?", s.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Service,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			map[string]string{"upstream_id": origin.UpstreamID},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		s.GatewayID, s.ID, s.Updater, s.Status, operation, constant.Service, originConfig, s.Config)
+		s.GatewayID, s.ID, s.Updater, s.Status, operation, constant.Service, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (s *Service) HandleConfig() (err error) {
-	s.Config, err = sjson.SetBytes(s.Config, "id", s.ID)
-	if err != nil {
-		return err
-	}
-	if s.Name != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "name", s.Name)
-		if err != nil {
-			return err
-		}
-	}
-	if s.UpstreamID != "" {
-		s.Config, err = sjson.SetBytes(s.Config, "upstream_id", s.UpstreamID)
-		if err != nil {
-			return err
-		}
-	} else {
-		s.Config, _ = sjson.DeleteBytes(s.Config, "upstream_id")
-	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(s.Config))
-	if err == nil {
-		s.Config = []byte(config)
-	}
 	return nil
 }

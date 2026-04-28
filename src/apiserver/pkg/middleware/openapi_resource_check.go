@@ -30,15 +30,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -46,6 +45,23 @@ import (
 var noneValidateSchemaHandlerMap = map[string]bool{
 	// 发布接口不需要进行 schema 校验
 	"handler.ResourcePublish": false,
+}
+
+const openAPIRequestDraftsKey = "openapi_request_drafts"
+
+// SetOpenAPIRequestDrafts stores the prepared drafts resolved during OpenAPI request validation.
+func SetOpenAPIRequestDrafts(c *gin.Context, drafts []resourcecodec.ResourceDraft) {
+	c.Set(openAPIRequestDraftsKey, drafts)
+}
+
+// GetOpenAPIRequestDrafts returns the prepared drafts resolved during OpenAPI request validation.
+func GetOpenAPIRequestDrafts(c *gin.Context) ([]resourcecodec.ResourceDraft, bool) {
+	value, ok := c.Get(openAPIRequestDraftsKey)
+	if !ok {
+		return nil, false
+	}
+	drafts, ok := value.([]resourcecodec.ResourceDraft)
+	return drafts, ok
 }
 
 // OpenAPIResourceCheck 资源操作校验
@@ -121,6 +137,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		}
 		// validate config schema
 		configs := gjson.ParseBytes(reqBody).Array()
+		resolvedDrafts := make([]resourcecodec.ResourceDraft, 0, len(configs))
 		for _, config := range configs {
 			schemaValidator, err := schema.NewAPISIXSchemaValidator(
 				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
@@ -132,23 +149,31 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			configRaw := config.Get("config").Raw
-
-			// Inject auto-generated ID before validation for resources that need it
-			// This handles the case where schema requires 'id' but users expect auto-generation
-			if constant.ResourceRequiresIDInSchema(resourceType) {
-				id := gjson.Get(configRaw, "id").String()
-				if id == "" {
-					// Temporarily inject ID for validation - will be regenerated in handler if
-					// needed
-					configRaw, _ = sjson.Set(configRaw, "id", idx.GenResourceID(resourceType))
-				}
+			outerName := config.Get("name").String()
+			draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceOpenAPI,
+				Operation:    openAPIOperation(method),
+				GatewayID:    ginx.GetGatewayInfo(c).ID,
+				ResourceType: resourceType,
+				Version:      ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+				PathID:       c.Param("id"),
+				OuterName:    outerName,
+				Config:       json.RawMessage(configRaw),
+			})
+			if err != nil {
+				ginx.BadRequestErrorJSONResponse(c, err)
+				c.Abort()
+				return
 			}
-
-			configRawForValidation := biz.BuildConfigRawForValidation(
-				configRaw,
-				resourceType,
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
-			)
+			resolvedDrafts = append(resolvedDrafts, draft)
+			// OpenAPI request validation now runs against the prepared DATABASE payload too.
+			built, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
+			if err != nil {
+				ginx.BadRequestErrorJSONResponse(c, err)
+				c.Abort()
+				return
+			}
+			configRawForValidation := built.Payload
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
@@ -207,6 +232,16 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 		}
+		if method == http.MethodPost && len(resolvedDrafts) == len(configs) {
+			SetOpenAPIRequestDrafts(c, resolvedDrafts)
+		}
 		c.Next()
 	}
+}
+
+func openAPIOperation(method string) constant.OperationType {
+	if method == http.MethodPut {
+		return constant.OperationTypeUpdate
+	}
+	return constant.OperationTypeCreate
 }

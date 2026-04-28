@@ -31,6 +31,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -102,7 +103,28 @@ func ClassifyImportResourceInfo(
 				}
 				continue
 			}
-			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
+			parsedName := gjson.ParseBytes(
+				imp.Config,
+			).Get(
+				model.GetResourceNameKey(imp.ResourceType),
+			).String()
+			if imp.Name == "" {
+				imp.Name = parsedName
+			}
+			requestOuterName := imp.Name
+			if imp.ResourceType == constant.PluginMetadata {
+				requestOuterName = ""
+			}
+			if draft, err := resourcecodec.PrepareRequestDraft(resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceImport,
+				Operation:    constant.OperationImport,
+				ResourceType: imp.ResourceType,
+				PathID:       imp.ResourceID,
+				OuterName:    requestOuterName,
+				Config:       imp.Config,
+			}); err == nil {
+				imp.Name = draft.Identity.NameValue
+			}
 			if _, ok := existsResourceIdList[imp.GetResourceKey()]; !ok {
 				imp.Status = constant.UploadStatusAdd
 				uploadOutput.Add[imp.ResourceType] = append(uploadOutput.Add[imp.ResourceType], imp)
@@ -232,6 +254,7 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 				ID:     resourceInfo.ResourceID,
 				Config: datatypes.JSON(resourceInfo.Config),
 			}
+			applyImportIdentityToSyncData(res, resourceInfo.Name)
 			allResourceIdList[res.GetResourceKey()] = struct{}{}
 			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
 				resourceTypeMap[resourceInfo.ResourceType] = append(
@@ -302,6 +325,7 @@ func handleResources(
 				Config:    datatypes.JSON(imp.Config),
 				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
 			}
+			applyImportIdentityToSyncData(resourceImp, imp.Name)
 			if _, ok := resourceTypeMap[imp.ResourceType]; !ok {
 				resourceTypeMap[resourceType] = []*model.GatewaySyncData{resourceImp}
 				continue
@@ -310,4 +334,24 @@ func handleResources(
 		}
 	}
 	return resourceTypeMap, nil
+}
+
+func applyImportIdentityToSyncData(syncData *model.GatewaySyncData, outerName string) {
+	if syncData == nil {
+		return
+	}
+	prepared, err := PrepareStoredResource(resourcecodec.RequestInput{
+		Source:       resourcecodec.SourceImport,
+		Operation:    constant.OperationImport,
+		GatewayID:    syncData.GatewayID,
+		ResourceType: syncData.Type,
+		PathID:       syncData.ID,
+		OuterName:    outerName,
+		Config:       json.RawMessage(syncData.Config),
+	})
+	if err != nil {
+		return
+	}
+	syncData.Config = prepared.StorageConfig
+	syncData.ApplyResolvedValues(prepared.ResolvedValues)
 }

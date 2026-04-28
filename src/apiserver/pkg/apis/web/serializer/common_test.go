@@ -19,11 +19,22 @@
 package serializer
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/resourcecodec"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
 
 func TestInjectGeneratedIDForValidation(t *testing.T) {
@@ -87,7 +98,13 @@ func TestInjectGeneratedIDForValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := injectGeneratedIDForValidation(tt.rawConfig, tt.resourceType, tt.version, tt.resourceID)
+			got := resourcecodec.PrepareValidationPayload(resourcecodec.ValidationInput{
+				Source:       resourcecodec.SourceWeb,
+				ResourceType: tt.resourceType,
+				Version:      tt.version,
+				Config:       tt.rawConfig,
+				ResourceID:   tt.resourceID,
+			})
 
 			var gotObj any
 			if err := json.Unmarshal(got, &gotObj); err != nil {
@@ -147,10 +164,176 @@ func TestShouldInjectResourceNameForValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := shouldInjectResourceNameForValidation(tt.resourceType, tt.version)
-			if got != tt.want {
-				t.Fatalf("unexpected result: got %v want %v", got, tt.want)
+			got := resourcecodec.PrepareValidationPayload(resourcecodec.ValidationInput{
+				Source:       resourcecodec.SourceWeb,
+				ResourceType: tt.resourceType,
+				Version:      tt.version,
+				Config:       json.RawMessage(`{}`),
+				OuterName:    "demo-name",
+			})
+			hasName := false
+			var parsed map[string]any
+			if err := json.Unmarshal(got, &parsed); err != nil {
+				t.Fatalf("unmarshal got config failed: %v", err)
+			}
+			if tt.resourceType == constant.Consumer {
+				_, hasName = parsed["username"]
+			} else {
+				_, hasName = parsed["name"]
+			}
+			gotResult := hasName
+			if gotResult != tt.want {
+				t.Fatalf("unexpected result: got %v want %v", gotResult, tt.want)
 			}
 		})
 	}
+}
+
+func TestWebAndOpenAPIConflictParity(t *testing.T) {
+	t.Parallel()
+	validation.RegisterValidator()
+
+	t.Run("web route validation rejects conflicting request and config names", func(t *testing.T) {
+		type request struct {
+			ID     string          `json:"id"`
+			Name   string          `json:"name" validate:"required"`
+			Config json.RawMessage `json:"config" validate:"apisixConfig=route"`
+		}
+
+		gateway := data.Gateway1WithBkAPISIX()
+		gateway.ID = 1001
+		router := gin.New()
+		router.POST("/test", func(c *gin.Context) {
+			ginx.SetGatewayInfo(c, gateway)
+			ginx.SetValidateErrorInfo(c)
+
+			var req request
+			err := validation.BindAndValidate(c, &req)
+			if err != nil {
+				validateErr := ginx.GetValidateErrorInfoFromContext(c.Request.Context())
+				if validateErr != nil && validateErr.Err != nil {
+					c.String(http.StatusBadRequest, validateErr.Err.Error())
+					return
+				}
+				c.String(http.StatusBadRequest, err.Error())
+				return
+			}
+			c.Status(http.StatusNoContent)
+		})
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPost,
+			"/test",
+			bytes.NewBufferString(`{"name":"route-a","config":{"name":"route-b","uris":["/test"]}}`),
+		)
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "conflicts with request name")
+	})
+}
+
+func TestWebValidationDraftParity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		input        resourcecodec.RequestInput
+		wantDatabase string
+	}{
+		{
+			name: "consumer uses outer name as resolved username",
+			input: resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceWeb,
+				Operation:    constant.OperationTypeCreate,
+				GatewayID:    1001,
+				ResourceType: constant.Consumer,
+				Version:      constant.APISIXVersion313,
+				OuterName:    "consumer-a",
+				OuterFields:  map[string]any{"group_id": "group-a"},
+				Config:       json.RawMessage(`{"plugins":{"key-auth":{"key":"token-a"}}}`),
+			},
+			wantDatabase: `{"username":"consumer-a","group_id":"group-a","plugins":{"key-auth":{"key":"token-a"}}}`,
+		},
+		{
+			name: "consumer group 3.11 injects id but not name",
+			input: resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceWeb,
+				Operation:    constant.OperationTypeCreate,
+				GatewayID:    1001,
+				ResourceType: constant.ConsumerGroup,
+				Version:      constant.APISIXVersion311,
+				OuterName:    "group-a",
+				Config:       json.RawMessage(`{"plugins":{}}`),
+			},
+			wantDatabase: `{"id":"@nonempty","plugins":{}}`,
+		},
+		{
+			name: "plugin metadata derives id from outer name",
+			input: resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceWeb,
+				Operation:    constant.OperationTypeCreate,
+				GatewayID:    1001,
+				ResourceType: constant.PluginMetadata,
+				Version:      constant.APISIXVersion313,
+				OuterName:    "jwt-auth",
+				Config:       json.RawMessage(`{"key":"value"}`),
+			},
+			wantDatabase: `{"id":"jwt-auth","key":"value"}`,
+		},
+		{
+			name: "upstream uses ssl outer field as tls client cert id",
+			input: resourcecodec.RequestInput{
+				Source:       resourcecodec.SourceWeb,
+				Operation:    constant.OperationTypeCreate,
+				GatewayID:    1001,
+				ResourceType: constant.Upstream,
+				Version:      constant.APISIXVersion313,
+				OuterName:    "upstream-a",
+				OuterFields:  map[string]any{"tls.client_cert_id": "ssl-a"},
+				Config: json.RawMessage(
+					`{"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}`,
+				),
+			},
+			wantDatabase: `{"name":"upstream-a","tls":{"client_cert_id":"ssl-a"},"type":"roundrobin","nodes":[{"host":"127.0.0.1","port":80,"weight":1}]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			draft, err := resourcecodec.PrepareRequestDraft(tt.input)
+			assert.NoError(t, err)
+
+			builtPayload, err := resourcecodec.BuildRequestPayload(draft, constant.DATABASE)
+			assert.NoError(t, err)
+			assertJSONWithGeneratedID(t, tt.wantDatabase, string(builtPayload.Payload))
+		})
+	}
+}
+
+func assertJSONWithGeneratedID(t *testing.T, want, got string) {
+	t.Helper()
+
+	var gotObj map[string]any
+	assert.NoError(t, json.Unmarshal([]byte(got), &gotObj))
+
+	var wantObj map[string]any
+	assert.NoError(t, json.Unmarshal([]byte(want), &wantObj))
+
+	if wantID, ok := wantObj["id"].(string); ok && wantID == "@nonempty" {
+		gotID, ok := gotObj["id"].(string)
+		assert.True(t, ok)
+		assert.NotEmpty(t, gotID)
+		delete(wantObj, "id")
+		delete(gotObj, "id")
+	}
+
+	gotNormalized, err := json.Marshal(gotObj)
+	assert.NoError(t, err)
+	wantNormalized, err := json.Marshal(wantObj)
+	assert.NoError(t, err)
+	assert.JSONEq(t, string(wantNormalized), string(gotNormalized))
 }

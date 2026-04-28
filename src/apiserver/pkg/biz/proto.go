@@ -68,7 +68,10 @@ func GetProtoOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedProtos 分页查询 Proto
+// ListPagedProtos 分页查询 Proto 的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedProtosForRead。
 func ListPagedProtos(
 	ctx context.Context,
 	param map[string]any,
@@ -93,6 +96,31 @@ func ListPagedProtos(
 	return query.Where(field.Attrs(param)).
 		Order(orderByExprs...).
 		FindByPage(page.Offset, page.Limit)
+}
+
+// ListPagedProtosForRead 分页查询 Proto，并在返回前执行显式 read-time restore。
+func ListPagedProtosForRead(
+	ctx context.Context,
+	param map[string]any,
+	status []string,
+	name string,
+	updater string,
+	orderBy string,
+	page PageParam,
+) ([]*model.Proto, int64, error) {
+	protos, total, err := ListPagedProtos(ctx, param, status, name, updater, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, proto := range protos {
+		if proto == nil {
+			continue
+		}
+		if err := proto.ResourceCommonModel.RestoreConfigForRead(constant.Proto); err != nil {
+			return nil, 0, err
+		}
+	}
+	return protos, total, nil
 }
 
 // CreateProto 创建 Proto
@@ -120,11 +148,26 @@ func UpdateProto(ctx context.Context, proto model.Proto) error {
 	return err
 }
 
-// GetProto 查询 Proto 详情
+// GetProto 查询 Proto 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetProtoForRead。
 func GetProto(ctx context.Context, id string) (*model.Proto, error) {
 	u := repo.Proto
 	proto, err := buildProtoQuery(ctx).Where(u.ID.Eq(id)).First()
 	if err != nil {
+		return nil, err
+	}
+	return proto, nil
+}
+
+// GetProtoForRead 查询 Proto 详情，并在返回前执行显式 read-time restore。
+func GetProtoForRead(ctx context.Context, id string) (*model.Proto, error) {
+	proto, err := GetProto(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := proto.ResourceCommonModel.RestoreConfigForRead(constant.Proto); err != nil {
 		return nil, err
 	}
 	return proto, nil

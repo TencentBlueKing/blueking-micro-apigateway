@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -53,22 +52,29 @@ func PluginMetadataCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-
-	pluginMetadata := model.PluginMetadata{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.PluginMetadata),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.PluginMetadata,
+		constant.OperationTypeCreate,
+		idx.GenResourceID(constant.PluginMetadata),
+		req.Name,
+		nil,
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	pluginMetadata, err := toTypedResourceModel[*model.PluginMetadata](resource, constant.PluginMetadata)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.CreatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {
+	if err := biz.CreatePluginMetadata(c.Request.Context(), *pluginMetadata); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -119,20 +125,29 @@ func PluginMetadataUpdate(c *gin.Context) {
 		return
 	}
 
-	pluginMetadata := model.PluginMetadata{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.PluginMetadata,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		nil,
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	pluginMetadata, err := toTypedResourceModel[*model.PluginMetadata](resource, constant.PluginMetadata)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.UpdatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {
+	if err := biz.UpdatePluginMetadata(c.Request.Context(), *pluginMetadata); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -164,7 +179,7 @@ func PluginMetadataList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	pluginMetadataList, total, err := biz.ListPagedPluginMetadatas(
+	pluginMetadataList, total, err := biz.ListPagedPluginMetadatasForRead(
 		c.Request.Context(),
 		queryParam,
 		strings.Split(req.Status, ","),
@@ -217,7 +232,7 @@ func PluginMetadataGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	pluginMetadata, err := biz.GetPluginMetadata(c.Request.Context(), pathParam.ID)
+	pluginMetadata, err := biz.GetPluginMetadataForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // Consumer 表示数据库中的 consumer 表
@@ -88,6 +86,16 @@ func (c *Consumer) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 	if c.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(
+		constant.Consumer,
+		c.Config,
+		c.ID,
+		c.Username,
+		map[string]string{"group_id": c.GroupID},
+	)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -95,38 +103,22 @@ func (c *Consumer) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (e
 		if err := tx.First(&origin, "id = ?", c.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
+		originConfig, err = buildRestoredConfig(
+			constant.Consumer,
+			origin.Config,
+			origin.ID,
+			origin.Username,
+			map[string]string{"group_id": origin.GroupID},
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return auditCallback(tx,
-		c.GatewayID, c.ID, c.Updater, c.Status, operation, constant.Consumer, originConfig, c.Config)
+		c.GatewayID, c.ID, c.Updater, c.Status, operation, constant.Consumer, originConfig, currentConfig)
 }
 
 // HandleConfig 处理配置
 func (c *Consumer) HandleConfig() (err error) {
-	c.Config, err = sjson.SetBytes(c.Config, "id", c.ID)
-	if err != nil {
-		return err
-	}
-
-	if c.GroupID != "" {
-		c.Config, err = sjson.SetBytes(c.Config, "group_id", c.GroupID)
-		if err != nil {
-			return err
-		}
-	} else {
-		c.Config, _ = sjson.DeleteBytes(c.Config, "group_id")
-	}
-
-	if c.Username != "" {
-		c.Config, err = sjson.SetBytes(c.Config, "username", c.Username)
-		if err != nil {
-			return err
-		}
-	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(c.Config))
-	if err == nil {
-		c.Config = []byte(config)
-	}
 	return nil
 }

@@ -20,12 +20,10 @@ package model
 
 import (
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/proto"
 )
 
@@ -79,6 +77,10 @@ func (p *Proto) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 	if p.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(constant.Proto, p.Config, p.ID, p.Name, nil)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate {
 		// 获取原始数据
@@ -86,29 +88,23 @@ func (p *Proto) AddAuditLog(tx *gorm.DB, operation constant.OperationType) (err 
 		if err := tx.First(&origin, "id = ?", p.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
-	}
-	return auditCallback(tx,
-		p.GatewayID, p.ID, p.Updater, p.Status, operation, constant.Proto, originConfig, p.Config)
-}
-
-// HandleConfig 处理配置
-func (p *Proto) HandleConfig() (err error) {
-	p.Config, err = sjson.SetBytes(p.Config, "id", p.ID)
-	if err != nil {
-		return err
-	}
-	if p.Name != "" {
-		p.Config, err = sjson.SetBytes(p.Config, "name", p.Name)
+		originConfig, err = buildRestoredConfig(
+			constant.Proto,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			nil,
+		)
 		if err != nil {
 			return err
 		}
 	}
-	// Remove empty fields
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(p.Config))
-	if err == nil {
-		p.Config = []byte(config)
-	}
+	return auditCallback(tx,
+		p.GatewayID, p.ID, p.Updater, p.Status, operation, constant.Proto, originConfig, currentConfig)
+}
+
+// HandleConfig 处理配置
+func (p *Proto) HandleConfig() (err error) {
 	content := gjson.GetBytes(p.Config, "content").String()
 	err = proto.ParseContent(p.Name, content)
 	if err != nil {

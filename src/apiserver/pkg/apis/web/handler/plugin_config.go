@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -60,22 +59,29 @@ func PluginConfigCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-
-	pluginConfig := model.PluginConfig{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.PluginConfig,
+		constant.OperationTypeCreate,
+		req.ID,
+		req.Name,
+		nil,
+		req.Config,
+		constant.ResourceStatusCreateDraft,
+		ginx.GetUserID(c),
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	pluginConfig, err := toTypedResourceModel[*model.PluginConfig](resource, constant.PluginConfig)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.CreatePluginConfig(c.Request.Context(), pluginConfig); err != nil {
+	if err := biz.CreatePluginConfig(c.Request.Context(), *pluginConfig); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -120,20 +126,29 @@ func PluginConfigUpdate(c *gin.Context) {
 		return
 	}
 
-	pluginConfig := model.PluginConfig{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        pathParam.ID,
-			GatewayID: pathParam.GatewayID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    updateStatus,
-			BaseModel: model.BaseModel{
-				Updater: ginx.GetUserID(c),
-			},
-		},
+	resource, err := prepareWebResourceCommonModel(
+		c,
+		constant.PluginConfig,
+		constant.OperationTypeUpdate,
+		pathParam.ID,
+		req.Name,
+		nil,
+		req.Config,
+		updateStatus,
+		"",
+		ginx.GetUserID(c),
+	)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
+	}
+	pluginConfig, err := toTypedResourceModel[*model.PluginConfig](resource, constant.PluginConfig)
+	if err != nil {
+		ginx.SystemErrorJSONResponse(c, err)
+		return
 	}
 
-	if err := biz.UpdatePluginConfig(c.Request.Context(), pluginConfig); err != nil {
+	if err := biz.UpdatePluginConfig(c.Request.Context(), *pluginConfig); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -170,7 +185,7 @@ func PluginConfigList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	pluginConfigs, total, err := biz.ListPagedPluginConfigs(
+	pluginConfigs, total, err := biz.ListPagedPluginConfigsForRead(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -225,7 +240,7 @@ func PluginConfigGet(c *gin.Context) {
 		return
 	}
 
-	pluginConfig, err := biz.GetPluginConfig(c.Request.Context(), pathParam.ID)
+	pluginConfig, err := biz.GetPluginConfigForRead(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

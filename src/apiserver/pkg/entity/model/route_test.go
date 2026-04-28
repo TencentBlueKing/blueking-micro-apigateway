@@ -27,22 +27,34 @@ var _ = Describe("Route", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id, name, service_id, upstream_id, and plugin_config_id into the Config", func() {
-			err := route.HandleConfig()
-			Expect(err).NotTo(HaveOccurred())
+		It(
+			"should preserve stored config and explicitly restore route read fields",
+			func() {
+				err := route.HandleConfig()
+				Expect(err).NotTo(HaveOccurred())
 
-			var configMap map[string]any
-			err = json.Unmarshal(route.Config, &configMap)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(configMap["id"]).To(Equal("test-id"))
-			Expect(configMap["name"]).To(Equal("test-route"))
-			Expect(configMap["service_id"]).To(Equal("test-service-id"))
-			Expect(configMap["upstream_id"]).To(Equal("test-upstream-id"))
-			Expect(configMap["plugin_config_id"]).To(Equal("test-plugin-config-id"))
-		})
+				var configMap map[string]any
+				err = json.Unmarshal(route.Config, &configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				route.ResourceCommonModel.NameValue = route.Name
+				route.ResourceCommonModel.ServiceIDValue = route.ServiceID
+				route.ResourceCommonModel.UpstreamIDValue = route.UpstreamID
+				route.ResourceCommonModel.PluginConfigIDValue = route.PluginConfigID
+				err = route.ResourceCommonModel.RestoreConfigForRead("route")
+				Expect(err).NotTo(HaveOccurred())
+				err = json.Unmarshal(route.Config, &configMap)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(configMap["id"]).To(Equal("test-id"))
+				Expect(configMap["name"]).To(Equal("test-route"))
+				Expect(configMap["service_id"]).To(Equal("test-service-id"))
+				Expect(configMap["upstream_id"]).To(Equal("test-upstream-id"))
+				Expect(configMap["plugin_config_id"]).To(Equal("test-plugin-config-id"))
+			},
+		)
 
 		It(
-			"should delete service_id, plugin_config_id, and upstream_id from the Config if they are empty",
+			"should leave legacy echoed relation fields untouched in stored Config",
 			func() {
 				route.ServiceID = ""
 				route.PluginConfigID = ""
@@ -62,10 +74,23 @@ var _ = Describe("Route", func() {
 
 				err = json.Unmarshal(route.Config, &configMap)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(configMap).NotTo(HaveKey("service_id"))
-				Expect(configMap).NotTo(HaveKey("plugin_config_id"))
-				Expect(configMap).NotTo(HaveKey("upstream_id"))
+				Expect(configMap["service_id"]).To(Equal("test-service-id"))
+				Expect(configMap["plugin_config_id"]).To(Equal("test-plugin-config-id"))
+				Expect(configMap["upstream_id"]).To(Equal("test-upstream-id"))
 			},
 		)
+
+		It("should preserve name and relations from typed fields even when config omits them", func() {
+			route.ResourceCommonModel.NameValue = "typed-route-name"
+			route.ResourceCommonModel.ServiceIDValue = "typed-service-id"
+			route.ResourceCommonModel.UpstreamIDValue = "typed-upstream-id"
+			route.ResourceCommonModel.PluginConfigIDValue = "typed-plugin-config-id"
+
+			typedRoute := route.ResourceCommonModel.ToResourceModel("route").(*model.Route)
+			Expect(typedRoute.Name).To(Equal("typed-route-name"))
+			Expect(typedRoute.ServiceID).To(Equal("typed-service-id"))
+			Expect(typedRoute.UpstreamID).To(Equal("typed-upstream-id"))
+			Expect(typedRoute.PluginConfigID).To(Equal("typed-plugin-config-id"))
+		})
 	})
 })

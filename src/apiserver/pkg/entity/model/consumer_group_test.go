@@ -24,11 +24,17 @@ var _ = Describe("ConsumerGroup", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id and name into the Config", func() {
+		It("should preserve stored config and explicitly restore consumer-group read fields", func() {
 			err := consumerGroup.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
+			err = json.Unmarshal(consumerGroup.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			consumerGroup.ResourceCommonModel.NameValue = consumerGroup.Name
+			err = consumerGroup.ResourceCommonModel.RestoreConfigForRead("consumer_group")
+			Expect(err).NotTo(HaveOccurred())
 			err = json.Unmarshal(consumerGroup.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-id"))

@@ -68,7 +68,10 @@ func GetServiceOrderExprList(orderBy string) []field.Expr {
 	return orderByExprList
 }
 
-// ListPagedServices 分页查询网 service 列表
+// ListPagedServices 分页查询 service 列表的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 ListPagedServicesForRead。
 func ListPagedServices(
 	ctx context.Context,
 	param map[string]any,
@@ -114,6 +117,33 @@ func ListPagedServices(
 		FindByPage(page.Offset, page.Limit)
 }
 
+// ListPagedServicesForRead 分页查询 service 列表，并在返回前执行显式 read-time restore。
+func ListPagedServicesForRead(
+	ctx context.Context,
+	param map[string]any,
+	label map[string][]string,
+	status []string,
+	name string,
+	updater string,
+	upstreamID string,
+	orderBy string,
+	page PageParam,
+) ([]*model.Service, int64, error) {
+	services, total, err := ListPagedServices(ctx, param, label, status, name, updater, upstreamID, orderBy, page)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, service := range services {
+		if service == nil {
+			continue
+		}
+		if err := service.ResourceCommonModel.RestoreConfigForRead(constant.Service); err != nil {
+			return nil, 0, err
+		}
+	}
+	return services, total, nil
+}
+
 // CreateService 创建 service
 func CreateService(ctx context.Context, service model.Service) error {
 	return repo.Service.WithContext(ctx).Create(&service)
@@ -140,10 +170,25 @@ func UpdateService(ctx context.Context, service model.Service) error {
 	return err
 }
 
-// GetService 查询 Service 详情
+// GetService 查询 Service 详情的原始存储形态。
+//
+// 该方法面向 biz/internal 场景，返回 raw stored config，不会执行 read-time restore。
+// 对外响应如果需要兼容的 restored response config，请使用 GetServiceForRead。
 func GetService(ctx context.Context, id string) (*model.Service, error) {
 	u := repo.Service
 	return buildServiceQuery(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetServiceForRead 查询 Service 详情，并在返回前执行显式 read-time restore。
+func GetServiceForRead(ctx context.Context, id string) (*model.Service, error) {
+	service, err := GetService(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := service.ResourceCommonModel.RestoreConfigForRead(constant.Service); err != nil {
+		return nil, err
+	}
+	return service, nil
 }
 
 // QueryServices 搜索 service

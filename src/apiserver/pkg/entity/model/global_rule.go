@@ -19,12 +19,10 @@
 package model
 
 import (
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
 // GlobalRule 表示数据库中的 global_rule 表
@@ -86,6 +84,10 @@ func (g *GlobalRule) AddAuditLog(tx *gorm.DB, operation constant.OperationType) 
 	if g.ID == "" {
 		return nil
 	}
+	currentConfig, err := buildRestoredConfig(constant.GlobalRule, g.Config, g.ID, g.Name, nil)
+	if err != nil {
+		return err
+	}
 	originConfig := datatypes.JSON{}
 	if operation != constant.OperationTypeCreate && g.ID != "" {
 		// 获取原始数据
@@ -93,29 +95,22 @@ func (g *GlobalRule) AddAuditLog(tx *gorm.DB, operation constant.OperationType) 
 		if err := tx.First(&origin, "id = ?", g.ID).Error; err != nil {
 			return err
 		}
-		originConfig = origin.Config
-	}
-	return auditCallback(tx,
-		g.GatewayID, g.ID, g.Updater, g.Status, operation, constant.GlobalRule, originConfig, g.Config)
-}
-
-// HandleConfig 处理 config
-func (g *GlobalRule) HandleConfig() (err error) {
-	g.Config, err = sjson.SetBytes(g.Config, "id", g.ID)
-	if err != nil {
-		return err
-	}
-
-	if g.Name != "" {
-		g.Config, err = sjson.SetBytes(g.Config, "name", g.Name)
+		originConfig, err = buildRestoredConfig(
+			constant.GlobalRule,
+			origin.Config,
+			origin.ID,
+			origin.Name,
+			nil,
+		)
 		if err != nil {
 			return err
 		}
 	}
-	// 去除空字段
-	config, err := jsonx.RemoveEmptyObjectsAndArrays(string(g.Config))
-	if err == nil {
-		g.Config = []byte(config)
-	}
+	return auditCallback(tx,
+		g.GatewayID, g.ID, g.Updater, g.Status, operation, constant.GlobalRule, originConfig, currentConfig)
+}
+
+// HandleConfig 处理 config
+func (g *GlobalRule) HandleConfig() (err error) {
 	return nil
 }

@@ -24,15 +24,35 @@ var _ = Describe("PluginMetadata", func() {
 	})
 
 	Describe("HandleConfig", func() {
-		It("should set id and name into the Config", func() {
+		It("should preserve stored config and explicitly restore plugin-metadata read fields", func() {
 			err := pluginMetadata.HandleConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			var configMap map[string]any
 			err = json.Unmarshal(pluginMetadata.Config, &configMap)
 			Expect(err).NotTo(HaveOccurred())
+
+			pluginMetadata.ResourceCommonModel.NameValue = pluginMetadata.Name
+			err = pluginMetadata.ResourceCommonModel.RestoreConfigForRead("plugin_metadata")
+			Expect(err).NotTo(HaveOccurred())
+			err = json.Unmarshal(pluginMetadata.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap["id"]).To(Equal("test-plugin-metadata"))
 			Expect(configMap["name"]).To(Equal("test-plugin-metadata"))
+		})
+
+		It("should leave legacy echoed plugin metadata identity untouched in stored Config", func() {
+			pluginMetadata.ResourceCommonModel = model.ResourceCommonModel{
+				ID:     "test-id",
+				Config: datatypes.JSON([]byte(`{"id":"other-id"}`)),
+			}
+			err := pluginMetadata.HandleConfig()
+			Expect(err).NotTo(HaveOccurred())
+
+			var configMap map[string]any
+			err = json.Unmarshal(pluginMetadata.Config, &configMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap["id"]).To(Equal("other-id"))
 		})
 	})
 })

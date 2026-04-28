@@ -1,6 +1,7 @@
 # MCP Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在维持“MCP 暂不纳入主线重构目标”这一共识不变的前提下，只做 MCP 域内的小步整理：固化创建与更新路径的当前行为，提取极小的本地 helper，避免这条链路继续靠手写重复逻辑生长。
 
@@ -82,7 +83,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ### Task 0: 补 MCP create/update handler characterization tests
 
-- [ ] Task 0: 补 MCP create/update handler characterization tests
+- [x] Task 0: 补 MCP create/update handler characterization tests
 
 **要解决的缺口：** 现在文档里已经明确了 Task 0 的必要性，但正文还没有真正把 `createResourceHandler(...)` / `updateResourceHandler(...)` 的现状测试独立出来。先锁 handler 入口，后面的 helper 才有稳定边界。
 
@@ -91,7 +92,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 **Files:**
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud_test.go`
 
-- [ ] **Step 1: 直接在 handler seam 上补 characterization tests**
+- [x] **Step 1: 直接在 handler seam 上补 characterization tests**
 
 至少覆盖下面 5 类现状，断言都走真实 create/update handler，而不是新 helper：
 
@@ -101,7 +102,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - update 在不提供 `name` 时保留原有 config 形态不变
 - **update 路径传入“非法 JSON config” / 会让 sjson 写入失败的入参时，当前 handler 不会向调用者返回错误（`_ = err` 静默路径）；锁住这条断言后，Task 2 helper 抽出会把它变成 `return err`，届时同步更新此断言（记录行为变化）**
 
-- [ ] **Step 2: 运行 MCP seam tests，确认当前 handler 行为已经被锁住**
+- [x] **Step 2: 运行 MCP seam tests，确认当前 handler 行为已经被锁住**
 
 Run:
 
@@ -112,7 +113,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/resource_crud_test.go
@@ -123,7 +124,7 @@ git commit -m "test: lock mcp resource handler seams"
 
 ### Task 1: 抽出 MCP create 的 config 注入 helper
 
-- [ ] Task 1: 抽出 MCP create 的 config 注入 helper
+- [x] Task 1: 抽出 MCP create 的 config 注入 helper
 
 **要解决的复杂度：** `createResourceHandler(...)` 现在把“marshal config”“按资源类型写入 name/username”“校验写入结果”都内联在主流程里，create 逻辑很快就会继续膨胀。
 
@@ -135,7 +136,7 @@ git commit -m "test: lock mcp resource handler seams"
 - Create: `src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud.go:287-303`
 
-- [ ] **Step 1: 先补 MCP create config 注入的失败测试**
+- [x] **Step 1: 先补 MCP create config 注入的失败测试**
 
 在 `mcp_resource_crud_helpers_test.go` 里新增：
 
@@ -182,7 +183,7 @@ func TestPrepareMCPCreateConfig(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -194,7 +195,7 @@ Expected:
 
 - FAIL，报 `undefined: prepareMCPCreateConfig`
 
-- [ ] **Step 3: 实现 helper，并让 create handler 复用**
+- [x] **Step 3: 实现 helper，并让 create handler 复用**
 
 在 `mcp_resource_crud_helpers.go` 里新增（注意 doc comment 明确标注 defensive check 的来源）：
 
@@ -252,7 +253,7 @@ if err != nil {
 }
 ```
 
-- [ ] **Step 4: 运行 MCP tools 包测试**
+- [x] **Step 4: 运行 MCP tools 包测试**
 
 Run:
 
@@ -264,7 +265,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers.go src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go src/apiserver/pkg/apis/mcp/tools/resource_crud.go
@@ -273,7 +274,7 @@ git commit -m "refactor: extract mcp create config helper"
 
 ### Task 2: 抽出 MCP update 的 config 注入 helper
 
-- [ ] Task 2: 抽出 MCP update 的 config 注入 helper
+- [x] Task 2: 抽出 MCP update 的 config 注入 helper
 
 **要解决的复杂度：** update 路径和 create 路径一样，也在 handler 里手写了 `marshal + optional name inject`，只是分支略有不同；这类重复最容易导致两个入口后续越改越不一致。
 
@@ -285,7 +286,7 @@ git commit -m "refactor: extract mcp create config helper"
 - Modify: `src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud.go:366-376`
 
-- [ ] **Step 1: 先补 MCP update config 注入测试**
+- [x] **Step 1: 先补 MCP update config 注入测试**
 
 在 `mcp_resource_crud_helpers_test.go` 里新增（注意：Consumer 使用 `username` 而非 `name`，补子测试锁住差异）：
 
@@ -329,7 +330,7 @@ func TestPrepareMCPUpdateConfig(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -341,7 +342,7 @@ Expected:
 
 - FAIL，报 `undefined: prepareMCPUpdateConfig`
 
-- [ ] **Step 3: 实现 helper，并让 update handler 复用**
+- [x] **Step 3: 实现 helper，并让 update handler 复用**
 
 在 `mcp_resource_crud_helpers.go` 里新增（**行为变化标记**：helper 把原 handler 里 `_ = err` 的静默错误改为向上 `return err`）：
 
@@ -399,7 +400,7 @@ if err != nil {
 
 **提交前同步更新 Task 0 中 “update 静默忽略 sjson 错误” 的 characterization 断言**：由“不会报错”更新为“会返回错误”，并在 commit message 里标注“behavior change: sjson failure during update now surfaces as an error”。
 
-- [ ] **Step 4: 运行 MCP tools 包测试**
+- [x] **Step 4: 运行 MCP tools 包测试**
 
 Run:
 
@@ -411,7 +412,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers.go src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go src/apiserver/pkg/apis/mcp/tools/resource_crud.go
@@ -420,7 +421,7 @@ git commit -m "refactor: extract mcp update config helper"
 
 ### Task 3: 抽出 MCP create draft 组装 helper，并明确 MCP 保持本地的边界
 
-- [ ] Task 3: 抽出 MCP create draft 组装 helper，并明确 MCP 保持本地的边界
+- [x] Task 3: 抽出 MCP create draft 组装 helper，并明确 MCP 保持本地的边界
 
 **要解决的复杂度：** create handler 里仍然手写了 `ResourceCommonModel` 组装；如果不把这层也收掉，MCP 依旧是第四套手工 draft builder。
 
@@ -432,7 +433,7 @@ git commit -m "refactor: extract mcp update config helper"
 - Modify: `src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud.go:305-323`
 
-- [ ] **Step 1: 先补 draft 组装测试**
+- [x] **Step 1: 先补 draft 组装测试**
 
 在 `mcp_resource_crud_helpers_test.go` 里新增（**review 补充**：至少覆盖 route 和 consumer 两个资源类型，在多资源类型上同时锁住 `Creator/Updater="mcp"` + `Status=create_draft` 这 3 个不变量）：
 
@@ -466,7 +467,7 @@ func TestBuildMCPCreateDraft(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -478,7 +479,7 @@ Expected:
 
 - FAIL，报 `undefined: buildMCPCreateDraft`
 
-- [ ] **Step 3: 实现 helper，迁移 create handler，并加上 MCP 本地边界注释**
+- [x] **Step 3: 实现 helper，迁移 create handler，并加上 MCP 本地边界注释**
 
 在 `mcp_resource_crud_helpers.go` 中补充（**review 补充**：注释中明确 MCP helper 签名不要向 web `buildWebCreateDraft(c *gin.Context, ...)` 对齐——MCP 没有 gin.Context，保持 `gatewayID int`）：
 
@@ -516,7 +517,7 @@ specificResource := resource.ToResourceModel(resourceType)
 
 这一步只收敛 draft 组装，不顺手改 `biz.CreateResource(...)` 的更大契约。
 
-- [ ] **Step 4: 运行 MCP tools 包测试**
+- [x] **Step 4: 运行 MCP tools 包测试**
 
 Run:
 
@@ -528,7 +529,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers.go src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go src/apiserver/pkg/apis/mcp/tools/resource_crud.go

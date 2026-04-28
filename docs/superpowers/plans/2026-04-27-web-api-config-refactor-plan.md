@@ -1,6 +1,7 @@
 # Web API Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变 Web API 协议、不触碰 `HandleConfig()` 边界的前提下，逐步收敛 `web api` 当前分散在 serializer 和 handler 中的 `config` 校验整形、生成 ID 时机、以及 create draft 组装重复逻辑。
 

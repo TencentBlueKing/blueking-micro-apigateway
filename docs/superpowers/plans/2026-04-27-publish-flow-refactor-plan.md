@@ -1,6 +1,7 @@
 # Publish Flow 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变发布协议、不触碰 4 个输入源实现边界、不改 `HandleConfig()` 行为的前提下，逐步降低 `publish` 当前在 payload 改写、版本差异清理、依赖发布编排、以及最终 `ETCD` 校验上的复杂度。
 

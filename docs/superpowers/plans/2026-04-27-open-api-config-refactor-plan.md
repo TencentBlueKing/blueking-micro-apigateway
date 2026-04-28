@@ -1,6 +1,7 @@
 # Open API Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变 Open API 外部协议的前提下，先修正 `update` 路径 outer `name` 未回写到 storage config、以及 middleware 对旧版本 schema 的临时 `id` 注入不够精确这两个已确认问题，再逐步收敛 `open api` 当前分散在 middleware、serializer、handler 三处的 `config` 整形、draft 组装和 request identity 复算问题。
 

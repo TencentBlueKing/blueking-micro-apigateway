@@ -1,6 +1,7 @@
 # Import Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在保留 `import.ignore_fields` 本地语义不变的前提下，把 import 链路里当前混在 `handleResources(...)` 和 `HandleUploadResources(...)` 里的 overlay、旧资源装载、sync-data 组装、校验前准备几个步骤拆开，使 import 的本地复杂度降下来。
 
@@ -90,7 +91,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ### Task 0: 补 import 入口 characterization tests
 
-- [ ] Task 0: 补 import 入口 characterization tests
+- [x] Task 0: 补 import 入口 characterization tests
 
 **要解决的缺口：** 当前文档已经要求 seam-first，但正文还没有独立任务把 `HandleUploadResources(...)` 的现状锁住。先把入口行为补成单独任务，后面的 helper 提取才不是“边改边猜”。
 
@@ -99,7 +100,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 **Files:**
 - Create: `src/apiserver/pkg/apis/common/resource_slz_import_test.go`
 
-- [ ] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
+- [x] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
 
 至少覆盖下面 6 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
 
@@ -110,7 +111,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - 缺失关联资源会在 `HandleUploadResources(...)` 阶段报错
 - add/update map 的资源数与输入一致；必要时可用 `HandlerResourceIndexMap(...)` 辅助准备断言输入
 
-- [ ] **Step 2: 运行 import seam tests，确认当前入口行为已经被锁住**
+- [x] **Step 2: 运行 import seam tests，确认当前入口行为已经被锁住**
 
 Run:
 
@@ -121,7 +122,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/resource_slz_import_test.go
@@ -132,7 +133,7 @@ git commit -m "test: lock import upload characterization seams"
 
 ### Task 1: 抽出 import 本地 `ignore_fields` overlay helper
 
-- [ ] Task 1: 抽出 import 本地 `ignore_fields` overlay helper
+- [x] Task 1: 抽出 import 本地 `ignore_fields` overlay helper
 
 **要解决的复杂度：** overlay 逻辑现在埋在 `handleResources(...)` 的双层循环里，后面想看“导入为什么被旧字段覆盖了”必须先通读整个 import 主流程。
 
@@ -143,7 +144,7 @@ git commit -m "test: lock import upload characterization seams"
 - Create: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:281-297`
 
-- [ ] **Step 1: 先补 overlay 当前行为的失败测试**
+- [x] **Step 1: 先补 overlay 当前行为的失败测试**
 
 在 `import_resource_helpers_test.go` 里新增：
 
@@ -203,7 +204,7 @@ func TestApplyImportIgnoreFields(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -214,7 +215,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: applyImportIgnoreFields`
 
-- [ ] **Step 3: 实现 overlay helper，并替换 `handleResources(...)` 内联逻辑**
+- [x] **Step 3: 实现 overlay helper，并替换 `handleResources(...)` 内联逻辑**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -255,7 +256,7 @@ if len(ignoreFields[resourceType]) > 0 && ok {
 }
 ```
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -266,7 +267,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go
@@ -275,7 +276,7 @@ git commit -m "refactor: extract import ignore-fields overlay helper"
 
 ### Task 2: 抽出 import 本地“装载旧资源” helper
 
-- [ ] Task 2: 抽出 import 本地“装载旧资源” helper
+- [x] Task 2: 抽出 import 本地“装载旧资源” helper
 
 **要解决的复杂度：** `handleResources(...)` 每轮循环都要自己取 DB 资源、组 map、回填 `allResourceIDs`，这块和 overlay / sync-data 组装混在一起，不利于单测。
 
@@ -286,7 +287,7 @@ git commit -m "refactor: extract import ignore-fields overlay helper"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:267-275`
 
-- [ ] **Step 1: 先补旧资源装载测试**
+- [x] **Step 1: 先补旧资源装载测试**
 
 在 `import_resource_helpers_test.go` 里新增（除 happy path 外，review 要求补一条 empty-DB 边界断言）：
 
@@ -326,7 +327,7 @@ func TestLoadExistingImportResources(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -337,7 +338,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: loadExistingImportResources`
 
-- [ ] **Step 3: 把“取 DB 资源 + 组 map + 回填 allResourceIDs”抽成 helper**
+- [x] **Step 3: 把“取 DB 资源 + 组 map + 回填 allResourceIDs”抽成 helper**
 
 在 `import_resource_helpers.go` 里新增（**注意 doc comment 显式标注 side-effect**）：
 
@@ -370,7 +371,7 @@ func loadExistingImportResources(
 
 然后把 `handleResources(...)` 里原来的 9 行 DB 装载逻辑替换为这个 helper 调用。本地变量仍用 `allResourceIdMap` 名字以保持结果最小改动，helper 签名则统一走 `allResourceIDs`。
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -381,7 +382,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go
@@ -390,7 +391,7 @@ git commit -m "refactor: extract import existing-resource loader"
 
 ### Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
 
-- [ ] Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
+- [x] Task 3: 抽出 import 本地 `GatewaySyncData` 组装 helper
 
 **要解决的复杂度：** `GatewaySyncData` 组装现在直接夹在 `handleResources(...)` 末尾，和 resource_id 校验、overlay、map append 混在一个循环里。
 
@@ -401,7 +402,7 @@ git commit -m "refactor: extract import existing-resource loader"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:298-309`
 
-- [ ] **Step 1: 先补 sync-data 组装测试**
+- [x] **Step 1: 先补 sync-data 组装测试**
 
 在 `import_resource_helpers_test.go` 里新增：
 
@@ -425,7 +426,7 @@ func TestBuildImportSyncData(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -436,7 +437,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: buildImportSyncData`
 
-- [ ] **Step 3: 实现 sync-data helper，并替换 `handleResources(...)` 里的内联组装**
+- [x] **Step 3: 实现 sync-data helper，并替换 `handleResources(...)` 里的内联组装**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -469,7 +470,7 @@ resourceImp := buildImportSyncData(ctx, resourceType, imp)
 
 **边界提醒（人工 review 补充）：** `buildImportSyncData(...)` 只消费上传进来的 `imp.ResourceID`。不要在这个 helper 里生成、修正、回填资源 ID；一旦这里开始碰 ID 语义，就不再是“sync-data 组装”，而是在偷偷改导入协议。
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -480,7 +481,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go
@@ -500,7 +501,7 @@ git commit -m "refactor: extract import sync-data builder"
 >
 > **review 补充边界**：`prepareImportResources(...)` 虽然汇总 add/update 资源，但仍停在 prepare 阶段；不要把 `biz.UploadResources(...)` 的事务、审计、schema update 顺序搬进来，否则会把“orchestration 重排”变成“跨层事务重构”。
 
-- [ ] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
+- [x] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
 
 **要解决的复杂度：** 现在 `handleResources(...)` 同时做资源遍历、旧资源装载、overlay、resource_id 校验、sync-data append，是典型的大函数混合职责。
 
@@ -511,7 +512,7 @@ git commit -m "refactor: extract import sync-data builder"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:256-313`
 
-- [ ] **Step 1: 先补大函数当前行为保护测试**
+- [x] **Step 1: 先补大函数当前行为保护测试**
 
 在 `import_resource_helpers_test.go` 里新增：
 
@@ -558,7 +559,7 @@ func TestPrepareImportResources(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认新 orchestration helper 还不存在**
+- [x] **Step 2: 运行测试，确认新 orchestration helper 还不存在**
 
 Run:
 
@@ -569,7 +570,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: prepareImportResources`
 
-- [ ] **Step 3: 实现 orchestration helper，并让 `handleResources(...)` 只做代理**
+- [x] **Step 3: 实现 orchestration helper，并让 `handleResources(...)` 只做代理**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -621,7 +622,7 @@ func handleResources(...) (map[constant.APISIXResource][]*model.GatewaySyncData,
 }
 ```
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -632,7 +633,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go
@@ -641,7 +642,7 @@ git commit -m "refactor: split import resource preparation orchestration"
 
 ### Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
 
-- [ ] Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
+- [x] Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
 
 **要解决的复杂度：** 现在 `HandleUploadResources(...)` 一边准备 add/update map，一边直接调用 `biz.ValidateResource(...)`，没有一个明确的“import 进入 DATABASE 校验前”的本地边界。
 
@@ -652,7 +653,7 @@ git commit -m "refactor: split import resource preparation orchestration"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:121-149`
 
-- [ ] **Step 1: 先补 validation input 组装测试**
+- [x] **Step 1: 先补 validation input 组装测试**
 
 在 `import_resource_helpers_test.go` 里新增（**review 补充**：Add 和 Update 同时非空，锁住 `allResourceIDs` 跨两次调用累加语义）：
 
@@ -716,7 +717,7 @@ func TestPrepareImportValidationInput(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 seam 还不存在**
+- [x] **Step 2: 运行测试，确认 seam 还不存在**
 
 Run:
 
@@ -727,7 +728,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: prepareImportValidationInput`
 
-- [ ] **Step 3: 实现 import validation seam，并让 `HandleUploadResources(...)` 改成两段式**
+- [x] **Step 3: 实现 import validation seam，并让 `HandleUploadResources(...)` 改成两段式**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -775,7 +776,7 @@ if err = biz.ValidateResource(ctx, validationInput.Update, validationInput.AllRe
 }
 ```
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -786,7 +787,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go

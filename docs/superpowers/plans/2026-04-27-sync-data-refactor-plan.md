@@ -1,6 +1,7 @@
 # Sync Data 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变 `gateway_sync_data` 快照语义、不触碰 `HandleConfig()`、不改 import/publish/web/open/mcp 行为的前提下，把 etcd -> 数据库快照同步链路里当前混在 `SyncWithPrefix(...)` 和 `kvToResource(...)` 里的 config 规范化、DB 反查回填、plugin metadata ID 对齐、以及同步 diff 规划几个步骤拆开，使 sync-data 这条链路的本地复杂度降下来。
 

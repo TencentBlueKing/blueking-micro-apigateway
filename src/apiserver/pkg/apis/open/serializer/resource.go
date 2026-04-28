@@ -23,15 +23,11 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
 // ResourceCreateRequest 资源创建
@@ -56,30 +52,6 @@ type ResourceAssociateID struct {
 
 // ResourceBatchCreateRequest 资源批量创建
 type ResourceBatchCreateRequest []ResourceCreateRequest
-
-// ToCommonResource 转换为通用资源
-func (rs ResourceBatchCreateRequest) ToCommonResource(gatewayID int,
-	resourceType constant.APISIXResource,
-) []*model.ResourceCommonModel {
-	var resources []*model.ResourceCommonModel
-	for _, r := range rs {
-		if gjson.GetBytes(r.Config, "name").String() == "" {
-			r.Config, _ = sjson.SetBytes(r.Config, model.GetResourceNameKey(resourceType), r.Name)
-		}
-		id := gjson.GetBytes(r.Config, "id").String()
-		if id == "" {
-			id = idx.GenResourceID(resourceType)
-		}
-		resource := &model.ResourceCommonModel{
-			ID:        id,
-			GatewayID: gatewayID,
-			Config:    datatypes.JSON(r.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-		}
-		resources = append(resources, resource)
-	}
-	return resources
-}
 
 // ResourceBatchGetRequest 资源获取参数
 type ResourceBatchGetRequest struct {
@@ -128,19 +100,16 @@ type ResourceUpdateRequest struct {
 // ToCommonResource 转换为通用资源
 func (r ResourceUpdateRequest) ToCommonResource(
 	c *gin.Context,
+	resourceType constant.APISIXResource,
 	id string,
 	status constant.ResourceStatus,
 ) *model.ResourceCommonModel {
-	resource := &model.ResourceCommonModel{
-		ID:        id,
-		GatewayID: ginx.GetGatewayInfo(c).ID,
-		Config:    datatypes.JSON(r.Config),
-		Status:    status,
-		BaseModel: model.BaseModel{
-			Updater: ginx.GetUserID(c),
-		},
+	config := r.Config
+	if r.Name != "" {
+		// FIXME: config modified logical
+		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)
 	}
-	return resource
+	return buildOpenUpdateDraft(c, id, status, config)
 }
 
 // ResourceImportRequest 资源导入请求

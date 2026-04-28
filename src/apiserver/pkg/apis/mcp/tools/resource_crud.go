@@ -20,18 +20,14 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
@@ -284,35 +280,12 @@ func createResourceHandler(
 	// Generate resource ID
 	resourceID := idx.GenResourceID(resourceType)
 
-	// Marshal config to JSON bytes
-	config, err := json.Marshal(input.Config)
+	config, err := prepareMCPCreateConfig(resourceType, input.Config, input.Name)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
+		return errorResult(err), nil, nil
 	}
 
-	// Inject name into config so ToResourceModel.GetName() picks it up
-	nameKey := model.GetResourceNameKey(resourceType)
-	config, err = sjson.SetBytes(config, nameKey, input.Name)
-	if err != nil {
-		return errorResult(fmt.Errorf("failed to inject name into config: %w", err)), nil, nil
-	}
-
-	// Verify name was successfully injected
-	if !gjson.GetBytes(config, nameKey).Exists() {
-		return errorResult(fmt.Errorf("name field not found in config after injection")), nil, nil
-	}
-
-	// Create resource model
-	resource := model.ResourceCommonModel{
-		ID:        resourceID,
-		GatewayID: gateway.ID,
-		Config:    datatypes.JSON(config),
-		Status:    constant.ResourceStatusCreateDraft,
-		BaseModel: model.BaseModel{
-			Creator: "mcp",
-			Updater: "mcp",
-		},
-	}
+	resource := buildMCPCreateDraft(gateway.ID, resourceID, config)
 
 	// Convert to specific resource type and create
 	specificResource := resource.ToResourceModel(resourceType)
@@ -363,16 +336,9 @@ func updateResourceHandler(
 		return errorResult(err), nil, nil
 	}
 
-	// Marshal config to JSON bytes
-	config, err := json.Marshal(input.Config)
+	config, err := prepareMCPUpdateConfig(resourceType, input.Config, input.Name)
 	if err != nil {
-		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
-	}
-
-	// If name is provided, inject it into config using the correct key for the resource type
-	if input.Name != "" {
-		nameKey := model.GetResourceNameKey(resourceType)
-		config, _ = sjson.SetBytes(config, nameKey, input.Name)
+		return errorResult(err), nil, nil
 	}
 
 	// Use UpdateResourceByTypeAndID which properly handles name updates

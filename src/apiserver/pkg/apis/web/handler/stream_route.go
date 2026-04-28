@@ -53,19 +53,10 @@ func StreamRouteCreate(c *gin.Context) {
 		return
 	}
 	streamRoute := model.StreamRoute{
-		Name:       req.Name,
-		ServiceID:  req.ServiceID,
-		UpstreamID: req.UpstreamID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.StreamRoute), // todo: generate
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		ServiceID:           req.ServiceID,
+		UpstreamID:          req.UpstreamID,
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.StreamRoute), req.Config),
 	}
 
 	if err := biz.CreateStreamRoute(c.Request.Context(), streamRoute); err != nil {

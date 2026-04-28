@@ -32,7 +32,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
@@ -49,29 +48,18 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/ [post]
 func ConsumerGroupCreate(c *gin.Context) {
 	var req serializer.ConsumerGroupInfo
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
-		return
-	}
-	// consumer_group schema requires config.id, but that ID is server-owned. Bind first so we can generate the real
-	// resource ID and validate against the same value that will be persisted.
-	req.ID = idx.GenResourceID(constant.ConsumerGroup)
-	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
+	if err := bindAndValidateWebCreateWithGeneratedID(
+		c,
+		&req,
+		constant.ConsumerGroup,
+		func(resourceID string) { req.ID = resourceID },
+	); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	consumerGroup := model.ConsumerGroup{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 
 	if err := biz.CreateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {

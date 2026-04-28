@@ -55,20 +55,11 @@ func RouteCreate(c *gin.Context) {
 	}
 
 	route := model.Route{
-		Name:           req.Name,
-		ServiceID:      req.ServiceID,
-		UpstreamID:     req.UpstreamID,
-		PluginConfigID: req.PluginConfigID,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Route),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		ServiceID:           req.ServiceID,
+		UpstreamID:          req.UpstreamID,
+		PluginConfigID:      req.PluginConfigID,
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Route), req.Config),
 	}
 
 	if err := biz.CreateRoute(c.Request.Context(), route); err != nil {

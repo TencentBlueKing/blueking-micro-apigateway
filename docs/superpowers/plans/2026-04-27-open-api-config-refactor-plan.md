@@ -1,6 +1,7 @@
 # Open API Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变 Open API 外部协议的前提下，先修正 `update` 路径 outer `name` 未回写到 storage config、以及 middleware 对旧版本 schema 的临时 `id` 注入不够精确这两个已确认问题，再逐步收敛 `open api` 当前分散在 middleware、serializer、handler 三处的 `config` 整形、draft 组装和 request identity 复算问题。
 
@@ -101,7 +102,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ### Task 0: 补 Open handler / middleware characterization tests
 
-- [ ] Task 0: 补 Open handler / middleware characterization tests
+- [x] Task 0: 补 Open handler / middleware characterization tests
 
 **要解决的缺口：** 当前文档把 Task 0 写进了执行顺序和策略，但正文还没有单独任务去锁 `ResourceBatchCreate(...)`、`ResourceUpdate(...)` 和 `OpenAPIResourceCheck()` 的现状。先把真实请求路径测起来，后面再抽 builder / middleware helper。
 
@@ -111,7 +112,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - Create: `src/apiserver/pkg/apis/open/handler/resource_test.go`
 - Create: `src/apiserver/pkg/middleware/openapi_resource_check_test.go`
 
-- [ ] **Step 1: 在真实请求路径上补 Open characterization tests**
+- [x] **Step 1: 在真实请求路径上补 Open characterization tests**
+
+执行备注（2026-04-28）：按用户确认，Task 0 保持绿灯提交；`update outer name` 与 `ConsumerGroup on 3.2.15` 这两条原本的 failing-then-green 断言顺延到 Task 2a / Task 3a 实现时补入。
 
 至少覆盖下面 5 类现状，全部走现有 handler / middleware seam，**每条标注性质（锁现状 ／ failing-then-green）**：
 
@@ -121,7 +124,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - 【**failing-then-green**】`resource=ConsumerGroup` + `version=3.2.15` 时，`validationRaw` **不应**出现 `id` 字段；此 test 当前会因为不看 version 而失败，Task 3a make it green
 - 【锁现状，但同时作为 Task 4-5 是否落地的判定依据】batch create 完整走一遍 handler + middleware 后，分别拿 middleware 计算出的 `id` 与 serializer 最终落库的 `id` 做对比断言；若两者一致则 Task 4-5 可 defer，若不一致则 Task 4-5 需落地
 
-- [ ] **Step 2: 运行 Open seam tests，确认入口行为已经被锁住**
+- [x] **Step 2: 运行 Open seam tests，确认入口行为已经被锁住**
 
 Run:
 
@@ -132,7 +135,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/open/handler/resource_test.go src/apiserver/pkg/middleware/openapi_resource_check_test.go
@@ -143,7 +146,7 @@ git commit -m "test: lock open handler and middleware seams"
 
 ### Task 1: 抽出 Open batch create 的本地 draft builder
 
-- [ ] Task 1: 抽出 Open batch create 的本地 draft builder
+- [x] Task 1: 抽出 Open batch create 的本地 draft builder
 
 **要解决的复杂度：** `ResourceBatchCreateRequest.ToCommonResource(...)` 把“补 name”“生成 id”“组装 `ResourceCommonModel`”揉在一个循环里，后续只要多一种 create 变体就容易继续复制这段逻辑。
 
@@ -154,7 +157,7 @@ git commit -m "test: lock open handler and middleware seams"
 - Create: `src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/open/serializer/resource.go:57-82`
 
-- [ ] **Step 1: 先补 batch create 当前组装逻辑的失败测试**
+- [x] **Step 1: 先补 batch create 当前组装逻辑的失败测试**
 
 在 `open_resource_draft_helpers_test.go` 里新增：
 
@@ -205,7 +208,7 @@ func TestBuildOpenCreateDraft(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -216,7 +219,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: buildOpenCreateDraft`
 
-- [ ] **Step 3: 实现本地 builder，并让 `ToCommonResource(...)` 复用它**
+- [x] **Step 3: 实现本地 builder，并让 `ToCommonResource(...)` 复用它**
+
+执行备注（2026-04-28）：为保持 Task 1 为纯 refactor，本次 helper 保留了现有 create 路径对固定字面量 `name` 的判空逻辑，没有改成按 `GetResourceNameKey(resourceType)` 判空。
 
 在 `resource.go` 里新增（**review 重点要求：验证 `model.GetResourceNameKey(Consumer)` 的返回值**）：原代码判断的是 `gjson.GetBytes(r.Config, "name").String()` （**固定字面量 `name`**），helper 用的是 `GetResourceNameKey(resourceType)`。若 `GetResourceNameKey(Consumer) == "username"`，则对 Consumer 的判断从“name 是否为空”变成“username 是否为空”——这是一个行为差异，必须在 Task 0 characterization test 里显式记一笔并接受这种对齐（或者严格按原行为将 helper 改成固定判 `"name"`）。推荐前者：代码更一致。
 
@@ -253,7 +258,7 @@ for _, r := range rs {
 }
 ```
 
-- [ ] **Step 4: 运行 serializer 包测试**
+- [x] **Step 4: 运行 serializer 包测试**
 
 Run:
 
@@ -264,7 +269,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers.go src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go src/apiserver/pkg/apis/open/serializer/resource.go
@@ -274,8 +279,8 @@ git commit -m "refactor: extract open batch create draft builder"
 ### Task 2: 修正 Open update outer name 回写 + 抽出 update draft builder
 
 > **按 review 要求拆为 2a / 2b 两个 PR：**
-> - **Task 2a（correctness fix，failing-then-green）：** 在 Task 0 的“update 传 `name=foo` 时落库 config 应含 `name=foo`”质问下，让 `ResourceUpdateRequest.ToCommonResource(...)` 在执行前对 `r.Config` 做 `sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)` 注入；make previously-failing characterization test green；不引入新 helper。
-> - **Task 2b（纯 refactor）：** 再抽出 `buildOpenUpdateDraft(...)` helper，绑定 Task 2a 的行为。
+> - [x] **Task 2a（correctness fix，failing-then-green）：** 在 Task 0 的“update 传 `name=foo` 时落库 config 应含 `name=foo`”质问下，让 `ResourceUpdateRequest.ToCommonResource(...)` 在执行前对 `r.Config` 做 `sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)` 注入；make previously-failing characterization test green；不引入新 helper。
+> - [x] **Task 2b（纯 refactor）：** 再抽出 `buildOpenUpdateDraft(...)` helper，绑定 Task 2a 的行为。
 >
 > 理由：bugfix 和 refactor 不混在同一个 PR，便于 review 和 cherry-pick。
 
@@ -392,8 +397,8 @@ git commit -m "refactor: extract open update draft builder"
 ### Task 3: 修正 middleware version-aware 校验 + 抽出 validation payload helper
 
 > **按 review 要求拆为 3a / 3b 两个 PR：**
-> - **Task 3a（correctness fix，failing-then-green）：** 将 `OpenAPIResourceCheck()` 中 `constant.ResourceRequiresIDInSchema(resourceType)` 替换为 `constant.ResourceRequiresIDInSchemaForVersion(resourceType, version)`（后者已在 `constant/resource_schema.go` 中存在，不需新增）；make Task 0 中“ConsumerGroup on 3.2.15 不应包含 id”的 failing test 转绿；不引入新 helper。
-> - **Task 3b（纯 refactor）：** 再抽 `prepareOpenValidationPayload(...)` helper。
+> - [x] **Task 3a（correctness fix，failing-then-green）：** 将 `OpenAPIResourceCheck()` 中 `constant.ResourceRequiresIDInSchema(resourceType)` 替换为 `constant.ResourceRequiresIDInSchemaForVersion(resourceType, version)`（后者已在 `constant/resource_schema.go` 中存在，不需新增）；make Task 0 中“ConsumerGroup on 3.2.15 不应包含 id”的 failing test 转绿；不引入新 helper。
+> - [x] **Task 3b（纯 refactor）：** 再抽 `prepareOpenValidationPayload(...)` helper。
 
 ### Task 3: 抽出 Open middleware 的 validation payload helper
 
@@ -524,7 +529,7 @@ git commit -m "refactor: extract open validation payload helper"
 
 > **review YAGNI修正：** 原计划的 `OpenResolvedDraft` 同时包含 `ValidationConfig` 和 `StorageConfig`。Task 5 Step 3 的示例代码实际只消费了 `StorageConfig`，`ValidationConfig` 从诞生就是 dead code。**本次落地时 Task 4 的结构体只留 `ID` / `Name` / `StorageConfig` 3 个字段**，一旦将来有明确的“校验 id ≠ 落库 id”测试 demonstrate 证据，再补 `ValidationConfig` 字段。
 
-- [ ] Task 4: 引入 Open 域内的 resolved draft 上下文载体
+- [x] Task 4: 引入 Open 域内的 resolved draft 上下文载体
 
 **要解决的复杂度：** middleware 现在即使将来算出了更完整的 request identity，也没有一个 Open 域内明确的传递载体；后续很容易继续靠重复计算把逻辑摊回 serializer。
 
@@ -534,7 +539,7 @@ git commit -m "refactor: extract open validation payload helper"
 - Create: `src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context.go`
 - Create: `src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context_test.go`
 
-- [ ] **Step 1: 先补 context helper 的失败测试**
+- [x] **Step 1: 先补 context helper 的失败测试**
 
 在 `open_resolved_draft_context_test.go` 里新增：
 
@@ -564,7 +569,7 @@ func TestOpenResolvedDraftContextHelpers(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认结构和 helper 还不存在**
+- [x] **Step 2: 运行测试，确认结构和 helper 还不存在**
 
 Run:
 
@@ -575,7 +580,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: OpenResolvedDraft` / `undefined: SetOpenResolvedDrafts`
 
-- [ ] **Step 3: 实现 resolved draft 结构和 context helper**
+- [x] **Step 3: 实现 resolved draft 结构和 context helper**
 
 在 `open_resolved_draft_context.go` 里新增（**YAGNI：暂不加 ValidationConfig 字段**）：
 
@@ -621,7 +626,7 @@ t.Run("context key occupied with wrong type returns ok=false", func(t *testing.T
 })
 ```
 
-- [ ] **Step 4: 运行 serializer 包测试**
+- [x] **Step 4: 运行 serializer 包测试**
 
 Run:
 
@@ -632,7 +637,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context.go src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context_test.go
@@ -643,7 +648,7 @@ git commit -m "refactor: add open resolved draft context helpers"
 
 > **Review 必改：范围声明补充**——本 Task 需要修改 `ResourceBatchCreateRequest.ToCommonResource(...)` 的签名（从 `(gatewayID int, resourceType)` 改为 `(c *gin.Context, resourceType)`），这属于 public API change，需同步修改 `handler/resource.go` 中的所有调用点（目前只有 batch create handler 调用了它）。
 
-- [ ] Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
+- [x] Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
 
 **要解决的复杂度：** 当前 middleware 和 serializer 各自推导一次 request identity，create/batch create 很容易出现“校验时是一个 id，落库时是另一个 id”。
 
@@ -655,7 +660,7 @@ git commit -m "refactor: add open resolved draft context helpers"
 - Modify: `src/apiserver/pkg/apis/open/handler/resource.go`
 - Modify: `src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go`
 
-- [ ] **Step 1: 先补“复用 middleware draft”的失败测试**
+- [x] **Step 1: 先补“复用 middleware draft”的失败测试**
 
 在 `open_resource_draft_helpers_test.go` 中新增：
 
@@ -694,7 +699,7 @@ func TestResourceBatchCreateUsesOpenResolvedDrafts(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认现有实现还拿不到 middleware 的 draft**
+- [x] **Step 2: 运行测试，确认现有实现还拿不到 middleware 的 draft**
 
 Run:
 
@@ -705,7 +710,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，表现为 `ToCommonResource` 仍然重新生成 id，断言不通过
 
-- [ ] **Step 3: 改造 middleware / handler / serializer，让 resolved draft 真正贯通**
+- [x] **Step 3: 改造 middleware / handler / serializer，让 resolved draft 真正贯通**
+
+执行备注（2026-04-28）：Task 0 中原本用于证明 mismatch 的 batch create seam test 已在本任务里改成“validation id == persistence id”的新期望，并保持 `name/username` 注入行为不回退。
 
 按下面顺序改：
 
@@ -764,7 +771,7 @@ return resources
 resources := req.ToCommonResource(c, ginx.GetResourceType(c))
 ```
 
-- [ ] **Step 4: 运行 Open 相关测试**
+- [x] **Step 4: 运行 Open 相关测试**
 
 Run:
 
@@ -775,7 +782,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/middleware/openapi_resource_check.go src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context.go src/apiserver/pkg/apis/open/serializer/resource.go src/apiserver/pkg/apis/open/handler/resource.go

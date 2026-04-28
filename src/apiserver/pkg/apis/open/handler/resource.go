@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
@@ -79,7 +80,24 @@ func ResourceBatchCreate(c *gin.Context) {
 			errors.New("resource name is duplicated with existing"))
 		return
 	}
-	resources := req.ToCommonResource(ginx.GetGatewayInfo(c).ID, ginx.GetResourceType(c))
+	drafts, ok := serializer.GetOpenResolvedDrafts(c)
+	if !ok || len(drafts) != len(req) {
+		ginx.SystemErrorJSONResponse(c, fmt.Errorf(
+			"resolved open drafts mismatch: got %d, want %d",
+			len(drafts),
+			len(req),
+		))
+		return
+	}
+	resources := make([]*model.ResourceCommonModel, 0, len(drafts))
+	for _, draft := range drafts {
+		resources = append(resources, &model.ResourceCommonModel{
+			ID:        draft.ID,
+			GatewayID: ginx.GetGatewayInfo(c).ID,
+			Config:    datatypes.JSON(draft.StorageConfig),
+			Status:    constant.ResourceStatusCreateDraft,
+		})
+	}
 	// 批量创建资源
 	err = biz.BatchCreateResources(c.Request.Context(), ginx.GetResourceType(c), resources)
 	if err != nil {
@@ -281,7 +299,7 @@ func ResourceUpdate(c *gin.Context) {
 		return
 	}
 
-	resource := req.ToCommonResource(c, pathParam.ID, updateStatus)
+	resource := req.ToCommonResource(c, ginx.GetResourceType(c), pathParam.ID, updateStatus)
 	// 更新资源
 	err = biz.UpdateResource(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, resource)
 	if err != nil {

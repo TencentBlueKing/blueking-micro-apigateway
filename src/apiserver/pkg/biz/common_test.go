@@ -89,6 +89,57 @@ func TestParseOrderByExprList(t *testing.T) {
 	}
 }
 
+func TestInjectGeneratedIDForValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		resourceID   string
+		rawConfig    json.RawMessage
+		wantConfig   string
+	}{
+		{
+			name:         "injects id when schema requires it",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
+			resourceID:   "cg-generated-id",
+			rawConfig:    json.RawMessage(`{"plugins":{}}`),
+			wantConfig:   `{"plugins":{},"id":"cg-generated-id"}`,
+		},
+		{
+			name:         "keeps existing id",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion313,
+			resourceID:   "gr-generated-id",
+			rawConfig:    json.RawMessage(`{"id":"client-id","plugins":{}}`),
+			wantConfig:   `{"id":"client-id","plugins":{}}`,
+		},
+		{
+			name:         "skips injection when resource id is empty",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion311,
+			resourceID:   "",
+			rawConfig:    json.RawMessage(`{"plugins":{}}`),
+			wantConfig:   `{"plugins":{}}`,
+		},
+		{
+			name:         "skips injection for versions that do not require id",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion33,
+			resourceID:   "cg-generated-id",
+			rawConfig:    json.RawMessage(`{"plugins":{}}`),
+			wantConfig:   `{"plugins":{}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := InjectGeneratedIDForValidation(tt.rawConfig, tt.resourceType, tt.version, tt.resourceID)
+			assert.JSONEq(t, tt.wantConfig, string(got))
+		})
+	}
+}
+
 func TestGetResourcesLabels(t *testing.T) {
 	route := data.Route2WithNoRelationResource(gatewayInfo, constant.ResourceStatusCreateDraft)
 	// 创建资源

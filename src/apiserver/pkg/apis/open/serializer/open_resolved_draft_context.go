@@ -33,10 +33,12 @@ type OpenResolvedDraft struct {
 
 const openResolvedDraftsContextKey = "openapi_resolved_drafts"
 
+// SetOpenResolvedDrafts stores resolved Open drafts in gin.Context for later serializer reuse.
 func SetOpenResolvedDrafts(c *gin.Context, drafts []OpenResolvedDraft) {
 	c.Set(openResolvedDraftsContextKey, drafts)
 }
 
+// GetOpenResolvedDrafts reads resolved Open drafts from gin.Context.
 func GetOpenResolvedDrafts(c *gin.Context) ([]OpenResolvedDraft, bool) {
 	value, ok := c.Get(openResolvedDraftsContextKey)
 	if !ok {

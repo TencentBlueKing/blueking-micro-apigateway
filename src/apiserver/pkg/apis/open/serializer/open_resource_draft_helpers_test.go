@@ -123,16 +123,20 @@ func TestResourceBatchCreateUsesOpenResolvedDrafts(t *testing.T) {
 
 		SetOpenResolvedDrafts(c, []OpenResolvedDraft{
 			{
-				ID:            "pc-from-middleware",
-				Name:          "pc-demo",
-				StorageConfig: json.RawMessage(`{"id":"pc-from-middleware","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`),
+				ID:   "pc-from-middleware",
+				Name: "pc-demo",
+				StorageConfig: json.RawMessage(
+					`{"id":"pc-from-middleware","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`,
+				),
 			},
 		})
 
 		req := ResourceBatchCreateRequest{
 			{
-				Name:   "pc-demo",
-				Config: json.RawMessage(`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`),
+				Name: "pc-demo",
+				Config: json.RawMessage(
+					`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`,
+				),
 			},
 		}
 

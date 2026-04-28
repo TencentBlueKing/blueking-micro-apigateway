@@ -202,8 +202,11 @@ func TestResourceBatchCreateInjectsNameAndUsernameAtHandlerSeam(t *testing.T) {
 			assert.Equal(t, constant.ResourceStatusCreateDraft, created[0].Status)
 			tt.assertConfig(t, created[0])
 			assert.Equal(t, created[0].ID, gjson.Get(recorder.Body.String(), "data.0.id").String())
-			assert.Equal(t, gjson.GetBytes(created[0].Config, model.GetResourceNameKey(tt.resourceType)).String(),
-				gjson.Get(recorder.Body.String(), "data.0.name").String())
+			assert.Equal(
+				t,
+				gjson.GetBytes(created[0].Config, model.GetResourceNameKey(tt.resourceType)).String(),
+				gjson.Get(recorder.Body.String(), "data.0.name").String(),
+			)
 		})
 	}
 }
@@ -300,7 +303,7 @@ func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 	)
 	patches.ApplyFunc(
 		biz.DuplicatedResourceName,
-		func(ctx context.Context, resourceType constant.APISIXResource, id string, name string) bool {
+		func(ctx context.Context, resourceType constant.APISIXResource, id, name string) bool {
 			assert.Equal(t, constant.Route, resourceType)
 			assert.Equal(t, "route-id", id)
 			assert.Equal(t, "route-demo", name)

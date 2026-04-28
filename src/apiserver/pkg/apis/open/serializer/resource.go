@@ -30,7 +30,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
@@ -136,16 +135,7 @@ func (r ResourceUpdateRequest) ToCommonResource(
 	if r.Name != "" {
 		config, _ = sjson.SetBytes(config, model.GetResourceNameKey(resourceType), r.Name)
 	}
-	resource := &model.ResourceCommonModel{
-		ID:        id,
-		GatewayID: ginx.GetGatewayInfo(c).ID,
-		Config:    datatypes.JSON(config),
-		Status:    status,
-		BaseModel: model.BaseModel{
-			Updater: ginx.GetUserID(c),
-		},
-	}
-	return resource
+	return buildOpenUpdateDraft(c, id, status, config)
 }
 
 // ResourceImportRequest 资源导入请求

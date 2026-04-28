@@ -25,7 +25,6 @@ import (
 	"fmt"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
@@ -125,27 +124,21 @@ func HandleUploadResources(
 	allSchemaMap map[string]any,
 	ignoreFields map[constant.APISIXResource][]string,
 ) (*HandlerResourceResult, error) {
-	// 分类聚合
-	allResourceIdMap := make(map[string]struct{})
-	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap, ignoreFields)
+	validationInput, err := prepareImportValidationInput(ctx, resourcesImport, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
-	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap, ignoreFields)
-	if err != nil {
-		return nil, err
-	}
-	err = biz.ValidateResource(ctx, resourceTypeAddMap, allResourceIdMap, allSchemaMap)
+	err = biz.ValidateResource(ctx, validationInput.Add, validationInput.AllResourceIDs, allSchemaMap)
 	if err != nil {
 		return nil, fmt.Errorf("add resources validate failed, err: %w", err)
 	}
-	err = biz.ValidateResource(ctx, resourceTypeUpdateMap, allResourceIdMap, allSchemaMap)
+	err = biz.ValidateResource(ctx, validationInput.Update, validationInput.AllResourceIDs, allSchemaMap)
 	if err != nil {
 		return nil, fmt.Errorf("updated resources validate failed, err: %w", err)
 	}
 	return &HandlerResourceResult{
-		AddResourceTypeMap:    resourceTypeAddMap,
-		UpdateResourceTypeMap: resourceTypeUpdateMap,
+		AddResourceTypeMap:    validationInput.Add,
+		UpdateResourceTypeMap: validationInput.Update,
 	}, nil
 }
 
@@ -251,63 +244,4 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 		AllSchemaMap:         allSchemaMap,
 		ResourceTypeMap:      resourceTypeMap,
 	}, nil
-}
-
-func handleResources(
-	ctx context.Context,
-	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
-	allResourceIdMap map[string]struct{},
-	ignoreFields map[constant.APISIXResource][]string,
-) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
-	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	for resourceType, resourceInfoList := range resourcesImport {
-		if resourceType == constant.Schema {
-			continue
-		}
-		allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
-		if err != nil {
-			return nil, fmt.Errorf("get exist resources failed, err: %w", err)
-		}
-		allResourceMap := make(map[string]model.ResourceCommonModel)
-		for _, resource := range allResourceList {
-			allResourceMap[resource.GetResourceKey(resourceType)] = resource
-			allResourceIdMap[resource.GetResourceKey(resourceType)] = struct{}{}
-		}
-		for _, imp := range resourceInfoList {
-			// 如果 id 为空，直接报错
-			if imp.ResourceID == "" {
-				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
-			}
-			// 如果已经存在，则需要判断是否有跳过规则
-			oldResource, ok := allResourceMap[imp.GetResourceKey()]
-			if len(ignoreFields[resourceType]) > 0 && ok {
-				for _, skipRule := range ignoreFields[resourceType] {
-					result := gjson.GetBytes(oldResource.Config, skipRule)
-					if result.Exists() {
-						imp.Config, err = sjson.SetBytes(
-							imp.Config,
-							skipRule,
-							json.RawMessage(result.Raw),
-						)
-						if err != nil {
-							return nil, fmt.Errorf("set config failed, err: %w", err)
-						}
-					}
-				}
-			}
-			allResourceIdMap[imp.GetResourceKey()] = struct{}{}
-			resourceImp := &model.GatewaySyncData{
-				Type:      resourceType,
-				ID:        imp.ResourceID,
-				Config:    datatypes.JSON(imp.Config),
-				GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
-			}
-			if _, ok := resourceTypeMap[imp.ResourceType]; !ok {
-				resourceTypeMap[resourceType] = []*model.GatewaySyncData{resourceImp}
-				continue
-			}
-			resourceTypeMap[resourceType] = append(resourceTypeMap[resourceType], resourceImp)
-		}
-	}
-	return resourceTypeMap, nil
 }

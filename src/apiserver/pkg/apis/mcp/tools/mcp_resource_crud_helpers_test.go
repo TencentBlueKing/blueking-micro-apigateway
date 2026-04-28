@@ -104,3 +104,31 @@ func TestPrepareMCPUpdateConfig(t *testing.T) {
 		assert.False(t, gjson.GetBytes(config, "name").Exists())
 	})
 }
+
+func TestBuildMCPCreateDraft(t *testing.T) {
+	t.Parallel()
+
+	t.Run("route", func(t *testing.T) {
+		config := []byte(`{"name":"route-demo","uri":"/demo"}`)
+		got := buildMCPCreateDraft(17, "route-id", config)
+
+		assert.Equal(t, "route-id", got.ID)
+		assert.Equal(t, 17, got.GatewayID)
+		assert.Equal(t, constant.ResourceStatusCreateDraft, got.Status)
+		assert.Equal(t, "mcp", got.Creator)
+		assert.Equal(t, "mcp", got.Updater)
+		assert.JSONEq(t, `{"name":"route-demo","uri":"/demo"}`, string(got.Config))
+	})
+
+	t.Run("consumer", func(t *testing.T) {
+		config := []byte(`{"username":"consumer-demo","plugins":{}}`)
+		got := buildMCPCreateDraft(17, "consumer-id", config)
+
+		assert.Equal(t, "consumer-id", got.ID)
+		assert.Equal(t, 17, got.GatewayID)
+		assert.Equal(t, constant.ResourceStatusCreateDraft, got.Status)
+		assert.Equal(t, "mcp", got.Creator)
+		assert.Equal(t, "mcp", got.Updater)
+		assert.JSONEq(t, `{"username":"consumer-demo","plugins":{}}`, string(got.Config))
+	})
+}

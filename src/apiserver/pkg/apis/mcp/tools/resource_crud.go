@@ -28,7 +28,6 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
@@ -286,17 +285,7 @@ func createResourceHandler(
 		return errorResult(err), nil, nil
 	}
 
-	// Create resource model
-	resource := model.ResourceCommonModel{
-		ID:        resourceID,
-		GatewayID: gateway.ID,
-		Config:    datatypes.JSON(config),
-		Status:    constant.ResourceStatusCreateDraft,
-		BaseModel: model.BaseModel{
-			Creator: "mcp",
-			Updater: "mcp",
-		},
-	}
+	resource := buildMCPCreateDraft(gateway.ID, resourceID, config)
 
 	// Convert to specific resource type and create
 	specificResource := resource.ToResourceModel(resourceType)

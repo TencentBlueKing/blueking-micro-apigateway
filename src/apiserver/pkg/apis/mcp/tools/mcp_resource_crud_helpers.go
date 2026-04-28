@@ -24,6 +24,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -83,4 +84,29 @@ func prepareMCPUpdateConfig(
 	}
 
 	return config, nil
+}
+
+// MCP stays local for now: we only deduplicate MCP's own config prep and
+// draft assembly. It does not join the cross-domain abstraction track unless a
+// later change proves very high leverage.
+//
+// Intentional signature drift vs. web's buildWebCreateDraft(c *gin.Context,
+// ...): MCP is invoked from an MCP tool handler with no gin.Context in scope,
+// so the helper takes gatewayID directly. Do not align this signature with the
+// web helper.
+func buildMCPCreateDraft(
+	gatewayID int,
+	resourceID string,
+	config []byte,
+) model.ResourceCommonModel {
+	return model.ResourceCommonModel{
+		ID:        resourceID,
+		GatewayID: gatewayID,
+		Config:    datatypes.JSON(config),
+		Status:    constant.ResourceStatusCreateDraft,
+		BaseModel: model.BaseModel{
+			Creator: "mcp",
+			Updater: "mcp",
+		},
+	}
 }

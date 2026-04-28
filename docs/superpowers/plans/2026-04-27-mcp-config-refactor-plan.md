@@ -421,7 +421,7 @@ git commit -m "refactor: extract mcp update config helper"
 
 ### Task 3: 抽出 MCP create draft 组装 helper，并明确 MCP 保持本地的边界
 
-- [ ] Task 3: 抽出 MCP create draft 组装 helper，并明确 MCP 保持本地的边界
+- [x] Task 3: 抽出 MCP create draft 组装 helper，并明确 MCP 保持本地的边界
 
 **要解决的复杂度：** create handler 里仍然手写了 `ResourceCommonModel` 组装；如果不把这层也收掉，MCP 依旧是第四套手工 draft builder。
 
@@ -433,7 +433,7 @@ git commit -m "refactor: extract mcp update config helper"
 - Modify: `src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud.go:305-323`
 
-- [ ] **Step 1: 先补 draft 组装测试**
+- [x] **Step 1: 先补 draft 组装测试**
 
 在 `mcp_resource_crud_helpers_test.go` 里新增（**review 补充**：至少覆盖 route 和 consumer 两个资源类型，在多资源类型上同时锁住 `Creator/Updater="mcp"` + `Status=create_draft` 这 3 个不变量）：
 
@@ -467,7 +467,7 @@ func TestBuildMCPCreateDraft(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -479,7 +479,7 @@ Expected:
 
 - FAIL，报 `undefined: buildMCPCreateDraft`
 
-- [ ] **Step 3: 实现 helper，迁移 create handler，并加上 MCP 本地边界注释**
+- [x] **Step 3: 实现 helper，迁移 create handler，并加上 MCP 本地边界注释**
 
 在 `mcp_resource_crud_helpers.go` 中补充（**review 补充**：注释中明确 MCP helper 签名不要向 web `buildWebCreateDraft(c *gin.Context, ...)` 对齐——MCP 没有 gin.Context，保持 `gatewayID int`）：
 
@@ -517,7 +517,7 @@ specificResource := resource.ToResourceModel(resourceType)
 
 这一步只收敛 draft 组装，不顺手改 `biz.CreateResource(...)` 的更大契约。
 
-- [ ] **Step 4: 运行 MCP tools 包测试**
+- [x] **Step 4: 运行 MCP tools 包测试**
 
 Run:
 
@@ -529,7 +529,7 @@ Expected:
 
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers.go src/apiserver/pkg/apis/mcp/tools/mcp_resource_crud_helpers_test.go src/apiserver/pkg/apis/mcp/tools/resource_crud.go

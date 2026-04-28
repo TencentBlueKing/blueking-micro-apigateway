@@ -76,7 +76,11 @@ func cleanupPublishPayloadFields(input publishPayloadCleanupInput) json.RawMessa
 	cleaned := append(json.RawMessage(nil), input.RawConfig...)
 	for _, rule := range publishPayloadCleanupRules[input.ResourceType] {
 		if rule.VersionGated &&
-			!constant.ShouldRemoveFieldBeforeValidationOrPublish(input.ResourceType, rule.Field, input.Version) {
+			!constant.ShouldRemoveFieldBeforeValidationOrPublish(
+				input.ResourceType,
+				rule.Field,
+				input.Version,
+			) {
 			continue
 		}
 		cleaned, _ = sjson.DeleteBytes(cleaned, rule.Field)

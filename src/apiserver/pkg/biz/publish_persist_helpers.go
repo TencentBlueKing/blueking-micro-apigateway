@@ -37,7 +37,12 @@ func persistPublishedOperations(
 	if err := batchCreateEtcdResource(ctx, ops); err != nil {
 		return err
 	}
-	if err := BatchUpdateResourceStatus(ctx, resourceType, resourceIDs, constant.ResourceStatusSuccess); err != nil {
+	if err := BatchUpdateResourceStatus(
+		ctx,
+		resourceType,
+		resourceIDs,
+		constant.ResourceStatusSuccess,
+	); err != nil {
 		logging.ErrorFWithContext(ctx, "%s status change err: %s", resourceType, err.Error())
 		return fmt.Errorf("%s：%w", errMessage, err)
 	}

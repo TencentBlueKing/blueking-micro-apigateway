@@ -416,7 +416,11 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, streamRoute.ID, mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID).ID)
+		assert.Equal(
+			t,
+			streamRoute.ID,
+			mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID).ID,
+		)
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
 		assert.Equal(t, service.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID).ID)
 	})

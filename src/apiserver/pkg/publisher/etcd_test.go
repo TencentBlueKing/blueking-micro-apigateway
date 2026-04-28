@@ -509,8 +509,16 @@ var _ = Describe("EtcdPublisher", func() {
 				)
 
 				err := p.validatePublishOperations([]ResourceOperation{
-					{Type: constant.PluginConfig, Key: "pc-id", Config: json.RawMessage(`{"plugins":{}}`)},
-					{Type: constant.GlobalRule, Key: "gr-id", Config: json.RawMessage(`{"plugins":{}}`)},
+					{
+						Type:   constant.PluginConfig,
+						Key:    "pc-id",
+						Config: json.RawMessage(`{"plugins":{}}`),
+					},
+					{
+						Type:   constant.GlobalRule,
+						Key:    "gr-id",
+						Config: json.RawMessage(`{"plugins":{}}`),
+					},
 				})
 				assert.Error(GinkgoT(), err)
 				assert.Equal(GinkgoT(), "invalid plugin config", err.Error())

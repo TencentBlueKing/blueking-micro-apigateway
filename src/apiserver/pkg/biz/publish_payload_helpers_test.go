@@ -148,8 +148,10 @@ func TestBuildPublishResourceOperation(t *testing.T) {
 					CreateTime: 1700000000,
 					UpdateTime: 1700000001,
 				},
-				Version:   constant.APISIXVersion311,
-				RawConfig: json.RawMessage(`{"config":{"log_format":{"client_ip":"$remote_addr"}},"name":"limit-count"}`),
+				Version: constant.APISIXVersion311,
+				RawConfig: json.RawMessage(
+					`{"config":{"log_format":{"client_ip":"$remote_addr"}},"name":"limit-count"}`,
+				),
 			},
 			wantKey:    "limit-count",
 			wantConfig: `{"id":"limit-count","create_time":1700000000,"update_time":1700000001,"config":{"log_format":{"client_ip":"$remote_addr"}},"name":"limit-count"}`,

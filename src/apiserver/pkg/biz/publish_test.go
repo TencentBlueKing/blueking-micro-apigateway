@@ -356,7 +356,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
 	})
 
-	t.Run("upstream does not publish ssl dependency with current seam", func(t *testing.T) {
+	t.Run("upstream publishes ssl dependency", func(t *testing.T) {
 		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
 
 		ssl := data.SSL1(gateway, constant.ResourceStatusCreateDraft)
@@ -365,11 +365,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 		}
 
 		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusCreateDraft)
-		var err error
-		upstream.Config, err = sjson.SetBytes(upstream.Config, "tls.client_cert_id", ssl.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		upstream.SSLID = ssl.ID
 		if err := CreateUpstream(ctx, *upstream); err != nil {
 			t.Fatal(err)
 		}
@@ -379,16 +375,12 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 		}
 
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
-		if _, err := SyncResources(ctx, constant.SSL); err != nil {
-			t.Fatal(err)
-		}
-		_, err = GetSyncedItemByResourceTypeAndID(ctx, constant.SSL, ssl.ID)
-		assert.Error(t, err)
+		assert.Equal(t, ssl.ID, mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID).ID)
 		storedSSL, err := GetSSL(ctx, ssl.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		assert.Equal(t, constant.ResourceStatusCreateDraft, storedSSL.Status)
+		assert.Equal(t, constant.ResourceStatusSuccess, storedSSL.Status)
 	})
 
 	t.Run("stream route publishes service and upstream dependencies", func(t *testing.T) {

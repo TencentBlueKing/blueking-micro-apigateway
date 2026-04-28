@@ -67,7 +67,7 @@ func TestCollectUpstreamPublishDependencies(t *testing.T) {
 	upstreams := []*model.Upstream{
 		{
 			ResourceCommonModel: model.ResourceCommonModel{
-				Config: datatypes.JSON(`{"tls":{"client_key":"ssl-1"}}`),
+				Config: datatypes.JSON(`{"tls":{"client_cert_id":"ssl-1"}}`),
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestCollectUpstreamPublishDependencies(t *testing.T) {
 		},
 		{
 			ResourceCommonModel: model.ResourceCommonModel{
-				Config: datatypes.JSON(`{"tls":{"client_key":"ssl-2"}}`),
+				Config: datatypes.JSON(`{"tls":{"client_cert_id":"ssl-2"}}`),
 			},
 		},
 	}

@@ -87,7 +87,7 @@ func (r ResourceCommonModel) GetGroupID() string {
 
 // GetSSLID 获取 ssl id
 func (r ResourceCommonModel) GetSSLID() string {
-	return gjson.GetBytes(r.Config, "tls.client_key").String()
+	return gjson.GetBytes(r.Config, "tls.client_cert_id").String()
 }
 
 // GetName 获取 name

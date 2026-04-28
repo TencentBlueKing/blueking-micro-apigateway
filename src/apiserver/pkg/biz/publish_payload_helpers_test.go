@@ -60,6 +60,13 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			wantConfig:   `{"id":"cg-id","name":"cg-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
 		},
 		{
+			name:         "plugin config keeps id and name",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion311,
+			rawConfig:    `{"id":"pc-id","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+			wantConfig:   `{"id":"pc-id","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		},
+		{
 			name:         "global rule drops name",
 			resourceType: constant.GlobalRule,
 			version:      constant.APISIXVersion311,
@@ -171,6 +178,22 @@ func TestBuildPublishResourceOperation(t *testing.T) {
 			},
 			wantKey:    "cg-id",
 			wantConfig: `{"id":"cg-id","create_time":1700000000,"update_time":1700000001,"plugins":{}}`,
+		},
+		{
+			name: "plugin config keeps id and name in 3.11",
+			input: publishResourceOperationInput{
+				ResourceType: constant.PluginConfig,
+				ResourceKey:  "pc-id",
+				BaseInfo: entity.BaseInfo{
+					ID:         "pc-id",
+					CreateTime: 1700000000,
+					UpdateTime: 1700000001,
+				},
+				Version:   constant.APISIXVersion311,
+				RawConfig: json.RawMessage(`{"id":"pc-id","name":"pc-demo","plugins":{}}`),
+			},
+			wantKey:    "pc-id",
+			wantConfig: `{"id":"pc-id","name":"pc-demo","create_time":1700000000,"update_time":1700000001,"plugins":{}}`,
 		},
 	}
 

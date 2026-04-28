@@ -47,6 +47,10 @@ type ResourceCommonPathParam struct {
 }
 
 type webValidationInput struct {
+	ResourceType     constant.APISIXResource
+	Version          constant.APISIXVersion
+	ResourceID       string
+	Name             string
 	RawConfig        json.RawMessage
 	FallbackIdentity string
 }
@@ -56,6 +60,31 @@ func resolveWebValidationIdentity(input webValidationInput) (string, bool) {
 		return identity, false
 	}
 	return input.FallbackIdentity, true
+}
+
+func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, string) {
+	rawConfig := injectGeneratedIDForValidation(
+		input.RawConfig,
+		input.ResourceType,
+		input.Version,
+		input.ResourceID,
+	)
+
+	resourceIdentification, usedFallback := resolveWebValidationIdentity(webValidationInput{
+		RawConfig:        rawConfig,
+		FallbackIdentity: input.FallbackIdentity,
+	})
+	if usedFallback && shouldInjectResourceNameForValidation(input.ResourceType, input.Version) {
+		rawConfig, _ = sjson.SetBytes(
+			rawConfig,
+			model.GetResourceNameKey(input.ResourceType),
+			resourceIdentification,
+		)
+	}
+	if input.ResourceType == constant.PluginMetadata {
+		rawConfig, _ = sjson.SetBytes(rawConfig, "id", input.Name)
+	}
+	return rawConfig, resourceIdentification
 }
 
 // CheckAPISIXConfig 校验 APISIX 配置 schema
@@ -72,23 +101,14 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	// the plain string name.
 	resourceTypeName := resourceType.String()
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	rawConfig = injectGeneratedIDForValidation(
-		rawConfig,
-		resourceType,
-		gatewayInfo.GetAPISIXVersionX(),
-		fl.Parent().FieldByName("ID").String(),
-	)
-	resourceIdentification, usedFallback := resolveWebValidationIdentity(webValidationInput{
+	rawConfig, resourceIdentification := prepareWebValidationPayload(webValidationInput{
+		ResourceType:     resourceType,
+		Version:          gatewayInfo.GetAPISIXVersionX(),
+		ResourceID:       fl.Parent().FieldByName("ID").String(),
+		Name:             fl.Parent().FieldByName("Name").String(),
 		RawConfig:        rawConfig,
 		FallbackIdentity: getResourceNameByResourceType(resourceTypeName, fl),
 	})
-	if usedFallback && shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
-		rawConfig, _ = sjson.SetBytes(
-			rawConfig,
-			model.GetResourceNameKey(resourceType),
-			resourceIdentification,
-		)
-	}
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(
 		gatewayInfo.GetAPISIXVersionX(),
@@ -99,10 +119,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 			resourceIdentification, err)
 		logging.Errorf("new schema validator failed, err: %v", err)
 		return false
-	}
-	// metadata 校验需要带上插件 name
-	if resourceTypeName == constant.PluginMetadata.String() {
-		rawConfig, _ = sjson.SetBytes(rawConfig, "id", fl.Parent().FieldByName("Name").String())
 	}
 	if err = schemaValidator.Validate(rawConfig); err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err

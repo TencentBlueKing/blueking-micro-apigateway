@@ -258,6 +258,91 @@ func TestResolveWebValidationIdentity(t *testing.T) {
 	}
 }
 
+func TestPrepareWebValidationPayload(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		input        webValidationInput
+		wantPayload  string
+		wantIdentity string
+	}{
+		{
+			name: "consumer group injects generated id and then uses that id as identity on 3.13",
+			input: webValidationInput{
+				ResourceType:     constant.ConsumerGroup,
+				Version:          constant.APISIXVersion313,
+				ResourceID:       "cg-generated-id",
+				FallbackIdentity: "cg-demo",
+				RawConfig:        json.RawMessage(`{"plugins":{}}`),
+			},
+			wantPayload:  `{"plugins":{},"id":"cg-generated-id"}`,
+			wantIdentity: "cg-generated-id",
+		},
+		{
+			name: "proto on 3.11 keeps name out of payload",
+			input: webValidationInput{
+				ResourceType:     constant.Proto,
+				Version:          constant.APISIXVersion311,
+				FallbackIdentity: "proto-demo",
+				RawConfig:        json.RawMessage(`{"content":"syntax = \"proto3\";"}`),
+			},
+			wantPayload:  `{"content":"syntax = \"proto3\";"}`,
+			wantIdentity: "proto-demo",
+		},
+		{
+			name: "plugin metadata uses outer name as id on update-like input",
+			input: webValidationInput{
+				ResourceType:     constant.PluginMetadata,
+				Version:          constant.APISIXVersion313,
+				ResourceID:       "existing-plugin-metadata-id",
+				Name:             "authz-casbin",
+				FallbackIdentity: "authz-casbin",
+				RawConfig: json.RawMessage(`{
+					"model": "rbac_model.conf",
+					"policy": "rbac_policy.csv"
+				}`),
+			},
+			wantPayload: `{
+				"model": "rbac_model.conf",
+				"policy": "rbac_policy.csv",
+				"id": "authz-casbin"
+			}`,
+			wantIdentity: "authz-casbin",
+		},
+		{
+			name: "ssl never injects name",
+			input: webValidationInput{
+				ResourceType:     constant.SSL,
+				Version:          constant.APISIXVersion313,
+				FallbackIdentity: "ssl-demo",
+				RawConfig:        json.RawMessage(`{"cert":"demo","key":"demo","snis":["demo.com"]}`),
+			},
+			wantPayload:  `{"cert":"demo","key":"demo","snis":["demo.com"]}`,
+			wantIdentity: "ssl-demo",
+		},
+		{
+			name: "existing config id stays authoritative when fallback is empty",
+			input: webValidationInput{
+				ResourceType: constant.ConsumerGroup,
+				Version:      constant.APISIXVersion313,
+				ResourceID:   "cg-generated-id",
+				RawConfig:    json.RawMessage(`{"id":"cg-fixed","plugins":{}}`),
+			},
+			wantPayload:  `{"id":"cg-fixed","plugins":{}}`,
+			wantIdentity: "cg-fixed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPayload, gotIdentity := prepareWebValidationPayload(tt.input)
+			assert.JSONEq(t, tt.wantPayload, string(gotPayload))
+			assert.Equal(t, tt.wantIdentity, gotIdentity)
+		})
+	}
+}
+
 func TestShouldInjectResourceNameForValidation(t *testing.T) {
 	tests := []struct {
 		name         string

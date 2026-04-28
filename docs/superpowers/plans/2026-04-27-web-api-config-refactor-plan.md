@@ -281,7 +281,7 @@ git commit -m "refactor: extract web validation identity helper"
 >
 > 如果 PR 体积在可接受范围内（e.g. <200 行改动），可以不拆；但执行者需明确意识到 helper 在一次抽多层行为。
 
-- [ ] Task 2: 抽出 Web 本地 validation payload helper
+- [x] Task 2: 抽出 Web 本地 validation payload helper
 
 **要解决的复杂度：** 现在 `id` 注入、`name/username` 注入、`plugin_metadata.id = name` 都埋在 `CheckAPISIXConfig()` 主流程里，修改时必须通读整段 validator。
 
@@ -291,7 +291,7 @@ git commit -m "refactor: extract web validation identity helper"
 - Modify: `src/apiserver/pkg/apis/web/serializer/common.go:49-127`
 - Modify: `src/apiserver/pkg/apis/web/serializer/common_test.go`
 
-- [ ] **Step 1: 先补当前 payload 整形矩阵测试**
+- [x] **Step 1: 先补当前 payload 整形矩阵测试**
 
 在 `common_test.go` 里新增：
 
@@ -300,63 +300,89 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		input webValidationInput
-		want string
+		name         string
+		input        webValidationInput
+		wantPayload  string
+		wantIdentity string
 	}{
 		{
-			name: "consumer group injects generated id on 3.13",
+			name: "consumer group injects generated id and then uses that id as identity on 3.13",
 			input: webValidationInput{
-				ResourceType: constant.ConsumerGroup,
-				Version:      constant.APISIXVersion313,
-				ResourceID:   "cg-generated-id",
-				Name:         "cg-demo",
-				RawConfig:    json.RawMessage(`{"plugins":{}}`),
+				ResourceType:     constant.ConsumerGroup,
+				Version:          constant.APISIXVersion313,
+				ResourceID:       "cg-generated-id",
+				FallbackIdentity: "cg-demo",
+				RawConfig:        json.RawMessage(`{"plugins":{}}`),
 			},
-			want: `{"plugins":{},"id":"cg-generated-id","name":"cg-demo"}`,
+			wantPayload:  `{"plugins":{},"id":"cg-generated-id"}`,
+			wantIdentity: "cg-generated-id",
 		},
 		{
 			name: "proto on 3.11 keeps name out of payload",
 			input: webValidationInput{
-				ResourceType: constant.Proto,
-				Version:      constant.APISIXVersion311,
-				Name:         "proto-demo",
-				RawConfig:    json.RawMessage(`{"content":"syntax = \\\"proto3\\\";"}`),
+				ResourceType:     constant.Proto,
+				Version:          constant.APISIXVersion311,
+				FallbackIdentity: "proto-demo",
+				RawConfig:        json.RawMessage(`{"content":"syntax = \\\"proto3\\\";"}`),
 			},
-			want: `{"content":"syntax = \"proto3\";"}`,
+			wantPayload:  `{"content":"syntax = \"proto3\";"}`,
+			wantIdentity: "proto-demo",
 		},
 		{
-			name: "plugin metadata uses outer name as id",
+			name: "plugin metadata uses outer name as id on update-like input",
 			input: webValidationInput{
-				ResourceType: constant.PluginMetadata,
-				Version:      constant.APISIXVersion313,
-				Name:         "cors",
-				RawConfig:    json.RawMessage(`{"log_format":{"client_ip":"$remote_addr"}}`),
+				ResourceType:     constant.PluginMetadata,
+				Version:          constant.APISIXVersion313,
+				ResourceID:       "existing-plugin-metadata-id",
+				Name:             "authz-casbin",
+				FallbackIdentity: "authz-casbin",
+				RawConfig: json.RawMessage(`{
+					"model": "rbac_model.conf",
+					"policy": "rbac_policy.csv"
+				}`),
 			},
-			want: `{"log_format":{"client_ip":"$remote_addr"},"id":"cors"}`,
+			wantPayload: `{
+				"model": "rbac_model.conf",
+				"policy": "rbac_policy.csv",
+				"id": "authz-casbin"
+			}`,
+			wantIdentity: "authz-casbin",
 		},
 		{
 			name: "ssl never injects name",
 			input: webValidationInput{
-				ResourceType: constant.SSL,
-				Version:      constant.APISIXVersion313,
-				Name:         "ssl-demo",
-				RawConfig:    json.RawMessage(`{"cert":"demo","key":"demo","snis":["demo.com"]}`),
+				ResourceType:     constant.SSL,
+				Version:          constant.APISIXVersion313,
+				FallbackIdentity: "ssl-demo",
+				RawConfig:        json.RawMessage(`{"cert":"demo","key":"demo","snis":["demo.com"]}`),
 			},
-			want: `{"cert":"demo","key":"demo","snis":["demo.com"]}`,
+			wantPayload:  `{"cert":"demo","key":"demo","snis":["demo.com"]}`,
+			wantIdentity: "ssl-demo",
+		},
+		{
+			name: "existing config id stays authoritative when fallback is empty",
+			input: webValidationInput{
+				ResourceType: constant.ConsumerGroup,
+				Version:      constant.APISIXVersion313,
+				ResourceID:   "cg-generated-id",
+				RawConfig:    json.RawMessage(`{"id":"cg-fixed","plugins":{}}`),
+			},
+			wantPayload:  `{"id":"cg-fixed","plugins":{}}`,
+			wantIdentity: "cg-fixed",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := prepareWebValidationPayload(tt.input)
-			assert.JSONEq(t, tt.want, string(got))
+			gotPayload, gotIdentity := prepareWebValidationPayload(tt.input)
+			assert.JSONEq(t, tt.wantPayload, string(gotPayload))
+			assert.Equal(t, tt.wantIdentity, gotIdentity)
 		})
 	}
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 helper 还不存在**
+- [x] **Step 2: 运行测试，确认 helper 还不存在**
 
 Run:
 
@@ -365,26 +391,22 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 ```
 
 Expected:
-- FAIL，报 `undefined: prepareWebValidationPayload`
+- FAIL，报 `undefined: prepareWebValidationPayload` 或 `webValidationInput` 尚未扩展出 Task 2 需要的字段
 
-- [ ] **Step 3: 提取 payload builder，并让 `CheckAPISIXConfig()` 只做 orchestration**
+- [x] **Step 3: 提取 payload builder，并让 `CheckAPISIXConfig()` 只做 orchestration**
 
 **注意（review 修正）：** `prepareWebValidationPayload` **内部会调用一次 `resolveWebValidationIdentity`**；为避免 `CheckAPISIXConfig()` 外部再算一次 identity 导致重复计算，Task 2 的 helper 返回 `(rawConfig, identity)` 二元组，`CheckAPISIXConfig()` 消费后不再自行调用 identity helper。
 
-同时在 Task 1 的 `webValidationInput` 基础上扩充 `Version` / `ResourceID`。在 `common.go` 增加：
+同时在 Task 1 的 `webValidationInput` 基础上扩充 `ResourceType` / `Version` / `ResourceID` / `Name`；继续保留 `FallbackIdentity` 作为调用点已算好的 current-seam fallback。在 `common.go` 增加：
 
 ```go
-// Task 2 extends Task 1's webValidationInput with Version + ResourceID;
-// prepareWebValidationPayload returns both the normalized rawConfig AND the
-// identity it computed, so that CheckAPISIXConfig() does not re-run
-// resolveWebValidationIdentity a second time.
 type webValidationInput struct {
-	ResourceType constant.APISIXResource
-	Version      constant.APISIXVersion
-	ResourceID   string
-	Name         string
-	Username     string
-	RawConfig    json.RawMessage
+	ResourceType     constant.APISIXResource
+	Version          constant.APISIXVersion
+	ResourceID       string
+	Name             string
+	RawConfig        json.RawMessage
+	FallbackIdentity string
 }
 
 func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, string) {
@@ -395,14 +417,12 @@ func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, str
 		input.ResourceID,
 	)
 
-	identity := resolveWebValidationIdentity(webValidationInput{
-		ResourceType: input.ResourceType,
-		Name:         input.Name,
-		Username:     input.Username,
-		RawConfig:    rawConfig,
+	identity, usedFallback := resolveWebValidationIdentity(webValidationInput{
+		RawConfig:         rawConfig,
+		FallbackIdentity: input.FallbackIdentity,
 	})
 
-	if identity != "" && shouldInjectResourceNameForValidation(input.ResourceType, input.Version) {
+	if usedFallback && shouldInjectResourceNameForValidation(input.ResourceType, input.Version) {
 		rawConfig, _ = sjson.SetBytes(rawConfig, model.GetResourceNameKey(input.ResourceType), identity)
 	}
 	if input.ResourceType == constant.PluginMetadata {
@@ -416,24 +436,21 @@ func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, str
 
 ```go
 input := webValidationInput{
-	ResourceType: resourceType,
-	Version:      gatewayInfo.GetAPISIXVersionX(),
-	ResourceID:   fl.Parent().FieldByName("ID").String(),
-	Name:         fl.Parent().FieldByName("Name").String(),
-	Username:     fl.Parent().FieldByName("Username").String(),
-	RawConfig:    rawConfig,
+	ResourceType:     resourceType,
+	Version:          gatewayInfo.GetAPISIXVersionX(),
+	ResourceID:       fl.Parent().FieldByName("ID").String(),
+	Name:             fl.Parent().FieldByName("Name").String(),
+	RawConfig:        rawConfig,
+	FallbackIdentity: getResourceNameByResourceType(resourceTypeName, fl),
 }
 rawConfig, resourceIdentification := prepareWebValidationPayload(input)
-if resourceIdentification == "" {
-	resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
-}
 ```
 
-**补充测试（review 要求 — identity integration）：** 在 `common_test.go` 里再增一条矩阵 case，锁住“`ConsumerGroup` on 3.13 + outer `Name` 为空 + `Config` 已有 `id` → payload prep 后 identity 与 payload.id 一致且稳定”，防止 Task 2 在 helper 内重新算 identity 时跳层带回 regression。
+**补充测试（review 要求 — identity integration）：** 在 `common_test.go` 里再增一条矩阵 case，锁住“`ConsumerGroup` on 3.13 + outer fallback 为空 + `Config` 已有 `id` → payload prep 后 identity 与 payload.id 一致且稳定”，防止 Task 2 在 helper 内重新算 identity 时跳层带回 regression。
 
 **测试补充（review 要求 — update 路径）：** `PluginMetadata` 的 `id = name` 特规则不仅影响 create 路径。`common_test.go` 里要在原矩阵基础上再补一条 update 路径 case，驱动 `CheckAPISIXConfig()` 通过 `apisixConfig` tag 触发时，`PluginMetadata` 的 update payload 也会带上 `id=name`。
 
-- [ ] **Step 4: 运行 serializer 包测试**
+- [x] **Step 4: 运行 serializer 包测试**
 
 Run:
 
@@ -444,7 +461,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/web/serializer/common.go src/apiserver/pkg/apis/web/serializer/common_test.go

@@ -32,11 +32,12 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
-func buildOpenCreateDraft(
-	gatewayID int,
+// BuildOpenResolvedDraft normalizes request config and resolves the persisted resource identity.
+func BuildOpenResolvedDraft(
 	resourceType constant.APISIXResource,
 	req ResourceCreateRequest,
-) *model.ResourceCommonModel {
+	resolvedID string,
+) OpenResolvedDraft {
 	config := req.Config
 	// FIXME: config modified logical
 	if gjson.GetBytes(config, "name").String() == "" {
@@ -46,14 +47,15 @@ func buildOpenCreateDraft(
 	// FIXME: config modified logical
 	id := gjson.GetBytes(config, "id").String()
 	if id == "" {
+		id = resolvedID
+	}
+	if id == "" {
 		id = idx.GenResourceID(resourceType)
 	}
 
-	return &model.ResourceCommonModel{
-		ID:        id,
-		GatewayID: gatewayID,
-		Config:    datatypes.JSON(config),
-		Status:    constant.ResourceStatusCreateDraft,
+	return OpenResolvedDraft{
+		ID:            id,
+		StorageConfig: config,
 	}
 }
 

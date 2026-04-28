@@ -37,7 +37,6 @@ func TestOpenResolvedDraftContextHelpers(t *testing.T) {
 		drafts := []OpenResolvedDraft{
 			{
 				ID:            "pc-fixed-id",
-				Name:          "pc-demo",
 				StorageConfig: json.RawMessage(`{"id":"pc-fixed-id","name":"pc-demo","plugins":{}}`),
 			},
 		}
@@ -48,7 +47,6 @@ func TestOpenResolvedDraftContextHelpers(t *testing.T) {
 		assert.True(t, ok)
 		assert.Len(t, got, 1)
 		assert.Equal(t, "pc-fixed-id", got[0].ID)
-		assert.Equal(t, "pc-demo", got[0].Name)
 	})
 
 	t.Run("context key occupied with wrong type returns ok false", func(t *testing.T) {

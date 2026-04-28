@@ -30,12 +30,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -54,11 +52,16 @@ func prepareOpenValidationPayload(
 	version constant.APISIXVersion,
 	configRaw string,
 ) json.RawMessage {
+	resourceID := ""
+	if constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) &&
+		!gjson.Get(configRaw, "id").Exists() {
+		resourceID = idx.GenResourceID(resourceType)
+	}
 	validationRaw := biz.InjectGeneratedIDForValidation(
 		json.RawMessage(configRaw),
 		resourceType,
 		version,
-		idx.GenResourceID(resourceType),
+		resourceID,
 	)
 	return biz.BuildConfigRawForValidation(string(validationRaw), resourceType, version)
 }
@@ -156,26 +159,14 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				configRaw,
 			)
 			resolvedID := gjson.GetBytes(configRawForValidation, "id").String()
-			if resolvedID == "" {
-				resolvedID = gjson.Get(configRaw, "id").String()
-			}
-			if resolvedID == "" {
-				resolvedID = idx.GenResourceID(resourceType)
-			}
-			storageConfig := json.RawMessage(configRaw)
-			// FIXME: config modified logical
-			if gjson.GetBytes(storageConfig, "name").String() == "" {
-				storageConfig, _ = sjson.SetBytes(
-					storageConfig,
-					model.GetResourceNameKey(resourceType),
-					config.Get("name").String(),
-				)
-			}
-			drafts = append(drafts, serializer.OpenResolvedDraft{
-				ID:            resolvedID,
-				Name:          config.Get("name").String(),
-				StorageConfig: storageConfig,
-			})
+			drafts = append(drafts, serializer.BuildOpenResolvedDraft(
+				resourceType,
+				serializer.ResourceCreateRequest{
+					Name:   config.Get("name").String(),
+					Config: json.RawMessage(configRaw),
+				},
+				resolvedID,
+			))
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
@@ -234,9 +225,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 		}
-		if len(drafts) > 0 {
-			serializer.SetOpenResolvedDrafts(c, drafts)
-		}
+		serializer.SetOpenResolvedDrafts(c, drafts)
 		c.Next()
 	}
 }

@@ -38,7 +38,8 @@ func TestBuildOpenCreateDraft(t *testing.T) {
 		name         string
 		resourceType constant.APISIXResource
 		req          ResourceCreateRequest
-		assertDraft  func(t *testing.T, got *model.ResourceCommonModel)
+		resolvedID   string
+		assertDraft  func(t *testing.T, got OpenResolvedDraft)
 	}{
 		{
 			name:         "route injects name and generates id",
@@ -47,12 +48,11 @@ func TestBuildOpenCreateDraft(t *testing.T) {
 				Name:   "route-demo",
 				Config: json.RawMessage(`{"uri":"/demo"}`),
 			},
-			assertDraft: func(t *testing.T, got *model.ResourceCommonModel) {
+			assertDraft: func(t *testing.T, got OpenResolvedDraft) {
 				t.Helper()
 				assert.NotEmpty(t, got.ID)
-				assert.Equal(t, "route-demo", gjson.GetBytes(got.Config, "name").String())
-				assert.Equal(t, "/demo", gjson.GetBytes(got.Config, "uri").String())
-				assert.Equal(t, constant.ResourceStatusCreateDraft, got.Status)
+				assert.Equal(t, "route-demo", gjson.GetBytes(got.StorageConfig, "name").String())
+				assert.Equal(t, "/demo", gjson.GetBytes(got.StorageConfig, "uri").String())
 			},
 		},
 		{
@@ -62,10 +62,10 @@ func TestBuildOpenCreateDraft(t *testing.T) {
 				Name:   "consumer-demo",
 				Config: json.RawMessage(`{"plugins":{}}`),
 			},
-			assertDraft: func(t *testing.T, got *model.ResourceCommonModel) {
+			assertDraft: func(t *testing.T, got OpenResolvedDraft) {
 				t.Helper()
-				assert.Equal(t, "consumer-demo", gjson.GetBytes(got.Config, "username").String())
-				assert.False(t, gjson.GetBytes(got.Config, "name").Exists())
+				assert.Equal(t, "consumer-demo", gjson.GetBytes(got.StorageConfig, "username").String())
+				assert.False(t, gjson.GetBytes(got.StorageConfig, "name").Exists())
 			},
 		},
 		{
@@ -75,20 +75,49 @@ func TestBuildOpenCreateDraft(t *testing.T) {
 				Name:   "outer-name",
 				Config: json.RawMessage(`{"username":"config-name"}`),
 			},
-			assertDraft: func(t *testing.T, got *model.ResourceCommonModel) {
+			assertDraft: func(t *testing.T, got OpenResolvedDraft) {
 				t.Helper()
-				assert.Equal(t, "outer-name", gjson.GetBytes(got.Config, "username").String())
+				assert.Equal(t, "outer-name", gjson.GetBytes(got.StorageConfig, "username").String())
+			},
+		},
+		{
+			name:         "resolved id is reused without writing id into config",
+			resourceType: constant.PluginConfig,
+			req: ResourceCreateRequest{
+				Name:   "pc-demo",
+				Config: json.RawMessage(`{"plugins":{}}`),
+			},
+			resolvedID: "resolved-id",
+			assertDraft: func(t *testing.T, got OpenResolvedDraft) {
+				t.Helper()
+				assert.Equal(t, "resolved-id", got.ID)
+				assert.False(t, gjson.GetBytes(got.StorageConfig, "id").Exists())
+				assert.Equal(t, "pc-demo", gjson.GetBytes(got.StorageConfig, "name").String())
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildOpenCreateDraft(10, tt.resourceType, tt.req)
-			assert.Equal(t, 10, got.GatewayID)
+			got := BuildOpenResolvedDraft(tt.resourceType, tt.req, tt.resolvedID)
 			tt.assertDraft(t, got)
 		})
 	}
+}
+
+func TestBuildOpenResolvedDraft(t *testing.T) {
+	got := BuildOpenResolvedDraft(
+		constant.PluginConfig,
+		ResourceCreateRequest{
+			Name:   "pc-demo",
+			Config: json.RawMessage(`{"plugins":{}}`),
+		},
+		"resolved-id",
+	)
+
+	assert.Equal(t, "resolved-id", got.ID)
+	assert.Equal(t, "pc-demo", gjson.GetBytes(got.StorageConfig, "name").String())
+	assert.False(t, gjson.GetBytes(got.StorageConfig, "id").Exists())
 }
 
 func TestBuildOpenUpdateDraft(t *testing.T) {
@@ -111,76 +140,4 @@ func TestBuildOpenUpdateDraft(t *testing.T) {
 	assert.Equal(t, constant.ResourceStatusUpdateDraft, got.Status)
 	assert.Equal(t, "openapi-user", got.Updater)
 	assert.JSONEq(t, `{"uri":"/demo","name":"route-demo"}`, string(got.Config))
-}
-
-func TestResourceBatchCreateUsesOpenResolvedDrafts(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	t.Run("uses middleware drafts when count matches", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		c := testingutil.CreateTestContextWithDefaultRequest(recorder)
-		ginx.SetGatewayInfo(c, &model.Gateway{ID: 9, APISIXVersion: string(constant.APISIXVersion313)})
-
-		SetOpenResolvedDrafts(c, []OpenResolvedDraft{
-			{
-				ID:   "pc-from-middleware",
-				Name: "pc-demo",
-				StorageConfig: json.RawMessage(
-					`{"id":"pc-from-middleware","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`,
-				),
-			},
-		})
-
-		req := ResourceBatchCreateRequest{
-			{
-				Name: "pc-demo",
-				Config: json.RawMessage(
-					`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`,
-				),
-			},
-		}
-
-		got := req.ToCommonResource(c, constant.PluginConfig)
-		assert.Len(t, got, 1)
-		assert.Equal(t, "pc-from-middleware", got[0].ID)
-		assert.Equal(t, 9, got[0].GatewayID)
-		assert.JSONEq(
-			t,
-			`{"id":"pc-from-middleware","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`,
-			string(got[0].Config),
-		)
-	})
-
-	t.Run("falls back to local builder when draft count mismatches", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		c := testingutil.CreateTestContextWithDefaultRequest(recorder)
-		ginx.SetGatewayInfo(c, &model.Gateway{ID: 9, APISIXVersion: string(constant.APISIXVersion313)})
-
-		SetOpenResolvedDrafts(c, []OpenResolvedDraft{
-			{
-				ID:            "only-one-draft",
-				Name:          "pc-demo",
-				StorageConfig: json.RawMessage(`{"id":"only-one-draft","name":"pc-demo","plugins":{}}`),
-			},
-		})
-
-		req := ResourceBatchCreateRequest{
-			{
-				Name:   "pc-demo",
-				Config: json.RawMessage(`{"plugins":{}}`),
-			},
-			{
-				Name:   "pc-demo-2",
-				Config: json.RawMessage(`{"plugins":{}}`),
-			},
-		}
-
-		got := req.ToCommonResource(c, constant.PluginConfig)
-		assert.Len(t, got, 2)
-		assert.NotEmpty(t, got[0].ID)
-		assert.NotEmpty(t, got[1].ID)
-		assert.NotEqual(t, "only-one-draft", got[0].ID)
-		assert.Equal(t, "pc-demo", gjson.GetBytes(got[0].Config, "name").String())
-		assert.Equal(t, "pc-demo-2", gjson.GetBytes(got[1].Config, "name").String())
-	})
 }

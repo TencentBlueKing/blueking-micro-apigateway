@@ -27,7 +27,6 @@ import (
 // OpenResolvedDraft carries middleware-computed identity plus the normalized storage payload.
 type OpenResolvedDraft struct {
 	ID            string
-	Name          string
 	StorageConfig json.RawMessage
 }
 

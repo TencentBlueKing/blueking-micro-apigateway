@@ -280,6 +280,50 @@ func TestResourceBatchCreateReusesResolvedIDsAcrossValidationAndPersistence(t *t
 	assert.Equal(t, persistedID, gjson.Get(recorder.Body.String(), "data.0.id").String())
 }
 
+func TestResourceBatchCreateAcceptsEmptyBatchViaResolvedDraftContext(t *testing.T) {
+	var createdResources []*model.ResourceCommonModel
+
+	patches := patchOpenValidation(t, nil)
+	defer patches.Reset()
+
+	patches.ApplyFunc(
+		biz.BatchCheckNameDuplication,
+		func(ctx context.Context, resourceType constant.APISIXResource, names []string) (bool, error) {
+			assert.Equal(t, constant.Route, resourceType)
+			assert.Empty(t, names)
+			return false, nil
+		},
+	)
+	patches.ApplyFunc(
+		biz.BatchCreateResources,
+		func(
+			ctx context.Context,
+			resourceType constant.APISIXResource,
+			resources []*model.ResourceCommonModel,
+		) error {
+			assert.Equal(t, constant.Route, resourceType)
+			createdResources = resources
+			return nil
+		},
+	)
+
+	router := newOpenBatchCreateRouter("3.13.0")
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/open/gateways/demo/resources/routes/",
+		strings.NewReader(`[]`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, req)
+
+	if !assert.Equal(t, http.StatusOK, recorder.Code) {
+		return
+	}
+	assert.Empty(t, createdResources)
+}
+
 func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 	var updatedResource *model.ResourceCommonModel
 

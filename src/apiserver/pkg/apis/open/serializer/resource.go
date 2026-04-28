@@ -24,12 +24,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/sjson"
-	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 // ResourceCreateRequest 资源创建
@@ -54,28 +52,6 @@ type ResourceAssociateID struct {
 
 // ResourceBatchCreateRequest 资源批量创建
 type ResourceBatchCreateRequest []ResourceCreateRequest
-
-// ToCommonResource 转换为通用资源
-func (rs ResourceBatchCreateRequest) ToCommonResource(c *gin.Context,
-	resourceType constant.APISIXResource,
-) []*model.ResourceCommonModel {
-	resources := make([]*model.ResourceCommonModel, 0, len(rs))
-	if drafts, ok := GetOpenResolvedDrafts(c); ok && len(drafts) == len(rs) {
-		for _, draft := range drafts {
-			resources = append(resources, &model.ResourceCommonModel{
-				ID:        draft.ID,
-				GatewayID: ginx.GetGatewayInfo(c).ID,
-				Config:    datatypes.JSON(draft.StorageConfig),
-				Status:    constant.ResourceStatusCreateDraft,
-			})
-		}
-		return resources
-	}
-	for _, r := range rs {
-		resources = append(resources, buildOpenCreateDraft(ginx.GetGatewayInfo(c).ID, resourceType, r))
-	}
-	return resources
-}
 
 // ResourceBatchGetRequest 资源获取参数
 type ResourceBatchGetRequest struct {

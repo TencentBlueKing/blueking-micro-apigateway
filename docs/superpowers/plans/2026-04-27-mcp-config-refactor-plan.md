@@ -82,7 +82,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ### Task 0: 补 MCP create/update handler characterization tests
 
-- [ ] Task 0: 补 MCP create/update handler characterization tests
+- [x] Task 0: 补 MCP create/update handler characterization tests
 
 **要解决的缺口：** 现在文档里已经明确了 Task 0 的必要性，但正文还没有真正把 `createResourceHandler(...)` / `updateResourceHandler(...)` 的现状测试独立出来。先锁 handler 入口，后面的 helper 才有稳定边界。
 
@@ -91,7 +91,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 **Files:**
 - Modify: `src/apiserver/pkg/apis/mcp/tools/resource_crud_test.go`
 
-- [ ] **Step 1: 直接在 handler seam 上补 characterization tests**
+- [x] **Step 1: 直接在 handler seam 上补 characterization tests**
 
 至少覆盖下面 5 类现状，断言都走真实 create/update handler，而不是新 helper：
 
@@ -101,7 +101,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - update 在不提供 `name` 时保留原有 config 形态不变
 - **update 路径传入“非法 JSON config” / 会让 sjson 写入失败的入参时，当前 handler 不会向调用者返回错误（`_ = err` 静默路径）；锁住这条断言后，Task 2 helper 抽出会把它变成 `return err`，届时同步更新此断言（记录行为变化）**
 
-- [ ] **Step 2: 运行 MCP seam tests，确认当前 handler 行为已经被锁住**
+- [x] **Step 2: 运行 MCP seam tests，确认当前 handler 行为已经被锁住**
 
 Run:
 
@@ -112,7 +112,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/mcp/tools/resource_crud_test.go

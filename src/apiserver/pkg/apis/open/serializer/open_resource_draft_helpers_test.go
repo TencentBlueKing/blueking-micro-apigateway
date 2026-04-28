@@ -112,3 +112,71 @@ func TestBuildOpenUpdateDraft(t *testing.T) {
 	assert.Equal(t, "openapi-user", got.Updater)
 	assert.JSONEq(t, `{"uri":"/demo","name":"route-demo"}`, string(got.Config))
 }
+
+func TestResourceBatchCreateUsesOpenResolvedDrafts(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("uses middleware drafts when count matches", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c := testingutil.CreateTestContextWithDefaultRequest(recorder)
+		ginx.SetGatewayInfo(c, &model.Gateway{ID: 9, APISIXVersion: string(constant.APISIXVersion313)})
+
+		SetOpenResolvedDrafts(c, []OpenResolvedDraft{
+			{
+				ID:            "pc-from-middleware",
+				Name:          "pc-demo",
+				StorageConfig: json.RawMessage(`{"id":"pc-from-middleware","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`),
+			},
+		})
+
+		req := ResourceBatchCreateRequest{
+			{
+				Name:   "pc-demo",
+				Config: json.RawMessage(`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`),
+			},
+		}
+
+		got := req.ToCommonResource(c, constant.PluginConfig)
+		assert.Len(t, got, 1)
+		assert.Equal(t, "pc-from-middleware", got[0].ID)
+		assert.Equal(t, 9, got[0].GatewayID)
+		assert.JSONEq(
+			t,
+			`{"id":"pc-from-middleware","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","rejected_code":503}}}`,
+			string(got[0].Config),
+		)
+	})
+
+	t.Run("falls back to local builder when draft count mismatches", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c := testingutil.CreateTestContextWithDefaultRequest(recorder)
+		ginx.SetGatewayInfo(c, &model.Gateway{ID: 9, APISIXVersion: string(constant.APISIXVersion313)})
+
+		SetOpenResolvedDrafts(c, []OpenResolvedDraft{
+			{
+				ID:            "only-one-draft",
+				Name:          "pc-demo",
+				StorageConfig: json.RawMessage(`{"id":"only-one-draft","name":"pc-demo","plugins":{}}`),
+			},
+		})
+
+		req := ResourceBatchCreateRequest{
+			{
+				Name:   "pc-demo",
+				Config: json.RawMessage(`{"plugins":{}}`),
+			},
+			{
+				Name:   "pc-demo-2",
+				Config: json.RawMessage(`{"plugins":{}}`),
+			},
+		}
+
+		got := req.ToCommonResource(c, constant.PluginConfig)
+		assert.Len(t, got, 2)
+		assert.NotEmpty(t, got[0].ID)
+		assert.NotEmpty(t, got[1].ID)
+		assert.NotEqual(t, "only-one-draft", got[0].ID)
+		assert.Equal(t, "pc-demo", gjson.GetBytes(got[0].Config, "name").String())
+		assert.Equal(t, "pc-demo-2", gjson.GetBytes(got[1].Config, "name").String())
+	})
+}

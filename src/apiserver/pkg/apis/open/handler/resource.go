@@ -79,7 +79,7 @@ func ResourceBatchCreate(c *gin.Context) {
 			errors.New("resource name is duplicated with existing"))
 		return
 	}
-	resources := req.ToCommonResource(ginx.GetGatewayInfo(c).ID, ginx.GetResourceType(c))
+	resources := req.ToCommonResource(c, ginx.GetResourceType(c))
 	// 批量创建资源
 	err = biz.BatchCreateResources(c.Request.Context(), ginx.GetResourceType(c), resources)
 	if err != nil {

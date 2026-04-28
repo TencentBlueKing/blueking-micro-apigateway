@@ -648,7 +648,7 @@ git commit -m "refactor: add open resolved draft context helpers"
 
 > **Review 必改：范围声明补充**——本 Task 需要修改 `ResourceBatchCreateRequest.ToCommonResource(...)` 的签名（从 `(gatewayID int, resourceType)` 改为 `(c *gin.Context, resourceType)`），这属于 public API change，需同步修改 `handler/resource.go` 中的所有调用点（目前只有 batch create handler 调用了它）。
 
-- [ ] Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
+- [x] Task 5: 让 Open middleware 和 serializer 复用同一份 resolved identity
 
 **要解决的复杂度：** 当前 middleware 和 serializer 各自推导一次 request identity，create/batch create 很容易出现“校验时是一个 id，落库时是另一个 id”。
 
@@ -660,7 +660,7 @@ git commit -m "refactor: add open resolved draft context helpers"
 - Modify: `src/apiserver/pkg/apis/open/handler/resource.go`
 - Modify: `src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go`
 
-- [ ] **Step 1: 先补“复用 middleware draft”的失败测试**
+- [x] **Step 1: 先补“复用 middleware draft”的失败测试**
 
 在 `open_resource_draft_helpers_test.go` 中新增：
 
@@ -699,7 +699,7 @@ func TestResourceBatchCreateUsesOpenResolvedDrafts(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认现有实现还拿不到 middleware 的 draft**
+- [x] **Step 2: 运行测试，确认现有实现还拿不到 middleware 的 draft**
 
 Run:
 
@@ -710,7 +710,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，表现为 `ToCommonResource` 仍然重新生成 id，断言不通过
 
-- [ ] **Step 3: 改造 middleware / handler / serializer，让 resolved draft 真正贯通**
+- [x] **Step 3: 改造 middleware / handler / serializer，让 resolved draft 真正贯通**
+
+执行备注（2026-04-28）：Task 0 中原本用于证明 mismatch 的 batch create seam test 已在本任务里改成“validation id == persistence id”的新期望，并保持 `name/username` 注入行为不回退。
 
 按下面顺序改：
 
@@ -769,7 +771,7 @@ return resources
 resources := req.ToCommonResource(c, ginx.GetResourceType(c))
 ```
 
-- [ ] **Step 4: 运行 Open 相关测试**
+- [x] **Step 4: 运行 Open 相关测试**
 
 Run:
 
@@ -780,7 +782,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/middleware/openapi_resource_check.go src/apiserver/pkg/apis/open/serializer/open_resource_draft_helpers_test.go src/apiserver/pkg/apis/open/serializer/open_resolved_draft_context.go src/apiserver/pkg/apis/open/serializer/resource.go src/apiserver/pkg/apis/open/handler/resource.go

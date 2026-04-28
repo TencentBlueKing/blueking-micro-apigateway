@@ -35,6 +35,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -135,6 +136,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		// validate config schema
 		configs := gjson.ParseBytes(reqBody).Array()
 		version := ginx.GetGatewayInfo(c).GetAPISIXVersionX()
+		drafts := make([]serializer.OpenResolvedDraft, 0, len(configs))
 		for _, config := range configs {
 			schemaValidator, err := schema.NewAPISIXSchemaValidator(
 				version,
@@ -152,6 +154,26 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				version,
 				configRaw,
 			)
+			resolvedID := gjson.GetBytes(configRawForValidation, "id").String()
+			if resolvedID == "" {
+				resolvedID = gjson.Get(configRaw, "id").String()
+			}
+			if resolvedID == "" {
+				resolvedID = idx.GenResourceID(resourceType)
+			}
+			storageConfig := json.RawMessage(configRaw)
+			if gjson.GetBytes(storageConfig, "name").String() == "" {
+				storageConfig, _ = sjson.SetBytes(
+					storageConfig,
+					model.GetResourceNameKey(resourceType),
+					config.Get("name").String(),
+				)
+			}
+			drafts = append(drafts, serializer.OpenResolvedDraft{
+				ID:            resolvedID,
+				Name:          config.Get("name").String(),
+				StorageConfig: storageConfig,
+			})
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
@@ -209,6 +231,9 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
+		}
+		if len(drafts) > 0 {
+			serializer.SetOpenResolvedDrafts(c, drafts)
 		}
 		c.Next()
 	}

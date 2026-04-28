@@ -208,7 +208,7 @@ func TestResourceBatchCreateInjectsNameAndUsernameAtHandlerSeam(t *testing.T) {
 	}
 }
 
-func TestResourceBatchCreateCurrentlyUsesDifferentGeneratedIDsForValidationAndPersistence(t *testing.T) {
+func TestResourceBatchCreateReusesResolvedIDsAcrossValidationAndPersistence(t *testing.T) {
 	var (
 		createdResources   []*model.ResourceCommonModel
 		validationPayloads []string
@@ -272,8 +272,8 @@ func TestResourceBatchCreateCurrentlyUsesDifferentGeneratedIDsForValidationAndPe
 	persistedID := createdResources[0].ID
 
 	assert.Equal(t, "generated-1", validationID)
-	assert.Equal(t, "generated-2", persistedID)
-	assert.NotEqual(t, validationID, persistedID)
+	assert.Equal(t, "generated-1", persistedID)
+	assert.Equal(t, validationID, persistedID)
 	assert.Equal(t, persistedID, gjson.Get(recorder.Body.String(), "data.0.id").String())
 }
 

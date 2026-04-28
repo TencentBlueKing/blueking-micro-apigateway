@@ -1,6 +1,7 @@
 # Open API Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变 Open API 外部协议的前提下，先修正 `update` 路径 outer `name` 未回写到 storage config、以及 middleware 对旧版本 schema 的临时 `id` 注入不够精确这两个已确认问题，再逐步收敛 `open api` 当前分散在 middleware、serializer、handler 三处的 `config` 整形、draft 组装和 request identity 复算问题。
 
@@ -101,7 +102,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 ### Task 0: 补 Open handler / middleware characterization tests
 
-- [ ] Task 0: 补 Open handler / middleware characterization tests
+- [x] Task 0: 补 Open handler / middleware characterization tests
 
 **要解决的缺口：** 当前文档把 Task 0 写进了执行顺序和策略，但正文还没有单独任务去锁 `ResourceBatchCreate(...)`、`ResourceUpdate(...)` 和 `OpenAPIResourceCheck()` 的现状。先把真实请求路径测起来，后面再抽 builder / middleware helper。
 
@@ -111,7 +112,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - Create: `src/apiserver/pkg/apis/open/handler/resource_test.go`
 - Create: `src/apiserver/pkg/middleware/openapi_resource_check_test.go`
 
-- [ ] **Step 1: 在真实请求路径上补 Open characterization tests**
+- [x] **Step 1: 在真实请求路径上补 Open characterization tests**
+
+执行备注（2026-04-28）：按用户确认，Task 0 保持绿灯提交；`update outer name` 与 `ConsumerGroup on 3.2.15` 这两条原本的 failing-then-green 断言顺延到 Task 2a / Task 3a 实现时补入。
 
 至少覆盖下面 5 类现状，全部走现有 handler / middleware seam，**每条标注性质（锁现状 ／ failing-then-green）**：
 
@@ -121,7 +124,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - 【**failing-then-green**】`resource=ConsumerGroup` + `version=3.2.15` 时，`validationRaw` **不应**出现 `id` 字段；此 test 当前会因为不看 version 而失败，Task 3a make it green
 - 【锁现状，但同时作为 Task 4-5 是否落地的判定依据】batch create 完整走一遍 handler + middleware 后，分别拿 middleware 计算出的 `id` 与 serializer 最终落库的 `id` 做对比断言；若两者一致则 Task 4-5 可 defer，若不一致则 Task 4-5 需落地
 
-- [ ] **Step 2: 运行 Open seam tests，确认入口行为已经被锁住**
+- [x] **Step 2: 运行 Open seam tests，确认入口行为已经被锁住**
 
 Run:
 
@@ -132,7 +135,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/open/handler/resource_test.go src/apiserver/pkg/middleware/openapi_resource_check_test.go

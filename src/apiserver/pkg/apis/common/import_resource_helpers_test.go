@@ -112,15 +112,13 @@ func TestLoadExistingImportResources(t *testing.T) {
 		},
 	}))
 
-	allResourceIDs := map[string]struct{}{}
-	got, err := loadExistingImportResources(gatewayCtx, constant.PluginConfig, allResourceIDs)
+	got, allResourceIDs, err := loadExistingImportResources(gatewayCtx, constant.PluginConfig)
 	assert.NoError(t, err)
 	assert.Contains(t, got, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
 	assert.Contains(t, allResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
 
 	t.Run("empty DB returns empty map", func(t *testing.T) {
-		empty := map[string]struct{}{}
-		got, err := loadExistingImportResources(gatewayCtx, constant.Upstream, empty)
+		got, empty, err := loadExistingImportResources(gatewayCtx, constant.Upstream)
 		assert.NoError(t, err)
 		assert.Empty(t, got)
 		assert.Empty(t, empty)
@@ -169,7 +167,7 @@ func TestPrepareImportResources(t *testing.T) {
 	}
 	assert.NoError(t, biz.CreatePluginConfig(gatewayCtx, existing))
 
-	resources, err := prepareImportResources(
+	resources, allResourceIDs, err := prepareImportResources(
 		gatewayCtx,
 		map[constant.APISIXResource][]*ResourceInfo{
 			constant.PluginConfig: {
@@ -183,12 +181,12 @@ func TestPrepareImportResources(t *testing.T) {
 				},
 			},
 		},
-		map[string]struct{}{},
 		map[constant.APISIXResource][]string{
 			constant.PluginConfig: {"desc"},
 		},
 	)
 	assert.NoError(t, err)
+	assert.Contains(t, allResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-1"))
 	if !assert.Len(t, resources[constant.PluginConfig], 1) {
 		return
 	}
@@ -199,7 +197,7 @@ func TestPrepareImportResources(t *testing.T) {
 	)
 
 	t.Run("schema resources are skipped", func(t *testing.T) {
-		got, err := prepareImportResources(
+		got, allResourceIDs, err := prepareImportResources(
 			gatewayCtx,
 			map[constant.APISIXResource][]*ResourceInfo{
 				constant.Schema: {
@@ -221,10 +219,10 @@ func TestPrepareImportResources(t *testing.T) {
 					},
 				},
 			},
-			map[string]struct{}{},
 			nil,
 		)
 		assert.NoError(t, err)
+		assert.Contains(t, allResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"))
 		assert.NotContains(t, got, constant.Schema)
 		assert.Len(t, got[constant.Route], 1)
 	})

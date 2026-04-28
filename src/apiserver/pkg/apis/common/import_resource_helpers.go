@@ -33,6 +33,8 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
+// applyImportIgnoreFields overlays the configured ignore-field paths from the
+// existing stored config onto the imported config and returns the merged copy.
 func applyImportIgnoreFields(
 	importedConfig json.RawMessage,
 	existingConfig datatypes.JSON,
@@ -40,42 +42,39 @@ func applyImportIgnoreFields(
 ) (json.RawMessage, error) {
 	merged := append(json.RawMessage(nil), importedConfig...)
 	for _, field := range ignoreFields {
-		result := gjson.GetBytes(existingConfig, field)
-		if !result.Exists() {
+		value := gjson.GetBytes(existingConfig, field)
+		if !value.Exists() {
 			continue
 		}
 		var err error
-		merged, err = sjson.SetBytes(merged, field, json.RawMessage(result.Raw))
+		merged, err = sjson.SetBytes(merged, field, json.RawMessage(value.Raw))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("set config failed, err: %w", err)
 		}
 	}
 	return merged, nil
 }
 
 // loadExistingImportResources fetches all stored resources of the given type for
-// the current gateway and returns them keyed by GetResourceKey(resourceType, id).
-//
-// mutates allResourceIDs: every loaded resource key is appended to the passed-in
-// set so that the import orchestration can build a global id set across all
-// resource types without re-querying the DB.
+// the current gateway and returns them keyed by GetResourceKey(resourceType, id)
+// together with the discovered resource key set.
 func loadExistingImportResources(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
-	allResourceIDs map[string]struct{},
-) (map[string]model.ResourceCommonModel, error) {
+) (map[string]model.ResourceCommonModel, map[string]struct{}, error) {
 	allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
 	if err != nil {
-		return nil, fmt.Errorf("get exist resources failed, err: %w", err)
+		return nil, nil, fmt.Errorf("get exist resources failed, err: %w", err)
 	}
 
 	allResourceMap := make(map[string]model.ResourceCommonModel, len(allResourceList))
+	existingResourceIDs := make(map[string]struct{}, len(allResourceList))
 	for _, resource := range allResourceList {
 		key := resource.GetResourceKey(resourceType)
 		allResourceMap[key] = resource
-		allResourceIDs[key] = struct{}{}
+		existingResourceIDs[key] = struct{}{}
 	}
-	return allResourceMap, nil
+	return allResourceMap, existingResourceIDs, nil
 }
 
 func buildImportSyncData(
@@ -94,30 +93,32 @@ func buildImportSyncData(
 // prepareImportResources transforms import payloads into sync-data groups for
 // later validation and upload. It keeps the import-specific argument order
 // because this orchestration helper accepts multiple resource maps together.
-//
-// mutates allResourceIDs: appends every encountered resource key from both
-// stored resources and imported resources while building the returned map.
 func prepareImportResources(
 	ctx context.Context,
 	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
-	allResourceIDs map[string]struct{},
 	ignoreFields map[constant.APISIXResource][]string,
-) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
+) (map[constant.APISIXResource][]*model.GatewaySyncData, map[string]struct{}, error) {
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+	allResourceIDs := make(map[string]struct{})
 	for resourceType, resourceInfoList := range resourcesImport {
 		if resourceType == constant.Schema {
 			continue
 		}
 
-		existingMap, err := loadExistingImportResources(ctx, resourceType, allResourceIDs)
+		existingMap, existingIDs, err := loadExistingImportResources(ctx, resourceType)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		for key := range existingIDs {
+			allResourceIDs[key] = struct{}{}
 		}
 
 		for _, imp := range resourceInfoList {
+			// 如果 id 为空，直接报错
 			if imp.ResourceID == "" {
-				return nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
+				return nil, nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
 			}
+			// 如果已经存在，则需要判断是否有跳过规则
 			if oldResource, ok := existingMap[imp.GetResourceKey()]; ok &&
 				len(ignoreFields[resourceType]) > 0 {
 				imp.Config, err = applyImportIgnoreFields(
@@ -126,7 +127,7 @@ func prepareImportResources(
 					ignoreFields[resourceType],
 				)
 				if err != nil {
-					return nil, fmt.Errorf("set config failed, err: %w", err)
+					return nil, nil, fmt.Errorf("set config failed, err: %w", err)
 				}
 			}
 
@@ -137,7 +138,7 @@ func prepareImportResources(
 			)
 		}
 	}
-	return resourceTypeMap, nil
+	return resourceTypeMap, allResourceIDs, nil
 }
 
 type importValidationInput struct {
@@ -153,14 +154,20 @@ func prepareImportValidationInput(
 	resourcesImport *ResourceUploadInfo,
 	ignoreFields map[constant.APISIXResource][]string,
 ) (*importValidationInput, error) {
-	allResourceIDs := make(map[string]struct{})
-	addMap, err := prepareImportResources(ctx, resourcesImport.Add, allResourceIDs, ignoreFields)
+	addMap, addIDs, err := prepareImportResources(ctx, resourcesImport.Add, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
-	updateMap, err := prepareImportResources(ctx, resourcesImport.Update, allResourceIDs, ignoreFields)
+	updateMap, updateIDs, err := prepareImportResources(ctx, resourcesImport.Update, ignoreFields)
 	if err != nil {
 		return nil, err
+	}
+	allResourceIDs := make(map[string]struct{}, len(addIDs)+len(updateIDs))
+	for key := range addIDs {
+		allResourceIDs[key] = struct{}{}
+	}
+	for key := range updateIDs {
+		allResourceIDs[key] = struct{}{}
 	}
 	return &importValidationInput{
 		Add:            addMap,

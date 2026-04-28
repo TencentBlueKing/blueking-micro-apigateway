@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tidwall/sjson"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
@@ -1006,18 +1006,14 @@ func putPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 			return fmt.Errorf("marshal plugin config base info failed: %w", marshalErr)
 		}
 		pluginConfig.Config, err = jsonx.MergeJson(pluginConfig.Config, baseConfig)
-
-		// Version-aware field cleanup: only remove fields that are invalid for this APISIX version
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.PluginConfig, "id", apisixVersion) {
-			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "id")
-		}
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.PluginConfig, "name", apisixVersion) {
-			pluginConfig.Config, _ = sjson.DeleteBytes(pluginConfig.Config, "name")
-		}
-
 		if err != nil {
 			return err
 		}
+		pluginConfig.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.PluginConfig,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(pluginConfig.Config),
+		}))
 		pluginConfigOps = append(pluginConfigOps, publisher.ResourceOperation{
 			Key:    pluginConfig.ID,
 			Config: json.RawMessage(pluginConfig.Config),
@@ -1117,15 +1113,14 @@ func putConsumers(ctx context.Context, consumerIDs []string) error {
 			return fmt.Errorf("marshal consumer base info failed: %w", marshalErr)
 		}
 		consumer.Config, err = jsonx.MergeJson(consumer.Config, baseConfig)
-
-		// Version-aware field cleanup: consumer uses username as identifier, id should always be removed
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Consumer, "id", apisixVersion) {
-			consumer.Config, _ = sjson.DeleteBytes(consumer.Config, "id")
-		}
-
 		if err != nil {
 			return err
 		}
+		consumer.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.Consumer,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(consumer.Config),
+		}))
 		consumerOps = append(consumerOps, publisher.ResourceOperation{
 			Key:    consumer.ID,
 			Config: json.RawMessage(consumer.Config),
@@ -1184,19 +1179,14 @@ func putConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
 			return fmt.Errorf("marshal consumer group base info failed: %w", marshalErr)
 		}
 		consumerGroup.Config, err = jsonx.MergeJson(consumerGroup.Config, baseConfig)
-
-		// Version-aware field cleanup: consumer_group requires id in schema
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.ConsumerGroup, "id", apisixVersion) {
-			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "id")
-		}
-		// name is only valid in 3.13+
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.ConsumerGroup, "name", apisixVersion) {
-			consumerGroup.Config, _ = sjson.DeleteBytes(consumerGroup.Config, "name")
-		}
-
 		if err != nil {
 			return err
 		}
+		consumerGroup.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.ConsumerGroup,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(consumerGroup.Config),
+		}))
 		consumerGroupOps = append(consumerGroupOps, publisher.ResourceOperation{
 			Key:    consumerGroup.ID,
 			Config: json.RawMessage(consumerGroup.Config),
@@ -1245,15 +1235,14 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 			return fmt.Errorf("marshal global rule base info failed: %w", marshalErr)
 		}
 		globalRule.Config, err = jsonx.MergeJson(globalRule.Config, baseConfig)
-
-		// Version-aware field cleanup: global_rule never supports name in any version
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.GlobalRule, "name", apisixVersion) {
-			globalRule.Config, _ = sjson.DeleteBytes(globalRule.Config, "name")
-		}
-
 		if err != nil {
 			return err
 		}
+		globalRule.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.GlobalRule,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(globalRule.Config),
+		}))
 		globalRuleOps = append(globalRuleOps, publisher.ResourceOperation{
 			Key:    globalRule.ID,
 			Config: json.RawMessage(globalRule.Config),
@@ -1308,11 +1297,11 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 		if err != nil {
 			return err
 		}
-
-		// Version-aware field cleanup: proto name is only supported in 3.13+
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.Proto, "name", apisixVersion) {
-			pb.Config, _ = sjson.DeleteBytes(pb.Config, "name")
-		}
+		pb.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.Proto,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(pb.Config),
+		}))
 
 		protoOps = append(protoOps, publisher.ResourceOperation{
 			Key:    pb.ID,
@@ -1364,14 +1353,11 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 		if err != nil {
 			return err
 		}
-
-		// Version-aware field cleanup: ssl never supports name in any version
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.SSL, "name", apisixVersion) {
-			ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "name")
-		}
-		// Remove internal fields that are not part of APISIX schema
-		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_start")
-		ssl.Config, _ = sjson.DeleteBytes(ssl.Config, "validity_end")
+		ssl.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.SSL,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(ssl.Config),
+		}))
 
 		sslOps = append(sslOps, publisher.ResourceOperation{
 			Key:    ssl.ID,
@@ -1432,17 +1418,14 @@ func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 			return fmt.Errorf("marshal stream route base info failed: %w", marshalErr)
 		}
 		sr.Config, err = jsonx.MergeJson(sr.Config, baseConfig)
-
-		// Version-aware field cleanup: stream_route name is only supported in 3.13+
-		if constant.ShouldRemoveFieldBeforeValidationOrPublish(constant.StreamRoute, "name", apisixVersion) {
-			sr.Config, _ = sjson.DeleteBytes(sr.Config, "name")
-		}
-		// Remove internal fields that are not part of APISIX schema
-		sr.Config, _ = sjson.DeleteBytes(sr.Config, "labels")
-
 		if err != nil {
 			return err
 		}
+		sr.Config = datatypes.JSON(cleanupPublishPayloadFields(publishPayloadCleanupInput{
+			ResourceType: constant.StreamRoute,
+			Version:      apisixVersion,
+			RawConfig:    json.RawMessage(sr.Config),
+		}))
 		streamRouteOps = append(streamRouteOps, publisher.ResourceOperation{
 			Key:    sr.ID,
 			Config: json.RawMessage(sr.Config),

@@ -169,9 +169,11 @@ git commit -m "test: lock publish and validator seams"
 
 ### Task 1: 抽 publish 字段清理 helper
 
-- [ ] Task 1: 抽 publish 字段清理 helper
+- [x] Task 1: 抽 publish 字段清理 helper
 
-**要解决的复杂度：** 现在 `id/name` 的版本差异删除、`ssl.validity_*` 清理、`stream_route.labels` 清理散落在多个 `putXxx()/PutXxx()` 里。修改某个发布字段规则时，最容易出现“改了一个资源，漏了另一个资源”。
+**要解决的复杂度：** 现在 `publish.go` 内部真正发生的字段清理散落在多个 `putXxx()/PutXxx()` 里，包括 `consumer.id`、若干资源的 `name` 版本差异、`ssl.validity_*`、以及 `stream_route.labels`。修改某个发布字段规则时，最容易出现“改了一个资源，漏了另一个资源”。
+
+**代码真实情况：** `publish.go` 内部 cleanup 行为和 `publish + sync` 的黑盒结果并不完全一致。当前 seam 下，`consumer_group.name` 在 `3.11` / `3.13` 的 synced payload 中都会保留，`stream_route.labels` 也仍会出现在 synced payload 中。因此 Task 1 同时保留 seam test 和 helper test，分别锁黑盒结果与内部 cleanup 分支。
 
 **为什么这个任务适合单独提 PR：** 只处理 payload 清理，不动依赖发布顺序，不动 `EtcdPublisher`，不会同时引入新的 orchestration 抽象。
 
@@ -181,7 +183,7 @@ git commit -m "test: lock publish and validator seams"
 - Modify: `src/apiserver/pkg/biz/publish.go`
 - Modify: `src/apiserver/pkg/biz/publish_test.go`
 
-- [ ] **Step 1: 先补现有 publish seam 的 characterization tests**
+- [x] **Step 1: 先补现有 publish seam 的 characterization tests**
 
 在 `publish_test.go` 增加下面这组测试，直接通过现有发布路径锁定最终同步后的 `GatewaySyncData.Config`：
 
@@ -217,7 +219,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 		assert.Equal(t, "consumer1", gjson.GetBytes(synced.Config, "username").String())
 	})
 
-	t.Run("consumer group removes name in 3.11 but keeps it in 3.13", func(t *testing.T) {
+	t.Run("consumer group synced payload keeps name across versions", func(t *testing.T) {
 		makeGateway := func(version string, name string) *model.Gateway {
 			gw := data.Gateway1WithBkAPISIX()
 			gw.Name = name
@@ -250,11 +252,11 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 			assert.Equal(t, wantName, gotName)
 		}
 
-		runCase(t, "3.11.0", "gateway-publish-cg-311", false)
+		runCase(t, "3.11.0", "gateway-publish-cg-311", true)
 		runCase(t, "3.13.0", "gateway-publish-cg-313", true)
 	})
 
-	t.Run("ssl removes internal validity fields", func(t *testing.T) {
+	t.Run("ssl synced payload removes internal validity fields", func(t *testing.T) {
 		gateway := data.Gateway1WithBkAPISIX()
 		gateway.Name = "gateway-publish-ssl"
 		if err := CreateGateway(context.Background(), gateway); err != nil {
@@ -283,7 +285,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行 seam tests，确认当前行为已经被锁住**
+- [x] **Step 2: 运行 seam tests，确认当前行为已经被锁住**
 
 Run:
 
@@ -294,7 +296,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 再补 helper test，让它先失败**
+- [x] **Step 3: 再补 helper test，让它先失败**
+
+**执行备注（按代码真实情况）：** 最终落地的 helper test 额外覆盖了 `global_rule`、`proto`、`stream_route.name` 的版本差异，以及 `route/service/upstream` “整体保持原样”的断言；它锁的是 `publish.go` 内部 cleanup 分支，而不是最终 synced payload。
 
 在 `publish_payload_helpers_test.go` 增加：
 
@@ -390,7 +394,9 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: cleanupPublishPayloadFields` 或 `undefined: publishPayloadCleanupInput`
 
-- [ ] **Step 4: 用最小实现抽出 publish 字段清理 helper，并接回现有 `putXxx()`**
+- [x] **Step 4: 用最小实现抽出 publish 字段清理 helper，并接回现有 `putXxx()`**
+
+**执行备注（按代码真实情况）：** 最终 helper 规则表只保留原始 `publish.go` 里真实发生过的字段删除：`consumer.id`、`consumer_group.name`、`global_rule.name`、`proto.name`、`ssl.name/validity_*`、`stream_route.name/labels`。`plugin_config` 当前接入 helper 但规则表为空，因此不会改动 payload；`putRoutes/putServices/putUpstreams` 继续不接入 helper。
 
 **【Blocker修正】（review）：** 原计划第一版 helper 用 `ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id"/"name", version)` 做统一判断，但原代码并非所有资源都调用这个方法：`putRoutes/putServices/putUpstreams` 不对 `id` 调，`Routes/Consumer` 不对 `name` 调。统一调用会把字段清理规则扩散到原本不清理的资源上，产生**静默字段丢失**（上线不易察觉）。改用 **resource-specific policy table** 表达清理规则：
 
@@ -473,7 +479,7 @@ resource.Config = cleanupPublishPayloadFields(publishPayloadCleanupInput{
 })
 ```
 
-- [ ] **Step 5: 运行任务相关测试，确认 seam 和 helper 都通过**
+- [x] **Step 5: 运行任务相关测试，确认 seam 和 helper 都通过**
 
 Run:
 
@@ -484,7 +490,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 6: 提交这个 PR**
+- [x] **Step 6: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/biz/publish.go src/apiserver/pkg/biz/publish_test.go src/apiserver/pkg/biz/publish_payload_helpers.go src/apiserver/pkg/biz/publish_payload_helpers_test.go

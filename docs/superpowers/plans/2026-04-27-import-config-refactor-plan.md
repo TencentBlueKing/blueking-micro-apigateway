@@ -642,7 +642,7 @@ git commit -m "refactor: split import resource preparation orchestration"
 
 ### Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
 
-- [ ] Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
+- [x] Task 5: 给 `HandleUploadResources(...)` 引入显式的 import validation seam
 
 **要解决的复杂度：** 现在 `HandleUploadResources(...)` 一边准备 add/update map，一边直接调用 `biz.ValidateResource(...)`，没有一个明确的“import 进入 DATABASE 校验前”的本地边界。
 
@@ -653,7 +653,7 @@ git commit -m "refactor: split import resource preparation orchestration"
 - Modify: `src/apiserver/pkg/apis/common/import_resource_helpers_test.go`
 - Modify: `src/apiserver/pkg/apis/common/resource_slz.go:121-149`
 
-- [ ] **Step 1: 先补 validation input 组装测试**
+- [x] **Step 1: 先补 validation input 组装测试**
 
 在 `import_resource_helpers_test.go` 里新增（**review 补充**：Add 和 Update 同时非空，锁住 `allResourceIDs` 跨两次调用累加语义）：
 
@@ -717,7 +717,7 @@ func TestPrepareImportValidationInput(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认 seam 还不存在**
+- [x] **Step 2: 运行测试，确认 seam 还不存在**
 
 Run:
 
@@ -728,7 +728,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - FAIL，报 `undefined: prepareImportValidationInput`
 
-- [ ] **Step 3: 实现 import validation seam，并让 `HandleUploadResources(...)` 改成两段式**
+- [x] **Step 3: 实现 import validation seam，并让 `HandleUploadResources(...)` 改成两段式**
 
 在 `import_resource_helpers.go` 里新增：
 
@@ -776,7 +776,7 @@ if err = biz.ValidateResource(ctx, validationInput.Update, validationInput.AllRe
 }
 ```
 
-- [ ] **Step 4: 运行 common 包测试**
+- [x] **Step 4: 运行 common 包测试**
 
 Run:
 
@@ -787,7 +787,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 5: 提交这个 PR**
+- [x] **Step 5: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/common/import_resource_helpers.go src/apiserver/pkg/apis/common/import_resource_helpers_test.go src/apiserver/pkg/apis/common/resource_slz.go

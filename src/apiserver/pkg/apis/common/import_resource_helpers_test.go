@@ -223,3 +223,68 @@ func TestPrepareImportResources(t *testing.T) {
 		assert.Len(t, got[constant.Route], 1)
 	})
 }
+
+func TestPrepareImportValidationInput(t *testing.T) {
+	t.Parallel()
+
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{ID: 31})
+
+	t.Run("add only", func(t *testing.T) {
+		input, err := prepareImportValidationInput(
+			ctx,
+			&ResourceUploadInfo{
+				Add: map[constant.APISIXResource][]*ResourceInfo{
+					constant.Route: {
+						{
+							ResourceType: constant.Route,
+							ResourceID:   "route-1",
+							Name:         "route-demo",
+							Config:       json.RawMessage(`{"id":"route-1","name":"route-demo","uri":"/demo"}`),
+						},
+					},
+				},
+				Update: map[constant.APISIXResource][]*ResourceInfo{},
+			},
+			nil,
+		)
+		assert.NoError(t, err)
+		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"))
+		assert.Len(t, input.Add, 1)
+		assert.Len(t, input.Add[constant.Route], 1)
+		assert.Empty(t, input.Update)
+	})
+
+	t.Run("add and update accumulate all resource ids", func(t *testing.T) {
+		input, err := prepareImportValidationInput(
+			ctx,
+			&ResourceUploadInfo{
+				Add: map[constant.APISIXResource][]*ResourceInfo{
+					constant.Route: {
+						{
+							ResourceType: constant.Route,
+							ResourceID:   "route-new",
+							Name:         "route-new",
+							Config:       json.RawMessage(`{"id":"route-new","uri":"/a"}`),
+						},
+					},
+				},
+				Update: map[constant.APISIXResource][]*ResourceInfo{
+					constant.Route: {
+						{
+							ResourceType: constant.Route,
+							ResourceID:   "route-upd",
+							Name:         "route-upd",
+							Config:       json.RawMessage(`{"id":"route-upd","uri":"/b"}`),
+						},
+					},
+				},
+			},
+			nil,
+		)
+		assert.NoError(t, err)
+		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-new"))
+		assert.Contains(t, input.AllResourceIDs, fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-upd"))
+		assert.Len(t, input.Add[constant.Route], 1)
+		assert.Len(t, input.Update[constant.Route], 1)
+	})
+}

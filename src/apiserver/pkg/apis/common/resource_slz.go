@@ -124,27 +124,21 @@ func HandleUploadResources(
 	allSchemaMap map[string]any,
 	ignoreFields map[constant.APISIXResource][]string,
 ) (*HandlerResourceResult, error) {
-	// 分类聚合
-	allResourceIdMap := make(map[string]struct{})
-	resourceTypeAddMap, err := handleResources(ctx, resourcesImport.Add, allResourceIdMap, ignoreFields)
+	validationInput, err := prepareImportValidationInput(ctx, resourcesImport, ignoreFields)
 	if err != nil {
 		return nil, err
 	}
-	resourceTypeUpdateMap, err := handleResources(ctx, resourcesImport.Update, allResourceIdMap, ignoreFields)
-	if err != nil {
-		return nil, err
-	}
-	err = biz.ValidateResource(ctx, resourceTypeAddMap, allResourceIdMap, allSchemaMap)
+	err = biz.ValidateResource(ctx, validationInput.Add, validationInput.AllResourceIDs, allSchemaMap)
 	if err != nil {
 		return nil, fmt.Errorf("add resources validate failed, err: %w", err)
 	}
-	err = biz.ValidateResource(ctx, resourceTypeUpdateMap, allResourceIdMap, allSchemaMap)
+	err = biz.ValidateResource(ctx, validationInput.Update, validationInput.AllResourceIDs, allSchemaMap)
 	if err != nil {
 		return nil, fmt.Errorf("updated resources validate failed, err: %w", err)
 	}
 	return &HandlerResourceResult{
-		AddResourceTypeMap:    resourceTypeAddMap,
-		UpdateResourceTypeMap: resourceTypeUpdateMap,
+		AddResourceTypeMap:    validationInput.Add,
+		UpdateResourceTypeMap: validationInput.Update,
 	}, nil
 }
 
@@ -250,13 +244,4 @@ func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[consta
 		AllSchemaMap:         allSchemaMap,
 		ResourceTypeMap:      resourceTypeMap,
 	}, nil
-}
-
-func handleResources(
-	ctx context.Context,
-	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
-	allResourceIdMap map[string]struct{},
-	ignoreFields map[constant.APISIXResource][]string,
-) (map[constant.APISIXResource][]*model.GatewaySyncData, error) {
-	return prepareImportResources(ctx, resourcesImport, allResourceIdMap, ignoreFields)
 }

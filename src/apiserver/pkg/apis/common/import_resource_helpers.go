@@ -138,3 +138,32 @@ func prepareImportResources(
 	}
 	return resourceTypeMap, nil
 }
+
+type importValidationInput struct {
+	Add            map[constant.APISIXResource][]*model.GatewaySyncData
+	Update         map[constant.APISIXResource][]*model.GatewaySyncData
+	AllResourceIDs map[string]struct{}
+}
+
+// prepareImportValidationInput prepares add/update sync-data maps and builds a
+// shared resource-id set for the validation phase across both import branches.
+func prepareImportValidationInput(
+	ctx context.Context,
+	resourcesImport *ResourceUploadInfo,
+	ignoreFields map[constant.APISIXResource][]string,
+) (*importValidationInput, error) {
+	allResourceIDs := make(map[string]struct{})
+	addMap, err := prepareImportResources(ctx, resourcesImport.Add, allResourceIDs, ignoreFields)
+	if err != nil {
+		return nil, err
+	}
+	updateMap, err := prepareImportResources(ctx, resourcesImport.Update, allResourceIDs, ignoreFields)
+	if err != nil {
+		return nil, err
+	}
+	return &importValidationInput{
+		Add:            addMap,
+		Update:         updateMap,
+		AllResourceIDs: allResourceIDs,
+	}, nil
+}

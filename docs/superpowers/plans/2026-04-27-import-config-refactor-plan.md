@@ -36,6 +36,11 @@
 - 不改 `HandleConfig()` 行为
 - 不改 open / web / mcp
 
+## 人工 Review 补充（边界保护）
+
+- **文件上传导入链路的 ID 语义必须单独保留：** import 不是普通 Web create。当前链路以导入数据里的 `resource_id` / `ResourceInfo.ResourceID` 为准，`HandlerResourceIndexMap(...)` 和 `handleResources(...)` 都是“为空直接报错”，不是“本地生成 ID 再继续”。Task 1-5 抽 helper 时，不允许引入 ID fallback、自动补 ID、或把上传值重写成别的 ID；如果某类资源同时在 `config.id` 内也带身份字段，测试必须先锁住“上传 ID 原样沿用”的现状。
+- **批量导入的事务边界必须单独保留：** import prepare/validate 在 `pkg/apis/common/resource_slz.go`，真正落库在 `biz.UploadResources(...)`，后者已经自己包事务并串联 delete / insert / schema update。这个计划不重排、不下沉这段事务编排；如果执行中发现需要改 import/batch 的事务边界或引入新事务层，视为超出本计划，单独开任务。
+
 ## 文件结构
 
 - `src/apiserver/pkg/apis/common/resource_slz.go`
@@ -74,7 +79,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 ## 重构前测试前置阶段（独立）
 
 - Task 0 的目标不是引入 helper，而是先把现状锁住；建议单独落一组 characterization tests 到 `resource_slz_import_test.go`。
-- Task 0 至少覆盖 5 类现状：`ignore_fields` 会从旧资源覆盖导入配置；**旧资源上没有该字段时，导入配置原样保留（overlay 仅在 `gjson.GetBytes(existing, skipRule).Exists()==true` 时生效）**；空 `resource_id` 会直接失败；缺失关联资源会在 `HandleUploadResources(...)` 阶段报错；add/update map 的资源数与输入一致。
+- Task 0 至少覆盖 6 类现状：`ignore_fields` 会从旧资源覆盖导入配置；**旧资源上没有该字段时，导入配置原样保留（overlay 仅在 `gjson.GetBytes(existing, skipRule).Exists()==true` 时生效）**；**上传数据里已有 `resource_id` 的资源会原样沿用该 ID，不会在 import prepare 阶段被改写或重生成**；空 `resource_id` 会直接失败；缺失关联资源会在 `HandleUploadResources(...)` 阶段报错；add/update map 的资源数与输入一致。
 - Task 0 完成后，后续 Task 1-5 才允许把断言下沉到 `handleResources(...)` 或新 helper。
 
 **命名一致性约束（review 补充）：**
@@ -96,10 +101,11 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 
 - [ ] **Step 1: 在 `HandleUploadResources(...)` 上补一组入口 characterization tests**
 
-至少覆盖下面 5 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
+至少覆盖下面 6 类现状，断言都落在现有入口返回值和错误上，不提前引入新 helper：
 
 - `ignore_fields` 会用旧资源上的字段覆盖导入配置
 - **旧资源上没有 `ignore_fields` 指定的字段时，导入配置原样保留（锁住 `gjson.Exists==false 时静默跳过` 的现状，避免 Task 1 不小心改成 always-overwrite）**
+- **上传数据里已有 `resource_id` 的资源在 `HandleUploadResources(...)` 之后仍沿用原 ID，不会被本地生成或替换**
 - 空 `resource_id` 会在进入后续入库前直接失败
 - 缺失关联资源会在 `HandleUploadResources(...)` 阶段报错
 - add/update map 的资源数与输入一致；必要时可用 `HandlerResourceIndexMap(...)` 辅助准备断言输入
@@ -461,6 +467,8 @@ resourceImp := &model.GatewaySyncData{...}
 resourceImp := buildImportSyncData(ctx, resourceType, imp)
 ```
 
+**边界提醒（人工 review 补充）：** `buildImportSyncData(...)` 只消费上传进来的 `imp.ResourceID`。不要在这个 helper 里生成、修正、回填资源 ID；一旦这里开始碰 ID 语义，就不再是“sync-data 组装”，而是在偷偷改导入协议。
+
 - [ ] **Step 4: 运行 common 包测试**
 
 Run:
@@ -489,6 +497,8 @@ git commit -m "refactor: extract import sync-data builder"
 > 如果不做 Task 4，`handleResources(...)` 仍然是“将 3 个 helper 在 handler 层拼回去”的写法，并非 blocker，但 Task 5 的 validation seam 会因为没有此层 helper 而需要在外层手写两次类似的拼装。
 >
 > **review 补充测试**：在 `import_resource_helpers_test.go` 的 `TestPrepareImportResources` 中补一条锁定 Schema 跳过语义的 case——`prepareImportResources` 入参同时包含 `constant.Schema` 和 `constant.Route` 时，返回 map 不含 `constant.Schema`。
+>
+> **review 补充边界**：`prepareImportResources(...)` 虽然汇总 add/update 资源，但仍停在 prepare 阶段；不要把 `biz.UploadResources(...)` 的事务、审计、schema update 顺序搬进来，否则会把“orchestration 重排”变成“跨层事务重构”。
 
 - [ ] Task 4: 重写 `handleResources(...)` 为 import 本地 orchestration
 
@@ -789,3 +799,5 @@ git commit -m "refactor: add explicit import validation seam"
 - overlay、旧资源装载、sync-data 组装、validation input 都有明确本地 helper
 - `handleResources(...)` 不再承担所有职责
 - `HandleUploadResources(...)` 具备显式的 import validation seam
+- 上传导入链路保留“用户提供 `resource_id` / ID，空则报错”的现状，不引入本地自动生成 ID
+- 没有任何一步改动 `biz.UploadResources(...)` 现有的事务 / delete-insert / schema update 编排

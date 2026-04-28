@@ -1,6 +1,7 @@
 # Web API Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在不改变 Web API 协议、不触碰 `HandleConfig()` 边界的前提下，逐步收敛 `web api` 当前分散在 serializer 和 handler 中的 `config` 校验整形、生成 ID 时机、以及 create draft 组装重复逻辑。
 
@@ -88,13 +89,13 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 ## 重构前测试前置阶段（独立）
 
 - Task 0 至少覆盖 5 类现状：`CheckAPISIXConfig()` 的 identity fallback；`CheckAPISIXConfig()` 的 validation payload 整形；特殊 3 条 create handler 的“先生成 ID 再校验”；默认 create handler 的“先校验再生成 ID，但 draft 组装一致”；**`SSLCreate` 的 create 路径**（证书解析 + `validity_start/validity_end` 处理 + 默认组装）的当前行为，避免 Task 5 迁移 SSL 时黑盒改动。
-- **Task 0 必须显式断言当前特殊 3 条 create handler（`PluginConfigCreate` / `ConsumerGroupCreate` / `GlobalRuleCreate`）写入 `ResourceCommonModel` 时 `Updater` 字段是否为空**：当前原代码只写入 `Creator`，`Updater` 为空字符串。Task 4 `buildWebCreateDraft` 会同时写入 `Updater = userID`——这是**行为变化**，必须在 Task 0 先锁定当前“Updater 为空”的现状，在 Task 4 落地时再同步更新断言为“Updater == Creator == userID”（并在 commit message 里记录行为差异）。
+- **Task 0 必须显式断言当前特殊 3 条 create handler（`PluginConfigCreate` / `ConsumerGroupCreate` / `GlobalRuleCreate`）写入 `ResourceCommonModel` 时 `Updater` 字段的当前值**：当前分支原代码已经同时写入 `Creator` 和 `Updater`，并且两者都等于 `userID`。Task 4 `buildWebCreateDraft` 需要保持这个现状，不应引入新的 `Updater` 行为漂移。
 - `create_handlers_test.go` 负责锁 handler 入口行为；`web_create_helpers_test.go` 只在 helper 抽出后再补第二层单测。
 - 如果 Task 0 还没建好，不要直接推进 Task 3-5；否则后面很难分清是 handler 入口行为变了，还是 helper 自己写错了。
 
 ### Task 0: 补 Web serializer / create handler characterization tests
 
-- [ ] Task 0: 补 Web serializer / create handler characterization tests
+- [x] Task 0: 补 Web serializer / create handler characterization tests
 
 **要解决的缺口：** 现在文档只在说明里提了 Task 0，但正文还没有一个真正独立的前置补测任务。先把 `CheckAPISIXConfig()` 和 create handler 入口行为锁住，后面的 helper 提取才不会把“重构”和“补洞”混在一起。
 
@@ -104,7 +105,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - Modify: `src/apiserver/pkg/apis/web/serializer/common_test.go`
 - Create: `src/apiserver/pkg/apis/web/handler/create_handlers_test.go`
 
-- [ ] **Step 1: 在现有 serializer 和 create handler seam 上补 characterization tests**
+- [x] **Step 1: 在现有 serializer 和 create handler seam 上补 characterization tests**
 
 至少覆盖下面 5 类现状，避免直接从 `web_create_helpers_test.go` 或新 helper 起手：
 
@@ -114,10 +115,10 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 - 至少一条默认 create handler（如 `RouteCreate`）的“先校验再生成 ID，但 draft 组装一致”
 - **`SSLCreate` 的 create 路径**：证书字段、`validity_start/validity_end`、默认 draft 组装同时被锁住，作为 Task 5 迁移 SSL 时的黑盒护栏
 
-**额外断言（review 补充，行为变化锁定）：**
-在上面第 3 点的 3 条特殊 create handler 测试里，除了断言 `req.ID` 已填充、`Creator == userID` 外，**还要显式断言 `Updater == ""`**（当前现状）。这一组断言会在 Task 4 一起同步更新为 `Updater == userID`，获得一条于原代码一致的行为 drift 质问链。
+**额外断言（review 补充，当前行为锁定）：**
+在上面第 3 点的 3 条特殊 create handler 测试里，除了断言 `req.ID` 已填充、`Creator == userID` 外，**还要显式断言 `Updater == userID`**（当前现状）。Task 4 落地时需要保持这组断言不变，确认 helper 抽取没有带来行为漂移。
 
-- [ ] **Step 2: 运行 Web seam tests，确认入口行为已经被锁住**
+- [x] **Step 2: 运行 Web seam tests，确认入口行为已经被锁住**
 
 Run:
 
@@ -128,7 +129,7 @@ cd /root/workspace/tx/wklken/blueking-micro-apigateway/src/apiserver && source .
 Expected:
 - PASS
 
-- [ ] **Step 3: 提交这个 PR**
+- [x] **Step 3: 提交这个 PR**
 
 ```bash
 git add src/apiserver/pkg/apis/web/serializer/common_test.go src/apiserver/pkg/apis/web/handler/create_handlers_test.go
@@ -633,7 +634,7 @@ Expected:
 
 - [ ] **Step 3: 实现 helper，并让 3 个 handler 复用**
 
-在 `web_create_helpers.go` 增加（**行为变化标注**：当前特殊 3 条 create handler 原代码不写 `Updater`，helper 统一写入 `Updater = userID`；Task 0 已锁住“旧行为：Updater 为空”，在本步一起更新断言为“新行为：Updater == Creator”）：
+在 `web_create_helpers.go` 增加（**行为保持要求**：当前特殊 3 条 create handler 原代码已经写入 `Updater = userID`；helper 抽取后必须保持 `Updater == Creator == userID` 这一现状）：
 
 ```go
 func buildWebCreateDraft(
@@ -666,7 +667,7 @@ pluginConfig := &model.PluginConfig{
 
 `consumer_group` / `global_rule` 同样只保留资源本地字段，`ResourceCommonModel` 统一走 helper。
 
-**行为变化同步（review）：** 同步将 Task 0 在 `create_handlers_test.go` 里断言的 `Updater == ""` 更新为 `Updater == ginx.GetUserID(c)`（== `Creator`），并在 commit message 里记录“behavior change: PluginConfigCreate / ConsumerGroupCreate / GlobalRuleCreate now write Updater on create draft (previously empty)”。
+**行为保持同步（review）：** 保持 Task 0 在 `create_handlers_test.go` 里已经锁住的 `Updater == ginx.GetUserID(c)`（== `Creator`）断言不变，确认 helper 提取没有改变 create draft 的写入结果。
 
 - [ ] **Step 4: 运行 handler 包测试**
 

@@ -107,11 +107,38 @@ func TestBackfillStoredSnapshotFields(t *testing.T) {
 	assert.NoError(t, CreateGlobalRule(ctx, *globalRule))
 
 	resources := []*model.GatewaySyncData{
-		{ID: globalRule.ID, GatewayID: gatewayInfo.ID, Type: constant.GlobalRule, Config: datatypes.JSON(`{"plugins":{}}`)},
-		{ID: pluginConfig.ID, GatewayID: gatewayInfo.ID, Type: constant.PluginConfig, Config: datatypes.JSON(`{"plugins":{}}`)},
-		{ID: consumerGroup.ID, GatewayID: gatewayInfo.ID, Type: constant.ConsumerGroup, Config: datatypes.JSON(`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`)},
-		{ID: proto.ID, GatewayID: gatewayInfo.ID, Type: constant.Proto, Config: datatypes.JSON(`{"content":"syntax = \"proto3\";"}`)},
-		{ID: streamRoute.ID, GatewayID: gatewayInfo.ID, Type: constant.StreamRoute, Config: datatypes.JSON(`{"server_addr":"127.0.0.1","server_port":8080}`)},
+		{
+			ID:        globalRule.ID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.GlobalRule,
+			Config:    datatypes.JSON(`{"plugins":{}}`),
+		},
+		{
+			ID:        pluginConfig.ID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.PluginConfig,
+			Config:    datatypes.JSON(`{"plugins":{}}`),
+		},
+		{
+			ID:        consumerGroup.ID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.ConsumerGroup,
+			Config: datatypes.JSON(
+				`{"plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+			),
+		},
+		{
+			ID:        proto.ID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.Proto,
+			Config:    datatypes.JSON(`{"content":"syntax = \"proto3\";"}`),
+		},
+		{
+			ID:        streamRoute.ID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.StreamRoute,
+			Config:    datatypes.JSON(`{"server_addr":"127.0.0.1","server_port":8080}`),
+		},
 	}
 
 	err := backfillStoredSnapshotFields(ctx, resources)

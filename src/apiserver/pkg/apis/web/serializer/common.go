@@ -74,6 +74,7 @@ func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, str
 		RawConfig:        rawConfig,
 		FallbackIdentity: input.FallbackIdentity,
 	})
+	// FIXME: config modified logical
 	if usedFallback && shouldInjectResourceNameForValidation(input.ResourceType, input.Version) {
 		rawConfig, _ = sjson.SetBytes(
 			rawConfig,
@@ -81,6 +82,7 @@ func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, str
 			resourceIdentification,
 		)
 	}
+	// FIXME: config modified logical
 	if input.ResourceType == constant.PluginMetadata {
 		rawConfig, _ = sjson.SetBytes(rawConfig, "id", input.Name)
 	}

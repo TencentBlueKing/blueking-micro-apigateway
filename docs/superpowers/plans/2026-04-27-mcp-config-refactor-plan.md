@@ -1,6 +1,7 @@
 # MCP Config 小步重构实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Execution rule:** If a task or step is done, mark it in this `plan.md` before running `git add` and `git commit`.
 
 **Goal:** 在维持“MCP 暂不纳入主线重构目标”这一共识不变的前提下，只做 MCP 域内的小步整理：固化创建与更新路径的当前行为，提取极小的本地 helper，避免这条链路继续靠手写重复逻辑生长。
 

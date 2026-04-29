@@ -25,8 +25,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/sjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
@@ -114,8 +114,8 @@ func (r ResourceUpdateRequest) ToCommonResource(
 
 // ResourceImportRequest 资源导入请求
 type ResourceImportRequest struct {
-	Data     map[constant.APISIXResource][]*common.ResourceInfo
-	Metadata Metadata `json:"metadata"`
+	Data     map[constant.APISIXResource][]*dto.ImportResourceInfo
+	Metadata dto.ImportMetadata `json:"metadata"`
 }
 
 // UnmarshalJSON 自定义解析 JSON
@@ -133,18 +133,13 @@ func (w *ResourceImportRequest) UnmarshalJSON(data []byte) error {
 		delete(raw, "metadata")
 	}
 	// 剩余部分解析为资源数据
-	w.Data = make(map[constant.APISIXResource][]*common.ResourceInfo)
+	w.Data = make(map[constant.APISIXResource][]*dto.ImportResourceInfo)
 	for key, val := range raw {
-		var resources []*common.ResourceInfo
+		var resources []*dto.ImportResourceInfo
 		if err := json.Unmarshal(val, &resources); err != nil {
 			return err
 		}
 		w.Data[constant.APISIXResource(key)] = resources
 	}
 	return nil
-}
-
-type Metadata struct {
-	// 跳过规则，用于设置针对某些资源不进行修改设置
-	IgnoreFields map[constant.APISIXResource][]string `json:"ignore_fields"`
 }

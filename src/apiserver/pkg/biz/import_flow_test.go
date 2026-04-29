@@ -16,7 +16,7 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-package common
+package biz
 
 import (
 	"context"
@@ -27,14 +27,144 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
-func TestHandleUploadResources(t *testing.T) {
+func TestBuildImportIndex(t *testing.T) {
+	gatewayCtx, gateway := setupImportGatewayContext(t, "build-index")
+	createPluginConfigForImportTest(
+		t,
+		gatewayCtx,
+		gateway.ID,
+		"pc-existing",
+		`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+	)
+	createCustomSchemaForImportTest(t, gatewayCtx, gateway.ID, "existing-plugin")
+
+	got, err := BuildImportIndex(
+		gatewayCtx,
+		map[constant.APISIXResource][]*dto.ImportResourceInfo{
+			constant.PluginConfig: {
+				{
+					ResourceType: constant.PluginConfig,
+					ResourceID:   "pc-new",
+					Name:         "pc-new",
+					Config: json.RawMessage(
+						`{"id":"pc-new","name":"pc-new","plugins":{"limit-count":{"count":10,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+					),
+				},
+			},
+			constant.Schema: {
+				{
+					ResourceType: constant.Schema,
+					Name:         "existing-plugin",
+					Config: json.RawMessage(
+						`{"schema":{"type":"object"},"example":{"count":1}}`,
+					),
+				},
+				{
+					ResourceType: constant.Schema,
+					Name:         "new-plugin",
+					Config: json.RawMessage(
+						`{"schema":{"type":"object"},"example":{"count":2}}`,
+					),
+				},
+			},
+		},
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.Len(t, got.ResourceTypeMap[constant.PluginConfig], 1) {
+		return
+	}
+	assert.Contains(
+		t,
+		got.ExistingResourceIDs,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"),
+	)
+	assert.Contains(
+		t,
+		got.AllResourceIDs,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"),
+	)
+	assert.Contains(
+		t,
+		got.AllResourceIDs,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-new"),
+	)
+	assert.Equal(t, "pc-new", got.ResourceTypeMap[constant.PluginConfig][0].ID)
+	assert.Contains(t, got.AddedSchemaMap, "new-plugin")
+	assert.Contains(t, got.UpdatedSchemaMap, "existing-plugin")
+	assert.Contains(t, got.AllSchemaMap, "existing-plugin")
+	assert.Contains(t, got.AllSchemaMap, "new-plugin")
+}
+
+func TestClassifyImportResources(t *testing.T) {
+	got, err := ClassifyImportResources(
+		map[constant.APISIXResource][]*dto.ImportResourceInfo{
+			constant.PluginConfig: {
+				{
+					ResourceType: constant.PluginConfig,
+					ResourceID:   "pc-existing",
+					Config: json.RawMessage(
+						`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+					),
+				},
+				{
+					ResourceType: constant.PluginConfig,
+					ResourceID:   "pc-new",
+					Config: json.RawMessage(
+						`{"id":"pc-new","name":"pc-new","plugins":{"limit-count":{"count":10,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+					),
+				},
+			},
+			constant.Schema: {
+				{
+					ResourceType: constant.Schema,
+					Name:         "existing-plugin",
+					Config: json.RawMessage(
+						`{"schema":{"type":"object"},"example":{"count":1}}`,
+					),
+				},
+				{
+					ResourceType: constant.Schema,
+					Name:         "new-plugin",
+					Config: json.RawMessage(
+						`{"schema":{"type":"object"},"example":{"count":2}}`,
+					),
+				},
+			},
+		},
+		map[string]struct{}{
+			fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"): {},
+		},
+		map[string]*model.GatewayCustomPluginSchema{
+			"new-plugin": {Name: "new-plugin"},
+		},
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.Len(t, got.Add[constant.PluginConfig], 1) {
+		return
+	}
+	if !assert.Len(t, got.Update[constant.PluginConfig], 1) {
+		return
+	}
+	assert.Equal(t, constant.UploadStatusAdd, got.Add[constant.PluginConfig][0].Status)
+	assert.Equal(t, "pc-new", got.Add[constant.PluginConfig][0].Name)
+	assert.Equal(t, constant.UploadStatusUpdate, got.Update[constant.PluginConfig][0].Status)
+	assert.Len(t, got.Add[constant.Schema], 1)
+	assert.Len(t, got.Update[constant.Schema], 1)
+	assert.Equal(t, "new-plugin", got.Add[constant.Schema][0].Name)
+	assert.Equal(t, "existing-plugin", got.Update[constant.Schema][0].Name)
+}
+
+func TestPrepareImportUpload(t *testing.T) {
 	t.Run("ignore_fields overlays existing config field", func(t *testing.T) {
 		gatewayCtx, gateway := setupImportGatewayContext(t, "import-overlay")
 		createPluginConfigForImportTest(
@@ -45,11 +175,11 @@ func TestHandleUploadResources(t *testing.T) {
 			`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
 		)
 
-		got, err := HandleUploadResources(
+		got, err := PrepareImportUpload(
 			gatewayCtx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{},
-				Update: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{},
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.PluginConfig: {
 						{
 							ResourceType: constant.PluginConfig,
@@ -90,11 +220,11 @@ func TestHandleUploadResources(t *testing.T) {
 			`{"id":"pc-2","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
 		)
 
-		got, err := HandleUploadResources(
+		got, err := PrepareImportUpload(
 			gatewayCtx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{},
-				Update: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{},
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.PluginConfig: {
 						{
 							ResourceType: constant.PluginConfig,
@@ -135,10 +265,10 @@ func TestHandleUploadResources(t *testing.T) {
 			`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
 		)
 
-		got, err := HandleUploadResources(
+		got, err := PrepareImportUpload(
 			gatewayCtx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.PluginConfig: {
 						{
 							ResourceType: constant.PluginConfig,
@@ -150,7 +280,7 @@ func TestHandleUploadResources(t *testing.T) {
 						},
 					},
 				},
-				Update: map[constant.APISIXResource][]*ResourceInfo{
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.PluginConfig: {
 						{
 							ResourceType: constant.PluginConfig,
@@ -182,10 +312,10 @@ func TestHandleUploadResources(t *testing.T) {
 	t.Run("empty resource id fails before upload", func(t *testing.T) {
 		gatewayCtx, _ := setupImportGatewayContext(t, "import-empty-id")
 
-		got, err := HandleUploadResources(
+		got, err := PrepareImportUpload(
 			gatewayCtx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.PluginConfig: {
 						{
 							ResourceType: constant.PluginConfig,
@@ -194,7 +324,7 @@ func TestHandleUploadResources(t *testing.T) {
 						},
 					},
 				},
-				Update: map[constant.APISIXResource][]*ResourceInfo{},
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{},
 			},
 			map[string]any{},
 			nil,
@@ -206,10 +336,10 @@ func TestHandleUploadResources(t *testing.T) {
 	t.Run("missing associated resource fails during upload handling", func(t *testing.T) {
 		gatewayCtx, _ := setupImportGatewayContext(t, "import-missing-association")
 
-		got, err := HandleUploadResources(
+		got, err := PrepareImportUpload(
 			gatewayCtx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.Route: {
 						{
 							ResourceType: constant.Route,
@@ -221,7 +351,7 @@ func TestHandleUploadResources(t *testing.T) {
 						},
 					},
 				},
-				Update: map[constant.APISIXResource][]*ResourceInfo{},
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{},
 			},
 			map[string]any{},
 			nil,
@@ -231,53 +361,33 @@ func TestHandleUploadResources(t *testing.T) {
 	})
 }
 
-func TestHandlerResourceIndexMap(t *testing.T) {
-	gatewayCtx, gateway := setupImportGatewayContext(t, "import-index-map")
-	createPluginConfigForImportTest(
-		t,
-		gatewayCtx,
-		gateway.ID,
-		"pc-existing",
-		`{"id":"pc-existing","name":"pc-existing","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+func TestValidateImportedResources(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(
+		context.Background(),
+		&model.Gateway{APISIXVersion: string(constant.APISIXVersion313)},
 	)
 
-	got, err := HandlerResourceIndexMap(
-		gatewayCtx,
-		map[constant.APISIXResource][]*ResourceInfo{
-			constant.PluginConfig: {
+	err := ValidateImportedResources(
+		ctx,
+		map[constant.APISIXResource][]*model.GatewaySyncData{
+			constant.Route: {
 				{
-					ResourceType: constant.PluginConfig,
-					ResourceID:   "pc-new",
-					Name:         "pc-new",
-					Config: json.RawMessage(
-						`{"id":"pc-new","name":"pc-new","plugins":{"limit-count":{"count":10,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+					Type: constant.Route,
+					ID:   "route-1",
+					Config: datatypes.JSON(
+						[]byte(
+							`{"id":"route-1","name":"route-demo","uris":["/demo"],"upstream_id":"up-missing"}`,
+						),
 					),
 				},
 			},
 		},
+		map[string]struct{}{
+			fmt.Sprintf(constant.ResourceKeyFormat, constant.Route, "route-1"): {},
+		},
+		nil,
 	)
-	if !assert.NoError(t, err) {
-		return
-	}
-	if !assert.Len(t, got.ResourceTypeMap[constant.PluginConfig], 1) {
-		return
-	}
-	assert.Contains(
-		t,
-		got.ExistsResourceIdList,
-		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"),
-	)
-	assert.Contains(
-		t,
-		got.AllResourceIdList,
-		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-existing"),
-	)
-	assert.Contains(
-		t,
-		got.AllResourceIdList,
-		fmt.Sprintf(constant.ResourceKeyFormat, constant.PluginConfig, "pc-new"),
-	)
-	assert.Equal(t, "pc-new", got.ResourceTypeMap[constant.PluginConfig][0].ID)
+	assert.ErrorContains(t, err, "associated upstream [id:up-missing] not found")
 }
 
 func TestApplyImportIgnoreFields(t *testing.T) {
@@ -334,29 +444,14 @@ func TestApplyImportIgnoreFields(t *testing.T) {
 }
 
 func TestLoadExistingImportResources(t *testing.T) {
-	util.InitEmbedDb()
-
-	ctx := context.Background()
-	gateway := &model.Gateway{
-		Name:          "import-test-gateway",
-		APISIXVersion: string(constant.APISIXVersion313),
-	}
-	assert.NoError(t, biz.CreateGateway(ctx, gateway))
-
-	gatewayCtx := ginx.SetGatewayInfoToContext(ctx, gateway)
-	assert.NoError(t, biz.CreatePluginConfig(gatewayCtx, model.PluginConfig{
-		Name: "pc-demo",
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        "pc-1",
-			GatewayID: gateway.ID,
-			Config: datatypes.JSON(
-				[]byte(
-					`{"id":"pc-1","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
-				),
-			),
-			Status: constant.ResourceStatusSuccess,
-		},
-	}))
+	gatewayCtx, gateway := setupImportGatewayContext(t, "load-existing")
+	createPluginConfigForImportTest(
+		t,
+		gatewayCtx,
+		gateway.ID,
+		"pc-1",
+		`{"id":"pc-1","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+	)
 
 	got, allResourceIDs, err := loadExistingImportResources(gatewayCtx, constant.PluginConfig)
 	assert.NoError(t, err)
@@ -375,7 +470,7 @@ func TestBuildImportSyncData(t *testing.T) {
 	t.Parallel()
 
 	ctx := ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{ID: 23})
-	info := &ResourceInfo{
+	info := &dto.ImportResourceInfo{
 		ResourceType: constant.Route,
 		ResourceID:   "route-1",
 		Name:         "route-demo",
@@ -390,32 +485,18 @@ func TestBuildImportSyncData(t *testing.T) {
 }
 
 func TestPrepareImportResources(t *testing.T) {
-	util.InitEmbedDb()
-
-	ctx := context.Background()
-	gateway := &model.Gateway{
-		Name:          "prepare-import-gateway",
-		APISIXVersion: string(constant.APISIXVersion313),
-	}
-	assert.NoError(t, biz.CreateGateway(ctx, gateway))
-	gatewayCtx := ginx.SetGatewayInfoToContext(ctx, gateway)
-
-	existing := model.PluginConfig{
-		Name: "pc-demo",
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        "pc-1",
-			GatewayID: gateway.ID,
-			Config: datatypes.JSON([]byte(
-				`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
-			)),
-			Status: constant.ResourceStatusSuccess,
-		},
-	}
-	assert.NoError(t, biz.CreatePluginConfig(gatewayCtx, existing))
+	gatewayCtx, gateway := setupImportGatewayContext(t, "prepare-resources")
+	createPluginConfigForImportTest(
+		t,
+		gatewayCtx,
+		gateway.ID,
+		"pc-1",
+		`{"id":"pc-1","name":"pc-demo","desc":"old-desc","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+	)
 
 	resources, allResourceIDs, err := prepareImportResources(
 		gatewayCtx,
-		map[constant.APISIXResource][]*ResourceInfo{
+		map[constant.APISIXResource][]*dto.ImportResourceInfo{
 			constant.PluginConfig: {
 				{
 					ResourceType: constant.PluginConfig,
@@ -445,7 +526,7 @@ func TestPrepareImportResources(t *testing.T) {
 	t.Run("schema resources are skipped", func(t *testing.T) {
 		got, allResourceIDs, err := prepareImportResources(
 			gatewayCtx,
-			map[constant.APISIXResource][]*ResourceInfo{
+			map[constant.APISIXResource][]*dto.ImportResourceInfo{
 				constant.Schema: {
 					{
 						ResourceType: constant.Schema,
@@ -475,15 +556,13 @@ func TestPrepareImportResources(t *testing.T) {
 }
 
 func TestPrepareImportValidationInput(t *testing.T) {
-	t.Parallel()
-
 	ctx := ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{ID: 31})
 
 	t.Run("add only", func(t *testing.T) {
 		input, err := prepareImportValidationInput(
 			ctx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.Route: {
 						{
 							ResourceType: constant.Route,
@@ -495,7 +574,7 @@ func TestPrepareImportValidationInput(t *testing.T) {
 						},
 					},
 				},
-				Update: map[constant.APISIXResource][]*ResourceInfo{},
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{},
 			},
 			nil,
 		)
@@ -513,8 +592,8 @@ func TestPrepareImportValidationInput(t *testing.T) {
 	t.Run("add and update accumulate all resource ids", func(t *testing.T) {
 		input, err := prepareImportValidationInput(
 			ctx,
-			&ResourceUploadInfo{
-				Add: map[constant.APISIXResource][]*ResourceInfo{
+			&dto.ImportUploadInfo{
+				Add: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.Route: {
 						{
 							ResourceType: constant.Route,
@@ -524,7 +603,7 @@ func TestPrepareImportValidationInput(t *testing.T) {
 						},
 					},
 				},
-				Update: map[constant.APISIXResource][]*ResourceInfo{
+				Update: map[constant.APISIXResource][]*dto.ImportResourceInfo{
 					constant.Route: {
 						{
 							ResourceType: constant.Route,
@@ -553,21 +632,21 @@ func TestPrepareImportValidationInput(t *testing.T) {
 	})
 }
 
-func setupImportGatewayContext(t *testing.T, gatewayName string) (context.Context, *model.Gateway) {
+func setupImportGatewayContext(t *testing.T, suffix string) (context.Context, *model.Gateway) {
 	t.Helper()
-
-	util.InitEmbedDb()
 
 	ctx := context.Background()
 	gateway := &model.Gateway{
-		Name:          gatewayName,
+		Name:          publishTestName(t, suffix),
 		APISIXVersion: string(constant.APISIXVersion313),
 	}
-	err := biz.CreateGateway(ctx, gateway)
-	if !assert.NoError(t, err) {
-		t.FailNow()
+	if err := CreateGateway(ctx, gateway); err != nil {
+		t.Fatal(err)
 	}
-	return ginx.SetGatewayInfoToContext(ctx, gateway), gateway
+
+	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
+	ctx = context.WithValue(ctx, constant.UserIDKey, "import-tester")
+	return ctx, gateway
 }
 
 func createPluginConfigForImportTest(
@@ -579,7 +658,7 @@ func createPluginConfigForImportTest(
 ) {
 	t.Helper()
 
-	err := biz.CreatePluginConfig(ctx, model.PluginConfig{
+	err := CreatePluginConfig(ctx, model.PluginConfig{
 		Name: gjsonGetName(config),
 		ResourceCommonModel: model.ResourceCommonModel{
 			ID:        id,
@@ -588,8 +667,29 @@ func createPluginConfigForImportTest(
 			Status:    constant.ResourceStatusSuccess,
 		},
 	})
-	if !assert.NoError(t, err) {
-		t.FailNow()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func createCustomSchemaForImportTest(t *testing.T, ctx context.Context, gatewayID int, name string) {
+	t.Helper()
+
+	err := BatchCreateSchema(ctx, []*model.GatewayCustomPluginSchema{
+		{
+			GatewayID: gatewayID,
+			Name:      name,
+			Schema:    datatypes.JSON([]byte(`{"type":"object"}`)),
+			Example:   datatypes.JSON([]byte(`{"count":1}`)),
+			BaseModel: model.BaseModel{
+				Creator: ginx.GetUserIDFromContext(ctx),
+				Updater: ginx.GetUserIDFromContext(ctx),
+			},
+			OperationType: constant.OperationImport,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

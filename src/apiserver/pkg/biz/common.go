@@ -36,7 +36,6 @@ import (
 	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
@@ -44,7 +43,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
 // PageParam 分页参数
@@ -941,90 +939,6 @@ func BuildConfigRawForValidation(
 	}
 
 	return configRawForValidation
-}
-
-// ValidateResource 校验资源
-// ValidateResource validates resources based on schema and association checks
-// ctx: context containing request information
-// resources: map of APISIX resources to their sync data
-// allResourceIDMap: map of all valid resource IDs for association validation
-// Returns: error if validation fails, nil otherwise
-func ValidateResource(
-	ctx context.Context,
-	resources map[constant.APISIXResource][]*model.GatewaySyncData,
-	allResourceIDMap map[string]struct{},
-	allPluginSchemaMap map[string]any,
-) error {
-	// Extract gateway information from context
-	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	// Iterate through each resource type and its associated data
-	for resourceType, resource := range resources {
-		// Create schema validator for the resource type
-		schemaValidator, err := schema.NewAPISIXSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
-			"main."+resourceType.String())
-		if err != nil {
-			return err
-		}
-		// Validate each resource instance
-		for _, r := range resource {
-			configRawForValidation := BuildConfigRawForValidation(
-				string(r.Config),
-				resourceType,
-				gatewayInfo.GetAPISIXVersionX(),
-			)
-
-			// Validate resource against schema
-			if err = schemaValidator.Validate(configRawForValidation); err != nil {
-				logging.Errorf("schema validate failed, err: %v", err)
-				return err
-			}
-			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(gatewayInfo.GetAPISIXVersionX(),
-				resourceType, "main."+string(resourceType), allPluginSchemaMap, constant.DATABASE)
-			if err != nil {
-				return err
-			}
-			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
-				return fmt.Errorf("resource config:%s validate failed, err: %w",
-					r.Config, err)
-			}
-
-			// 校验关联数据是否存在
-			var resourceAssociateIDInfo dto.ResourceAssociateID
-			err = json.Unmarshal(r.Config, &resourceAssociateIDInfo)
-			if err != nil {
-				return err
-			}
-			if resourceAssociateIDInfo.ServiceID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
-					constant.Service, resourceAssociateIDInfo.ServiceID)]; !ok {
-					return fmt.Errorf("associated service [id:%s] not found",
-						resourceAssociateIDInfo.ServiceID)
-				}
-			}
-			if resourceAssociateIDInfo.UpstreamID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
-					constant.Upstream, resourceAssociateIDInfo.UpstreamID)]; !ok {
-					return fmt.Errorf("associated upstream [id:%s] not found",
-						resourceAssociateIDInfo.UpstreamID)
-				}
-			}
-			if resourceAssociateIDInfo.PluginConfigID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
-					constant.PluginConfig, resourceAssociateIDInfo.PluginConfigID)]; !ok {
-					return fmt.Errorf("associated plugin_config [id:%s] not found",
-						resourceAssociateIDInfo.PluginConfigID)
-				}
-			}
-			if resourceAssociateIDInfo.GroupID != "" {
-				if _, ok := allResourceIDMap[resourceAssociateIDInfo.GetResourceKey(
-					constant.ConsumerGroup, resourceAssociateIDInfo.GroupID)]; !ok {
-					return fmt.Errorf("associated consumer_group [id:%s] not found",
-						resourceAssociateIDInfo.GroupID)
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // FormatResourceIDNameList 格式化资源 ID 和名称列表

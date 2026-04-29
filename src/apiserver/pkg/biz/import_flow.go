@@ -16,8 +16,7 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-// Package common ...
-package common
+package biz
 
 import (
 	"context"
@@ -28,61 +27,40 @@ import (
 	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
-// ResourceInfo ...
-type ResourceInfo struct {
-	ResourceType constant.APISIXResource `json:"resource_type,omitempty"`               // 资源类型
-	ResourceID   string                  `json:"resource_id,omitempty"`                 // 资源 ID
-	Name         string                  `json:"name,omitempty"`                        // 资源名称
-	Config       json.RawMessage         `json:"config,omitempty" swaggertype:"object"` // 资源配置
-	Status       constant.UploadStatus   `json:"status,omitempty"`                      // 资源导入状态 (add/update)
-}
-
-// GetResourceKey 获取资源 key
-func (r ResourceInfo) GetResourceKey() string {
-	// 插件元数据需要特殊处理，因为插件元素数没有真正 id
-	if r.ResourceType == constant.PluginMetadata {
-		return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.Name)
-	}
-	return fmt.Sprintf(constant.ResourceKeyFormat, r.ResourceType, r.ResourceID)
-}
-
-// ResourceUploadInfo ...
-type ResourceUploadInfo struct {
-	Add    map[constant.APISIXResource][]*ResourceInfo `json:"add,omitempty"`
-	Update map[constant.APISIXResource][]*ResourceInfo `json:"update,omitempty"`
-}
-
-// HandlerResourceResult ...
-type HandlerResourceResult struct {
+// PreparedImportResources contains the validated sync-data groups ready for the
+// upload transaction flow.
+type PreparedImportResources struct {
 	AddResourceTypeMap    map[constant.APISIXResource][]*model.GatewaySyncData
 	UpdateResourceTypeMap map[constant.APISIXResource][]*model.GatewaySyncData
 }
 
-// HandlerResourceIndexResult ...
-type HandlerResourceIndexResult struct {
-	ExistsResourceIdList map[string]struct{}
-	AllResourceIdList    map[string]struct{}
-	AddedSchemaMap       map[string]*model.GatewayCustomPluginSchema
-	UpdatedSchemaMap     map[string]*model.GatewayCustomPluginSchema
-	AllSchemaMap         map[string]any
-	ResourceTypeMap      map[constant.APISIXResource][]*model.GatewaySyncData
+// ImportIndexResult contains the discovered DB/index state needed by preview
+// and open import flows before classification or validation.
+type ImportIndexResult struct {
+	ExistingResourceIDs map[string]struct{}
+	AllResourceIDs      map[string]struct{}
+	AddedSchemaMap      map[string]*model.GatewayCustomPluginSchema
+	UpdatedSchemaMap    map[string]*model.GatewayCustomPluginSchema
+	AllSchemaMap        map[string]any
+	ResourceTypeMap     map[constant.APISIXResource][]*model.GatewaySyncData
 }
 
-// ClassifyImportResourceInfo 分类合并导入资源信息
-func ClassifyImportResourceInfo(
-	importDataList map[constant.APISIXResource][]*ResourceInfo,
-	existsResourceIdList map[string]struct{},
+// ClassifyImportResources splits imported resources into add/update buckets
+// while preserving the current import status semantics.
+func ClassifyImportResources(
+	importDataList map[constant.APISIXResource][]*dto.ImportResourceInfo,
+	existingResourceIDs map[string]struct{},
 	addPluginSchemaMap map[string]*model.GatewayCustomPluginSchema,
-) (*ResourceUploadInfo, error) {
-	uploadOutput := &ResourceUploadInfo{
-		Add:    make(map[constant.APISIXResource][]*ResourceInfo),
-		Update: make(map[constant.APISIXResource][]*ResourceInfo),
+) (*dto.ImportUploadInfo, error) {
+	uploadOutput := &dto.ImportUploadInfo{
+		Add:    make(map[constant.APISIXResource][]*dto.ImportResourceInfo),
+		Update: make(map[constant.APISIXResource][]*dto.ImportResourceInfo),
 	}
 	for resourceType, impList := range importDataList {
 		for _, imp := range impList {
@@ -103,7 +81,7 @@ func ClassifyImportResourceInfo(
 				continue
 			}
 			imp.Name = gjson.ParseBytes(imp.Config).Get(model.GetResourceNameKey(imp.ResourceType)).String()
-			if _, ok := existsResourceIdList[imp.GetResourceKey()]; !ok {
+			if _, ok := existingResourceIDs[imp.GetResourceKey()]; !ok {
 				imp.Status = constant.UploadStatusAdd
 				uploadOutput.Add[imp.ResourceType] = append(uploadOutput.Add[imp.ResourceType], imp)
 			} else {
@@ -116,6 +94,120 @@ func ClassifyImportResourceInfo(
 		}
 	}
 	return uploadOutput, nil
+}
+
+// BuildImportIndex collects existing resource ids, schema state, and raw
+// sync-data previews for upload/import requests.
+func BuildImportIndex(
+	ctx context.Context,
+	resourceInfoTypeMap map[constant.APISIXResource][]*dto.ImportResourceInfo,
+) (*ImportIndexResult, error) {
+	existingResourceIDs := make(map[string]struct{})
+	allResourceIDs := make(map[string]struct{})
+	var addedSchemaMap map[string]*model.GatewayCustomPluginSchema
+	var updatedSchemaMap map[string]*model.GatewayCustomPluginSchema
+	var allSchemaMap map[string]any
+	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
+
+	for resourceType, resourceInfoList := range resourceInfoTypeMap {
+		if resourceType == constant.Schema {
+			var err error
+			allSchemaMap, addedSchemaMap, updatedSchemaMap, err = buildImportSchemaIndex(
+				ctx,
+				resourceInfoList,
+			)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		dbResources, err := BatchGetResources(ctx, resourceType, []string{})
+		if err != nil {
+			return nil, err
+		}
+		for _, dbResource := range dbResources {
+			key := dbResource.GetResourceKey(resourceType)
+			existingResourceIDs[key] = struct{}{}
+			allResourceIDs[key] = struct{}{}
+		}
+		for _, resourceInfo := range resourceInfoList {
+			if resourceInfo.ResourceID == "" {
+				return nil, fmt.Errorf(
+					"%s: resource id is empty: %s",
+					resourceInfo.ResourceType,
+					resourceInfo.Name,
+				)
+			}
+			res := &model.GatewaySyncData{
+				Type:   resourceInfo.ResourceType,
+				ID:     resourceInfo.ResourceID,
+				Config: datatypes.JSON(resourceInfo.Config),
+			}
+			allResourceIDs[res.GetResourceKey()] = struct{}{}
+			resourceTypeMap[resourceInfo.ResourceType] = append(
+				resourceTypeMap[resourceInfo.ResourceType],
+				res,
+			)
+		}
+	}
+	return &ImportIndexResult{
+		ExistingResourceIDs: existingResourceIDs,
+		AllResourceIDs:      allResourceIDs,
+		AddedSchemaMap:      addedSchemaMap,
+		UpdatedSchemaMap:    updatedSchemaMap,
+		AllSchemaMap:        allSchemaMap,
+		ResourceTypeMap:     resourceTypeMap,
+	}, nil
+}
+
+// BuildImportUploadSchemaModels converts classified schema resources into DB
+// models for the web import path and mutates allSchemaMap for validation.
+func BuildImportUploadSchemaModels(
+	ctx context.Context,
+	resources map[constant.APISIXResource][]*dto.ImportResourceInfo,
+	allSchemaMap map[string]any,
+) (map[string]*model.GatewayCustomPluginSchema, error) {
+	schemaMap := make(map[string]*model.GatewayCustomPluginSchema)
+	for _, resourceList := range resources {
+		for _, resource := range resourceList {
+			if resource.ResourceType != constant.Schema {
+				continue
+			}
+			schemaModel := buildImportSchemaModel(ctx, resource, true)
+			schemaMap[resource.Name] = schemaModel
+			if err := mergeSchemaIntoMap(allSchemaMap, schemaModel); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return schemaMap, nil
+}
+
+// PrepareImportUpload prepares add/update sync-data groups and validates them
+// before the upload transaction flow begins.
+func PrepareImportUpload(
+	ctx context.Context,
+	resourcesImport *dto.ImportUploadInfo,
+	allSchemaMap map[string]any,
+	ignoreFields map[constant.APISIXResource][]string,
+) (*PreparedImportResources, error) {
+	validationInput, err := prepareImportValidationInput(ctx, resourcesImport, ignoreFields)
+	if err != nil {
+		return nil, err
+	}
+	err = ValidateImportedResources(ctx, validationInput.Add, validationInput.AllResourceIDs, allSchemaMap)
+	if err != nil {
+		return nil, fmt.Errorf("add resources validate failed, err: %w", err)
+	}
+	err = ValidateImportedResources(ctx, validationInput.Update, validationInput.AllResourceIDs, allSchemaMap)
+	if err != nil {
+		return nil, fmt.Errorf("updated resources validate failed, err: %w", err)
+	}
+	return &PreparedImportResources{
+		AddResourceTypeMap:    validationInput.Add,
+		UpdateResourceTypeMap: validationInput.Update,
+	}, nil
 }
 
 // applyImportIgnoreFields overlays the configured ignore-field paths from the
@@ -140,14 +232,14 @@ func applyImportIgnoreFields(
 	return merged, nil
 }
 
-// loadExistingImportResources fetches all stored resources of the given type for
-// the current gateway and returns them keyed by GetResourceKey(resourceType, id)
-// together with the discovered resource key set.
+// loadExistingImportResources fetches all stored resources of the given type
+// for the current gateway and returns them keyed by resource key together with
+// the discovered resource key set.
 func loadExistingImportResources(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
 ) (map[string]model.ResourceCommonModel, map[string]struct{}, error) {
-	allResourceList, err := biz.GetResourceByIDs(ctx, resourceType, []string{})
+	allResourceList, err := GetResourceByIDs(ctx, resourceType, []string{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("get exist resources failed, err: %w", err)
 	}
@@ -165,7 +257,7 @@ func loadExistingImportResources(
 func buildImportSyncData(
 	ctx context.Context,
 	resourceType constant.APISIXResource,
-	imp *ResourceInfo,
+	imp *dto.ImportResourceInfo,
 ) *model.GatewaySyncData {
 	return &model.GatewaySyncData{
 		Type:      resourceType,
@@ -180,7 +272,7 @@ func buildImportSyncData(
 // because this orchestration helper accepts multiple resource maps together.
 func prepareImportResources(
 	ctx context.Context,
-	resourcesImport map[constant.APISIXResource][]*ResourceInfo,
+	resourcesImport map[constant.APISIXResource][]*dto.ImportResourceInfo,
 	ignoreFields map[constant.APISIXResource][]string,
 ) (map[constant.APISIXResource][]*model.GatewaySyncData, map[string]struct{}, error) {
 	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
@@ -199,11 +291,9 @@ func prepareImportResources(
 		}
 
 		for _, imp := range resourceInfoList {
-			// 如果 id 为空，直接报错
 			if imp.ResourceID == "" {
 				return nil, nil, fmt.Errorf("%s: resource id is empty: %s", resourceType, imp.Name)
 			}
-			// 如果已经存在，则需要判断是否有跳过规则
 			if oldResource, ok := existingMap[imp.GetResourceKey()]; ok &&
 				len(ignoreFields[resourceType]) > 0 {
 				imp.Config, err = applyImportIgnoreFields(
@@ -236,7 +326,7 @@ type importValidationInput struct {
 // shared resource-id set for the validation phase across both import branches.
 func prepareImportValidationInput(
 	ctx context.Context,
-	resourcesImport *ResourceUploadInfo,
+	resourcesImport *dto.ImportUploadInfo,
 	ignoreFields map[constant.APISIXResource][]string,
 ) (*importValidationInput, error) {
 	addMap, addIDs, err := prepareImportResources(ctx, resourcesImport.Add, ignoreFields)
@@ -261,131 +351,63 @@ func prepareImportValidationInput(
 	}, nil
 }
 
-// HandleUploadResources 处理导入资源
-func HandleUploadResources(
+func buildImportSchemaIndex(
 	ctx context.Context,
-	resourcesImport *ResourceUploadInfo,
+	schemaInfoList []*dto.ImportResourceInfo,
+) (
 	allSchemaMap map[string]any,
-	ignoreFields map[constant.APISIXResource][]string,
-) (*HandlerResourceResult, error) {
-	validationInput, err := prepareImportValidationInput(ctx, resourcesImport, ignoreFields)
-	if err != nil {
-		return nil, err
-	}
-	err = biz.ValidateResource(ctx, validationInput.Add, validationInput.AllResourceIDs, allSchemaMap)
-	if err != nil {
-		return nil, fmt.Errorf("add resources validate failed, err: %w", err)
-	}
-	err = biz.ValidateResource(ctx, validationInput.Update, validationInput.AllResourceIDs, allSchemaMap)
-	if err != nil {
-		return nil, fmt.Errorf("updated resources validate failed, err: %w", err)
-	}
-	return &HandlerResourceResult{
-		AddResourceTypeMap:    validationInput.Add,
-		UpdateResourceTypeMap: validationInput.Update,
-	}, nil
-}
-
-// HandlerCustomerPluginSchemaImport is a function that handles the import of customer plugin schemas.
-func HandlerCustomerPluginSchemaImport(ctx context.Context, schemaInfoList []*ResourceInfo) (
-	allSchemaMap map[string]any, addedSchemaMap,
-	updatedSchemaMap map[string]*model.GatewayCustomPluginSchema, err error,
+	addedSchemaMap map[string]*model.GatewayCustomPluginSchema,
+	updatedSchemaMap map[string]*model.GatewayCustomPluginSchema,
+	err error,
 ) {
-	// Get the existing plugin schema map from the business logic layer
-	existsPluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
+	existsPluginSchemaMap, err := GetCustomizePluginSchemaMap(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// Initialize a map to store the newly added schemas
 	addedSchemaMap = make(map[string]*model.GatewayCustomPluginSchema)
 	updatedSchemaMap = make(map[string]*model.GatewayCustomPluginSchema)
-	// Iterate through each resource info in the schema info list
 	for _, schemaInfo := range schemaInfoList {
-		schemaModel := &model.GatewayCustomPluginSchema{
-			GatewayID: ginx.GetGatewayInfoFromContext(ctx).ID,
-			Name:      schemaInfo.Name,
-			Schema:    datatypes.JSON(gjson.GetBytes(schemaInfo.Config, "schema").String()),
-			Example:   datatypes.JSON(gjson.GetBytes(schemaInfo.Config, "example").String()),
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserIDFromContext(ctx),
-			},
-			OperationType: constant.OperationImport,
-		}
-		// Check if the schema already exists in the plugin schema map
+		schemaModel := buildImportSchemaModel(ctx, schemaInfo, false)
 		if _, ok := existsPluginSchemaMap[schemaInfo.Name]; !ok {
 			addedSchemaMap[schemaInfo.Name] = schemaModel
 		} else {
 			updatedSchemaMap[schemaInfo.Name] = schemaModel
 		}
-		schemaRaw, err := json.Marshal(schemaModel.Schema)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("marshal schema failed: %w", err)
+		if err := mergeSchemaIntoMap(existsPluginSchemaMap, schemaModel); err != nil {
+			return nil, nil, nil, err
 		}
-		var schemaMap map[string]any
-		_ = json.Unmarshal(schemaRaw, &schemaMap)
-		existsPluginSchemaMap[schemaInfo.Name] = schemaMap
 	}
 	return existsPluginSchemaMap, addedSchemaMap, updatedSchemaMap, nil
 }
 
-// HandlerResourceIndexMap is a function that handles the indexing of resources.
-func HandlerResourceIndexMap(ctx context.Context, resourceInfoTypeMap map[constant.APISIXResource][]*ResourceInfo) (
-	*HandlerResourceIndexResult, error,
-) {
-	existsResourceIdList := make(map[string]struct{})
-	allResourceIdList := make(map[string]struct{})
-	var addedSchemaMap map[string]*model.GatewayCustomPluginSchema
-	var updatedSchemaMap map[string]*model.GatewayCustomPluginSchema
-	var allSchemaMap map[string]any
-	resourceTypeMap := make(map[constant.APISIXResource][]*model.GatewaySyncData)
-	var err error
-	for resourceType, resourceInfoList := range resourceInfoTypeMap {
-		// 自定义插件特殊处理
-		if resourceType == constant.Schema {
-			allSchemaMap, addedSchemaMap, updatedSchemaMap, err = HandlerCustomerPluginSchemaImport(
-				ctx, resourceInfoList)
-			if err != nil {
-				return nil, err
-			}
-			continue
-		}
-		dbResources, err := biz.BatchGetResources(ctx, resourceType, []string{})
-		if err != nil {
-			return nil, err
-		}
-		for _, dbResource := range dbResources {
-			existsResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
-			allResourceIdList[dbResource.GetResourceKey(resourceType)] = struct{}{}
-		}
-		for _, resourceInfo := range resourceInfoList {
-			// id 如果为空，直接报错
-			if resourceInfo.ResourceID == "" {
-				return nil, fmt.Errorf("%s: resource id is empty: %s",
-					resourceInfo.ResourceType,
-					resourceInfo.Name)
-			}
-			res := &model.GatewaySyncData{
-				Type:   resourceInfo.ResourceType,
-				ID:     resourceInfo.ResourceID,
-				Config: datatypes.JSON(resourceInfo.Config),
-			}
-			allResourceIdList[res.GetResourceKey()] = struct{}{}
-			if _, ok := resourceTypeMap[resourceInfo.ResourceType]; ok {
-				resourceTypeMap[resourceInfo.ResourceType] = append(
-					resourceTypeMap[resourceInfo.ResourceType],
-					res,
-				)
-				continue
-			}
-			resourceTypeMap[resourceInfo.ResourceType] = []*model.GatewaySyncData{res}
-		}
+func buildImportSchemaModel(
+	ctx context.Context,
+	schemaInfo *dto.ImportResourceInfo,
+	setUpdater bool,
+) *model.GatewayCustomPluginSchema {
+	baseModel := model.BaseModel{
+		Creator: ginx.GetUserIDFromContext(ctx),
 	}
-	return &HandlerResourceIndexResult{
-		ExistsResourceIdList: existsResourceIdList,
-		AllResourceIdList:    allResourceIdList,
-		AddedSchemaMap:       addedSchemaMap,
-		UpdatedSchemaMap:     updatedSchemaMap,
-		AllSchemaMap:         allSchemaMap,
-		ResourceTypeMap:      resourceTypeMap,
-	}, nil
+	if setUpdater {
+		baseModel.Updater = ginx.GetUserIDFromContext(ctx)
+	}
+	return &model.GatewayCustomPluginSchema{
+		GatewayID:     ginx.GetGatewayInfoFromContext(ctx).ID,
+		Name:          schemaInfo.Name,
+		Schema:        datatypes.JSON(gjson.GetBytes(schemaInfo.Config, "schema").String()),
+		Example:       datatypes.JSON(gjson.GetBytes(schemaInfo.Config, "example").String()),
+		BaseModel:     baseModel,
+		OperationType: constant.OperationImport,
+	}
+}
+
+func mergeSchemaIntoMap(allSchemaMap map[string]any, schemaModel *model.GatewayCustomPluginSchema) error {
+	schemaRaw, err := json.Marshal(schemaModel.Schema)
+	if err != nil {
+		return fmt.Errorf("marshal schema failed: %w", err)
+	}
+	var schemaMap map[string]any
+	_ = json.Unmarshal(schemaRaw, &schemaMap)
+	allSchemaMap[schemaModel.Name] = schemaMap
+	return nil
 }

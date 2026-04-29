@@ -27,7 +27,6 @@ import (
 	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -379,7 +378,7 @@ func ResourcePublish(c *gin.Context) {
 //	@Param		gateway_name	path	string	true	"网关名称"
 //	@Accept		multipart/form-data
 //	@Param		resource_file	formData	file	true	"资源配置文件 (json)"
-//	@Success	200				{object}	common.ResourceUploadInfo
+//	@Success	200				{object}	dto.ImportUploadInfo
 //	@Router		/api/v1/open/gateways/{gateway_name}/resources/-/import/ [post]
 func ResourceImport(c *gin.Context) {
 	fileHeader, err := c.FormFile("resource_file")
@@ -392,22 +391,22 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handlerResourceIndexResult, err := common.HandlerResourceIndexMap(c.Request.Context(),
+	handlerResourceIndexResult, err := biz.BuildImportIndex(c.Request.Context(),
 		resourceImport.Data)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	uploadInfo, err := common.ClassifyImportResourceInfo(
+	uploadInfo, err := biz.ClassifyImportResources(
 		resourceImport.Data,
-		handlerResourceIndexResult.ExistsResourceIdList,
+		handlerResourceIndexResult.ExistingResourceIDs,
 		handlerResourceIndexResult.AddedSchemaMap,
 	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handlerResult, err := common.HandleUploadResources(c.Request.Context(),
+	handlerResult, err := biz.PrepareImportUpload(c.Request.Context(),
 		uploadInfo, handlerResourceIndexResult.AllSchemaMap, resourceImport.Metadata.IgnoreFields)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)

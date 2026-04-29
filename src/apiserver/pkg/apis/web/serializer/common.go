@@ -62,7 +62,7 @@ func resolveWebValidationIdentity(input webValidationInput) (string, bool) {
 }
 
 func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, string) {
-	rawConfig := injectGeneratedIDForValidation(
+	rawConfig := biz.InjectGeneratedIDForValidation(
 		input.RawConfig,
 		input.ResourceType,
 		input.Version,
@@ -153,17 +153,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	return true
-}
-
-// injectGeneratedIDForValidation injects the server-generated resource ID into config only for validation time.
-// This keeps create requests client-friendly while still satisfying schemas whose config requires "id".
-func injectGeneratedIDForValidation(
-	rawConfig json.RawMessage,
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	resourceID string,
-) json.RawMessage {
-	return biz.InjectGeneratedIDForValidation(rawConfig, resourceType, version, resourceID)
 }
 
 func shouldInjectResourceNameForValidation(

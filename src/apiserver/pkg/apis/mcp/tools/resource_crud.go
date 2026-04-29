@@ -293,7 +293,7 @@ func createResourceHandler(
 		return errorResult(fmt.Errorf("unsupported resource type: %s", input.ResourceType)), nil, nil
 	}
 
-	err = biz.CreateResource(ctx, resourceType, specificResource, input.Name)
+	err = biz.CreateResource(ctx, specificResource)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -346,7 +346,6 @@ func updateResourceHandler(
 		ctx,
 		resourceType,
 		input.ResourceID,
-		input.Name,
 		datatypes.JSON(config),
 		updateStatus,
 	)

@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -56,86 +55,6 @@ func newWebSerializerValidationContext(t *testing.T, gateway *model.Gateway) *gi
 	ginx.SetGatewayInfo(c, gateway)
 	ginx.SetValidateErrorInfo(c)
 	return c
-}
-
-func TestInjectGeneratedIDForValidation(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceType constant.APISIXResource
-		version      constant.APISIXVersion
-		resourceID   string
-		rawConfig    json.RawMessage
-		wantConfig   string
-	}{
-		{
-			name:         "inject generated id for consumer group",
-			resourceType: constant.ConsumerGroup,
-			version:      constant.APISIXVersion313,
-			resourceID:   "cg-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			wantConfig:   `{"plugins":{},"id":"cg-generated-id"}`,
-		},
-		{
-			name:         "inject generated id for plugin config",
-			resourceType: constant.PluginConfig,
-			version:      constant.APISIXVersion311,
-			resourceID:   "pc-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			wantConfig:   `{"plugins":{},"id":"pc-generated-id"}`,
-		},
-		{
-			name:         "inject generated id for global rule",
-			resourceType: constant.GlobalRule,
-			version:      constant.APISIXVersion313,
-			resourceID:   "gr-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{"ip-restriction":{}}}`),
-			wantConfig:   `{"plugins":{"ip-restriction":{}},"id":"gr-generated-id"}`,
-		},
-		{
-			name:         "do not inject id for old consumer group schema",
-			resourceType: constant.ConsumerGroup,
-			version:      constant.APISIXVersion33,
-			resourceID:   "cg-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			wantConfig:   `{"plugins":{}}`,
-		},
-		{
-			name:         "keep existing id",
-			resourceType: constant.GlobalRule,
-			version:      constant.APISIXVersion313,
-			resourceID:   "gr-generated-id",
-			rawConfig:    json.RawMessage(`{"id":"client-id","plugins":{}}`),
-			wantConfig:   `{"id":"client-id","plugins":{}}`,
-		},
-		{
-			name:         "do not inject for consumer",
-			resourceType: constant.Consumer,
-			version:      constant.APISIXVersion313,
-			resourceID:   "consumer-generated-id",
-			rawConfig:    json.RawMessage(`{"username":"demo"}`),
-			wantConfig:   `{"username":"demo"}`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := injectGeneratedIDForValidation(tt.rawConfig, tt.resourceType, tt.version, tt.resourceID)
-
-			var gotObj any
-			if err := json.Unmarshal(got, &gotObj); err != nil {
-				t.Fatalf("unmarshal got config failed: %v", err)
-			}
-
-			var wantObj any
-			if err := json.Unmarshal([]byte(tt.wantConfig), &wantObj); err != nil {
-				t.Fatalf("unmarshal want config failed: %v", err)
-			}
-
-			if !reflect.DeepEqual(gotObj, wantObj) {
-				t.Fatalf("unexpected config: got %s want %s", string(got), tt.wantConfig)
-			}
-		})
-	}
 }
 
 func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {

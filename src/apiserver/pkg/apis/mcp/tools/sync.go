@@ -27,7 +27,6 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -202,13 +201,8 @@ func listSyncedResourceHandler(
 
 	var filteredResources []enrichedResource
 	for _, sync := range syncedData {
-		// Extract name from config JSON (username for Consumer, name for others)
-		var resourceName string
-		if resourceType == constant.Consumer {
-			resourceName = gjson.GetBytes(sync.Config, "username").String()
-		} else {
-			resourceName = gjson.GetBytes(sync.Config, "name").String()
-		}
+		// Extract name from config JSON using the resource-specific name key.
+		resourceName := gjson.GetBytes(sync.Config, model.GetResourceNameKey(resourceType)).String()
 
 		// Filter by name if specified
 		if input.Name != "" && !strings.Contains(resourceName, input.Name) {

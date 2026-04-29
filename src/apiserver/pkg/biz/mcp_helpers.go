@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -32,6 +33,16 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
+
+// buildCommonDbQuery 获取通用查询
+// 该查询会根据网关 ID 进行过滤，确保只能查询当前网关下的资源
+func buildCommonDbQuery(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+) *gorm.DB {
+	return database.Client().WithContext(ctx).Table(resourceTableMap[resourceType]).Where(
+		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID)
+}
 
 // ListResourcesWithPagination lists resources with pagination support
 func ListResourcesWithPagination(

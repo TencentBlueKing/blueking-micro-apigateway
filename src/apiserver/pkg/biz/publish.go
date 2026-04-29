@@ -211,6 +211,63 @@ func PublishAllResource(ctx context.Context, gatewayID int) error {
 	return nil
 }
 
+// FormatResourceIDNameList 格式化资源 ID 和名称列表
+func FormatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
+	switch resourceType {
+	case constant.Route:
+		routes := resources.([]*model.Route) //nolint:forcetypeassert
+		routeDetails := make([]string, 0, len(routes))
+		for _, route := range routes {
+			routeDetails = append(
+				routeDetails,
+				fmt.Sprintf("%s(%s)", route.ID, route.GetName(resourceType)),
+			)
+		}
+		return routeDetails
+	case constant.Upstream:
+		upstreams := resources.([]*model.Upstream) //nolint:forcetypeassert
+		upstreamDetails := make([]string, 0, len(upstreams))
+		for _, upstream := range upstreams {
+			upstreamDetails = append(
+				upstreamDetails,
+				fmt.Sprintf("%s(%s)", upstream.ID, upstream.GetName(resourceType)),
+			)
+		}
+		return upstreamDetails
+	case constant.Consumer:
+		consumers := resources.([]*model.Consumer) //nolint:forcetypeassert
+		consumerDetails := make([]string, 0, len(consumers))
+		for _, consumer := range consumers {
+			consumerDetails = append(
+				consumerDetails,
+				fmt.Sprintf("%s(%s)", consumer.ID, consumer.GetName(resourceType)),
+			)
+		}
+		return consumerDetails
+	case constant.Service:
+		services := resources.([]*model.Service) //nolint:forcetypeassert
+		serviceDetails := make([]string, 0, len(services))
+		for _, service := range services {
+			serviceDetails = append(
+				serviceDetails,
+				fmt.Sprintf("%s(%s)", service.ID, service.GetName(resourceType)),
+			)
+		}
+		return serviceDetails
+	case constant.StreamRoute:
+		streamRoutes := resources.([]*model.StreamRoute) //nolint:forcetypeassert
+		streamRouteDetails := make([]string, 0, len(streamRoutes))
+		for _, streamRoute := range streamsRoutes {
+			streamRouteDetails = append(
+				streamRouteDetails,
+				fmt.Sprintf("%s(%s)", streamRoute.ID, streamRoute.GetName(resourceType)),
+			)
+		}
+		return streamRouteDetails
+	}
+	return nil
+}
+
 // getEtcdPublisher 获取 publisher
 func getEtcdPublisher(ctx context.Context) (*publisher.EtcdPublisher, error) {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)

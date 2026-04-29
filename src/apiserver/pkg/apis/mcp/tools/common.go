@@ -167,16 +167,6 @@ func errorResult(err error) *mcp.CallToolResult {
 	}
 }
 
-// ResourceTypeDescription returns a description of valid resource types
-func ResourceTypeDescription() string {
-	return "One of: " + strings.Join(ValidResourceTypes, ", ")
-}
-
-// StatusDescription returns a description of valid resource statuses
-func StatusDescription() string {
-	return "One of: " + strings.Join(ValidResourceStatuses, ", ")
-}
-
 // APISIXVersionDescription returns a description of valid APISIX versions
 func APISIXVersionDescription() string {
 	return fmt.Sprintf(

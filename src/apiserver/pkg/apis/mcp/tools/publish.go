@@ -20,7 +20,6 @@ package tools
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -40,16 +39,6 @@ type PublishPreviewInput struct {
 	ResourceIDs  []string `json:"resource_ids,omitempty" jsonschema:"Optional resource ID filter for preview."`
 }
 
-// PublishResourceInput is the input for the publish_resource tool (currently disabled)
-type PublishResourceInput struct {
-	ResourceType string   `json:"resource_type" jsonschema:"Required. APISIX resource type to publish."`
-	ResourceIDs  []string `json:"resource_ids" jsonschema:"Required. Resource IDs to publish."`
-}
-
-// PublishAllInput is the input for the publish_all tool (currently disabled)
-// It has no required fields
-type PublishAllInput struct{}
-
 // RegisterPublishTools registers all publish-related MCP tools
 func RegisterPublishTools(server *mcp.Server) {
 	// publish_preview
@@ -62,20 +51,6 @@ func RegisterPublishTools(server *mcp.Server) {
 	// NOTE: publish_resource and publish_all are commented out for safety.
 	// Publishing directly via MCP is dangerous for production environments.
 	// Users should use the web UI or API for publishing operations.
-
-	// // publish_resource
-	// mcp.AddTool(server, &mcp.Tool{
-	// 	Name: "publish_resource",
-	// 	Description: "Publish specific resources to etcd/APISIX. Requires write scope. " +
-	// 		"Applies the changes from the edit area to the data plane.",
-	// }, publishResourceHandler)
-
-	// // publish_all
-	// mcp.AddTool(server, &mcp.Tool{
-	// 	Name: "publish_all",
-	// 	Description: "Publish all pending draft changes to etcd/APISIX. Requires write scope. " +
-	// 		"Convenience tool for publishing all modified resources at once.",
-	// }, publishAllHandler)
 }
 
 // publishPreviewHandler handles the publish_preview tool call
@@ -191,112 +166,6 @@ func publishPreviewHandler(
 	}
 
 	return successResult(preview), nil, nil
-}
-
-//nolint:unused // Kept for future use when MCP publishing is enabled
-func publishResourceHandler(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input PublishResourceInput,
-) (*mcp.CallToolResult, any, error) {
-	if input.ResourceType == "" || len(input.ResourceIDs) == 0 {
-		return errorResult(fmt.Errorf("resource_type and resource_ids are required")), nil, nil
-	}
-
-	resourceType, err := parseResourceType(input.ResourceType)
-	if err != nil {
-		return errorResult(err), nil, nil
-	}
-
-	// Gateway is already set in context by middleware
-	gateway, err := getGatewayFromContext(ctx)
-	if err != nil {
-		return errorResult(err), nil, nil
-	}
-
-	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
-	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
-
-	// Publish resources
-	err = biz.PublishResourcesByType(ctx, gateway, resourceType, input.ResourceIDs)
-	if err != nil {
-		return errorResult(fmt.Errorf("publish failed: %w", err)), nil, nil
-	}
-
-	return successResult(map[string]any{
-		"message":         "Resources published successfully",
-		"gateway_id":      gateway.ID,
-		"resource_type":   input.ResourceType,
-		"published_ids":   input.ResourceIDs,
-		"published_count": len(input.ResourceIDs),
-	}), nil, nil
-}
-
-//nolint:unused // Kept for future use when MCP publishing is enabled
-func publishAllHandler(
-	ctx context.Context,
-	req *mcp.CallToolRequest,
-	input PublishAllInput,
-) (*mcp.CallToolResult, any, error) {
-	// Gateway is already set in context by middleware
-	gateway, err := getGatewayFromContext(ctx)
-	if err != nil {
-		return errorResult(err), nil, nil
-	}
-
-	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
-	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
-
-	// Get all draft resources and publish them
-	publishedCounts := map[string]int{}
-	totalPublished := 0
-
-	for rt := range constant.ResourceTypeMap {
-		draftStatuses := []string{
-			string(constant.ResourceStatusCreateDraft),
-			string(constant.ResourceStatusUpdateDraft),
-			string(constant.ResourceStatusDeleteDraft),
-		}
-
-		resources, _, err := biz.ListResourcesWithPagination(ctx, rt, "", draftStatuses, 0, 1000)
-		if err != nil {
-			continue
-		}
-
-		if len(resources) == 0 {
-			continue
-		}
-
-		// Extract resource IDs
-		var resourceIDs []string
-		for _, res := range resources {
-			if resMap, ok := res.(map[string]any); ok {
-				if id, ok := resMap["id"].(string); ok {
-					resourceIDs = append(resourceIDs, id)
-				}
-			}
-		}
-
-		if len(resourceIDs) == 0 {
-			continue
-		}
-
-		// Publish
-		err = biz.PublishResourcesByType(ctx, gateway, rt, resourceIDs)
-		if err != nil {
-			continue
-		}
-
-		publishedCounts[rt.String()] = len(resourceIDs)
-		totalPublished += len(resourceIDs)
-	}
-
-	return successResult(map[string]any{
-		"message":           "All draft resources published",
-		"gateway_id":        gateway.ID,
-		"total_published":   totalPublished,
-		"published_by_type": publishedCounts,
-	}), nil, nil
 }
 
 // contains checks if a slice contains a string

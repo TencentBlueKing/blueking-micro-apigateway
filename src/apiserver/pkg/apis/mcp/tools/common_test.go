@@ -295,27 +295,6 @@ func TestErrorResult(t *testing.T) {
 // Note: getXxxParamFromArgs helper functions were removed in favor of typed inputs
 // with the MCP SDK's generic AddTool[In, Out] function, which auto-parses inputs.
 
-func TestResourceTypeDescription(t *testing.T) {
-	t.Parallel()
-
-	desc := ResourceTypeDescription()
-	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "route")
-	assert.Contains(t, desc, "service")
-	assert.Contains(t, desc, "upstream")
-}
-
-func TestStatusDescription(t *testing.T) {
-	t.Parallel()
-
-	desc := StatusDescription()
-	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "create_draft")
-	assert.Contains(t, desc, "update_draft")
-	assert.Contains(t, desc, "delete_draft")
-	assert.Contains(t, desc, "success")
-}
-
 func TestAPISIXVersionDescription(t *testing.T) {
 	t.Parallel()
 

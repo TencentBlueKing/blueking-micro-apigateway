@@ -257,7 +257,7 @@ func FormatResourceIDNameList(resources any, resourceType constant.APISIXResourc
 	case constant.StreamRoute:
 		streamRoutes := resources.([]*model.StreamRoute) //nolint:forcetypeassert
 		streamRouteDetails := make([]string, 0, len(streamRoutes))
-		for _, streamRoute := range streamsRoutes {
+		for _, streamRoute := range streamRoutes {
 			streamRouteDetails = append(
 				streamRouteDetails,
 				fmt.Sprintf("%s(%s)", streamRoute.ID, streamRoute.GetName(resourceType)),

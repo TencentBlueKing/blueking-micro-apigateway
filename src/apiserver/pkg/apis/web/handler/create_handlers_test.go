@@ -32,7 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -122,7 +122,7 @@ func TestPluginConfigCreateCurrentBehavior(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	items, err := biz.QueryPluginConfigs(c.Request.Context(), map[string]any{"name": name})
+	items, err := resourcebiz.QueryPluginConfigs(c.Request.Context(), map[string]any{"name": name})
 	assert.NoError(t, err)
 	if !assert.Len(t, items, 1) {
 		return
@@ -163,7 +163,7 @@ func TestConsumerGroupCreateCurrentBehavior(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	items, err := biz.QueryConsumerGroups(c.Request.Context(), map[string]any{"name": name})
+	items, err := resourcebiz.QueryConsumerGroups(c.Request.Context(), map[string]any{"name": name})
 	assert.NoError(t, err)
 	if !assert.Len(t, items, 1) {
 		return
@@ -204,7 +204,7 @@ func TestGlobalRuleCreateCurrentBehavior(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	items, err := biz.QueryGlobalRules(c.Request.Context(), map[string]any{"name": name})
+	items, err := resourcebiz.QueryGlobalRules(c.Request.Context(), map[string]any{"name": name})
 	assert.NoError(t, err)
 	if !assert.Len(t, items, 1) {
 		return
@@ -250,7 +250,7 @@ func TestRouteCreateCurrentBehavior(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	items, err := biz.QueryRoutes(c.Request.Context(), map[string]any{"name": name})
+	items, err := resourcebiz.QueryRoutes(c.Request.Context(), map[string]any{"name": name})
 	assert.NoError(t, err)
 	if !assert.Len(t, items, 1) {
 		return
@@ -284,7 +284,7 @@ func TestSSLCreateCurrentBehavior(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	items, err := biz.QuerySSL(c.Request.Context(), map[string]any{"name": name})
+	items, err := resourcebiz.QuerySSL(c.Request.Context(), map[string]any{"name": name})
 	assert.NoError(t, err)
 	if !assert.Len(t, items, 1) {
 		return

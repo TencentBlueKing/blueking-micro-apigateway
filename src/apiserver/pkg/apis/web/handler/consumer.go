@@ -28,9 +28,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -61,7 +62,7 @@ func ConsumerCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Consumer), req.Config),
 	}
 
-	if err := biz.CreateConsumer(c.Request.Context(), consumer); err != nil {
+	if err := resourcebiz.CreateConsumer(c.Request.Context(), consumer); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -93,15 +94,21 @@ func ConsumerUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.Consumer, pathParam.ID, req.Config, map[string]any{
-		"username": req.Name, // the key here is "username", not "name"(model.Consumer)
-		"group_id": req.GroupID,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.Consumer,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"username": req.Name, // the key here is "username", not "name"(model.Consumer)
+			"group_id": req.GroupID,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Consumer, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.Consumer, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -121,7 +128,7 @@ func ConsumerUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdateConsumer(c.Request.Context(), consumer); err != nil {
+	if err := resourcebiz.UpdateConsumer(c.Request.Context(), consumer); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -158,7 +165,7 @@ func ConsumerList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	consumers, total, err := biz.ListPagedConsumers(
+	consumers, total, err := resourcebiz.ListPagedConsumers(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -167,7 +174,7 @@ func ConsumerList(c *gin.Context) {
 		req.Updater,
 		req.GroupID,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -214,7 +221,7 @@ func ConsumerGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	consumer, err := biz.GetConsumer(c.Request.Context(), pathParam.ID)
+	consumer, err := resourcebiz.GetConsumer(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -252,14 +259,14 @@ func ConsumerDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	consumer, err := biz.GetConsumer(c.Request.Context(), pathParam.ID)
+	consumer, err := resourcebiz.GetConsumer(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if consumer.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteConsumers(c.Request.Context(), []string{consumer.ID})
+		err = resourcebiz.BatchDeleteConsumers(c.Request.Context(), []string{consumer.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -267,7 +274,7 @@ func ConsumerDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(
 		c.Request.Context(), constant.Consumer, consumer.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -286,7 +293,7 @@ func ConsumerDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.ConsumerDropDownListResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumers-dropdown/ [get]
 func ConsumerDropDownList(c *gin.Context) {
-	consumers, err := biz.ListConsumers(c.Request.Context())
+	consumers, err := resourcebiz.ListConsumers(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

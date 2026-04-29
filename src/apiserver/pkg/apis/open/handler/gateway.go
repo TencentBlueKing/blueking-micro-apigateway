@@ -24,7 +24,8 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	publishbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/publish"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
@@ -94,7 +95,7 @@ func GatewayCreate(c *gin.Context) {
 			Updater: ginx.GetUserID(c),
 		},
 	}
-	if err = biz.CreateGateway(c.Request.Context(), gatewayInfo); err != nil {
+	if err = gatewaybiz.CreateGateway(c.Request.Context(), gatewayInfo); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -179,7 +180,7 @@ func GatewayUpdate(c *gin.Context) {
 			Updater: ginx.GetUserID(c),
 		},
 	}
-	if err := biz.UpdateGateway(c.Request.Context(), gatewayInfo); err != nil {
+	if err := gatewaybiz.UpdateGateway(c.Request.Context(), gatewayInfo); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -199,7 +200,7 @@ func GatewayUpdate(c *gin.Context) {
 //	@Success	204
 //	@Router		/api/v1/open/gateways/{gateway_name}/ [delete]
 func GatewayDelete(c *gin.Context) {
-	err := biz.DeleteGateway(c, ginx.GetGatewayInfo(c))
+	err := gatewaybiz.DeleteGateway(c, ginx.GetGatewayInfo(c))
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -219,7 +220,7 @@ func GatewayDelete(c *gin.Context) {
 //	@Success	201
 //	@Router		/api/v1/open/gateways/{gateway_name}/publish/ [post]
 func GatewayPublish(c *gin.Context) {
-	err := biz.PublishAllResource(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	err := publishbiz.PublishAllResource(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

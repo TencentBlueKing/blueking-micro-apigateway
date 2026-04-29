@@ -24,7 +24,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
@@ -109,7 +109,7 @@ func publishPreviewHandler(
 		}
 
 		// TODO: currently the limit is 1000, if exceed the limit, we need to use a new solution to this tool.
-		resources, _, err := biz.ListResourcesWithPagination(ctx, rt, "", draftStatuses, 0, 2000)
+		resources, _, err := mcpbiz.ListResourcesWithPagination(ctx, rt, "", draftStatuses, 0, 2000)
 		if err != nil {
 			continue
 		}

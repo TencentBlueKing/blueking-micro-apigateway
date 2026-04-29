@@ -27,7 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
@@ -70,7 +70,7 @@ func TestHandleMCPAuthErrorGatewayNotSupported(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/mcp/gateways/1/", nil)
 
-	handleMCPAuthError(c, biz.ErrMCPGatewayNotSupported)
+	handleMCPAuthError(c, mcpbiz.ErrMCPGatewayNotSupported)
 
 	assert.Equal(t, http.StatusNotImplemented, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), "gateway does not support MCP")

@@ -20,216 +20,14 @@ package biz
 
 import (
 	"context"
-	"encoding/json"
-	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"gorm.io/gen/field"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 )
-
-// FuncUpdateResourceStatusByID ...
-type FuncUpdateResourceStatusByID func(ctx context.Context,
-	resourceType constant.APISIXResource, id string, status constant.ResourceStatus) error
-
-// FuncBatchUpdateResourceStatus ...
-type FuncBatchUpdateResourceStatus func(ctx context.Context,
-	resourceType constant.APISIXResource, ids []string, status constant.ResourceStatus) error
-
-// FuncDeleteResourceByID ...
-type FuncDeleteResourceByID func(ctx context.Context, ids []string) error
-
-// AddBatchAuditLog ... 添加批量审计日志，适用于批量操作只改变状态的情况
-func AddBatchAuditLog(ctx context.Context, operationType constant.OperationType, resourceType constant.APISIXResource,
-	resources []*model.ResourceCommonModel,
-	resourceIDStatusAfterMap map[string]constant.ResourceStatus,
-) error {
-	if len(resources) == 0 {
-		return nil
-	}
-	var dataBefore []model.BatchOperationData
-	var dataAfter []model.BatchOperationData
-	var resourceIDs []string
-	for _, resource := range resources {
-		resourceIDs = append(resourceIDs, resource.ID)
-		dataBefore = append(dataBefore, model.BatchOperationData{
-			ID:     resource.ID,
-			Status: resource.Status,
-			Config: json.RawMessage(resource.Config),
-		})
-		if operationType != constant.OperationTypeDelete {
-			dataAfter = append(dataAfter, model.BatchOperationData{
-				ID:     resource.ID,
-				Status: resourceIDStatusAfterMap[resource.ID],
-				// 配置没有改变
-				Config: json.RawMessage(resource.Config),
-			})
-		}
-	}
-
-	dataBeforeRaw, err := json.Marshal(dataBefore)
-	if err != nil {
-		return errors.Wrap(err, "marshal dataBefore failed")
-	}
-
-	dataAfterRaw, err := json.Marshal(dataAfter)
-	if err != nil {
-		return errors.Wrap(err, "marshal dataAfter failed")
-	}
-
-	operationAuditLog := &model.OperationAuditLog{
-		GatewayID:     ginx.GetGatewayInfoFromContext(ctx).ID,
-		ResourceType:  resourceType,
-		OperationType: operationType,
-		ResourceIDs:   strings.Join(resourceIDs, ","),
-		DataBefore:    dataBeforeRaw,
-		DataAfter:     dataAfterRaw,
-		Operator:      ginx.GetUserIDFromContext(ctx),
-	}
-	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
-	}
-	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
-}
-
-// WrapUpdateResourceStatusByIDAddAuditLog ... 更新资源状态时添加审计日志
-func WrapUpdateResourceStatusByIDAddAuditLog(ctx context.Context, resourceType constant.APISIXResource,
-	id string, status constant.ResourceStatus, fn FuncUpdateResourceStatusByID,
-) error {
-	// 查询之前的配置
-	resourceInfo, err := GetResourceByID(ctx, resourceType, id)
-	if err != nil {
-		return err
-	}
-	err = fn(ctx, resourceType, id, status)
-	if err != nil {
-		return err
-	}
-	// 添加审计日志
-	err = AddBatchAuditLog(
-		ctx,
-		constant.OperationTypeUpdate,
-		resourceType,
-		[]*model.ResourceCommonModel{&resourceInfo},
-		map[string]constant.ResourceStatus{id: status},
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// WrapBatchUpdateResourceStatusAddAuditLog ... 批量更新资源状态时添加审计日志
-func WrapBatchUpdateResourceStatusAddAuditLog(ctx context.Context, resourceType constant.APISIXResource,
-	resourceIDs []string, status constant.ResourceStatus, fn FuncBatchUpdateResourceStatus,
-) error {
-	// 查询之前的配置
-	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
-	if err != nil {
-		return err
-	}
-	err = fn(ctx, resourceType, resourceIDs, status)
-	if err != nil {
-		return err
-	}
-	resourceStatusMap := make(map[string]constant.ResourceStatus)
-	for _, resource := range resourceList {
-		// 操作之后的状态映射
-		resourceStatusMap[resource.ID] = status
-	}
-	// 添加审计日志
-	err = AddBatchAuditLog(ctx, constant.OperationTypeUpdate, resourceType, resourceList,
-		resourceStatusMap)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// AddDeleteResourceByIDAuditLog ... 删除资源时添加审计日志
-func AddDeleteResourceByIDAuditLog(ctx context.Context, resourceType constant.APISIXResource,
-	resourceIDs []string,
-) error {
-	// 查询之前的配置
-	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
-	if err != nil {
-		return err
-	}
-	resourceStatusMap := make(map[string]constant.ResourceStatus)
-	for _, resource := range resourceList {
-		// 操作之后的状态映射
-		if resource.Status == constant.ResourceStatusCreateDraft {
-			// 草稿状态直接删除
-			resourceStatusMap[resource.ID] = constant.ResourceStatusDeleted
-			continue
-		}
-		resourceStatusMap[resource.ID] = constant.ResourceStatusDeleteDraft
-	}
-	// 添加审计日志
-	err = AddBatchAuditLog(ctx, constant.OperationTypeDelete, resourceType, resourceList, resourceStatusMap)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// WrapBatchRevertResourceAddAuditLog ... 批量撤销资源时添加审计日志
-func WrapBatchRevertResourceAddAuditLog(ctx context.Context, resourceType constant.APISIXResource,
-	resourceIDs []string, afterResources []*model.ResourceCommonModel,
-) error {
-	// 查询之前的配置
-	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
-	if err != nil {
-		return err
-	}
-
-	var dataBefore []model.BatchOperationData
-	var dataAfter []model.BatchOperationData
-	for _, resource := range resourceList {
-		dataBefore = append(dataBefore, model.BatchOperationData{
-			ID:     resource.ID,
-			Status: resource.Status,
-			Config: json.RawMessage(resource.Config),
-		})
-	}
-
-	for _, resource := range afterResources {
-		dataAfter = append(dataAfter, model.BatchOperationData{
-			ID:     resource.ID,
-			Status: resource.Status,
-			Config: json.RawMessage(resource.Config),
-		})
-	}
-
-	dataBeforeRaw, err := json.Marshal(dataBefore)
-	if err != nil {
-		return errors.Wrap(err, "marshal dataBefore failed")
-	}
-
-	dataAfterRaw, err := json.Marshal(dataAfter)
-	if err != nil {
-		return errors.Wrap(err, "marshal dataAfter failed")
-	}
-
-	operationAuditLog := &model.OperationAuditLog{
-		GatewayID:     ginx.GetGatewayInfoFromContext(ctx).ID,
-		ResourceType:  resourceType,
-		OperationType: constant.OperationTypeRevert,
-		ResourceIDs:   strings.Join(resourceIDs, ","),
-		DataBefore:    dataBeforeRaw,
-		DataAfter:     dataAfterRaw,
-		Operator:      ginx.GetUserIDFromContext(ctx),
-	}
-	if ginx.GetTx(ctx) != nil {
-		return ginx.GetTx(ctx).OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
-	}
-	return repo.OperationAuditLog.WithContext(ctx).Create(operationAuditLog)
-}
 
 // ListOperationAuditLogs 查询操作审计列表
 func ListOperationAuditLogs(
@@ -265,7 +63,7 @@ func ListPagedOperationAuditLogs(
 	operator string,
 	timeStart int,
 	timeEnd int,
-	page PageParam,
+	page utils.PageParam,
 ) ([]*model.OperationAuditLog, int64, error) {
 	u := repo.OperationAuditLog
 	query := u.WithContext(ctx)

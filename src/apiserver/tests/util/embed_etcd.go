@@ -22,6 +22,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"time"
@@ -40,6 +41,42 @@ func StartEmbedEtcdClient(ctx context.Context) (*clientv3.Client, *embed.Etcd, e
 	cfg.Dir, _ = os.MkdirTemp("", "etcd")
 	cfg.LogLevel = "error"
 
+	return startEmbedEtcdClient(ctx, cfg)
+}
+
+// StartEmbedEtcdClientRandom starts an embedded etcd server on random loopback ports.
+func StartEmbedEtcdClientRandom(ctx context.Context) (*clientv3.Client, *embed.Etcd, string, error) {
+	clientURL, err := reserveLoopbackURL(ctx)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	peerURL, err := reserveLoopbackURL(ctx)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	clientHTTPURL, err := reserveLoopbackURL(ctx)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	cfg := embed.NewConfig()
+	cfg.ListenClientUrls = []url.URL{clientURL}
+	cfg.ListenPeerUrls = []url.URL{peerURL}
+	cfg.ListenClientHttpUrls = []url.URL{clientHTTPURL}
+	cfg.AdvertiseClientUrls = []url.URL{clientURL}
+	cfg.AdvertisePeerUrls = []url.URL{peerURL}
+	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
+	cfg.Dir, _ = os.MkdirTemp("", "etcd")
+	cfg.LogLevel = "error"
+
+	client, etcd, err := startEmbedEtcdClient(ctx, cfg)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return client, etcd, clientURL.Host, nil
+}
+
+func startEmbedEtcdClient(ctx context.Context, cfg *embed.Config) (*clientv3.Client, *embed.Etcd, error) {
 	etcd, err := embed.StartEtcd(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -55,4 +92,21 @@ func StartEmbedEtcdClient(ctx context.Context) (*clientv3.Client, *embed.Etcd, e
 	case <-time.After(30 * time.Second):
 		return nil, etcd, fmt.Errorf("embeddedEtcd server took too long to start")
 	}
+}
+
+func reserveLoopbackURL(ctx context.Context) (url.URL, error) {
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return url.URL{}, err
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		return url.URL{}, err
+	}
+
+	return url.URL{
+		Scheme: "http",
+		Host:   addr,
+	}, nil
 }

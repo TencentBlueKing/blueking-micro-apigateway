@@ -25,7 +25,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
@@ -227,7 +227,7 @@ func listPluginsHandler(
 	apisixType := gateway.APISIXType
 
 	// Get plugins list based on gateway's version and type
-	plugins, err := biz.GetPluginsList(ctx, apisixVersion, apisixType)
+	plugins, err := mcpbiz.GetPluginsList(ctx, apisixVersion, apisixType)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to get plugins: %w", err)), nil, nil
 	}

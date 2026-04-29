@@ -1,0 +1,196 @@
+/*
+ * TencentBlueKing is pleased to support the open source community by making
+ * 蓝鲸智云 - 微网关 (BlueKing - Micro APIGateway) available.
+ * Copyright (C) 2025 Tencent. All rights reserved.
+ * Licensed under the MIT License (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ *
+ *     http://opensource.org/licenses/MIT
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied. See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * We undertake not to change the open source license (MIT license) applicable
+ * to the current version of the project delivered to anyone in the future.
+ */
+
+// Package gateway contains gateway persistence helpers shared by biz packages.
+package gateway
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+
+	"github.com/tidwall/gjson"
+	"gorm.io/datatypes"
+	"gorm.io/gen"
+
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+)
+
+var gatewayResourceModelNameList = []string{
+	model.Route{}.TableName(),
+	model.Consumer{}.TableName(),
+	model.Service{}.TableName(),
+	model.Upstream{}.TableName(),
+	model.SSL{}.TableName(),
+	model.Proto{}.TableName(),
+	model.ConsumerGroup{}.TableName(),
+	model.PluginConfig{}.TableName(),
+	model.GlobalRule{}.TableName(),
+	model.PluginMetadata{}.TableName(),
+	model.GatewayResourceSchemaAssociation{}.TableName(),
+	model.GatewayCustomPluginSchema{}.TableName(),
+	model.StreamRoute{}.TableName(),
+	model.GatewaySyncData{}.TableName(),
+	model.GatewayReleaseVersion{}.TableName(),
+}
+
+// ListGateways queries gateways, optionally filtering by mode.
+func ListGateways(ctx context.Context, mode uint8) ([]*model.Gateway, error) {
+	u := repo.Gateway
+	if mode == 0 {
+		return repo.Gateway.WithContext(ctx).Order(u.CreatedAt.Desc()).Find()
+	}
+	return repo.Gateway.WithContext(ctx).Where(u.Mode.Eq(mode)).Order(u.CreatedAt.Desc()).Find()
+}
+
+// CreateGateway persists a gateway row.
+func CreateGateway(ctx context.Context, gateway *model.Gateway) error {
+	return repo.Gateway.WithContext(ctx).Create(gateway)
+}
+
+// UpdateGateway updates gateway metadata and config.
+func UpdateGateway(ctx context.Context, gateway model.Gateway) error {
+	u := repo.Gateway
+	_, err := u.WithContext(ctx).Where(u.ID.Eq(gateway.ID)).Select(
+		u.Name, u.Mode, u.Maintainers, u.Desc,
+		u.EtcdConfig, u.Token, u.Updater, u.ReadOnly,
+	).Updates(&gateway)
+	return err
+}
+
+// SaveGateway saves the gateway row.
+func SaveGateway(ctx context.Context, gateway *model.Gateway) error {
+	u := repo.Gateway
+	return u.WithContext(ctx).Save(gateway)
+}
+
+// GetGateway fetches a gateway by ID.
+func GetGateway(ctx context.Context, id int) (*model.Gateway, error) {
+	u := repo.Gateway
+	return u.WithContext(ctx).Where(u.ID.Eq(id)).First()
+}
+
+// GetGatewayByName fetches a gateway by name.
+func GetGatewayByName(ctx context.Context, name string) (*model.Gateway, error) {
+	u := repo.Gateway
+	return u.WithContext(ctx).Where(u.Name.Eq(name)).First()
+}
+
+// ExistsGatewayName reports whether another gateway already uses the name.
+func ExistsGatewayName(ctx context.Context, name string, id int) bool {
+	u := repo.Gateway
+	conditions := []gen.Condition{u.Name.Eq(name)}
+	if id != 0 {
+		conditions = append(conditions, u.ID.Neq(id))
+	}
+	gateways, err := u.WithContext(ctx).Where(conditions...).Find()
+	if err != nil {
+		logging.Errorf("query gateway name: %s error: %s", name, err.Error())
+		return true
+	}
+	return len(gateways) != 0
+}
+
+// GetGatewayEtcdConfigList lists gateways matching an etcd_config JSON key/value.
+func GetGatewayEtcdConfigList(ctx context.Context, key, val string) ([]*model.Gateway, error) {
+	return repo.Gateway.WithContext(ctx).Where(
+		gen.Cond(datatypes.JSONQuery("etcd_config").Equals(val, key))...,
+	).Find()
+}
+
+// GetGatewaysByEndpointLike finds gateways that appear to point at the same etcd endpoint.
+func GetGatewaysByEndpointLike(ctx context.Context, endpoint string, excludeID int) ([]*model.Gateway, error) {
+	u := repo.Gateway
+	query := u.WithContext(ctx)
+	if excludeID != 0 {
+		query = query.Where(u.ID.Neq(excludeID))
+	}
+	return query.Where(
+		gen.Cond(datatypes.JSONQuery("etcd_config").Likes("%"+endpoint+"%", "endpoint"))...,
+	).Find()
+}
+
+// ListGatewayResourceLabels lists distinct labels used by resources in the current gateway context.
+func ListGatewayResourceLabels(
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+) ([]map[string]string, error) {
+	var resourceList []*model.ResourceCommonModel
+	err := database.Client().WithContext(ctx).Table(
+		resourcebiz.ResourceTableName(resourceType),
+	).Where(
+		"gateway_id = ?", ginx.GetGatewayInfoFromContext(ctx).ID,
+	).Find(&resourceList).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var keys []string
+	labelMap := make(map[string][]string)
+	for _, resource := range resourceList {
+		var labels map[string]any
+		err := json.Unmarshal([]byte(gjson.ParseBytes(resource.Config).Get("labels").String()), &labels)
+		if err != nil {
+			continue
+		}
+		for key, val := range labels {
+			if _, ok := labelMap[key]; !ok {
+				labelMap[key] = []string{}
+				keys = append(keys, key)
+			}
+			labelMap[key] = append(labelMap[key], fmt.Sprint(val))
+		}
+	}
+
+	sort.Strings(keys)
+	var labels []map[string]string
+	for _, key := range keys {
+		for _, val := range labelMap[key] {
+			label := make(map[string]string)
+			label[key] = val
+			labels = append(labels, label)
+		}
+	}
+	return labels, nil
+}
+
+// DeleteGateway removes a gateway and its owned rows.
+func DeleteGateway(ctx context.Context, gateway *model.Gateway) error {
+	return repo.Q.Transaction(func(tx *repo.Query) error {
+		for _, tableName := range gatewayResourceModelNameList {
+			err := database.Client().WithContext(ctx).Table(tableName).Where(
+				"gateway_id = ?",
+				gateway.ID,
+			).Delete(tableName).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		u := repo.Gateway
+		_, err := u.WithContext(ctx).Delete(gateway)
+		return err
+	})
+}

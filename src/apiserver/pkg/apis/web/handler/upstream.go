@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -61,7 +62,7 @@ func UpstreamCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Upstream), req.Config),
 	}
 
-	if err := biz.CreateUpstream(c.Request.Context(), upstream); err != nil {
+	if err := resourcebiz.CreateUpstream(c.Request.Context(), upstream); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -92,15 +93,21 @@ func UpstreamUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.Upstream, pathParam.ID, req.Config, map[string]any{
-		"name":   req.Name,
-		"ssl_id": req.SSLID,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.Upstream,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name":   req.Name,
+			"ssl_id": req.SSLID,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Upstream, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.Upstream, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -118,7 +125,7 @@ func UpstreamUpdate(c *gin.Context) {
 			},
 		},
 	}
-	if err := biz.UpdateUpstream(c.Request.Context(), upstream); err != nil {
+	if err := resourcebiz.UpdateUpstream(c.Request.Context(), upstream); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -155,7 +162,7 @@ func UpstreamList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	upstreams, total, err := biz.ListPagedUpstreams(
+	upstreams, total, err := resourcebiz.ListPagedUpstreams(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -163,7 +170,7 @@ func UpstreamList(c *gin.Context) {
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -209,7 +216,7 @@ func UpstreamGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	upstream, err := biz.GetUpstream(c.Request.Context(), pathParam.ID)
+	upstream, err := resourcebiz.GetUpstream(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -249,14 +256,14 @@ func UpstreamDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	upstream, err := biz.GetUpstream(c.Request.Context(), pathParam.ID)
+	upstream, err := resourcebiz.GetUpstream(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if upstream.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteUpstreams(c.Request.Context(), []string{upstream.ID})
+		err = resourcebiz.BatchDeleteUpstreams(c.Request.Context(), []string{upstream.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -264,7 +271,7 @@ func UpstreamDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.Upstream, upstream.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -283,7 +290,7 @@ func UpstreamDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.UpstreamDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/upstreams-dropdown/ [get]
 func UpstreamDropDownList(c *gin.Context) {
-	upstreams, err := biz.ListUpstreams(c.Request.Context())
+	upstreams, err := resourcebiz.ListUpstreams(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

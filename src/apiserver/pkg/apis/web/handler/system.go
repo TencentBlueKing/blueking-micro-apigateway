@@ -28,10 +28,11 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -58,7 +59,7 @@ func PluginSchemaGet(c *gin.Context) {
 	schemaInfo := schema.GetPluginSchema(ginx.GetGatewayInfo(c).GetAPISIXVersionX(), param.Name, param.SchemaType)
 	if schemaInfo == nil {
 		// 查询自定义插件 schema
-		customizePluginSchema, _ := biz.GetSchemaByName(c.Request.Context(), param.Name)
+		customizePluginSchema, _ := schemabiz.GetSchemaByName(c.Request.Context(), param.Name)
 		if customizePluginSchema == nil {
 			ginx.NotFoundJSONResponse(c, errors.New("schema not found"))
 			return
@@ -115,7 +116,7 @@ func SchemaCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err = biz.CreateSchema(c.Request.Context(), &model.GatewayCustomPluginSchema{
+	err = schemabiz.CreateSchema(c.Request.Context(), &model.GatewayCustomPluginSchema{
 		Name:      req.Name,
 		GatewayID: ginx.GetGatewayInfo(c).ID,
 		Schema:    datatypes.JSON(req.Schema),
@@ -154,7 +155,7 @@ func SchemaUpdate(c *gin.Context) {
 		return
 	}
 	// 查询是否有资源关联
-	resourceSchemas, err := biz.GetResourceSchemaAssociation(c.Request.Context(), pathParam.AutoID)
+	resourceSchemas, err := schemabiz.GetResourceSchemaAssociation(c.Request.Context(), pathParam.AutoID)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -187,7 +188,7 @@ func SchemaUpdate(c *gin.Context) {
 			Updater: ginx.GetUserID(c),
 		},
 	}
-	if err = biz.UpdateSchema(c.Request.Context(), gatewayCustomPluginSchema); err != nil {
+	if err = schemabiz.UpdateSchema(c.Request.Context(), gatewayCustomPluginSchema); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -210,7 +211,7 @@ func SchemaGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	schemaInfo, err := biz.GetSchemaByID(c.Request.Context(), pathParam.AutoID)
+	schemaInfo, err := schemabiz.GetSchemaByID(c.Request.Context(), pathParam.AutoID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -248,13 +249,13 @@ func SchemaDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	schemaInfo, err := biz.GetSchemaByID(c.Request.Context(), pathParam.AutoID)
+	schemaInfo, err := schemabiz.GetSchemaByID(c.Request.Context(), pathParam.AutoID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// 查询是否有资源关联
-	resourceSchemas, err := biz.GetResourceSchemaAssociation(c.Request.Context(), pathParam.AutoID)
+	resourceSchemas, err := schemabiz.GetResourceSchemaAssociation(c.Request.Context(), pathParam.AutoID)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -277,7 +278,7 @@ func SchemaDelete(c *gin.Context) {
 		)
 		return
 	}
-	if err := biz.DeleteSchemaByID(c.Request.Context(), pathParam.AutoID); err != nil {
+	if err := schemabiz.DeleteSchemaByID(c.Request.Context(), pathParam.AutoID); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -305,12 +306,12 @@ func SchemaList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	schemaList, total, err := biz.ListPagedSchema(
+	schemaList, total, err := schemabiz.ListPagedSchema(
 		c.Request.Context(),
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -357,9 +358,8 @@ func PluginsGet(c *gin.Context) {
 		return
 	}
 	// 查询自定义插件
-	customizePluginExampleList, err := biz.GetCustomizePluginExampleList(
+	customizePluginExampleList, err := schemabiz.GetCustomizePluginExampleList(
 		c.Request.Context(),
-		ginx.GetGatewayInfo(c).ID,
 	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)

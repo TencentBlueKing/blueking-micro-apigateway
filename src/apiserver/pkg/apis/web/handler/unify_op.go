@@ -26,7 +26,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	diffbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/diff"
+	importflowbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/importflow"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
+	unifyopbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/unifyop"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -54,7 +58,7 @@ func ResourceSync(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	syncedResourceTypeStats, err := biz.SyncResources(c.Request.Context(), req.ResourceType)
+	syncedResourceTypeStats, err := unifyopbiz.SyncResources(c.Request.Context(), req.ResourceType)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -84,7 +88,7 @@ func ResourceRevert(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	unifyOp, err := biz.NewUnifyOp(ginx.GetGatewayInfo(c), false)
+	unifyOp, err := unifyopbiz.NewUnifyOp(ginx.GetGatewayInfo(c), false)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -114,7 +118,7 @@ func SyncedResourceManaged(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	syncedResourceTypeStats, err := biz.AddSyncedResources(c.Request.Context(), req.ResourceIDList)
+	syncedResourceTypeStats, err := unifyopbiz.AddSyncedResources(c.Request.Context(), req.ResourceIDList)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -147,7 +151,7 @@ func ResourcesDiffAll(c *gin.Context) {
 	if req.ID != "" {
 		idList = append(idList, req.ID)
 	}
-	result, err := biz.DiffResources(c.Request.Context(),
+	result, err := diffbiz.DiffResources(c.Request.Context(),
 		req.ResourceType,
 		idList,
 		req.Name,
@@ -179,7 +183,7 @@ func ResourcesDiff(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	result, err := biz.DiffResources(c.Request.Context(),
+	result, err := diffbiz.DiffResources(c.Request.Context(),
 		constant.APISIXResource(c.Param("type")),
 		req.ResourceIDList,
 		req.Name,
@@ -211,7 +215,7 @@ func ResourceConfigDiffDetail(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	result, err := biz.GetResourceConfigDiffDetail(c.Request.Context(), pathParam.Type, pathParam.ID)
+	result, err := unifyopbiz.GetResourceConfigDiffDetail(c.Request.Context(), pathParam.Type, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -237,7 +241,7 @@ func ResourceDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err := biz.BatchDeleteResource(c.Request.Context(), req.ResourceType, req.ResourceIDList)
+	err := resourcebiz.BatchDeleteResource(c.Request.Context(), req.ResourceType, req.ResourceIDList)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -264,7 +268,7 @@ func ResourceLabelsList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	result, err := biz.GetResourcesLabels(c.Request.Context(),
+	result, err := resourcebiz.GetResourcesLabels(c.Request.Context(),
 		pathParam.Type)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -294,7 +298,7 @@ func EtcdExport(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	exporter, err := biz.NewUnifyOp(ginx.GetGatewayInfo(c), false)
+	exporter, err := unifyopbiz.NewUnifyOp(ginx.GetGatewayInfo(c), false)
 	if err != nil {
 		logging.ErrorFWithContext(c.Request.Context(), "new exporter error: %s", err.Error())
 		ginx.SystemErrorJSONResponse(c, err)
@@ -345,7 +349,7 @@ func handExportEtcdResources(
 		outputs[resource.Type] = append(outputs[resource.Type], resourceOutput)
 	}
 	// add schema
-	schemaMap, err := biz.GetCustomizePluginSchemaInfoMap(ctx)
+	schemaMap, err := schemabiz.GetCustomizePluginSchemaInfoMap(ctx)
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "get customize plugin schema info map error: %s", err.Error())
 		return nil, err
@@ -407,13 +411,13 @@ func ResourceUpload(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	indexResult, err := biz.BuildImportIndex(c.Request.Context(), resourceInfoTypeMap)
+	indexResult, err := importflowbiz.BuildImportIndex(c.Request.Context(), resourceInfoTypeMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// check 配置
-	err = biz.ValidateImportedResources(
+	err = importflowbiz.ValidateImportedResources(
 		c.Request.Context(),
 		indexResult.ResourceTypeMap,
 		indexResult.AllResourceIDs,
@@ -424,7 +428,7 @@ func ResourceUpload(c *gin.Context) {
 		return
 	}
 	// 分类整理资源输出信息
-	resources, err := biz.ClassifyImportResources(resourceInfoTypeMap, indexResult.ExistingResourceIDs,
+	resources, err := importflowbiz.ClassifyImportResources(resourceInfoTypeMap, indexResult.ExistingResourceIDs,
 		indexResult.AddedSchemaMap)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -461,17 +465,21 @@ func ResourceImport(c *gin.Context) {
 		return
 	}
 	// 处理新增的 schema 资源
-	allSchemaMap, err := biz.GetCustomizePluginSchemaMap(c.Request.Context())
+	allSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	addedSchemaMap, err := biz.BuildImportUploadSchemaModels(c.Request.Context(), resourcesImport.Add, allSchemaMap)
+	addedSchemaMap, err := importflowbiz.BuildImportUploadSchemaModels(
+		c.Request.Context(),
+		resourcesImport.Add,
+		allSchemaMap,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	updatedSchemaMap, err := biz.BuildImportUploadSchemaModels(
+	updatedSchemaMap, err := importflowbiz.BuildImportUploadSchemaModels(
 		c.Request.Context(),
 		resourcesImport.Update,
 		allSchemaMap,
@@ -480,14 +488,14 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handleResult, err := biz.PrepareImportUpload(c.Request.Context(), &resourcesImport, allSchemaMap,
+	handleResult, err := importflowbiz.PrepareImportUpload(c.Request.Context(), &resourcesImport, allSchemaMap,
 		map[constant.APISIXResource][]string{})
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// 插入数据
-	err = biz.UploadResources(
+	err = unifyopbiz.UploadResources(
 		c.Request.Context(),
 		handleResult.AddResourceTypeMap,
 		handleResult.UpdateResourceTypeMap,

@@ -25,7 +25,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -243,7 +243,7 @@ func TestGetGatewayFromContextReturnsGateway(t *testing.T) {
 		Name:          "mcp-tools-gateway",
 		APISIXVersion: string(constant.APISIXVersion313),
 	}
-	err := biz.CreateGateway(ctx, gateway)
+	err := gatewaybiz.CreateGateway(ctx, gateway)
 	assert.NoError(t, err)
 	assert.Greater(t, gateway.ID, 0)
 

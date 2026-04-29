@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
@@ -59,7 +60,7 @@ func PluginMetadataCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.PluginMetadata), req.Config),
 	}
 
-	if err := biz.CreatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {
+	if err := resourcebiz.CreatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -91,7 +92,7 @@ func PluginMetadataUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(
+	if !resourcebiz.IsResourceChanged(
 		c.Request.Context(),
 		constant.PluginMetadata,
 		pathParam.ID,
@@ -104,7 +105,11 @@ func PluginMetadataUpdate(c *gin.Context) {
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.PluginMetadata, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(
+		c.Request.Context(),
+		constant.PluginMetadata,
+		pathParam.ID,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -123,7 +128,7 @@ func PluginMetadataUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {
+	if err := resourcebiz.UpdatePluginMetadata(c.Request.Context(), pluginMetadata); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -155,14 +160,14 @@ func PluginMetadataList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	pluginMetadataList, total, err := biz.ListPagedPluginMetadatas(
+	pluginMetadataList, total, err := resourcebiz.ListPagedPluginMetadatas(
 		c.Request.Context(),
 		queryParam,
 		strings.Split(req.Status, ","),
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -208,7 +213,7 @@ func PluginMetadataGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	pluginMetadata, err := biz.GetPluginMetadata(c.Request.Context(), pathParam.ID)
+	pluginMetadata, err := resourcebiz.GetPluginMetadata(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -248,14 +253,14 @@ func PluginMetadataDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	pluginMetadata, err := biz.GetPluginMetadata(c.Request.Context(), pathParam.ID)
+	pluginMetadata, err := resourcebiz.GetPluginMetadata(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if pluginMetadata.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeletePluginMetadatas(c.Request.Context(), []string{pluginMetadata.ID})
+		err = resourcebiz.BatchDeletePluginMetadatas(c.Request.Context(), []string{pluginMetadata.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -264,7 +269,7 @@ func PluginMetadataDelete(c *gin.Context) {
 		return
 	}
 
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.PluginMetadata, pluginMetadata.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -283,7 +288,7 @@ func PluginMetadataDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.PluginMetadataDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_metadatas-dropdown/ [get]
 func PluginMetadataDropDownList(c *gin.Context) {
-	pluginMetadatas, err := biz.ListPluginMetadatas(c.Request.Context())
+	pluginMetadatas, err := resourcebiz.ListPluginMetadatas(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

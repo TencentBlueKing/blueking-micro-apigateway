@@ -32,7 +32,8 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
@@ -57,13 +58,13 @@ func prepareOpenValidationPayload(
 		!gjson.Get(configRaw, "id").Exists() {
 		resourceID = idx.GenResourceID(resourceType)
 	}
-	validationRaw := biz.InjectGeneratedIDForValidation(
+	validationRaw := resourcebiz.InjectGeneratedIDForValidation(
 		json.RawMessage(configRaw),
 		resourceType,
 		version,
 		resourceID,
 	)
-	return biz.BuildConfigRawForValidation(string(validationRaw), resourceType, version)
+	return resourcebiz.BuildConfigRawForValidation(string(validationRaw), resourceType, version)
 }
 
 // OpenAPIResourceCheck 资源操作校验
@@ -89,7 +90,11 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 
 		// 针对单个资源操作进行统一的状态机判断：
 		if c.Param("id") != "" && (method == http.MethodPut || method == http.MethodDelete) {
-			resourceInfo, err := biz.GetResourceByID(c.Request.Context(), resourceType, c.Param("id"))
+			resourceInfo, err := resourcebiz.GetResourceByID(
+				c.Request.Context(),
+				resourceType,
+				c.Param("id"),
+			)
 			if err != nil {
 				ginx.BadRequestErrorJSONResponse(c, err)
 				c.Abort()
@@ -175,7 +180,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 			// 配置校验
-			customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(c.Request.Context())
+			customizePluginSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(c.Request.Context())
 			if err != nil {
 				ginx.SystemErrorJSONResponse(c, err)
 				c.Abort()

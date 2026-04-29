@@ -24,7 +24,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -82,7 +82,7 @@ func ValidateUpstreamID(ctx context.Context, fl validator.FieldLevel) bool {
 	if upstreamID == "" {
 		return true
 	}
-	return biz.ExistsUpstream(ctx, upstreamID)
+	return resourcebiz.ExistsUpstream(ctx, upstreamID)
 }
 
 // ValidateUpstreamName 校验 upstreamName
@@ -91,7 +91,7 @@ func ValidateUpstreamName(ctx context.Context, fl validator.FieldLevel) bool {
 	if upstreamName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.Upstream,
 		fl.Parent().FieldByName("ID").String(),

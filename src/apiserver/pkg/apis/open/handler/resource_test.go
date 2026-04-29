@@ -33,7 +33,8 @@ import (
 	"github.com/tidwall/gjson"
 
 	openhandler "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/handler"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	openmiddleware "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
@@ -100,7 +101,7 @@ func patchOpenValidation(t *testing.T, onValidate func(json.RawMessage) error) *
 		},
 	)
 	patches.ApplyFunc(
-		biz.GetCustomizePluginSchemaMap,
+		schemabiz.GetCustomizePluginSchemaMap,
 		func(ctx context.Context) (map[string]any, error) {
 			return map[string]any{}, nil
 		},
@@ -158,7 +159,7 @@ func TestResourceBatchCreateInjectsNameAndUsernameAtHandlerSeam(t *testing.T) {
 			defer patches.Reset()
 
 			patches.ApplyFunc(
-				biz.BatchCheckNameDuplication,
+				resourcebiz.BatchCheckNameDuplication,
 				func(ctx context.Context, resourceType constant.APISIXResource, names []string) (bool, error) {
 					assert.Equal(t, tt.resourceType, resourceType)
 					assert.Len(t, names, 1)
@@ -166,7 +167,7 @@ func TestResourceBatchCreateInjectsNameAndUsernameAtHandlerSeam(t *testing.T) {
 				},
 			)
 			patches.ApplyFunc(
-				biz.BatchCreateResources,
+				resourcebiz.BatchCreateResources,
 				func(
 					ctx context.Context,
 					resourceType constant.APISIXResource,
@@ -224,7 +225,7 @@ func TestResourceBatchCreateReusesResolvedIDsAcrossValidationAndPersistence(t *t
 	defer patches.Reset()
 
 	patches.ApplyFunc(
-		biz.BatchCheckNameDuplication,
+		resourcebiz.BatchCheckNameDuplication,
 		func(ctx context.Context, resourceType constant.APISIXResource, names []string) (bool, error) {
 			assert.Equal(t, constant.ConsumerGroup, resourceType)
 			assert.Equal(t, []string{"cg-demo"}, names)
@@ -232,7 +233,7 @@ func TestResourceBatchCreateReusesResolvedIDsAcrossValidationAndPersistence(t *t
 		},
 	)
 	patches.ApplyFunc(
-		biz.BatchCreateResources,
+		resourcebiz.BatchCreateResources,
 		func(
 			ctx context.Context,
 			resourceType constant.APISIXResource,
@@ -287,7 +288,7 @@ func TestResourceBatchCreateAcceptsEmptyBatchViaResolvedDraftContext(t *testing.
 	defer patches.Reset()
 
 	patches.ApplyFunc(
-		biz.BatchCheckNameDuplication,
+		resourcebiz.BatchCheckNameDuplication,
 		func(ctx context.Context, resourceType constant.APISIXResource, names []string) (bool, error) {
 			assert.Equal(t, constant.Route, resourceType)
 			assert.Empty(t, names)
@@ -295,7 +296,7 @@ func TestResourceBatchCreateAcceptsEmptyBatchViaResolvedDraftContext(t *testing.
 		},
 	)
 	patches.ApplyFunc(
-		biz.BatchCreateResources,
+		resourcebiz.BatchCreateResources,
 		func(
 			ctx context.Context,
 			resourceType constant.APISIXResource,
@@ -331,7 +332,7 @@ func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 	defer patches.Reset()
 
 	patches.ApplyFunc(
-		biz.GetResourceByID,
+		resourcebiz.GetResourceByID,
 		func(
 			ctx context.Context,
 			resourceType constant.APISIXResource,
@@ -346,7 +347,7 @@ func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 		},
 	)
 	patches.ApplyFunc(
-		biz.DuplicatedResourceName,
+		resourcebiz.DuplicatedResourceName,
 		func(ctx context.Context, resourceType constant.APISIXResource, id, name string) bool {
 			assert.Equal(t, constant.Route, resourceType)
 			assert.Equal(t, "route-id", id)
@@ -355,7 +356,7 @@ func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 		},
 	)
 	patches.ApplyFunc(
-		biz.GetResourceUpdateStatus,
+		resourcebiz.GetResourceUpdateStatus,
 		func(ctx context.Context, resourceType constant.APISIXResource, id string) (constant.ResourceStatus, error) {
 			assert.Equal(t, constant.Route, resourceType)
 			assert.Equal(t, "route-id", id)
@@ -363,7 +364,7 @@ func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 		},
 	)
 	patches.ApplyFunc(
-		biz.UpdateResource,
+		resourcebiz.UpdateResource,
 		func(
 			ctx context.Context,
 			resourceType constant.APISIXResource,

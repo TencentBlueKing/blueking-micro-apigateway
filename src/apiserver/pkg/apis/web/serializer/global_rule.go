@@ -25,7 +25,7 @@ import (
 	validator "github.com/go-playground/validator/v10"
 	"github.com/tidwall/gjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -96,7 +96,7 @@ func ValidateGlobalRulePlugin(ctx context.Context, fl validator.FieldLevel) bool
 		return false
 	})
 	// 校验 plugin 是否重复绑定到不同的 rule
-	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(ctx)
+	globalRuleToIDMap, err := resourcebiz.GetGlobalRulePluginToID(ctx)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
 		return false
@@ -119,7 +119,7 @@ func ValidateGlobalRuleName(ctx context.Context, fl validator.FieldLevel) bool {
 	if globalRuleName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.GlobalRule,
 		fl.Parent().FieldByName("ID").String(),

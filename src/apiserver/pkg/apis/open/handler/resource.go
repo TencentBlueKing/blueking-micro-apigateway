@@ -28,7 +28,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	importflowbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/importflow"
+	publishbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/publish"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	unifyopbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/unifyop"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
@@ -69,7 +72,7 @@ func ResourceBatchCreate(c *gin.Context) {
 		names = append(names, resource.Name)
 	}
 	// 校验资源名称是否与已有的重复
-	duplicated, err := biz.BatchCheckNameDuplication(c.Request.Context(), ginx.GetResourceType(c), names)
+	duplicated, err := resourcebiz.BatchCheckNameDuplication(c.Request.Context(), ginx.GetResourceType(c), names)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -98,7 +101,7 @@ func ResourceBatchCreate(c *gin.Context) {
 		})
 	}
 	// 批量创建资源
-	err = biz.BatchCreateResources(c.Request.Context(), ginx.GetResourceType(c), resources)
+	err = resourcebiz.BatchCreateResources(c.Request.Context(), ginx.GetResourceType(c), resources)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -135,7 +138,7 @@ func ResourceBatchGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	resources, err := biz.BatchGetResources(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
+	resources, err := resourcebiz.BatchGetResources(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -171,7 +174,7 @@ func ResourceBatchDelete(c *gin.Context) {
 		return
 	}
 	// 状态机判断
-	resources, err := biz.BatchGetResources(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
+	resources, err := resourcebiz.BatchGetResources(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -187,7 +190,7 @@ func ResourceBatchDelete(c *gin.Context) {
 			return
 		}
 	}
-	err = biz.BatchUpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.BatchUpdateResourceStatusWithAuditLog(c.Request.Context(),
 		ginx.GetResourceType(c), req.IDs, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -215,7 +218,7 @@ func ResourceGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	resource, err := biz.GetResourceByID(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
+	resource, err := resourcebiz.GetResourceByID(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -247,7 +250,7 @@ func ResourceGetStatus(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	resource, err := biz.GetResourceByID(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
+	resource, err := resourcebiz.GetResourceByID(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -284,7 +287,12 @@ func ResourceUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	duplicated := biz.DuplicatedResourceName(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, req.Name)
+	duplicated := resourcebiz.DuplicatedResourceName(
+		c.Request.Context(),
+		ginx.GetResourceType(c),
+		pathParam.ID,
+		req.Name,
+	)
 	if duplicated {
 		ginx.BadRequestErrorJSONResponse(c, errors.New(
 			fmt.Sprintf("name: %s is duplicated with existing %s", req.Name, ginx.GetResourceType(c)),
@@ -292,7 +300,11 @@ func ResourceUpdate(c *gin.Context) {
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(
+		c.Request.Context(),
+		ginx.GetResourceType(c),
+		pathParam.ID,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -300,7 +312,7 @@ func ResourceUpdate(c *gin.Context) {
 
 	resource := req.ToCommonResource(c, ginx.GetResourceType(c), pathParam.ID, updateStatus)
 	// 更新资源
-	err = biz.UpdateResource(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, resource)
+	err = resourcebiz.UpdateResource(c.Request.Context(), ginx.GetResourceType(c), pathParam.ID, resource)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -327,7 +339,7 @@ func ResourceDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err := biz.UpdateResourceStatusWithAuditLog(
+	err := resourcebiz.UpdateResourceStatusWithAuditLog(
 		c.Request.Context(),
 		ginx.GetResourceType(c),
 		pathParam.ID,
@@ -359,7 +371,7 @@ func ResourcePublish(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err := biz.PublishResource(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
+	err := publishbiz.PublishResource(c.Request.Context(), ginx.GetResourceType(c), req.IDs)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -391,13 +403,13 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handlerResourceIndexResult, err := biz.BuildImportIndex(c.Request.Context(),
+	handlerResourceIndexResult, err := importflowbiz.BuildImportIndex(c.Request.Context(),
 		resourceImport.Data)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	uploadInfo, err := biz.ClassifyImportResources(
+	uploadInfo, err := importflowbiz.ClassifyImportResources(
 		resourceImport.Data,
 		handlerResourceIndexResult.ExistingResourceIDs,
 		handlerResourceIndexResult.AddedSchemaMap,
@@ -406,14 +418,14 @@ func ResourceImport(c *gin.Context) {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	handlerResult, err := biz.PrepareImportUpload(c.Request.Context(),
+	handlerResult, err := importflowbiz.PrepareImportUpload(c.Request.Context(),
 		uploadInfo, handlerResourceIndexResult.AllSchemaMap, resourceImport.Metadata.IgnoreFields)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// 插入数据
-	err = biz.UploadResources(
+	err = unifyopbiz.UploadResources(
 		c.Request.Context(),
 		handlerResult.AddResourceTypeMap,
 		handlerResult.UpdateResourceTypeMap,

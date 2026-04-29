@@ -26,6 +26,7 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/publisher"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
@@ -33,37 +34,67 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/goroutinex"
 )
 
-// FuncPublishResource ...
-type FuncPublishResource func(ctx context.Context, resourceIDs []string) error
+type publishResourceFunc func(ctx context.Context, resourceIDs []string) error
+
+type publishResourceHandlers struct {
+	delete publishResourceFunc
+	put    publishResourceFunc
+}
+
+var publishResourceHandlerMap = map[constant.APISIXResource]publishResourceHandlers{
+	constant.Route: {
+		delete: deleteRoutes,
+		put:    putRoutes,
+	},
+	constant.Service: {
+		delete: deleteServices,
+		put:    putServices,
+	},
+	constant.Upstream: {
+		delete: deleteUpstreams,
+		put:    putUpstreams,
+	},
+	constant.PluginConfig: {
+		delete: deletePluginConfigs,
+		put:    putPluginConfigs,
+	},
+	constant.Consumer: {
+		delete: deleteConsumers,
+		put:    putConsumers,
+	},
+	constant.ConsumerGroup: {
+		delete: deleteConsumerGroups,
+		put:    putConsumerGroups,
+	},
+	constant.GlobalRule: {
+		delete: deleteGlobalRules,
+		put:    putGlobalRules,
+	},
+	constant.PluginMetadata: {
+		delete: deletePluginMetadatas,
+		put:    putPluginMetadatas,
+	},
+	constant.Proto: {
+		delete: deleteProtos,
+		put:    putProtos,
+	},
+	constant.SSL: {
+		delete: deleteSSLs,
+		put:    putSSLs,
+	},
+	constant.StreamRoute: {
+		delete: deleteStreamRoutes,
+		put:    putStreamRoutes,
+	},
+}
 
 // PublishResource 资源发布
 func PublishResource(ctx context.Context, resourceType constant.APISIXResource, resourceIDs []string) error {
-	var err error
-	// 发布资源
-	switch resourceType {
-	case constant.Route:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishRoutes)
-	case constant.Upstream:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishUpstreams)
-	case constant.GlobalRule:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishGlobalRules)
-	case constant.Consumer:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishConsumers)
-	case constant.ConsumerGroup:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishConsumerGroups)
-	case constant.PluginConfig:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishPluginConfigs)
-	case constant.Service:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishServices)
-	case constant.PluginMetadata:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishPluginMetadatas)
-	case constant.Proto:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishProtos)
-	case constant.SSL:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishSSLs)
-	case constant.StreamRoute:
-		err = WrapPublishResource(ctx, resourceType, resourceIDs, PublishStreamRoutes)
+	handlers, ok := publishResourceHandlerMap[resourceType]
+	if !ok {
+		return fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
+	err := WrapPublishResource(ctx, resourceType, resourceIDs, handlers)
 	if err != nil {
 		return err
 	}
@@ -81,7 +112,7 @@ func PublishResource(ctx context.Context, resourceType constant.APISIXResource, 
 
 // WrapPublishResource PublishResource 资源发布进行一些公共操作
 func WrapPublishResource(ctx context.Context, resourceType constant.APISIXResource, resourceIDs []string,
-	publishFunc FuncPublishResource,
+	handlers publishResourceHandlers,
 ) error {
 	// 状态机判断
 	resourceList, err := BatchGetResources(ctx, resourceType, resourceIDs)
@@ -110,7 +141,7 @@ func WrapPublishResource(ctx context.Context, resourceType constant.APISIXResour
 		// 发布之后的状态映射
 		resourceStatusMap[resource.ID] = nextStatus
 	}
-	err = publishFunc(ctx, resourceIDs)
+	err = publishResourcesWithHandlers(ctx, resourceList, handlers)
 	if err != nil {
 		return err
 	}
@@ -118,6 +149,33 @@ func WrapPublishResource(ctx context.Context, resourceType constant.APISIXResour
 	if err != nil {
 		logging.ErrorFWithContext(ctx, "%s add audit log err: %s", resourceType, err.Error())
 		return err
+	}
+	return nil
+}
+
+func publishResourcesWithHandlers(
+	ctx context.Context,
+	resourceList []*model.ResourceCommonModel,
+	handlers publishResourceHandlers,
+) error {
+	var deleteIDs []string
+	var putIDs []string
+	for _, resource := range resourceList {
+		if resource.Status == constant.ResourceStatusDeleteDraft {
+			deleteIDs = append(deleteIDs, resource.ID)
+			continue
+		}
+		putIDs = append(putIDs, resource.ID)
+	}
+	if len(deleteIDs) > 0 {
+		if err := handlers.delete(ctx, deleteIDs); err != nil {
+			return err
+		}
+	}
+	if len(putIDs) > 0 {
+		if err := handlers.put(ctx, putIDs); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -146,408 +204,6 @@ func PublishAllResource(ctx context.Context, gatewayID int) error {
 			resourceIDs = append(resourceIDs, resource.ID)
 		}
 		err = PublishResource(ctx, resourceType, resourceIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishRoutes 路由发布
-func PublishRoutes(ctx context.Context, routeIDs []string) error {
-	routes, err := QueryRoutes(ctx, map[string]any{"id": routeIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "routes query err: %s", err.Error())
-		return fmt.Errorf("路由查询错误：%w", err)
-	}
-	if len(routes) == 0 {
-		logging.ErrorFWithContext(ctx, "no routes found for the specified routeIDs %v", routeIDs)
-		return fmt.Errorf("未找到指定的路由资源 IDs %v", routeIDs)
-	}
-	var deleteRouteIDs []string
-	var addRouteIDs []string
-	for _, route := range routes {
-		if route.Status == constant.ResourceStatusDeleteDraft {
-			deleteRouteIDs = append(deleteRouteIDs, route.ID)
-			continue
-		}
-		addRouteIDs = append(addRouteIDs, route.ID)
-	}
-	if len(deleteRouteIDs) > 0 {
-		err = deleteRoutes(ctx, deleteRouteIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addRouteIDs) > 0 {
-		err = putRoutes(ctx, addRouteIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishServices 发布 service
-func PublishServices(ctx context.Context, serviceIDs []string) error {
-	services, err := QueryServices(ctx, map[string]any{"id": serviceIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "services query err: %s", err.Error())
-		return fmt.Errorf("服务查询错误：%w", err)
-	}
-	if len(services) == 0 {
-		logging.ErrorFWithContext(ctx, "no services found for the specified serviceIDs %v", serviceIDs)
-		return fmt.Errorf("未找到指定的服务资源 IDs %v", serviceIDs)
-	}
-	var deleteServiceIDs []string
-	var addServiceIDs []string
-	for _, service := range services {
-		if service.Status == constant.ResourceStatusDeleteDraft {
-			deleteServiceIDs = append(deleteServiceIDs, service.ID)
-			continue
-		}
-		addServiceIDs = append(addServiceIDs, service.ID)
-	}
-	if len(deleteServiceIDs) > 0 {
-		err = deleteServices(ctx, deleteServiceIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addServiceIDs) > 0 {
-		err = putServices(ctx, addServiceIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishUpstreams 发布 upstream
-func PublishUpstreams(ctx context.Context, upstreamIDs []string) error {
-	upstreams, err := QueryUpstreams(ctx, map[string]any{"id": upstreamIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "upstreams query err: %s", err.Error())
-		return fmt.Errorf("上游查询错误：%w", err)
-	}
-	if len(upstreams) == 0 {
-		logging.ErrorFWithContext(ctx, "no upstreams found for the specified upstreamIDs %v", upstreamIDs)
-		return fmt.Errorf("未找到指定的上游资源 IDs %v", upstreamIDs)
-	}
-	var deleteUpstreamIDs []string
-	var addUpstreamIDs []string
-	for _, upstream := range upstreams {
-		if upstream.Status == constant.ResourceStatusDeleteDraft {
-			deleteUpstreamIDs = append(deleteUpstreamIDs, upstream.ID)
-			continue
-		}
-		addUpstreamIDs = append(addUpstreamIDs, upstream.ID)
-	}
-	if len(deleteUpstreamIDs) > 0 {
-		err = deleteUpstreams(ctx, deleteUpstreamIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addUpstreamIDs) > 0 {
-		err = putUpstreams(ctx, addUpstreamIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishPluginConfigs 发布 pluginConfig
-func PublishPluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
-	pluginConfigs, err := QueryPluginConfigs(ctx, map[string]any{"id": pluginConfigIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "pluginConfigs query err: %s", err.Error())
-		return fmt.Errorf("插件组查询错误：%w", err)
-	}
-	if len(pluginConfigs) == 0 {
-		logging.ErrorFWithContext(
-			ctx,
-			"no pluginConfigs found for the specified pluginConfigIDs %v",
-			pluginConfigIDs,
-		)
-		return fmt.Errorf("未找到指定的插件组资源 IDs %v", pluginConfigIDs)
-	}
-	var deletePluginConfigIDs []string
-	var addPluginConfigIDs []string
-	for _, pluginConfig := range pluginConfigs {
-		if pluginConfig.Status == constant.ResourceStatusDeleteDraft {
-			deletePluginConfigIDs = append(deletePluginConfigIDs, pluginConfig.ID)
-			continue
-		}
-		addPluginConfigIDs = append(addPluginConfigIDs, pluginConfig.ID)
-	}
-	if len(deletePluginConfigIDs) > 0 {
-		err = deletePluginConfigs(ctx, deletePluginConfigIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addPluginConfigIDs) > 0 {
-		err = putPluginConfigs(ctx, addPluginConfigIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishConsumers 发布 consumer
-func PublishConsumers(ctx context.Context, consumerIDs []string) error {
-	consumers, err := QueryConsumers(ctx, map[string]any{"id": consumerIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "consumers query err: %s", err.Error())
-		return fmt.Errorf("消费者查询错误：%w", err)
-	}
-	if len(consumers) == 0 {
-		logging.ErrorFWithContext(ctx, "no consumers found for the specified consumerIDs %v", consumerIDs)
-		return fmt.Errorf("未找到指定的消费者资源 IDs %v", consumerIDs)
-	}
-	var deleteConsumerIDs []string
-	var addConsumerIDs []string
-	for _, consumer := range consumers {
-		if consumer.Status == constant.ResourceStatusDeleteDraft {
-			deleteConsumerIDs = append(deleteConsumerIDs, consumer.ID)
-			continue
-		}
-		addConsumerIDs = append(addConsumerIDs, consumer.ID)
-	}
-	if len(deleteConsumerIDs) > 0 {
-		err = deleteConsumers(ctx, deleteConsumerIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addConsumerIDs) > 0 {
-		err = putConsumers(ctx, addConsumerIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishConsumerGroups 发布 consumerGroup
-func PublishConsumerGroups(ctx context.Context, consumerGroupIDs []string) error {
-	consumerGroups, err := QueryConsumerGroups(ctx, map[string]any{"id": consumerGroupIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "consumerGroups query err: %s", err.Error())
-		return fmt.Errorf("消费者组查询错误：%w", err)
-	}
-	if len(consumerGroups) == 0 {
-		logging.ErrorFWithContext(
-			ctx,
-			"no consumerGroups found for the specified consumerGroupIDs %v",
-			consumerGroupIDs,
-		)
-		return fmt.Errorf("未找到指定的消费者组资源 IDs %v", consumerGroupIDs)
-	}
-	var deleteConsumerGroupIDs []string
-	var addConsumerGroupIDs []string
-	for _, consumerGroup := range consumerGroups {
-		if consumerGroup.Status == constant.ResourceStatusDeleteDraft {
-			deleteConsumerGroupIDs = append(deleteConsumerGroupIDs, consumerGroup.ID)
-			continue
-		}
-		addConsumerGroupIDs = append(addConsumerGroupIDs, consumerGroup.ID)
-	}
-	if len(deleteConsumerGroupIDs) > 0 {
-		err = deleteConsumerGroups(ctx, deleteConsumerGroupIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addConsumerGroupIDs) > 0 {
-		err = putConsumerGroups(ctx, addConsumerGroupIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishGlobalRules 发布 globalRule
-func PublishGlobalRules(ctx context.Context, globalRuleIDs []string) error {
-	globalRules, err := QueryGlobalRules(ctx, map[string]any{"id": globalRuleIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "globalRules query err: %s", err.Error())
-		return fmt.Errorf("全局规则查询错误：%w", err)
-	}
-	if len(globalRules) == 0 {
-		logging.ErrorFWithContext(ctx, "no globalRules found for the specified globalRuleIDs %v", globalRuleIDs)
-		return fmt.Errorf("未找到指定的全局规则资源 IDs %v", globalRuleIDs)
-	}
-	var deleteGlobalRuleIDs []string
-	var addGlobalRuleIDs []string
-	for _, globalRule := range globalRules {
-		if globalRule.Status == constant.ResourceStatusDeleteDraft {
-			deleteGlobalRuleIDs = append(deleteGlobalRuleIDs, globalRule.ID)
-			continue
-		}
-		addGlobalRuleIDs = append(addGlobalRuleIDs, globalRule.ID)
-	}
-	if len(deleteGlobalRuleIDs) > 0 {
-		err = deleteGlobalRules(ctx, deleteGlobalRuleIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addGlobalRuleIDs) > 0 {
-		err = putGlobalRules(ctx, addGlobalRuleIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishPluginMetadatas 发布 pluginMetadata
-func PublishPluginMetadatas(ctx context.Context, pluginMetadataIDs []string) error {
-	pluginMetadatas, err := QueryPluginMetadatas(ctx, map[string]any{"id": pluginMetadataIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "pluginMetadatas query err: %s", err.Error())
-		return fmt.Errorf("插件元数据查询错误：%w", err)
-	}
-	if len(pluginMetadatas) == 0 {
-		logging.ErrorFWithContext(ctx,
-			"no pluginMetadatas found for the specified pluginMetadataIDs %v", pluginMetadataIDs)
-		return fmt.Errorf("未找到指定的插件元数据资源 IDs %v", pluginMetadataIDs)
-	}
-	var deletePluginMetadataIDs []string
-	var addPluginMetadataIDs []string
-	for _, pluginMetadata := range pluginMetadatas {
-		if pluginMetadata.Status == constant.ResourceStatusDeleteDraft {
-			deletePluginMetadataIDs = append(deletePluginMetadataIDs, pluginMetadata.ID)
-			continue
-		}
-		addPluginMetadataIDs = append(addPluginMetadataIDs, pluginMetadata.ID)
-	}
-	if len(deletePluginMetadataIDs) > 0 {
-		err = deletePluginMetadatas(ctx, deletePluginMetadataIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addPluginMetadataIDs) > 0 {
-		err = putPluginMetadatas(ctx, addPluginMetadataIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishProtos 发布 Proto
-func PublishProtos(ctx context.Context, protoIDs []string) error {
-	protos, err := QueryProtos(ctx, map[string]any{"id": protoIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "protos query err: %s", err.Error())
-		return fmt.Errorf("protos 查询错误：%w", err)
-	}
-	if len(protos) == 0 {
-		logging.ErrorFWithContext(
-			ctx,
-			"no protos found for the specified protoIDs %v",
-			protoIDs,
-		)
-		return fmt.Errorf("未找到指定的 protos 资源 IDs %v", protoIDs)
-	}
-	var deleteProtoIDs []string
-	var addProtoIDs []string
-	for _, pb := range protos {
-		if pb.Status == constant.ResourceStatusDeleteDraft {
-			deleteProtoIDs = append(deleteProtoIDs, pb.ID)
-			continue
-		}
-		addProtoIDs = append(addProtoIDs, pb.ID)
-	}
-	if len(deleteProtoIDs) > 0 {
-		err = deleteProtos(ctx, deleteProtoIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addProtoIDs) > 0 {
-		err = PutProtos(ctx, addProtoIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishSSLs 发布 ssls
-func PublishSSLs(ctx context.Context, sslIDs []string) error {
-	ssls, err := QuerySSL(ctx, map[string]any{"id": sslIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "ssls query err: %s", err.Error())
-		return fmt.Errorf("ssls 查询错误：%w", err)
-	}
-	if len(ssls) == 0 {
-		logging.ErrorFWithContext(ctx, "no ssls found for the specified sslIDs %v", sslIDs)
-		return fmt.Errorf("未找到指定的 ssls 资源 IDs %v", sslIDs)
-	}
-	var deleteSSLIDs []string
-	var addSSLIDs []string
-	for _, ssl := range ssls {
-		if ssl.Status == constant.ResourceStatusDeleteDraft {
-			deleteSSLIDs = append(deleteSSLIDs, ssl.ID)
-			continue
-		}
-		addSSLIDs = append(addSSLIDs, ssl.ID)
-	}
-	if len(deleteSSLIDs) > 0 {
-		err = deleteSSLs(ctx, deleteSSLIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addSSLIDs) > 0 {
-		err = PutSSLs(ctx, addSSLIDs)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PublishStreamRoutes 发布 StreamRoute
-func PublishStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
-	streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{"id": streamRouteIDs})
-	if err != nil {
-		logging.ErrorFWithContext(ctx, "streamRoutes query err: %s", err.Error())
-		return fmt.Errorf("streamRoutes 查询错误：%w", err)
-	}
-	if len(streamRoutes) == 0 {
-		logging.ErrorFWithContext(
-			ctx,
-			"no streamRoutes found for the specified streamRouteIDs %v",
-			streamRouteIDs,
-		)
-		return fmt.Errorf("未找到指定的 streamRoutes 资源 IDs %v", streamRouteIDs)
-	}
-	var deleteStreamRouteIDs []string
-	var addStreamRouteIDs []string
-	for _, sr := range streamRoutes {
-		if sr.Status == constant.ResourceStatusDeleteDraft {
-			deleteStreamRouteIDs = append(deleteStreamRouteIDs, sr.ID)
-			continue
-		}
-		addStreamRouteIDs = append(addStreamRouteIDs, sr.ID)
-	}
-	if len(deleteStreamRouteIDs) > 0 {
-		err = deleteStreamRoutes(ctx, deleteStreamRouteIDs)
-		if err != nil {
-			return err
-		}
-	}
-	if len(addStreamRouteIDs) > 0 {
-		err = PutStreamRoutes(ctx, addStreamRouteIDs)
 		if err != nil {
 			return err
 		}
@@ -925,7 +581,7 @@ func putUpstreams(ctx context.Context, upstreamIDs []string) error {
 		upstreamOps = append(upstreamOps, op)
 	}
 	if len(deps.SSLIDs) > 0 {
-		if err = PutSSLs(ctx, deps.SSLIDs); err != nil {
+		if err = putSSLs(ctx, deps.SSLIDs); err != nil {
 			return err
 		}
 	}
@@ -1138,8 +794,8 @@ func putGlobalRules(ctx context.Context, globalRuleIDs []string) error {
 	return persistPublishedOperations(ctx, constant.GlobalRule, globalRuleIDs, globalRuleOps, "全局规则发布错误")
 }
 
-// PutProtos  ...
-func PutProtos(ctx context.Context, protoIDs []string) error {
+// putProtos ...
+func putProtos(ctx context.Context, protoIDs []string) error {
 	protos, err := QueryProtos(ctx, map[string]any{"id": protoIDs})
 	if err != nil {
 		return err
@@ -1177,8 +833,8 @@ func PutProtos(ctx context.Context, protoIDs []string) error {
 	return persistPublishedOperations(ctx, constant.Proto, protoIDs, protoOps, "protos 发布错误")
 }
 
-// PutSSLs ...
-func PutSSLs(ctx context.Context, sslIDs []string) error {
+// putSSLs ...
+func putSSLs(ctx context.Context, sslIDs []string) error {
 	ssls, err := QuerySSL(ctx, map[string]any{"id": sslIDs})
 	if err != nil {
 		return err
@@ -1212,8 +868,8 @@ func PutSSLs(ctx context.Context, sslIDs []string) error {
 	return persistPublishedOperations(ctx, constant.SSL, sslIDs, sslOps, "ssls 发布错误")
 }
 
-// PutStreamRoutes ...
-func PutStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
+// putStreamRoutes ...
+func putStreamRoutes(ctx context.Context, streamRouteIDs []string) error {
 	streamRoutes, err := QueryStreamRoutes(ctx, map[string]any{"id": streamRouteIDs})
 	if err != nil {
 		return err

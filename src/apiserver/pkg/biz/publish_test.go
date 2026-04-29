@@ -123,6 +123,19 @@ func mustSyncAndGetSyncedItem(
 	return syncedItem
 }
 
+func mustPublishResource(
+	t *testing.T,
+	ctx context.Context,
+	resourceType constant.APISIXResource,
+	resourceID string,
+) {
+	t.Helper()
+
+	if err := PublishResource(ctx, resourceType, []string{resourceID}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 	t.Run("route keeps id and name in final payload", func(t *testing.T) {
 		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
@@ -132,9 +145,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 		if err := CreateRoute(ctx, *route); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishRoutes(ctx, []string{route.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Route, route.ID)
 
 		syncedRoute := mustSyncAndGetSyncedItem(t, ctx, constant.Route, route.ID)
 		assert.Equal(t, route.ID, gjson.GetBytes(syncedRoute.Config, "id").String())
@@ -149,9 +160,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 		if err := CreateService(ctx, *service); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishServices(ctx, []string{service.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Service, service.ID)
 
 		syncedService := mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID)
 		assert.Equal(t, service.ID, gjson.GetBytes(syncedService.Config, "id").String())
@@ -166,9 +175,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 		if err := CreateUpstream(ctx, *upstream); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishUpstreams(ctx, []string{upstream.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Upstream, upstream.ID)
 
 		syncedUpstream := mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID)
 		assert.Equal(t, upstream.ID, gjson.GetBytes(syncedUpstream.Config, "id").String())
@@ -183,9 +190,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 		if err := CreateConsumer(ctx, *consumer); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishConsumers(ctx, []string{consumer.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Consumer, consumer.ID)
 
 		syncedConsumer := mustSyncAndGetSyncedItem(t, ctx, constant.Consumer, consumer.ID)
 		assert.False(t, gjson.GetBytes(syncedConsumer.Config, "id").Exists())
@@ -211,9 +216,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 				if err := CreateConsumerGroup(ctx, *group); err != nil {
 					t.Fatal(err)
 				}
-				if err := PublishConsumerGroups(ctx, []string{group.ID}); err != nil {
-					t.Fatal(err)
-				}
+				mustPublishResource(t, ctx, constant.ConsumerGroup, group.ID)
 
 				syncedGroup := mustSyncAndGetSyncedItem(t, ctx, constant.ConsumerGroup, group.ID)
 				assert.Equal(t, tc.wantName, gjson.GetBytes(syncedGroup.Config, "name").Exists())
@@ -238,9 +241,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 		if err := CreateSSL(ctx, ssl); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishSSLs(ctx, []string{ssl.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.SSL, ssl.ID)
 
 		syncedSSL := mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID)
 		assert.False(t, gjson.GetBytes(syncedSSL.Config, "validity_start").Exists())
@@ -260,9 +261,7 @@ func TestPublishPayloadCharacterization_CurrentSeams(t *testing.T) {
 		if err := CreateStreamRoute(ctx, *streamRoute); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishStreamRoutes(ctx, []string{streamRoute.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.StreamRoute, streamRoute.ID)
 
 		syncedStreamRoute := mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID)
 		assert.Equal(t, "test", gjson.GetBytes(syncedStreamRoute.Config, "labels.env").String())
@@ -298,9 +297,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := PublishRoutes(ctx, []string{route.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Route, route.ID)
 
 		assert.Equal(t, route.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Route, route.ID).ID)
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
@@ -326,9 +323,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := PublishConsumers(ctx, []string{consumer.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Consumer, consumer.ID)
 
 		assert.Equal(t, consumer.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Consumer, consumer.ID).ID)
 		assert.Equal(t, group.ID, mustSyncAndGetSyncedItem(t, ctx, constant.ConsumerGroup, group.ID).ID)
@@ -348,9 +343,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := PublishServices(ctx, []string{service.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Service, service.ID)
 
 		assert.Equal(t, service.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID).ID)
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
@@ -370,9 +363,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := PublishUpstreams(ctx, []string{upstream.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Upstream, upstream.ID)
 
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
 		assert.Equal(t, ssl.ID, mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID).ID)
@@ -404,9 +395,7 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := PublishStreamRoutes(ctx, []string{streamRoute.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.StreamRoute, streamRoute.ID)
 
 		assert.Equal(
 			t,
@@ -432,9 +421,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 		if err := CreateConsumer(ctx, *consumer); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishConsumers(ctx, []string{consumer.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Consumer, consumer.ID)
 
 		syncedConsumer := mustSyncAndGetSyncedItem(t, ctx, constant.Consumer, consumer.ID)
 		assert.False(t, gjson.GetBytes(syncedConsumer.Config, "id").Exists())
@@ -459,9 +446,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 				if err := CreateConsumerGroup(ctx, *group); err != nil {
 					t.Fatal(err)
 				}
-				if err := PublishConsumerGroups(ctx, []string{group.ID}); err != nil {
-					t.Fatal(err)
-				}
+				mustPublishResource(t, ctx, constant.ConsumerGroup, group.ID)
 
 				syncedGroup := mustSyncAndGetSyncedItem(t, ctx, constant.ConsumerGroup, group.ID)
 				assert.Equal(t, "cg-demo", gjson.GetBytes(syncedGroup.Config, "name").String())
@@ -486,9 +471,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 		if err := CreateSSL(ctx, ssl); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishSSLs(ctx, []string{ssl.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.SSL, ssl.ID)
 
 		syncedSSL := mustSyncAndGetSyncedItem(t, ctx, constant.SSL, ssl.ID)
 		assert.False(t, gjson.GetBytes(syncedSSL.Config, "validity_start").Exists())
@@ -508,9 +491,7 @@ func TestPublishPayloadFieldCleanup_CurrentSeams(t *testing.T) {
 		if err := CreateStreamRoute(ctx, *streamRoute); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishStreamRoutes(ctx, []string{streamRoute.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.StreamRoute, streamRoute.ID)
 
 		syncedStreamRoute := mustSyncAndGetSyncedItem(t, ctx, constant.StreamRoute, streamRoute.ID)
 		assert.Equal(t, "prod", gjson.GetBytes(syncedStreamRoute.Config, "labels.env").String())
@@ -525,9 +506,7 @@ func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
 		if err := CreatePluginMetadata(ctx, *pm); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishPluginMetadatas(ctx, []string{pm.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.PluginMetadata, pm.ID)
 
 		synced := mustSyncAndGetSyncedItem(t, ctx, constant.PluginMetadata, pm.ID)
 		assert.Equal(t, pm.Name, gjson.GetBytes(synced.Config, "id").String())
@@ -541,9 +520,7 @@ func TestSimplePublishPayload_CurrentSeams(t *testing.T) {
 		if err := CreateProto(ctx, *pb); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishProtos(ctx, []string{pb.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.Proto, pb.ID)
 
 		synced := mustSyncAndGetSyncedItem(t, ctx, constant.Proto, pb.ID)
 		assert.Equal(t, pb.Name, gjson.GetBytes(synced.Config, "name").String())
@@ -559,9 +536,7 @@ func TestPublishPersist_CurrentSeams(t *testing.T) {
 		if err := CreatePluginConfig(ctx, *pluginConfig); err != nil {
 			t.Fatal(err)
 		}
-		if err := PublishPluginConfigs(ctx, []string{pluginConfig.ID}); err != nil {
-			t.Fatal(err)
-		}
+		mustPublishResource(t, ctx, constant.PluginConfig, pluginConfig.ID)
 
 		synced := mustSyncAndGetSyncedItem(t, ctx, constant.PluginConfig, pluginConfig.ID)
 		assert.Equal(t, pluginConfig.ID, synced.ID)
@@ -604,8 +579,9 @@ func TestPublishRoutes(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishRoutes(tt.args.ctx, []string{tt.args.route.ID}); (err != nil) != tt.wantErr {
-				t.Errorf("PublishRoutes error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.Route, []string{tt.args.route.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -670,11 +646,9 @@ func TestPublishService(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishServices(
-				tt.args.ctx,
-				[]string{tt.args.service.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishService error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.Service, []string{tt.args.service.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -739,11 +713,9 @@ func TestPublishUpstreams(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishUpstreams(
-				tt.args.ctx,
-				[]string{tt.args.upstream.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishUpstream error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.Upstream, []string{tt.args.upstream.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -808,11 +780,9 @@ func TestPublishConsumer(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishConsumers(
-				tt.args.ctx,
-				[]string{tt.args.consumer.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishConsumer error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.Consumer, []string{tt.args.consumer.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -880,11 +850,9 @@ func TestPublishPluginConfigs(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishPluginConfigs(
-				tt.args.ctx,
-				[]string{tt.args.pluginConfig.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishPluginConfigs error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.PluginConfig, []string{tt.args.pluginConfig.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -950,11 +918,9 @@ func TestPublishGlobalRules(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishGlobalRules(
-				tt.args.ctx,
-				[]string{tt.args.globalRule.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishGlobalRules error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.GlobalRule, []string{tt.args.globalRule.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -1015,8 +981,9 @@ func TestPublishProtos(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishProtos(tt.args.ctx, []string{tt.args.proto.ID}); (err != nil) != tt.wantErr {
-				t.Errorf("PublishProtos error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.Proto, []string{tt.args.proto.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -1080,11 +1047,13 @@ func TestPublishPluginMetadatas(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishPluginMetadatas(
+			err := PublishResource(
 				tt.args.ctx,
+				constant.PluginMetadata,
 				[]string{tt.args.pluginMetadata.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishPluginMetadatas error = %v, wantErr %v", err, tt.wantErr)
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -1153,11 +1122,9 @@ func TestPublishConsumerGroups(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishConsumerGroups(
-				tt.args.ctx,
-				[]string{tt.args.consumerGroup.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishConsumerGroups error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.ConsumerGroup, []string{tt.args.consumerGroup.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -1223,8 +1190,9 @@ func TestPublishSSLs(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishSSLs(tt.args.ctx, []string{tt.args.ssl.ID}); (err != nil) != tt.wantErr {
-				t.Errorf("PublishSSLs error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.SSL, []string{tt.args.ssl.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource
@@ -1288,11 +1256,9 @@ func TestPublishStreamRoutes(t *testing.T) {
 				return
 			}
 			// 发布资源
-			if err := PublishStreamRoutes(
-				tt.args.ctx,
-				[]string{tt.args.streamRoute.ID},
-			); (err != nil) != tt.wantErr {
-				t.Errorf("PublishStreamRoutes error = %v, wantErr %v", err, tt.wantErr)
+			err := PublishResource(tt.args.ctx, constant.StreamRoute, []string{tt.args.streamRoute.ID})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PublishResource error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			// sync resource

@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -62,7 +63,7 @@ func PluginConfigCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 
-	if err := biz.CreatePluginConfig(c.Request.Context(), pluginConfig); err != nil {
+	if err := resourcebiz.CreatePluginConfig(c.Request.Context(), pluginConfig); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -94,14 +95,24 @@ func PluginConfigUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.PluginConfig, pathParam.ID, req.Config, map[string]any{
-		"name": req.Name,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.PluginConfig,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name": req.Name,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.PluginConfig, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(
+		c.Request.Context(),
+		constant.PluginConfig,
+		pathParam.ID,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -120,7 +131,7 @@ func PluginConfigUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdatePluginConfig(c.Request.Context(), pluginConfig); err != nil {
+	if err := resourcebiz.UpdatePluginConfig(c.Request.Context(), pluginConfig); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -157,7 +168,7 @@ func PluginConfigList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	pluginConfigs, total, err := biz.ListPagedPluginConfigs(
+	pluginConfigs, total, err := resourcebiz.ListPagedPluginConfigs(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -165,7 +176,7 @@ func PluginConfigList(c *gin.Context) {
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -212,7 +223,7 @@ func PluginConfigGet(c *gin.Context) {
 		return
 	}
 
-	pluginConfig, err := biz.GetPluginConfig(c.Request.Context(), pathParam.ID)
+	pluginConfig, err := resourcebiz.GetPluginConfig(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -252,14 +263,14 @@ func PluginConfigDelete(c *gin.Context) {
 		return
 	}
 
-	pluginConfig, err := biz.GetPluginConfig(c.Request.Context(), pathParam.ID)
+	pluginConfig, err := resourcebiz.GetPluginConfig(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if pluginConfig.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeletePluginConfigs(c.Request.Context(), []string{pluginConfig.ID})
+		err = resourcebiz.BatchDeletePluginConfigs(c.Request.Context(), []string{pluginConfig.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -267,7 +278,7 @@ func PluginConfigDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.PluginConfig, pluginConfig.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -286,7 +297,7 @@ func PluginConfigDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.PluginConfigDropDownResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/plugin_configs-dropdown/ [get]
 func PluginConfigDropDownList(c *gin.Context) {
-	pluginConfigs, err := biz.ListPluginConfigs(c.Request.Context())
+	pluginConfigs, err := resourcebiz.ListPluginConfigs(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

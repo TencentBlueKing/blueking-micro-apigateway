@@ -26,7 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -57,7 +57,7 @@ func ResourceOperationCheck() gin.HandlerFunc {
 			return
 		}
 		resourceId := c.Param("id")
-		resourceInfo, err := biz.GetResourceByID(c.Request.Context(), resourceType, resourceId)
+		resourceInfo, err := resourcebiz.GetResourceByID(c.Request.Context(), resourceType, resourceId)
 		if err != nil {
 			ginx.BadRequestErrorJSONResponse(c, err)
 			c.Abort()
@@ -73,7 +73,7 @@ func ResourceOperationCheck() gin.HandlerFunc {
 			relationResourceTypes, ok := constant.ResourceRelationMap[resourceType]
 			if ok {
 				for _, relationResourceType := range relationResourceTypes {
-					resources, err := biz.QueryResource(
+					resources, err := resourcebiz.QueryResource(
 						c.Request.Context(),
 						relationResourceType,
 						map[string]any{

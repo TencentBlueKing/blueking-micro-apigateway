@@ -24,7 +24,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -81,7 +81,7 @@ func ValidateGroupID(ctx context.Context, fl validator.FieldLevel) bool {
 	if groupID == "" {
 		return true
 	}
-	return biz.ExistsConsumerGroup(ctx, groupID)
+	return resourcebiz.ExistsConsumerGroup(ctx, groupID)
 }
 
 // ValidateConsumerGroupName 校验 ConsumerGroupName
@@ -90,7 +90,7 @@ func ValidateConsumerGroupName(ctx context.Context, fl validator.FieldLevel) boo
 	if consumerGroupName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.ConsumerGroup,
 		fl.Parent().FieldByName("ID").String(),

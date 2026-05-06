@@ -26,7 +26,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/datatypes"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
@@ -198,7 +199,7 @@ func listResourceHandler(
 	}
 
 	// Use biz layer to list resources
-	resources, total, err := biz.ListResourcesWithPagination(
+	resources, total, err := mcpbiz.ListResourcesWithPagination(
 		ctx,
 		resourceType,
 		input.Name,
@@ -245,7 +246,7 @@ func getResourceHandler(
 	// Set gateway info in context for downstream biz functions that use ginx.GetGatewayInfoFromContext
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
-	resource, err := biz.GetResourceByID(ctx, resourceType, input.ResourceID)
+	resource, err := resourcebiz.GetResourceByID(ctx, resourceType, input.ResourceID)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -293,7 +294,7 @@ func createResourceHandler(
 		return errorResult(fmt.Errorf("unsupported resource type: %s", input.ResourceType)), nil, nil
 	}
 
-	err = biz.CreateResource(ctx, resourceType, specificResource, input.Name)
+	err = mcpbiz.CreateResource(ctx, specificResource)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -331,7 +332,7 @@ func updateResourceHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get the update status based on current status
-	updateStatus, err := biz.GetResourceUpdateStatus(ctx, resourceType, input.ResourceID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(ctx, resourceType, input.ResourceID)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -342,11 +343,10 @@ func updateResourceHandler(
 	}
 
 	// Use UpdateResourceByTypeAndID which properly handles name updates
-	err = biz.UpdateResourceByTypeAndID(
+	err = mcpbiz.UpdateResourceByTypeAndID(
 		ctx,
 		resourceType,
 		input.ResourceID,
-		input.Name,
 		datatypes.JSON(config),
 		updateStatus,
 	)
@@ -387,7 +387,7 @@ func deleteResourceHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Check if any of the resources are referenced by other resources
-	references, err := biz.CheckResourceReferences(ctx, resourceType, input.ResourceIDs)
+	references, err := mcpbiz.CheckResourceReferences(ctx, resourceType, input.ResourceIDs)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to check resource references: %w", err)), nil, nil
 	}
@@ -402,7 +402,7 @@ func deleteResourceHandler(
 				fmt.Sprintf(
 					"resource '%s' is referenced by: %s",
 					resourceID,
-					biz.FormatResourceReferences(refs),
+					mcpbiz.FormatResourceReferences(refs),
 				),
 			)
 		}
@@ -419,7 +419,7 @@ func deleteResourceHandler(
 
 	for _, resourceID := range input.ResourceIDs {
 		// Get current resource to check status
-		resource, err := biz.GetResourceByID(ctx, resourceType, resourceID)
+		resource, err := resourcebiz.GetResourceByID(ctx, resourceType, resourceID)
 		if err != nil {
 			failedItems = append(failedItems, batchOperationFailure{
 				ResourceID: resourceID,
@@ -431,7 +431,7 @@ func deleteResourceHandler(
 
 		// create_draft can be hard deleted
 		if resource.Status == constant.ResourceStatusCreateDraft {
-			err = biz.BatchDeleteResourceByIDs(ctx, resourceType, []string{resourceID})
+			err = resourcebiz.BatchDeleteResourceByIDs(ctx, resourceType, []string{resourceID})
 			if err == nil {
 				deletedCount++
 			} else {
@@ -443,7 +443,7 @@ func deleteResourceHandler(
 			}
 		} else {
 			// Others are marked as delete_draft
-			err = biz.UpdateResourceStatusWithAuditLog(
+			err = resourcebiz.UpdateResourceStatusWithAuditLog(
 				ctx,
 				resourceType,
 				resourceID,
@@ -502,7 +502,7 @@ func revertResourceHandler(
 	revertedCount := 0
 	failedItems := make([]batchOperationFailure, 0)
 	for _, resourceID := range input.ResourceIDs {
-		err := biz.RevertResource(ctx, resourceType, resourceID)
+		err := mcpbiz.RevertResource(ctx, resourceType, resourceID)
 		if err == nil {
 			revertedCount++
 		} else {

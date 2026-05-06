@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,9 +30,6 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
-
-// 资源ID正则
-var resourceIDRegex = regexp.MustCompile(`^bk\.([^.]+)\.`)
 
 var resourceIDResourceTypePrefixMap = map[constant.APISIXResource]string{
 	constant.Route:          "r",
@@ -47,20 +43,6 @@ var resourceIDResourceTypePrefixMap = map[constant.APISIXResource]string{
 	constant.Proto:          "pb",
 	constant.SSL:            "ss",
 	constant.StreamRoute:    "sr",
-}
-
-var resourcePrefixResourceTypeMap = map[string]constant.APISIXResource{
-	"r":  constant.Route,
-	"u":  constant.Upstream,
-	"s":  constant.Service,
-	"c":  constant.Consumer,
-	"cg": constant.ConsumerGroup,
-	"gr": constant.GlobalRule,
-	"pc": constant.PluginConfig,
-	"pm": constant.PluginMetadata,
-	"pb": constant.Proto,
-	"ss": constant.SSL,
-	"sr": constant.StreamRoute,
 }
 
 var _sf *sonyflake.Sonyflake
@@ -142,14 +124,4 @@ func GenResourceID(resourceType constant.APISIXResource) string {
 	}
 	prefix := resourceIDResourceTypePrefixMap[resourceType]
 	return fmt.Sprintf("bk.%s.%s", prefix, uint64ToBase64(uid))
-}
-
-// GetResourceTypeFromID ...
-func GetResourceTypeFromID(id string) constant.APISIXResource {
-	// 正则表达式匹配前缀部分
-	matches := resourceIDRegex.FindStringSubmatch(id)
-	if len(matches) != 2 {
-		return ""
-	}
-	return resourcePrefixResourceTypeMap[matches[1]]
 }

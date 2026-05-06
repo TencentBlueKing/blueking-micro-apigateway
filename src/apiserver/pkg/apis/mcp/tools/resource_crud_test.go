@@ -29,7 +29,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -112,7 +113,7 @@ func TestCreateResourceHandlerInjectsRouteNameIntoConfig(t *testing.T) {
 	assert.NotEmpty(t, resourceID)
 	assert.Equal(t, string(constant.ResourceStatusCreateDraft), payload["status"])
 
-	createdRoute, err := biz.GetRoute(ctx, resourceID)
+	createdRoute, err := resourcebiz.GetRoute(ctx, resourceID)
 	assert.NoError(t, err)
 	assert.Equal(t, inputName, createdRoute.Name)
 	assert.Equal(t, inputName, gjson.GetBytes(createdRoute.Config, "name").String())
@@ -139,7 +140,7 @@ func TestCreateResourceHandlerInjectsConsumerUsernameIntoConfig(t *testing.T) {
 	assert.NotEmpty(t, resourceID)
 	assert.Equal(t, string(constant.ResourceStatusCreateDraft), payload["status"])
 
-	createdConsumer, err := biz.GetConsumer(ctx, resourceID)
+	createdConsumer, err := resourcebiz.GetConsumer(ctx, resourceID)
 	assert.NoError(t, err)
 	assert.Equal(t, inputName, createdConsumer.Username)
 	assert.Equal(t, inputName, gjson.GetBytes(createdConsumer.Config, "username").String())
@@ -151,9 +152,9 @@ func TestUpdateResourceHandlerSyncsTypedNameIntoConfig(t *testing.T) {
 	ctx, gateway := newMCPToolTestContext(t)
 	route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusSuccess)
 	route.Name = fmt.Sprintf("mcp-route-before-update-%d", time.Now().UnixNano())
-	assert.NoError(t, biz.CreateRoute(ctx, *route))
+	assert.NoError(t, resourcebiz.CreateRoute(ctx, *route))
 
-	storedRoute, err := biz.GetRoute(ctx, route.ID)
+	storedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
 	assert.NoError(t, err)
 
 	inputConfig := mustDecodeConfigMap(t, storedRoute.Config)
@@ -174,7 +175,7 @@ func TestUpdateResourceHandlerSyncsTypedNameIntoConfig(t *testing.T) {
 	payload := mustDecodeResultPayload(t, result)
 	assert.Equal(t, string(constant.ResourceStatusUpdateDraft), payload["status"])
 
-	updatedRoute, err := biz.GetRoute(ctx, route.ID)
+	updatedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, inputName, updatedRoute.Name)
 	assert.Equal(t, inputName, gjson.GetBytes(updatedRoute.Config, "name").String())
@@ -186,9 +187,9 @@ func TestUpdateResourceHandlerWithoutNamePreservesConfigShape(t *testing.T) {
 	ctx, gateway := newMCPToolTestContext(t)
 	route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
 	route.Name = fmt.Sprintf("mcp-route-no-name-%d", time.Now().UnixNano())
-	assert.NoError(t, biz.CreateRoute(ctx, *route))
+	assert.NoError(t, resourcebiz.CreateRoute(ctx, *route))
 
-	storedRoute, err := biz.GetRoute(ctx, route.ID)
+	storedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
 	assert.NoError(t, err)
 
 	result, _, err := updateResourceHandler(ctx, nil, UpdateResourceInput{
@@ -203,7 +204,7 @@ func TestUpdateResourceHandlerWithoutNamePreservesConfigShape(t *testing.T) {
 	payload := mustDecodeResultPayload(t, result)
 	assert.Equal(t, string(constant.ResourceStatusCreateDraft), payload["status"])
 
-	updatedRoute, err := biz.GetRoute(ctx, route.ID)
+	updatedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, storedRoute.Name, updatedRoute.Name)
 	assert.JSONEq(t, string(storedRoute.Config), string(updatedRoute.Config))
@@ -221,7 +222,7 @@ func newMCPToolTestContext(t *testing.T) (context.Context, *model.Gateway) {
 		APISIXVersion: string(constant.APISIXVersion313),
 	}
 
-	err := biz.CreateGateway(ctx, gateway)
+	err := gatewaybiz.CreateGateway(ctx, gateway)
 	assert.NoError(t, err)
 	assert.Greater(t, gateway.ID, 0)
 

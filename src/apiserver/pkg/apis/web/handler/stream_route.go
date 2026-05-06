@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -59,7 +60,7 @@ func StreamRouteCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.StreamRoute), req.Config),
 	}
 
-	if err := biz.CreateStreamRoute(c.Request.Context(), streamRoute); err != nil {
+	if err := resourcebiz.CreateStreamRoute(c.Request.Context(), streamRoute); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -90,16 +91,26 @@ func StreamRouteUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.StreamRoute, pathParam.ID, req.Config, map[string]any{
-		"name":        req.Name,
-		"service_id":  req.ServiceID,
-		"upstream_id": req.UpstreamID,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.StreamRoute,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name":        req.Name,
+			"service_id":  req.ServiceID,
+			"upstream_id": req.UpstreamID,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.StreamRoute, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(
+		c.Request.Context(),
+		constant.StreamRoute,
+		pathParam.ID,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -118,7 +129,7 @@ func StreamRouteUpdate(c *gin.Context) {
 			},
 		},
 	}
-	if err := biz.UpdateStreamRoute(c.Request.Context(), streamRoute); err != nil {
+	if err := resourcebiz.UpdateStreamRoute(c.Request.Context(), streamRoute); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -141,7 +152,7 @@ func StreamRouteGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	streamRoute, err := biz.GetStreamRoute(c.Request.Context(), pathParam.ID)
+	streamRoute, err := resourcebiz.GetStreamRoute(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -182,14 +193,14 @@ func StreamRouteDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	streamRoute, err := biz.GetStreamRoute(c.Request.Context(), pathParam.ID)
+	streamRoute, err := resourcebiz.GetStreamRoute(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if streamRoute.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteStreamRoutes(c.Request.Context(), []string{streamRoute.ID})
+		err = resourcebiz.BatchDeleteStreamRoutes(c.Request.Context(), []string{streamRoute.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -197,7 +208,7 @@ func StreamRouteDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.StreamRoute, streamRoute.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -236,7 +247,7 @@ func StreamRouteList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	streamRouteList, total, err := biz.ListPagedStreamRoutes(
+	streamRouteList, total, err := resourcebiz.ListPagedStreamRoutes(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -246,7 +257,7 @@ func StreamRouteList(c *gin.Context) {
 		req.ServiceID,
 		req.UpstreamID,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -288,7 +299,7 @@ func StreamRouteList(c *gin.Context) {
 //	@Success	200			{object}	serializer.StreamRouteDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/stream_routes-dropdown/ [get]
 func StreamRouteDropDownList(c *gin.Context) {
-	streamRouteList, err := biz.ListStreamRoutes(c.Request.Context())
+	streamRouteList, err := resourcebiz.ListStreamRoutes(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

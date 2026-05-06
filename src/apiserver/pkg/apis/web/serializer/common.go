@@ -26,7 +26,8 @@ import (
 	validator "github.com/go-playground/validator/v10"
 	"github.com/tidwall/sjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -62,7 +63,7 @@ func resolveWebValidationIdentity(input webValidationInput) (string, bool) {
 }
 
 func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, string) {
-	rawConfig := injectGeneratedIDForValidation(
+	rawConfig := resourcebiz.InjectGeneratedIDForValidation(
 		input.RawConfig,
 		input.ResourceType,
 		input.Version,
@@ -127,7 +128,7 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	// 配置校验
-	customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
+	customizePluginSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(ctx)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
@@ -153,17 +154,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	return true
-}
-
-// injectGeneratedIDForValidation injects the server-generated resource ID into config only for validation time.
-// This keeps create requests client-friendly while still satisfying schemas whose config requires "id".
-func injectGeneratedIDForValidation(
-	rawConfig json.RawMessage,
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	resourceID string,
-) json.RawMessage {
-	return biz.InjectGeneratedIDForValidation(rawConfig, resourceType, version, resourceID)
 }
 
 func shouldInjectResourceNameForValidation(

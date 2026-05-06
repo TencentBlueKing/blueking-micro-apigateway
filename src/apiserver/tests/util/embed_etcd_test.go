@@ -22,6 +22,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,6 +70,41 @@ var _ = Describe("EmbeddedEtcd", func() {
 
 		// Get the key-value pair from the etcd server.
 		resp, err := client.Get(context.Background(), key)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(resp.Kvs).Should(HaveLen(1))
+		Expect(string(resp.Kvs[0].Key)).Should(Equal(key))
+		Expect(string(resp.Kvs[0].Value)).Should(Equal(value))
+	})
+})
+
+var _ = Describe("RandomEmbeddedEtcd", func() {
+	It("should return a reachable random endpoint", func() {
+		client, etcd, endpoint, err := util.StartEmbedEtcdClientRandom(context.Background())
+		Expect(err).ShouldNot(HaveOccurred())
+		DeferCleanup(func() {
+			client.Close()
+			etcd.Close()
+			_ = os.RemoveAll(etcd.Config().Dir)
+		})
+
+		Expect(endpoint).Should(Equal(etcd.Clients[0].Addr().String()))
+
+		endpointClient, err := clientv3.New(clientv3.Config{
+			Endpoints:   []string{endpoint},
+			DialTimeout: time.Second,
+		})
+		Expect(err).ShouldNot(HaveOccurred())
+		DeferCleanup(func() {
+			endpointClient.Close()
+		})
+
+		key := "random_test_key"
+		value := "random_test_value"
+
+		_, err = endpointClient.Put(context.Background(), key, value)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		resp, err := endpointClient.Get(context.Background(), key)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(resp.Kvs).Should(HaveLen(1))
 		Expect(string(resp.Kvs[0].Key)).Should(Equal(key))

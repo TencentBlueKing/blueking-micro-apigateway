@@ -25,7 +25,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -243,7 +243,7 @@ func TestGetGatewayFromContextReturnsGateway(t *testing.T) {
 		Name:          "mcp-tools-gateway",
 		APISIXVersion: string(constant.APISIXVersion313),
 	}
-	err := biz.CreateGateway(ctx, gateway)
+	err := gatewaybiz.CreateGateway(ctx, gateway)
 	assert.NoError(t, err)
 	assert.Greater(t, gateway.ID, 0)
 
@@ -294,27 +294,6 @@ func TestErrorResult(t *testing.T) {
 
 // Note: getXxxParamFromArgs helper functions were removed in favor of typed inputs
 // with the MCP SDK's generic AddTool[In, Out] function, which auto-parses inputs.
-
-func TestResourceTypeDescription(t *testing.T) {
-	t.Parallel()
-
-	desc := ResourceTypeDescription()
-	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "route")
-	assert.Contains(t, desc, "service")
-	assert.Contains(t, desc, "upstream")
-}
-
-func TestStatusDescription(t *testing.T) {
-	t.Parallel()
-
-	desc := StatusDescription()
-	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "create_draft")
-	assert.Contains(t, desc, "update_draft")
-	assert.Contains(t, desc, "delete_draft")
-	assert.Contains(t, desc, "success")
-}
 
 func TestAPISIXVersionDescription(t *testing.T) {
 	t.Parallel()

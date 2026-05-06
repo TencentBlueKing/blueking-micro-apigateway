@@ -14583,6 +14583,51 @@
         "type": "object"
       }
     },
+    "prometheus": {
+      "version": 0.2,
+      "priority": 500,
+      "schema": {
+        "properties": {
+          "prefer_name": {
+            "default": false,
+            "type": "boolean"
+          },
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object"
+      }
+    },
     "syslog": {
       "priority": 401,
       "version": 0.1,

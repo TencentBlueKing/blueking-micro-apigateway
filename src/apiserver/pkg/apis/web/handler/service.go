@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -60,7 +61,7 @@ func ServiceCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Service), req.Config),
 	}
 
-	if err := biz.CreateService(c.Request.Context(), service); err != nil {
+	if err := resourcebiz.CreateService(c.Request.Context(), service); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -92,15 +93,21 @@ func ServiceUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.Service, pathParam.ID, req.Config, map[string]any{
-		"name":        req.Name,
-		"upstream_id": req.UpstreamID,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.Service,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name":        req.Name,
+			"upstream_id": req.UpstreamID,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Service, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.Service, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -120,7 +127,7 @@ func ServiceUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdateService(c.Request.Context(), service); err != nil {
+	if err := resourcebiz.UpdateService(c.Request.Context(), service); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -157,7 +164,7 @@ func ServiceList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	services, total, err := biz.ListPagedServices(
+	services, total, err := resourcebiz.ListPagedServices(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -166,7 +173,7 @@ func ServiceList(c *gin.Context) {
 		req.Updater,
 		req.UpstreamID,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -212,7 +219,7 @@ func ServiceGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	service, err := biz.GetService(c.Request.Context(), pathParam.ID)
+	service, err := resourcebiz.GetService(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -252,14 +259,14 @@ func ServiceDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	service, err := biz.GetService(c.Request.Context(), pathParam.ID)
+	service, err := resourcebiz.GetService(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if service.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteServices(c.Request.Context(), []string{service.ID})
+		err = resourcebiz.BatchDeleteServices(c.Request.Context(), []string{service.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -267,7 +274,7 @@ func ServiceDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.Service, service.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -286,7 +293,7 @@ func ServiceDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.ServiceDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/services-dropdown/ [get]
 func ServiceDropDownList(c *gin.Context) {
-	services, err := biz.ListServices(c.Request.Context())
+	services, err := resourcebiz.ListServices(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

@@ -25,6 +25,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
 func TestPrepareMCPCreateConfig(t *testing.T) {
@@ -131,4 +132,48 @@ func TestBuildMCPCreateDraft(t *testing.T) {
 		assert.Equal(t, "mcp", got.Updater)
 		assert.JSONEq(t, `{"username":"consumer-demo","plugins":{}}`, string(got.Config))
 	})
+}
+
+func TestBuildMCPCreateDraftToResourceModelRestoresTypedNameField(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		config       []byte
+		assertModel  func(t *testing.T, resource any)
+	}{
+		{
+			name:         "route restores Name",
+			resourceType: constant.Route,
+			config:       []byte(`{"name":"route-demo","uri":"/demo"}`),
+			assertModel: func(t *testing.T, resource any) {
+				route, ok := resource.(*model.Route)
+				if !ok {
+					t.Fatalf("expected *model.Route, got %T", resource)
+				}
+				assert.Equal(t, "route-demo", route.Name)
+			},
+		},
+		{
+			name:         "consumer restores Username",
+			resourceType: constant.Consumer,
+			config:       []byte(`{"username":"consumer-demo","plugins":{}}`),
+			assertModel: func(t *testing.T, resource any) {
+				consumer, ok := resource.(*model.Consumer)
+				if !ok {
+					t.Fatalf("expected *model.Consumer, got %T", resource)
+				}
+				assert.Equal(t, "consumer-demo", consumer.Username)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			draft := buildMCPCreateDraft(17, "resource-id", tt.config)
+			resource := draft.ToResourceModel(tt.resourceType)
+			tt.assertModel(t, resource)
+		})
+	}
 }

@@ -26,9 +26,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
@@ -54,7 +55,7 @@ func SSLCheck(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	sslInfo, err := biz.ParseCert(c.Request.Context(), req.Name, req.Cert, req.Key)
+	sslInfo, err := resourcebiz.ParseCert(c.Request.Context(), req.Name, req.Cert, req.Key)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -90,7 +91,7 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	sslInfo, err := biz.ParseCert(c.Request.Context(), sslEntity.Name, sslEntity.Cert, sslEntity.Key)
+	sslInfo, err := resourcebiz.ParseCert(c.Request.Context(), sslEntity.Name, sslEntity.Cert, sslEntity.Key)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -105,7 +106,7 @@ func SSLCreate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err = biz.CreateSSL(c, &model.SSL{
+	err = resourcebiz.CreateSSL(c, &model.SSL{
 		Name:                req.Name,
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.SSL), req.Config),
 	})
@@ -144,7 +145,7 @@ func SSLUpdate(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	sslInfo, err := biz.ParseCert(c.Request.Context(), sslEntity.Name, sslEntity.Cert, sslEntity.Key)
+	sslInfo, err := resourcebiz.ParseCert(c.Request.Context(), sslEntity.Name, sslEntity.Cert, sslEntity.Key)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -161,14 +162,14 @@ func SSLUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.SSL, pathParam.ID, req.Config, map[string]any{
+	if !resourcebiz.IsResourceChanged(c.Request.Context(), constant.SSL, pathParam.ID, req.Config, map[string]any{
 		"name": req.Name,
 	}) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.SSL, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.SSL, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -185,7 +186,7 @@ func SSLUpdate(c *gin.Context) {
 			},
 		},
 	}
-	if err := biz.UpdateSSL(c.Request.Context(), sslModel); err != nil {
+	if err := resourcebiz.UpdateSSL(c.Request.Context(), sslModel); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -223,7 +224,7 @@ func SSLList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	ssls, total, err := biz.ListPagedSSL(
+	ssls, total, err := resourcebiz.ListPagedSSL(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -231,7 +232,7 @@ func SSLList(c *gin.Context) {
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -277,7 +278,7 @@ func SSLGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	ssl, err := biz.GetSSL(c.Request.Context(), pathParam.ID)
+	ssl, err := resourcebiz.GetSSL(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -316,14 +317,14 @@ func SSLDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	ssl, err := biz.GetSSL(c.Request.Context(), pathParam.ID)
+	ssl, err := resourcebiz.GetSSL(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if ssl.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteSSL(c.Request.Context(), []string{ssl.ID})
+		err = resourcebiz.BatchDeleteSSL(c.Request.Context(), []string{ssl.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -331,7 +332,7 @@ func SSLDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.SSL, ssl.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -350,7 +351,7 @@ func SSLDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.SSLDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/ssls-dropdown/ [get]
 func SSLDropDownList(c *gin.Context) {
-	ssls, err := biz.ListSSL(c.Request.Context())
+	ssls, err := resourcebiz.ListSSL(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

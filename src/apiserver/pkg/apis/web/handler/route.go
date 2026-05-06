@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -62,7 +63,7 @@ func RouteCreate(c *gin.Context) {
 		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Route), req.Config),
 	}
 
-	if err := biz.CreateRoute(c.Request.Context(), route); err != nil {
+	if err := resourcebiz.CreateRoute(c.Request.Context(), route); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -94,7 +95,7 @@ func RouteUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.Route, pathParam.ID, req.Config, map[string]any{
+	if !resourcebiz.IsResourceChanged(c.Request.Context(), constant.Route, pathParam.ID, req.Config, map[string]any{
 		"name":             req.Name,
 		"service_id":       req.ServiceID,
 		"upstream_id":      req.UpstreamID,
@@ -104,7 +105,7 @@ func RouteUpdate(c *gin.Context) {
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Route, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.Route, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -126,7 +127,7 @@ func RouteUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdateRoute(c.Request.Context(), route); err != nil {
+	if err := resourcebiz.UpdateRoute(c.Request.Context(), route); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -163,7 +164,7 @@ func RouteList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	routes, total, err := biz.ListPagedRoutes(
+	routes, total, err := resourcebiz.ListPagedRoutes(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -175,7 +176,7 @@ func RouteList(c *gin.Context) {
 		req.ServiceID,
 		req.UpstreamID,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -223,7 +224,7 @@ func RouteGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	route, err := biz.GetRoute(c.Request.Context(), pathParam.ID)
+	route, err := resourcebiz.GetRoute(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -265,14 +266,14 @@ func RouteDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	route, err := biz.GetRoute(c.Request.Context(), pathParam.ID)
+	route, err := resourcebiz.GetRoute(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if route.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteRoutes(c.Request.Context(), []string{route.ID})
+		err = resourcebiz.BatchDeleteRoutes(c.Request.Context(), []string{route.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -280,7 +281,7 @@ func RouteDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(
 		c.Request.Context(),
 		constant.Route,
 		route.ID,
@@ -303,7 +304,7 @@ func RouteDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.RouteDropDownOutputInfo
 //	@Router		/api/v1/web/gateways/{gateway_id}/routes-dropdown/ [get]
 func RouteDropDownList(c *gin.Context) {
-	routes, err := biz.ListRoutes(c.Request.Context())
+	routes, err := resourcebiz.ListRoutes(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

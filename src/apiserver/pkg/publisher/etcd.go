@@ -232,8 +232,8 @@ func (s *EtcdPublisher) Close() error {
 	return s.etcdStore.Close()
 }
 
-// GetCustomizePluginSchemaMap is duplicated with biz.GetCustomizePluginSchemaMap,
-// because the biz and publisher are in the same layer, so we can directly call the biz function
+// GetCustomizePluginSchemaMap duplicates the schema business lookup,
+// because publisher stays in the same layer instead of depending on the schema package directly.
 // FIXME: but it's not a good practice, so we need to move the function to the right place
 func GetCustomizePluginSchemaMap(ctx context.Context, gatewayID int) map[string]any {
 	u := repo.GatewayCustomPluginSchema

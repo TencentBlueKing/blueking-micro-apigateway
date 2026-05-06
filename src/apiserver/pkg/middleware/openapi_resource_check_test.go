@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
@@ -97,7 +97,7 @@ func patchOpenResourceCheckValidation(t *testing.T, onValidate func(json.RawMess
 		},
 	)
 	patches.ApplyFunc(
-		biz.GetCustomizePluginSchemaMap,
+		schemabiz.GetCustomizePluginSchemaMap,
 		func(ctx context.Context) (map[string]any, error) {
 			return map[string]any{}, nil
 		},

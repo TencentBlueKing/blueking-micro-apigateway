@@ -204,6 +204,52 @@ func TestGetSyncItemsAssociatedResources_ReturnsDependencies(t *testing.T) {
 	assert.Contains(t, associatedByKey, fmt.Sprintf(constant.ResourceKeyFormat, constant.SSL, sslID))
 }
 
+func TestGetSyncItemsAssociatedResources_FiltersTypeIDCollisions(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
+	clearGatewaySyncData(t, ctx)
+
+	sharedID := idx.GenResourceID(constant.Service)
+
+	assert.NoError(t, repo.Q.GatewaySyncData.WithContext(ctx).CreateInBatches([]*model.GatewaySyncData{
+		{
+			ID:        sharedID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.Service,
+			Config:    datatypes.JSON(`{"id":"` + sharedID + `","name":"service-associated"}`),
+		},
+		{
+			ID:        sharedID,
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.Upstream,
+			Config:    datatypes.JSON(`{"id":"` + sharedID + `","name":"upstream-unrelated"}`),
+		},
+	}, 100))
+
+	items := []*model.GatewaySyncData{
+		{
+			ID:        idx.GenResourceID(constant.Route),
+			GatewayID: gatewayInfo.ID,
+			Type:      constant.Route,
+			Config: datatypes.JSON(
+				`{"name":"route-owner","uris":["/test"],"service_id":"` + sharedID + `"}`,
+			),
+		},
+	}
+
+	associated, err := GetSyncItemsAssociatedResources(ctx, items)
+	assert.NoError(t, err)
+	if !assert.Len(t, associated, 1) {
+		return
+	}
+
+	assert.Equal(t, constant.Service, associated[0].Type)
+	assert.Equal(
+		t,
+		fmt.Sprintf(constant.ResourceKeyFormat, constant.Service, sharedID),
+		associated[0].GetResourceKey(),
+	)
+}
+
 func TestSyncWithPrefix_UpsertBehavior(t *testing.T) {
 	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
 	clearGatewaySyncData(t, ctx)

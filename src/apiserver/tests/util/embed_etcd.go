@@ -22,7 +22,6 @@ package util
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"time"
@@ -46,25 +45,13 @@ func StartEmbedEtcdClient(ctx context.Context) (*clientv3.Client, *embed.Etcd, e
 
 // StartEmbedEtcdClientRandom starts an embedded etcd server on random loopback ports.
 func StartEmbedEtcdClientRandom(ctx context.Context) (*clientv3.Client, *embed.Etcd, string, error) {
-	clientURL, err := reserveLoopbackURL(ctx)
-	if err != nil {
-		return nil, nil, "", err
-	}
-	peerURL, err := reserveLoopbackURL(ctx)
-	if err != nil {
-		return nil, nil, "", err
-	}
-	clientHTTPURL, err := reserveLoopbackURL(ctx)
-	if err != nil {
-		return nil, nil, "", err
-	}
-
 	cfg := embed.NewConfig()
-	cfg.ListenClientUrls = []url.URL{clientURL}
-	cfg.ListenPeerUrls = []url.URL{peerURL}
-	cfg.ListenClientHttpUrls = []url.URL{clientHTTPURL}
-	cfg.AdvertiseClientUrls = []url.URL{clientURL}
-	cfg.AdvertisePeerUrls = []url.URL{peerURL}
+	cfg.ListenClientUrls = []url.URL{{Scheme: "http", Host: "127.0.0.1:0"}}
+	cfg.ListenPeerUrls = []url.URL{{Scheme: "http", Host: "127.0.0.1:0"}}
+	// ListenClientHttpUrls cannot share an unbound :0 URL with ListenClientUrls.
+	cfg.ListenClientHttpUrls = nil
+	cfg.AdvertiseClientUrls = cfg.ListenClientUrls
+	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
 	cfg.Dir, _ = os.MkdirTemp("", "etcd")
 	cfg.LogLevel = "error"
@@ -73,7 +60,7 @@ func StartEmbedEtcdClientRandom(ctx context.Context) (*clientv3.Client, *embed.E
 	if err != nil {
 		return nil, nil, "", err
 	}
-	return client, etcd, clientURL.Host, nil
+	return client, etcd, etcd.Clients[0].Addr().String(), nil
 }
 
 func startEmbedEtcdClient(ctx context.Context, cfg *embed.Config) (*clientv3.Client, *embed.Etcd, error) {
@@ -92,21 +79,4 @@ func startEmbedEtcdClient(ctx context.Context, cfg *embed.Config) (*clientv3.Cli
 	case <-time.After(30 * time.Second):
 		return nil, etcd, fmt.Errorf("embeddedEtcd server took too long to start")
 	}
-}
-
-func reserveLoopbackURL(ctx context.Context) (url.URL, error) {
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
-	if err != nil {
-		return url.URL{}, err
-	}
-	addr := listener.Addr().String()
-	if err := listener.Close(); err != nil {
-		return url.URL{}, err
-	}
-
-	return url.URL{
-		Scheme: "http",
-		Host:   addr,
-	}, nil
 }

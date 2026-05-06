@@ -380,11 +380,11 @@ func GetSyncItemsAssociatedResources(
 	items []*model.GatewaySyncData,
 ) ([]*model.GatewaySyncData, error) {
 	idMap := make(map[string]bool) // type:id 不同类型资源的 id 可能重复
+	associatedIDsByType := make(map[constant.APISIXResource][]string)
 	for _, item := range items {
 		idMap[item.GetResourceKey()] = true
 	}
 	// 遍历处理依赖相关资源
-	var associatedIDs []string
 	addAssociatedID := func(resourceType constant.APISIXResource, id string) {
 		if id == "" {
 			return
@@ -393,7 +393,7 @@ func GetSyncItemsAssociatedResources(
 		if idMap[resourceKey] {
 			return
 		}
-		associatedIDs = append(associatedIDs, id)
+		associatedIDsByType[resourceType] = append(associatedIDsByType[resourceType], id)
 		idMap[resourceKey] = true
 	}
 	for _, item := range items {
@@ -403,12 +403,17 @@ func GetSyncItemsAssociatedResources(
 		addAssociatedID(constant.ConsumerGroup, item.GetGroupID())
 		addAssociatedID(constant.SSL, item.GetSSLID())
 	}
-	if len(associatedIDs) > 0 {
-		associatedItems, err := syncdatabiz.QuerySyncedItems(ctx, map[string]any{
-			"id": associatedIDs,
-		})
-		if err != nil {
-			return nil, err
+	if len(associatedIDsByType) > 0 {
+		var associatedItems []*model.GatewaySyncData
+		for resourceType, ids := range associatedIDsByType {
+			itemsByType, err := syncdatabiz.QuerySyncedItems(ctx, map[string]any{
+				"type": string(resourceType),
+				"id":   ids,
+			})
+			if err != nil {
+				return nil, err
+			}
+			associatedItems = append(associatedItems, itemsByType...)
 		}
 		return associatedItems, nil
 	}

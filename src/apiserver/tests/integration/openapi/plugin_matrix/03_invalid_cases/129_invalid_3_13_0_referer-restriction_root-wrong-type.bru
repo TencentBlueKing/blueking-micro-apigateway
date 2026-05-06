@@ -1,0 +1,52 @@
+meta {
+  name: plugin_matrix_invalid_3_13_0_referer-restriction_root-wrong-type
+  type: http
+  seq: 129
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-313/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "referer-restriction": "invalid-object"
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-referer-restriction"
+        ]
+      },
+      "name": "plugin-referer-restriction"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

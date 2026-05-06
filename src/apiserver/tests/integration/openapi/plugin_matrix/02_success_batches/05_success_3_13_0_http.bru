@@ -1,0 +1,2469 @@
+meta {
+  name: plugin_matrix_success_3_13_0_http
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-313/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-aws-content-moderation": {
+            "comprehend": {
+              "access_key_id": "ACCESS_KEY_ID",
+              "region": "us-east-1",
+              "secret_access_key": "SECRET_ACCESS_KEY"
+            },
+            "moderation_categories": {
+              "PROFANITY": 0.5
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-aws-content-moderation"
+        ]
+      },
+      "name": "plugin-ai-aws-content-moderation"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-prompt-decorator": {
+            "append": [
+              {
+                "content": "End the response with an analogy.",
+                "role": "system"
+              }
+            ],
+            "prepend": [
+              {
+                "content": "I have exams tomorrow so explain conceptually and briefly",
+                "role": "system"
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-prompt-decorator"
+        ]
+      },
+      "name": "plugin-ai-prompt-decorator"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-prompt-guard": {
+            "allow_patterns": [
+              "goodword"
+            ],
+            "deny_patterns": [
+              "badword"
+            ],
+            "match_all_roles": true
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-prompt-guard"
+        ]
+      },
+      "name": "plugin-ai-prompt-guard"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-prompt-template": {
+            "templates": [
+              {
+                "name": "level of detail",
+                "template": {
+                  "messages": [
+                    {
+                      "content": "Explain about {{ topic }} in {{ level }}.",
+                      "role": "user"
+                    }
+                  ],
+                  "model": "gpt-4"
+                }
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-prompt-template"
+        ]
+      },
+      "name": "plugin-ai-prompt-template"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-proxy": {
+            "auth": {
+              "header": {
+                "Authorization": "Bearer OPENAI_API_KEY"
+              }
+            },
+            "options": {
+              "model": "gpt-4"
+            },
+            "provider": "openai"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-proxy"
+        ]
+      },
+      "name": "plugin-ai-proxy"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-proxy-multi": {
+            "instances": [
+              {
+                "auth": {
+                  "header": {
+                    "Authorization": "Bearer OPENAI_API_KEY"
+                  }
+                },
+                "name": "openai-instance",
+                "options": {
+                  "model": "gpt-4"
+                },
+                "provider": "openai",
+                "weight": 8
+              },
+              {
+                "auth": {
+                  "header": {
+                    "Authorization": "Bearer OPENAI_API_KEY"
+                  }
+                },
+                "name": "deepseek-instance",
+                "options": {
+                  "model": "deepseek-chat"
+                },
+                "provider": "deepseek",
+                "weight": 2
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-proxy-multi"
+        ]
+      },
+      "name": "plugin-ai-proxy-multi"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-rag": {
+            "embeddings_provider": {
+              "azure_openai": {
+                "api_key": "AZ_OPENAI_API_KEY",
+                "endpoint": "AZ_EMBEDDINGS_ENDPOINT"
+              }
+            },
+            "vector_search_provider": {
+              "azure_ai_search": {
+                "api_key": "AZ_AI_SEARCH_KEY",
+                "endpoint": "AZ_AI_SEARCH_ENDPOINT"
+              }
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-rag"
+        ]
+      },
+      "name": "plugin-ai-rag"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-rate-limiting": {
+            "limit": 300,
+            "limit_strategy": "prompt_tokens",
+            "time_window": 30
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-rate-limiting"
+        ]
+      },
+      "name": "plugin-ai-rate-limiting"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-request-rewrite": {
+            "auth": {
+              "header": {
+                "Authorization": "Bearer \u003csome-token\u003e"
+              }
+            },
+            "options": {
+              "max_tokens": 1024,
+              "model": "qwen-plus",
+              "temperature": 1
+            },
+            "override": {
+              "endpoint": "https://example.com"
+            },
+            "prompt": "test",
+            "provider": "openai-compatible"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-request-rewrite"
+        ]
+      },
+      "name": "plugin-ai-request-rewrite"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "api-breaker": {
+            "break_response_body": "Service is unavailable",
+            "break_response_code": 500,
+            "healthy": {
+              "http_statuses": [
+                200
+              ],
+              "successes": 3
+            },
+            "max_breaker_sec": 300,
+            "unhealthy": {
+              "failures": 3,
+              "http_statuses": [
+                500
+              ]
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-api-breaker"
+        ]
+      },
+      "name": "plugin-api-breaker"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "attach-consumer-label": {
+            "headers": {
+              "X-Consumer-ID": "$consumer_name",
+              "X-Consumer-Username": "$consumer_name"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-attach-consumer-label"
+        ]
+      },
+      "name": "plugin-attach-consumer-label"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "authz-casdoor": {
+            "callback_url": "http://example.com/callback",
+            "client_id": "your_client_id",
+            "client_secret": "your_client_secret",
+            "endpoint_addr": "https://casdoor.org:8000"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-authz-casdoor"
+        ]
+      },
+      "name": "plugin-authz-casdoor"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "authz-keycloak": {
+            "client_id": "your_client_id",
+            "discovery": "https://your-keycloak-server.com/auth/realms/your-realm/.well-known/openid-configuration"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-authz-keycloak"
+        ]
+      },
+      "name": "plugin-authz-keycloak"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "aws-lambda": {
+            "authorization": {
+              "apikey": "your_api_key"
+            },
+            "function_uri": "arn:aws:lambda:us-east-1:123456789012:function:my-function"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-aws-lambda"
+        ]
+      },
+      "name": "plugin-aws-lambda"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "basic-auth": {
+            "password": "admin",
+            "username": "admin"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-basic-auth"
+        ]
+      },
+      "name": "plugin-basic-auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "body-transformer": {
+            "request": {
+              "input_format": "json",
+              "template": "{\"transformed_data\": \"{{data}}\"}"
+            },
+            "response": {
+              "input_format": "json",
+              "template": "{\"result\": \"{{response}}\"}"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-body-transformer"
+        ]
+      },
+      "name": "plugin-body-transformer"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "cas-auth": {
+            "cas_callback_uri": "/api/cas/callback",
+            "idp_uri": "https://cas.example.com",
+            "logout_uri": "https://cas.example.com/logout"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-cas-auth"
+        ]
+      },
+      "name": "plugin-cas-auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "chaitin-waf": {
+            "append_waf_debug_header": false,
+            "append_waf_resp_header": true,
+            "mode": "monitor"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-chaitin-waf"
+        ]
+      },
+      "name": "plugin-chaitin-waf"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "client-control": {
+            "max_body_size": 1048576
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-client-control"
+        ]
+      },
+      "name": "plugin-client-control"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "consumer-restriction": {
+            "blacklist": [
+              "user3",
+              "user4"
+            ],
+            "rejected_code": 403,
+            "rejected_msg": "Access denied",
+            "whitelist": [
+              "user1",
+              "user2"
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-consumer-restriction"
+        ]
+      },
+      "name": "plugin-consumer-restriction"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "csrf": {
+            "expires": 7200,
+            "key": "your_secret_key",
+            "name": "csrf-token"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-csrf"
+        ]
+      },
+      "name": "plugin-csrf"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "degraphql": {
+            "operation_name": "GetUser",
+            "query": "query GetUser($id: ID!) { user(id: $id) { name email } }",
+            "variables": [
+              "id"
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-degraphql"
+        ]
+      },
+      "name": "plugin-degraphql"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "dubbo-proxy": {
+            "method": "your_method",
+            "service_name": "your_service_name",
+            "service_version": "1.0.0"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-dubbo-proxy"
+        ]
+      },
+      "name": "plugin-dubbo-proxy"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "echo": {
+            "after_body": "request body after filter",
+            "before_body": "request body before filter",
+            "body": "response body",
+            "headers": {
+              "Content-Type": "text/plain"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-echo"
+        ]
+      },
+      "name": "plugin-echo"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ext-plugin-post-req": {
+            "allow_degradation": false,
+            "conf": [
+              {
+                "name": "header1",
+                "value": "value1"
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ext-plugin-post-req"
+        ]
+      },
+      "name": "plugin-ext-plugin-post-req"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ext-plugin-post-resp": {
+            "allow_degradation": false,
+            "conf": [
+              {
+                "name": "header1",
+                "value": "value1"
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ext-plugin-post-resp"
+        ]
+      },
+      "name": "plugin-ext-plugin-post-resp"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ext-plugin-pre-req": {
+            "allow_degradation": false,
+            "conf": [
+              {
+                "name": "header1",
+                "value": "value1"
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ext-plugin-pre-req"
+        ]
+      },
+      "name": "plugin-ext-plugin-pre-req"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "fault-injection": {
+            "abort": {
+              "http_status": 500,
+              "percentage": 10
+            },
+            "delay": {
+              "duration": 5000,
+              "percentage": 10
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-fault-injection"
+        ]
+      },
+      "name": "plugin-fault-injection"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "forward-auth": {
+            "request_headers": [
+              "Authorization"
+            ],
+            "upstream_headers": [
+              "X-User"
+            ],
+            "uri": "http://example.com/auth"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-forward-auth"
+        ]
+      },
+      "name": "plugin-forward-auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "google-cloud-logging": {
+            "auth_config": {
+              "client_email": "service-account@example.iam.gserviceaccount.com",
+              "private_key": "your_private_key",
+              "project_id": "your_project_id",
+              "token_uri": "https://oauth2.googleapis.com/token"
+            },
+            "log_id": "your_log_id"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-google-cloud-logging"
+        ]
+      },
+      "name": "plugin-google-cloud-logging"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "grpc-transcode": {
+            "method": "your_method",
+            "proto_id": "your_proto_id",
+            "service": "your_service"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-grpc-transcode"
+        ]
+      },
+      "name": "plugin-grpc-transcode"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "grpc-web": {}
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-grpc-web"
+        ]
+      },
+      "name": "plugin-grpc-web"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "gzip": {
+            "buffers": {
+              "number": 32,
+              "size": 4096
+            },
+            "comp_level": 6,
+            "min_length": 20,
+            "types": [
+              "text/html",
+              "text/plain"
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-gzip"
+        ]
+      },
+      "name": "plugin-gzip"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "http-dubbo": {
+            "method": "getUserInfo",
+            "params_type_desc": "Ljava/lang/String;",
+            "serialized": false,
+            "service_name": "com.example.UserService",
+            "service_version": "1.0.0"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-http-dubbo"
+        ]
+      },
+      "name": "plugin-http-dubbo"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "jwe-decrypt": {
+            "forward_header": "X-Decrypted-Token",
+            "header": "Authorization",
+            "strict": true
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-jwe-decrypt"
+        ]
+      },
+      "name": "plugin-jwe-decrypt"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "kafka-proxy": {
+            "sasl": {
+              "password": "your_password",
+              "username": "your_username"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-kafka-proxy"
+        ]
+      },
+      "name": "plugin-kafka-proxy"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "limit-count": {
+            "count": 100,
+            "key": "remote_addr",
+            "policy": "local",
+            "time_window": 60
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-limit-count"
+        ]
+      },
+      "name": "plugin-limit-count"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "limit-req": {
+            "burst": 20,
+            "key": "remote_addr",
+            "policy": "local",
+            "rate": 100
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-limit-req"
+        ]
+      },
+      "name": "plugin-limit-req"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "mocking": {
+            "content_type": "application/json",
+            "response_example": "{\"status\":\"success\"}",
+            "response_status": 200
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-mocking"
+        ]
+      },
+      "name": "plugin-mocking"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "multi-auth": {
+            "auth_plugins": [
+              {
+                "key-auth": {}
+              },
+              {
+                "jwt-auth": {}
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-multi-auth"
+        ]
+      },
+      "name": "plugin-multi-auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "opa": {
+            "host": "http://opa.example.com",
+            "policy": "your_policy"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-opa"
+        ]
+      },
+      "name": "plugin-opa"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "openfunction": {
+            "authorization": {
+              "service_token": "your_api_key"
+            },
+            "function_uri": "https://your-function-app.azurewebsites.net/api/your-function"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-openfunction"
+        ]
+      },
+      "name": "plugin-openfunction"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "openid-connect": {
+            "client_id": "your_client_id",
+            "client_secret": "your_client_secret",
+            "discovery": "https://your-oidc-server.com/.well-known/openid-configuration"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-openid-connect"
+        ]
+      },
+      "name": "plugin-openid-connect"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "opentelemetry": {
+            "sampler": {
+              "name": "always_on"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-opentelemetry"
+        ]
+      },
+      "name": "plugin-opentelemetry"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "openwhisk": {
+            "action": "your_action",
+            "api_host": "https://openwhisk.example.com",
+            "namespace": "your_namespace",
+            "service_token": "your_service_token"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-openwhisk"
+        ]
+      },
+      "name": "plugin-openwhisk"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "proxy-cache": {
+            "cache_key": [
+              "$host",
+              "$request_uri"
+            ],
+            "cache_ttl": 300
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-proxy-cache"
+        ]
+      },
+      "name": "plugin-proxy-cache"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "proxy-control": {
+            "request_buffering": true
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-proxy-control"
+        ]
+      },
+      "name": "plugin-proxy-control"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "proxy-mirror": {
+            "host": "http://mirror.example.com",
+            "sample_ratio": 0.5
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-proxy-mirror"
+        ]
+      },
+      "name": "plugin-proxy-mirror"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "proxy-rewrite": {
+            "host": "new-host.example.com",
+            "uri": "/new-uri"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-proxy-rewrite"
+        ]
+      },
+      "name": "plugin-proxy-rewrite"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "public-api": {
+            "uri": "/public-api"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-public-api"
+        ]
+      },
+      "name": "plugin-public-api"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "real-ip": {
+            "source": "X-Real-IP",
+            "trusted_addresses": [
+              "192.168.1.1/24"
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-real-ip"
+        ]
+      },
+      "name": "plugin-real-ip"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "redirect": {
+            "ret_code": 302,
+            "uri": "/new-uri"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-redirect"
+        ]
+      },
+      "name": "plugin-redirect"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "referer-restriction": {
+            "bypass_missing": false,
+            "message": "Access denied",
+            "whitelist": [
+              "example.com"
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-referer-restriction"
+        ]
+      },
+      "name": "plugin-referer-restriction"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "request-id": {
+            "algorithm": "uuid",
+            "header_name": "X-Request-Id",
+            "include_in_response": true
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-request-id"
+        ]
+      },
+      "name": "plugin-request-id"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "request-validation": {
+            "body_schema": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            },
+            "header_schema": {
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-request-validation"
+        ]
+      },
+      "name": "plugin-request-validation"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "response-rewrite": {
+            "body": "new response body",
+            "headers": {
+              "Content-Type": "text/plain"
+            },
+            "status_code": 200
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-response-rewrite"
+        ]
+      },
+      "name": "plugin-response-rewrite"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "serverless-post-function": {
+            "functions": [
+              "func1",
+              "func2"
+            ],
+            "phase": "access"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-serverless-post-function"
+        ]
+      },
+      "name": "plugin-serverless-post-function"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "serverless-pre-function": {
+            "functions": [
+              "func1",
+              "func2"
+            ],
+            "phase": "access"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-serverless-pre-function"
+        ]
+      },
+      "name": "plugin-serverless-pre-function"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "skywalking": {
+            "endpoint_addr": "http://127.0.0.1:12800",
+            "sample_ratio": 0.5
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-skywalking"
+        ]
+      },
+      "name": "plugin-skywalking"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "sls-logger": {
+            "access_key_id": "your_access_key_id",
+            "access_key_secret": "your_access_key_secret",
+            "host": "sls.example.com",
+            "logstore": "your_logstore",
+            "port": 80,
+            "project": "your_project"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-sls-logger"
+        ]
+      },
+      "name": "plugin-sls-logger"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "splunk-hec-logging": {
+            "endpoint": {
+              "token": "your_hec_token",
+              "uri": "https://hec.splunk.example.com:8088/services/collector"
+            }
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-splunk-hec-logging"
+        ]
+      },
+      "name": "plugin-splunk-hec-logging"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "tcp-logger": {
+            "host": "tcp-logger.example.com",
+            "port": 12345,
+            "tls": false
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-tcp-logger"
+        ]
+      },
+      "name": "plugin-tcp-logger"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "traffic-split": {
+            "rules": [
+              {
+                "actions": [
+                  {
+                    "weighted_upstreams": [
+                      {
+                        "upstream": {
+                          "nodes": {
+                            "node1": 1,
+                            "node2": 2
+                          },
+                          "type": "roundrobin"
+                        },
+                        "weight": 70
+                      },
+                      {
+                        "upstream": {
+                          "nodes": {
+                            "node3": 1,
+                            "node4": 2
+                          },
+                          "type": "roundrobin"
+                        },
+                        "weight": 30
+                      }
+                    ]
+                  }
+                ],
+                "case": [
+                  "some_condition"
+                ]
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-traffic-split"
+        ]
+      },
+      "name": "plugin-traffic-split"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ua-restriction": {
+            "allowlist": [
+              "Mozilla/5.0"
+            ],
+            "bypass_missing": false,
+            "message": "User agent not allowed"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ua-restriction"
+        ]
+      },
+      "name": "plugin-ua-restriction"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "udp-logger": {
+            "host": "udp-logger.example.com",
+            "port": 514,
+            "timeout": 3
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-udp-logger"
+        ]
+      },
+      "name": "plugin-udp-logger"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "uri-blocker": {
+            "block_rules": [
+              "/blocked-uri",
+              "/forbidden-path"
+            ],
+            "case_insensitive": true,
+            "rejected_code": 403,
+            "rejected_msg": "Your request is blocked"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-uri-blocker"
+        ]
+      },
+      "name": "plugin-uri-blocker"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "wolf-rbac": {
+            "appid": "your_app_id",
+            "header_prefix": "X-",
+            "server": "http://127.0.0.1:12180"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-wolf-rbac"
+        ]
+      },
+      "name": "plugin-wolf-rbac"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "workflow": {
+            "rules": [
+              {
+                "actions": [
+                  [
+                    "return",
+                    {
+                      "code": 403
+                    }
+                  ]
+                ],
+                "case": [
+                  [
+                    "uri",
+                    "==",
+                    "/hello/rejected"
+                  ]
+                ]
+              },
+              {
+                "actions": [
+                  [
+                    "limit-count",
+                    {
+                      "count": 2,
+                      "rejected_code": 429,
+                      "time_window": 60
+                    }
+                  ]
+                ],
+                "case": [
+                  [
+                    "uri",
+                    "==",
+                    "/hello/v2/appid"
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-workflow"
+        ]
+      },
+      "name": "plugin-workflow"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "zipkin": {
+            "endpoint": "http://zipkin.example.com/api/v2/spans",
+            "sample_ratio": 0.1,
+            "service_name": "APISIX"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-zipkin"
+        ]
+      },
+      "name": "plugin-zipkin"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.length: eq 69
+}

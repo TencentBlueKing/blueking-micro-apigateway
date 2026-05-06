@@ -1,0 +1,52 @@
+meta {
+  name: plugin_matrix_invalid_3_11_0_proxy-control_root-wrong-type
+  type: http
+  seq: 45
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-311/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "proxy-control": "invalid-object"
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-proxy-control"
+        ]
+      },
+      "name": "plugin-proxy-control"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

@@ -49,3 +49,4 @@ v3logs
 bkcodeai.json
 src/apiserver/docs/docs.go
 src/apiserver/configs/config.yaml.bk
+docs/superpowers

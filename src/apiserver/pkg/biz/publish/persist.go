@@ -30,6 +30,14 @@ import (
 
 var batchUpdateResourceStatus = resourcebiz.BatchUpdateResourceStatus
 
+func batchCreateEtcdResource(ctx context.Context, ops []publisher.ResourceOperation) error {
+	etcdPublisher, err := getEtcdPublisher(ctx)
+	if err != nil {
+		return err
+	}
+	return etcdPublisher.BatchCreate(ctx, ops)
+}
+
 func persistPublishedOperations(
 	ctx context.Context,
 	resourceType constant.APISIXResource,

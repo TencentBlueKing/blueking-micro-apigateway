@@ -42,8 +42,6 @@ const (
 	batchCreateError = "batch create error"
 )
 
-var ctx context.Context
-
 type stubValidator struct {
 	validate func(obj json.RawMessage) error
 }

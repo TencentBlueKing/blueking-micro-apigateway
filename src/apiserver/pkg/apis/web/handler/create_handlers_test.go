@@ -83,21 +83,6 @@ func uniqueWebCreateName(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
 }
 
-func assertCreateDraftCommonFields(
-	t *testing.T,
-	resourceID string,
-	gatewayID int,
-	creator string,
-	status constant.ResourceStatus,
-) {
-	t.Helper()
-
-	assert.NotEmpty(t, resourceID)
-	assert.Equal(t, constant.ResourceStatusCreateDraft, status)
-	assert.Equal(t, creator, creator)
-	assert.Equal(t, gatewayID, gatewayID)
-}
-
 func TestPluginConfigCreateCurrentBehavior(t *testing.T) {
 	initWebCreateHandlerTestEnv()
 

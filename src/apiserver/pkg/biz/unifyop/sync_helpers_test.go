@@ -204,7 +204,7 @@ func TestReconcilePluginMetadataSyncIDs(t *testing.T) {
 	assert.Equal(t, "new-plugin", resources[1].GetName())
 }
 
-func TestReconcilePluginMetadataSyncIDs_AlreadyDBID(t *testing.T) {
+func TestReconcilePluginMetadataSyncIDs_ExistingEtcdName(t *testing.T) {
 	ctx := ginx.SetGatewayInfoToContext(context.Background(), gatewayInfo)
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 

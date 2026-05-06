@@ -16,7 +16,8 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-package biz
+// Package system provides system-level business configuration helpers.
+package system
 
 import (
 	"context"

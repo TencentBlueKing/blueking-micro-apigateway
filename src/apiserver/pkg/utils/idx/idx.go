@@ -24,7 +24,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/sony/sonyflake"
 
@@ -95,27 +94,6 @@ func getLocalIPs() ([]net.IP, error) {
 	return ips, nil
 }
 
-const base64Charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._"
-
-// uint64ToBase64
-func uint64ToBase64(num uint64) string {
-	if num == 0 {
-		return string(base64Charset[0])
-	}
-	var sb strings.Builder
-	for num > 0 {
-		remainder := num % 64
-		sb.WriteByte(base64Charset[remainder])
-		num /= 64
-	}
-	result := sb.String()
-	runes := []rune(result)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
-}
-
 // GenResourceID ...
 func GenResourceID(resourceType constant.APISIXResource) string {
 	uid, err := _sf.NextID()
@@ -123,5 +101,5 @@ func GenResourceID(resourceType constant.APISIXResource) string {
 		panic("get sony flake uid failed:" + err.Error())
 	}
 	prefix := resourceIDResourceTypePrefixMap[resourceType]
-	return fmt.Sprintf("bk.%s.%s", prefix, uint64ToBase64(uid))
+	return fmt.Sprintf("bk.%s.%s", prefix, strconv.FormatUint(uid, 36))
 }

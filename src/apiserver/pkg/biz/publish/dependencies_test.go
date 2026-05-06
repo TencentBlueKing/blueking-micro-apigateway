@@ -37,6 +37,11 @@ func TestCollectRoutePublishDependencies(t *testing.T) {
 			PluginConfigID: "plugin-config-1",
 		},
 		{
+			ServiceID:      "service-1",
+			UpstreamID:     "upstream-1",
+			PluginConfigID: "plugin-config-1",
+		},
+		{
 			ServiceID:      "service-2",
 			PluginConfigID: "plugin-config-2",
 		},
@@ -53,6 +58,7 @@ func TestCollectServicePublishDependencies(t *testing.T) {
 
 	services := []*model.Service{
 		{UpstreamID: "upstream-1"},
+		{UpstreamID: "upstream-1"},
 		{UpstreamID: ""},
 		{UpstreamID: "upstream-2"},
 	}
@@ -65,6 +71,11 @@ func TestCollectUpstreamPublishDependencies(t *testing.T) {
 	t.Parallel()
 
 	upstreams := []*model.Upstream{
+		{
+			ResourceCommonModel: model.ResourceCommonModel{
+				Config: datatypes.JSON(`{"tls":{"client_cert_id":"ssl-1"}}`),
+			},
+		},
 		{
 			ResourceCommonModel: model.ResourceCommonModel{
 				Config: datatypes.JSON(`{"tls":{"client_cert_id":"ssl-1"}}`),
@@ -91,6 +102,7 @@ func TestCollectConsumerPublishDependencies(t *testing.T) {
 
 	consumers := []*model.Consumer{
 		{GroupID: "group-1"},
+		{GroupID: "group-1"},
 		{GroupID: ""},
 		{GroupID: "group-2"},
 	}
@@ -103,6 +115,10 @@ func TestCollectStreamRoutePublishDependencies(t *testing.T) {
 	t.Parallel()
 
 	streamRoutes := []*model.StreamRoute{
+		{
+			ServiceID:  "service-1",
+			UpstreamID: "upstream-1",
+		},
 		{
 			ServiceID:  "service-1",
 			UpstreamID: "upstream-1",

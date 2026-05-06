@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/cryptography"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	schemax "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
@@ -44,6 +46,17 @@ func init() {
 		panic(err)
 	}
 	util.InitEmbedDb()
+}
+
+type importflowCaptureValidator struct {
+	validate func(json.RawMessage) error
+}
+
+func (v importflowCaptureValidator) Validate(raw json.RawMessage) error {
+	if v.validate != nil {
+		return v.validate(raw)
+	}
+	return nil
 }
 
 func TestBuildImportIndex(t *testing.T) {
@@ -401,6 +414,98 @@ func TestValidateImportedResources(t *testing.T) {
 		nil,
 	)
 	assert.ErrorContains(t, err, "associated upstream [id:up-missing] not found")
+}
+
+func TestValidateImportedResourcesBuildsValidatorsOncePerResourceType(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(
+		context.Background(),
+		&model.Gateway{APISIXVersion: string(constant.APISIXVersion313)},
+	)
+
+	var schemaValidatorBuilds int
+	var jsonValidatorBuilds int
+	var schemaValidateCalls int
+	var jsonValidateCalls int
+
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(
+		schemax.NewAPISIXSchemaValidator,
+		func(version constant.APISIXVersion, jsonPath string) (schemax.Validator, error) {
+			schemaValidatorBuilds++
+			return importflowCaptureValidator{
+				validate: func(raw json.RawMessage) error {
+					schemaValidateCalls++
+					return nil
+				},
+			}, nil
+		},
+	)
+	patches.ApplyFunc(
+		schemax.NewAPISIXJsonSchemaValidator,
+		func(
+			version constant.APISIXVersion,
+			resourceType constant.APISIXResource,
+			jsonPath string,
+			customizePluginSchemaMap map[string]any,
+			dataType constant.DataType,
+		) (schemax.Validator, error) {
+			jsonValidatorBuilds++
+			return importflowCaptureValidator{
+				validate: func(raw json.RawMessage) error {
+					jsonValidateCalls++
+					return nil
+				},
+			}, nil
+		},
+	)
+	defer patches.Reset()
+
+	err := ValidateImportedResources(
+		ctx,
+		map[constant.APISIXResource][]*model.GatewaySyncData{
+			constant.Route: {
+				{
+					Type: constant.Route,
+					ID:   "route-1",
+					Config: datatypes.JSON(
+						[]byte(`{"id":"route-1","name":"route-1","uris":["/route-1"]}`),
+					),
+				},
+				{
+					Type: constant.Route,
+					ID:   "route-2",
+					Config: datatypes.JSON(
+						[]byte(`{"id":"route-2","name":"route-2","uris":["/route-2"]}`),
+					),
+				},
+			},
+			constant.PluginConfig: {
+				{
+					Type: constant.PluginConfig,
+					ID:   "plugin-config-1",
+					Config: datatypes.JSON(
+						[]byte(`{"id":"plugin-config-1","name":"pc-1","plugins":{}}`),
+					),
+				},
+				{
+					Type: constant.PluginConfig,
+					ID:   "plugin-config-2",
+					Config: datatypes.JSON(
+						[]byte(`{"id":"plugin-config-2","name":"pc-2","plugins":{}}`),
+					),
+				},
+			},
+		},
+		map[string]struct{}{},
+		nil,
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, 2, schemaValidatorBuilds)
+	assert.Equal(t, 2, jsonValidatorBuilds)
+	assert.Equal(t, 4, schemaValidateCalls)
+	assert.Equal(t, 4, jsonValidateCalls)
 }
 
 func TestApplyImportIgnoreFields(t *testing.T) {

@@ -49,6 +49,16 @@ func ValidateImportedResources(
 		if err != nil {
 			return err
 		}
+		jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
+			gatewayInfo.GetAPISIXVersionX(),
+			resourceType,
+			"main."+string(resourceType),
+			allPluginSchemaMap,
+			constant.DATABASE,
+		)
+		if err != nil {
+			return err
+		}
 		for _, r := range resource {
 			configRawForValidation := resourcebiz.BuildConfigRawForValidation(
 				string(r.Config),
@@ -58,16 +68,6 @@ func ValidateImportedResources(
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {
 				logging.Errorf("schema validate failed, err: %v", err)
-				return err
-			}
-			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
-				gatewayInfo.GetAPISIXVersionX(),
-				resourceType,
-				"main."+string(resourceType),
-				allPluginSchemaMap,
-				constant.DATABASE,
-			)
-			if err != nil {
 				return err
 			}
 			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil {

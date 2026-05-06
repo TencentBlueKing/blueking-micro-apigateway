@@ -44,17 +44,32 @@ type streamRoutePublishDependencies struct {
 	UpstreamIDs []string
 }
 
+func appendUniqueString(ids []string, seen map[string]struct{}, id string) []string {
+	if _, ok := seen[id]; ok {
+		return ids
+	}
+	seen[id] = struct{}{}
+	return append(ids, id)
+}
+
 func collectRoutePublishDependencies(routes []*model.Route) routePublishDependencies {
 	deps := routePublishDependencies{}
+	serviceIDsSeen := make(map[string]struct{})
+	upstreamIDsSeen := make(map[string]struct{})
+	pluginConfigIDsSeen := make(map[string]struct{})
 	for _, route := range routes {
 		if route.ServiceID != "" {
-			deps.ServiceIDs = append(deps.ServiceIDs, route.ServiceID)
+			deps.ServiceIDs = appendUniqueString(deps.ServiceIDs, serviceIDsSeen, route.ServiceID)
 		}
 		if route.UpstreamID != "" {
-			deps.UpstreamIDs = append(deps.UpstreamIDs, route.UpstreamID)
+			deps.UpstreamIDs = appendUniqueString(deps.UpstreamIDs, upstreamIDsSeen, route.UpstreamID)
 		}
 		if route.PluginConfigID != "" {
-			deps.PluginConfigIDs = append(deps.PluginConfigIDs, route.PluginConfigID)
+			deps.PluginConfigIDs = appendUniqueString(
+				deps.PluginConfigIDs,
+				pluginConfigIDsSeen,
+				route.PluginConfigID,
+			)
 		}
 	}
 	return deps
@@ -62,9 +77,10 @@ func collectRoutePublishDependencies(routes []*model.Route) routePublishDependen
 
 func collectServicePublishDependencies(services []*model.Service) servicePublishDependencies {
 	deps := servicePublishDependencies{}
+	upstreamIDsSeen := make(map[string]struct{})
 	for _, service := range services {
 		if service.UpstreamID != "" {
-			deps.UpstreamIDs = append(deps.UpstreamIDs, service.UpstreamID)
+			deps.UpstreamIDs = appendUniqueString(deps.UpstreamIDs, upstreamIDsSeen, service.UpstreamID)
 		}
 	}
 	return deps
@@ -72,9 +88,10 @@ func collectServicePublishDependencies(services []*model.Service) servicePublish
 
 func collectUpstreamPublishDependencies(upstreams []*model.Upstream) upstreamPublishDependencies {
 	deps := upstreamPublishDependencies{}
+	sslIDsSeen := make(map[string]struct{})
 	for _, upstream := range upstreams {
 		if upstream.GetSSLID() != "" {
-			deps.SSLIDs = append(deps.SSLIDs, upstream.GetSSLID())
+			deps.SSLIDs = appendUniqueString(deps.SSLIDs, sslIDsSeen, upstream.GetSSLID())
 		}
 	}
 	return deps
@@ -82,9 +99,14 @@ func collectUpstreamPublishDependencies(upstreams []*model.Upstream) upstreamPub
 
 func collectConsumerPublishDependencies(consumers []*model.Consumer) consumerPublishDependencies {
 	deps := consumerPublishDependencies{}
+	consumerGroupIDsSeen := make(map[string]struct{})
 	for _, consumer := range consumers {
 		if consumer.GroupID != "" {
-			deps.ConsumerGroupIDs = append(deps.ConsumerGroupIDs, consumer.GroupID)
+			deps.ConsumerGroupIDs = appendUniqueString(
+				deps.ConsumerGroupIDs,
+				consumerGroupIDsSeen,
+				consumer.GroupID,
+			)
 		}
 	}
 	return deps
@@ -92,12 +114,14 @@ func collectConsumerPublishDependencies(consumers []*model.Consumer) consumerPub
 
 func collectStreamRoutePublishDependencies(streamRoutes []*model.StreamRoute) streamRoutePublishDependencies {
 	deps := streamRoutePublishDependencies{}
+	serviceIDsSeen := make(map[string]struct{})
+	upstreamIDsSeen := make(map[string]struct{})
 	for _, streamRoute := range streamRoutes {
 		if streamRoute.ServiceID != "" {
-			deps.ServiceIDs = append(deps.ServiceIDs, streamRoute.ServiceID)
+			deps.ServiceIDs = appendUniqueString(deps.ServiceIDs, serviceIDsSeen, streamRoute.ServiceID)
 		}
 		if streamRoute.UpstreamID != "" {
-			deps.UpstreamIDs = append(deps.UpstreamIDs, streamRoute.UpstreamID)
+			deps.UpstreamIDs = appendUniqueString(deps.UpstreamIDs, upstreamIDsSeen, streamRoute.UpstreamID)
 		}
 	}
 	return deps

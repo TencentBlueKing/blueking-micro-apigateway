@@ -151,13 +151,13 @@ flowchart TD
 
 | Step | Function | File | Description |
 |------|----------|------|-------------|
-| 1. Sync | `SyncWithPrefix()` | `pkg/biz/unify_op.go` | Fetches resources from etcd, stores in `gateway_sync_data` |
-| 1. Sync | `SyncerRun()` | `pkg/biz/unify_op.go` | Periodic scheduler that runs sync for all gateways |
-| 2. Import | `AddSyncedResources()` | `pkg/biz/unify_op.go` | Copies synced resources to edit area tables |
+| 1. Sync | `SyncWithPrefix()` | `pkg/biz/unifyop/sync.go` | Fetches resources from etcd, stores in `gateway_sync_data` |
+| 1. Sync | `SyncerRun()` | `pkg/biz/unifyop/sync.go` | Periodic scheduler that runs sync for all gateways |
+| 2. Import | `AddSyncedResources()` | `pkg/biz/unifyop/sync.go` | Copies synced resources to edit area tables |
 | 3. CRUD | Various handlers | `pkg/apis/web/handler/*.go` | User creates/updates/deletes resources |
-| 4. Diff | `DiffResources()` | `pkg/biz/unify_op.go` | Compares edit area with sync area |
-| 5. Publish | `PublishResource()` | `pkg/biz/publish.go` | Writes changes to etcd |
-| 5. Publish | `putXxx()` functions | `pkg/biz/publish.go` | Resource-specific publish logic |
+| 4. Diff | `DiffResources()` | `pkg/biz/diff/diff.go` | Compares edit area with sync area |
+| 5. Publish | `PublishResource()` | `pkg/biz/publish/entry.go` | Writes changes to etcd |
+| 5. Publish | `putXxx()` functions | `pkg/biz/publish/entry.go` | Resource-specific publish logic |
 
 #### 1.2 Two-Area Design Rationale
 
@@ -330,7 +330,7 @@ func (r *Route) HandleConfig() error {
 
 #### 4.2 Publish Field Cleanup
 
-Before publishing to APISIX/etcd, `pkg/biz/publish.go` removes fields based on version compatibility using `ShouldRemoveFieldBeforeValidationOrPublish()`.
+Before publishing to APISIX/etcd, `pkg/biz/publish/payload.go` removes fields based on version compatibility using `ShouldRemoveFieldBeforeValidationOrPublish()`.
 
 ### 5. Schema Validation
 

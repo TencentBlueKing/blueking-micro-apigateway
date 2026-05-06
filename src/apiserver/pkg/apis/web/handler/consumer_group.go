@@ -228,6 +228,8 @@ func ConsumerGroupGet(c *gin.Context) {
 		return
 	}
 	output := serializer.ConsumerGroupOutputInfo{
+		AutoID:    consumerGroup.AutoID,
+		ID:        consumerGroup.ID,
 		GatewayID: consumerGroup.GatewayID,
 		ConsumerGroupInfo: serializer.ConsumerGroupInfo{
 			ID:     consumerGroup.ID,

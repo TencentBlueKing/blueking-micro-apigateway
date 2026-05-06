@@ -149,8 +149,7 @@ func GetConsumer(ctx context.Context, id string) (*model.Consumer, error) {
 
 // QueryConsumers 搜索 consumer
 func QueryConsumers(ctx context.Context, param map[string]any) ([]*model.Consumer, error) {
-	u := repo.Consumer
-	return u.WithContext(ctx).Where(field.Attrs(param)).Find()
+	return buildConsumerQuery(ctx).Where(field.Attrs(param)).Find()
 }
 
 // BatchDeleteConsumers 批量删除 consumer 并添加审计日志

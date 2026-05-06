@@ -20,13 +20,18 @@ package resource
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/datatypes"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
 )
 
@@ -189,4 +194,62 @@ func TestBuildConsumerQueryWithTx_WithNilGateway(t *testing.T) {
 	assert.Panics(t, func() {
 		buildConsumerQueryWithTx(ctx, tx)
 	}, "没有网关信息时应该 panic")
+}
+
+func TestQueryConsumersFiltersByGateway(t *testing.T) {
+	suffix := time.Now().UnixNano()
+	username := fmt.Sprintf("consumer_query_scope_%d", suffix)
+
+	gateway1 := &model.Gateway{
+		ID:            int(suffix % 1000000),
+		Name:          fmt.Sprintf("gateway-consumer-scope-a-%d", suffix),
+		APISIXType:    constant.APISIXTypeAPISIX,
+		APISIXVersion: string(constant.APISIXVersion313),
+	}
+	gateway2 := &model.Gateway{
+		ID:            int(suffix%1000000 + 1),
+		Name:          fmt.Sprintf("gateway-consumer-scope-b-%d", suffix),
+		APISIXType:    constant.APISIXTypeAPISIX,
+		APISIXVersion: string(constant.APISIXVersion313),
+	}
+	assert.NoError(t, repo.Gateway.WithContext(context.Background()).Create(gateway1))
+	assert.NoError(t, repo.Gateway.WithContext(context.Background()).Create(gateway2))
+
+	ctx1 := ginx.SetGatewayInfoToContext(context.Background(), gateway1)
+	ctx2 := ginx.SetGatewayInfoToContext(context.Background(), gateway2)
+
+	consumer1 := model.Consumer{
+		Username: username,
+		ResourceCommonModel: model.ResourceCommonModel{
+			ID:        idx.GenResourceID(constant.Consumer),
+			GatewayID: gateway1.ID,
+			Config:    datatypes.JSON([]byte(fmt.Sprintf(`{"username":"%s"}`, username))),
+			Status:    constant.ResourceStatusCreateDraft,
+		},
+	}
+	consumer2 := model.Consumer{
+		Username: username,
+		ResourceCommonModel: model.ResourceCommonModel{
+			ID:        idx.GenResourceID(constant.Consumer),
+			GatewayID: gateway2.ID,
+			Config:    datatypes.JSON([]byte(fmt.Sprintf(`{"username":"%s"}`, username))),
+			Status:    constant.ResourceStatusCreateDraft,
+		},
+	}
+	assert.NoError(t, CreateConsumer(ctx1, consumer1))
+	assert.NoError(t, CreateConsumer(ctx2, consumer2))
+
+	got1, err := QueryConsumers(ctx1, map[string]any{"username": username})
+	assert.NoError(t, err)
+	if assert.Len(t, got1, 1) {
+		assert.Equal(t, gateway1.ID, got1[0].GatewayID)
+		assert.Equal(t, consumer1.ID, got1[0].ID)
+	}
+
+	got2, err := QueryConsumers(ctx2, map[string]any{"username": username})
+	assert.NoError(t, err)
+	if assert.Len(t, got2, 1) {
+		assert.Equal(t, gateway2.ID, got2[0].GatewayID)
+		assert.Equal(t, consumer2.ID, got2[0].ID)
+	}
 }

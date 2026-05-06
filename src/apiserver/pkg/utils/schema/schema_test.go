@@ -126,3 +126,29 @@ func TestGetPluginSchema(t *testing.T) {
 		}
 	}
 }
+
+func TestGetPluginSchemaStreamPrometheusExistsFor311And313(t *testing.T) {
+	versions := []constant.APISIXVersion{
+		constant.APISIXVersion311,
+		constant.APISIXVersion313,
+	}
+
+	for _, version := range versions {
+		t.Run(string(version), func(t *testing.T) {
+			assert.NotNil(t, GetPluginSchema(version, "prometheus", ""))
+			assert.NotNil(t, GetPluginSchema(version, "prometheus", "stream"))
+		})
+	}
+}
+
+func TestGetPluginSchemaUnwraps311AIProxyPluginSchema(t *testing.T) {
+	result := GetPluginSchema(constant.APISIXVersion311, "ai-proxy", "")
+	if assert.NotNil(t, result) {
+		schemaMap, ok := result.(map[string]any)
+		if assert.True(t, ok) {
+			_, wrapped := schemaMap["plugin_schema"]
+			assert.False(t, wrapped)
+			assert.Equal(t, "object", schemaMap["type"])
+		}
+	}
+}

@@ -476,15 +476,8 @@ func (s *UnifyOp) SyncerRun(ctx context.Context) {
 	s.elector.Run(ctx)
 	s.elector.WaitForLeading()
 	s.isLeader = s.elector.IsLeader()
-	// 随机数种子
-	rand.NewSource(time.Now().UnixNano())
-	minDelay := 1
-	maxDelay := 300
-	ticker := time.NewTicker(config.G.Biz.SyncInterval +
-		time.Second*time.Duration(
-			rand.Intn(maxDelay-minDelay+1)+minDelay, //nolint:gosec // G404: non-security random for jitter
-		))
-	for range ticker.C {
+	for {
+		time.Sleep(nextSyncInterval(config.G.Biz.SyncInterval))
 		// prefix 可能会更新，再查一次
 		gatewayInfo, err := gatewaybiz.GetGateway(ctx, s.gatewayInfo.ID)
 		if err != nil {
@@ -500,6 +493,13 @@ func (s *UnifyOp) SyncerRun(ctx context.Context) {
 			logging.Errorf("sync all error: %s", err.Error())
 		}
 	}
+}
+
+func nextSyncInterval(baseInterval time.Duration) time.Duration {
+	minDelay := 1
+	maxDelay := 300
+	jitter := rand.Intn(maxDelay-minDelay+1) + minDelay //nolint:gosec // G404: non-security random for jitter
+	return baseInterval + time.Second*time.Duration(jitter)
 }
 
 // SyncWithPrefix 同步 prefix 下面的所有资源

@@ -28,7 +28,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	auditlogbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/auditlog"
 	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -169,7 +169,7 @@ func getOperationAuditLogResults(
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
-	operationAuditLogs, total, err := biz.ListPagedOperationAuditLogs(
+	operationAuditLogs, total, err := auditlogbiz.ListPagedOperationAuditLogs(
 		ctx,
 		queryParam,
 		req.ResourceID,
@@ -221,7 +221,7 @@ func getOperationAuditLogResultsByName(
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
-	operationAuditLogs, err := biz.ListOperationAuditLogs(
+	operationAuditLogs, err := auditlogbiz.ListOperationAuditLogs(
 		ctx,
 		queryParam,
 		req.ResourceID,

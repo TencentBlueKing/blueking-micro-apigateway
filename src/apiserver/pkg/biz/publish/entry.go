@@ -91,13 +91,24 @@ var publishResourceHandlerMap = map[constant.APISIXResource]publishResourceHandl
 	},
 }
 
+func init() {
+	if len(publishResourceHandlerMap) != len(constant.ResourceTypeList) {
+		panic("publish resource handler map does not match resource type list")
+	}
+	for _, resourceType := range constant.ResourceTypeList {
+		if _, ok := publishResourceHandlerMap[resourceType]; !ok {
+			panic(fmt.Sprintf("publish resource handler missing for %s", resourceType))
+		}
+	}
+}
+
 // PublishResource 资源发布
 func PublishResource(ctx context.Context, resourceType constant.APISIXResource, resourceIDs []string) error {
 	handlers, ok := publishResourceHandlerMap[resourceType]
 	if !ok {
 		return fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
-	err := WrapPublishResource(ctx, resourceType, resourceIDs, handlers)
+	err := wrapPublishResource(ctx, resourceType, resourceIDs, handlers)
 	if err != nil {
 		return err
 	}
@@ -105,16 +116,15 @@ func PublishResource(ctx context.Context, resourceType constant.APISIXResource, 
 	goroutinex.GoroutineWithRecovery(ctx, func() {
 		// 1s 后同步资源
 		time.Sleep(time.Second * 1)
-		_, err = unifyopbiz.SyncResources(ginx.CloneCtx(ctx), resourceType)
-		if err != nil {
-			logging.Errorf("sync resources failed, err: %v", err)
+		if _, syncErr := unifyopbiz.SyncResources(ginx.CloneCtx(ctx), resourceType); syncErr != nil {
+			logging.Errorf("sync resources failed, err: %v", syncErr)
 		}
 	})
 	return nil
 }
 
-// WrapPublishResource PublishResource 资源发布进行一些公共操作
-func WrapPublishResource(ctx context.Context, resourceType constant.APISIXResource, resourceIDs []string,
+// wrapPublishResource runs the shared publish status transition, persistence, and audit workflow.
+func wrapPublishResource(ctx context.Context, resourceType constant.APISIXResource, resourceIDs []string,
 	handlers publishResourceHandlers,
 ) error {
 	// 状态机判断
@@ -220,8 +230,8 @@ func PublishAllResource(ctx context.Context, gatewayID int) error {
 	return nil
 }
 
-// FormatResourceIDNameList 格式化资源 ID 和名称列表
-func FormatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
+// formatResourceIDNameList 格式化资源 ID 和名称列表
+func formatResourceIDNameList(resources any, resourceType constant.APISIXResource) []string {
 	switch resourceType {
 	case constant.Route:
 		routes := resources.([]*model.Route) //nolint:forcetypeassert
@@ -287,14 +297,6 @@ func getEtcdPublisher(ctx context.Context) (*publisher.EtcdPublisher, error) {
 	return pub, nil
 }
 
-func batchCreateEtcdResource(ctx context.Context, ops []publisher.ResourceOperation) error {
-	etcdPublisher, err := getEtcdPublisher(ctx)
-	if err != nil {
-		return err
-	}
-	return etcdPublisher.BatchCreate(ctx, ops)
-}
-
 func batchDeleteEtcdResource(ctx context.Context, resourceType constant.APISIXResource, ids []string) error {
 	pub, err := getEtcdPublisher(ctx)
 	if err != nil {
@@ -334,7 +336,7 @@ func deleteServices(ctx context.Context, serviceIDs []string) error {
 		return err
 	}
 	if len(routes) > 0 {
-		return fmt.Errorf("服务不可删除, 存在关联的路由资源 %v", FormatResourceIDNameList(routes, constant.Route))
+		return fmt.Errorf("服务不可删除, 存在关联的路由资源 %v", formatResourceIDNameList(routes, constant.Route))
 	}
 	// 判断 service 有没有关联的 streamRoute 数据
 	streamRoutes, err := resourcebiz.QueryStreamRoutes(ctx, map[string]any{"service_id": serviceIDs})
@@ -344,7 +346,7 @@ func deleteServices(ctx context.Context, serviceIDs []string) error {
 	if len(streamRoutes) > 0 {
 		return fmt.Errorf(
 			"服务不可删除, 存在关联的 streamRoute 资源 %v",
-			FormatResourceIDNameList(streamRoutes, constant.StreamRoute),
+			formatResourceIDNameList(streamRoutes, constant.StreamRoute),
 		)
 	}
 	// 先删除 etcd 的数据
@@ -364,7 +366,7 @@ func deleteUpstreams(ctx context.Context, upstreamIDs []string) error {
 		return err
 	}
 	if len(services) > 0 {
-		return fmt.Errorf("上游不可删除, 存在关联的服务资源 %v", FormatResourceIDNameList(services, constant.Service))
+		return fmt.Errorf("上游不可删除, 存在关联的服务资源 %v", formatResourceIDNameList(services, constant.Service))
 	}
 	// 判断 upstream 有没有关联的 route 数据
 	routes, err := resourcebiz.QueryRoutes(ctx, map[string]any{"upstream_id": upstreamIDs})
@@ -372,7 +374,7 @@ func deleteUpstreams(ctx context.Context, upstreamIDs []string) error {
 		return err
 	}
 	if len(routes) > 0 {
-		return fmt.Errorf("上游不可删除, 存在关联的路由资源 %v", FormatResourceIDNameList(routes, constant.Route))
+		return fmt.Errorf("上游不可删除, 存在关联的路由资源 %v", formatResourceIDNameList(routes, constant.Route))
 	}
 	// 判断 upstream 有没有关联的 streamRoute 数据
 	streamRoutes, err := resourcebiz.QueryStreamRoutes(ctx, map[string]any{"upstream_id": upstreamIDs})
@@ -382,7 +384,7 @@ func deleteUpstreams(ctx context.Context, upstreamIDs []string) error {
 	if len(streamRoutes) > 0 {
 		return fmt.Errorf(
 			"上游不可删除, 存在关联的 streamRoute 资源 %v",
-			FormatResourceIDNameList(streamRoutes, constant.StreamRoute),
+			formatResourceIDNameList(streamRoutes, constant.StreamRoute),
 		)
 	}
 
@@ -404,7 +406,7 @@ func deletePluginConfigs(ctx context.Context, pluginConfigIDs []string) error {
 		return err
 	}
 	if len(routes) > 0 {
-		return fmt.Errorf("插件组不可删除, 存在关联的路由资源 %v", FormatResourceIDNameList(routes, constant.Route))
+		return fmt.Errorf("插件组不可删除, 存在关联的路由资源 %v", formatResourceIDNameList(routes, constant.Route))
 	}
 
 	// 先删除 etcd 的数据
@@ -448,7 +450,7 @@ func deleteConsumerGroups(ctx context.Context, consumerGroupIDs []string) error 
 		return err
 	}
 	if len(consumers) > 0 {
-		return fmt.Errorf("消费者组不可删除, 存在关联的消费者资源 %v", FormatResourceIDNameList(consumers, constant.Consumer))
+		return fmt.Errorf("消费者组不可删除, 存在关联的消费者资源 %v", formatResourceIDNameList(consumers, constant.Consumer))
 	}
 	// 先删除 etcd 的数据
 	err = batchDeleteEtcdResource(ctx, constant.ConsumerGroup, consumerGroupIDs)
@@ -487,7 +489,7 @@ func deleteSSLs(ctx context.Context, sslIDs []string) error {
 		return err
 	}
 	if len(upstreams) > 0 {
-		return fmt.Errorf("ssl 不可删除, 存在关联的上游资源 %v", FormatResourceIDNameList(upstreams, constant.Upstream))
+		return fmt.Errorf("ssl 不可删除, 存在关联的上游资源 %v", formatResourceIDNameList(upstreams, constant.Upstream))
 	}
 	// 先删除 etcd 的数据
 	err = batchDeleteEtcdResource(ctx, constant.SSL, sslIDs)

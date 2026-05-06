@@ -43,9 +43,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
-var noneValidateSchemaHandlerMap = map[string]bool{
+var noneValidateSchemaHandlerSet = map[string]struct{}{
 	// 发布接口不需要进行 schema 校验
-	"handler.ResourcePublish": false,
+	"handler.ResourcePublish": {},
 }
 
 func prepareOpenValidationPayload(
@@ -138,7 +138,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		fullHandlerName := c.HandlerName()
 		lastSlashIndex := strings.LastIndex(fullHandlerName, "/")
 		handlerName := fullHandlerName[lastSlashIndex+1:]
-		if _, ok := noneValidateSchemaHandlerMap[handlerName]; ok {
+		if _, ok := noneValidateSchemaHandlerSet[handlerName]; ok {
 			c.Next()
 			return
 		}

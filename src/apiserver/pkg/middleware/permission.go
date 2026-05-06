@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	systembiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/system"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
@@ -37,7 +37,7 @@ func Permission() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := ginx.GetUserID(c)
 		if user != "" && config.G.Service.Standalone {
-			users, err := biz.GetAllowUsers(c.Request.Context())
+			users, err := systembiz.GetAllowUsers(c.Request.Context())
 			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 				ginx.SystemErrorJSONResponse(c, err)
 				c.Abort()

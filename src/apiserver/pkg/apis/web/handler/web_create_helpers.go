@@ -40,7 +40,7 @@ func bindAndValidateWebCreateWithGeneratedID(
 	if err := c.ShouldBindJSON(req); err != nil {
 		return err
 	}
-	// A typed callback keeps the hot path simple and avoids reflective field mutation.
+	// Some APISIX versions require the generated resource ID to be present during schema validation.
 	setResourceID(idx.GenResourceID(resourceType))
 	return validation.ValidateStruct(c.Request.Context(), req)
 }

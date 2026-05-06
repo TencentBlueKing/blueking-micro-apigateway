@@ -21,6 +21,7 @@ package publish
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	gomonkey "github.com/agiledragon/gomonkey/v2"
@@ -31,8 +32,6 @@ import (
 )
 
 func TestPersistPublishedOperations(t *testing.T) {
-	t.Parallel()
-
 	var (
 		calledCreate bool
 		calledStatus bool
@@ -76,4 +75,64 @@ func TestPersistPublishedOperations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, calledCreate)
 	assert.True(t, calledStatus)
+}
+
+func TestPersistPublishedOperationsReturnsCreateError(t *testing.T) {
+	expectedErr := errors.New("create failed")
+	var calledStatus bool
+
+	patches := gomonkey.ApplyFunc(
+		batchCreateEtcdResource,
+		func(context.Context, []publisher.ResourceOperation) error {
+			return expectedErr
+		},
+	)
+	defer patches.Reset()
+
+	patches.ApplyFunc(
+		batchUpdateResourceStatus,
+		func(context.Context, constant.APISIXResource, []string, constant.ResourceStatus) error {
+			calledStatus = true
+			return nil
+		},
+	)
+
+	err := persistPublishedOperations(
+		context.Background(),
+		constant.PluginConfig,
+		[]string{"pc-id"},
+		[]publisher.ResourceOperation{{Type: constant.PluginConfig, Key: "pc-id"}},
+		"插件组发布错误",
+	)
+	assert.ErrorIs(t, err, expectedErr)
+	assert.False(t, calledStatus)
+}
+
+func TestPersistPublishedOperationsReturnsStatusError(t *testing.T) {
+	expectedErr := errors.New("status failed")
+
+	patches := gomonkey.ApplyFunc(
+		batchCreateEtcdResource,
+		func(context.Context, []publisher.ResourceOperation) error {
+			return nil
+		},
+	)
+	defer patches.Reset()
+
+	patches.ApplyFunc(
+		batchUpdateResourceStatus,
+		func(context.Context, constant.APISIXResource, []string, constant.ResourceStatus) error {
+			return expectedErr
+		},
+	)
+
+	err := persistPublishedOperations(
+		context.Background(),
+		constant.PluginConfig,
+		[]string{"pc-id"},
+		[]publisher.ResourceOperation{{Type: constant.PluginConfig, Key: "pc-id"}},
+		"插件组发布错误",
+	)
+	assert.ErrorIs(t, err, expectedErr)
+	assert.Contains(t, err.Error(), "插件组发布错误")
 }

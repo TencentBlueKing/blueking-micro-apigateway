@@ -325,6 +325,42 @@ func TestResourceBatchCreateAcceptsEmptyBatchViaResolvedDraftContext(t *testing.
 	assert.Empty(t, createdResources)
 }
 
+func TestResourceBatchCreateRequiresResolvedDraftContext(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	patches.ApplyFunc(
+		resourcebiz.BatchCheckNameDuplication,
+		func(ctx context.Context, resourceType constant.APISIXResource, names []string) (bool, error) {
+			assert.Equal(t, constant.Route, resourceType)
+			assert.Equal(t, []string{"route-demo"}, names)
+			return false, nil
+		},
+	)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/resources/routes/", func(c *gin.Context) {
+		ginx.SetGatewayInfo(c, &model.Gateway{ID: 42, APISIXVersion: "3.13.0"})
+		ginx.SetUserID(c, "openapi-user")
+		ginx.SetResourceType(c, constant.Route)
+		openhandler.ResourceBatchCreate(c)
+	})
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/resources/routes/",
+		strings.NewReader(`[{"name":"route-demo","config":{"uri":"/demo"}}]`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "resolved open drafts mismatch")
+}
+
 func TestResourceUpdateWritesOuterNameBackIntoConfig(t *testing.T) {
 	var updatedResource *model.ResourceCommonModel
 

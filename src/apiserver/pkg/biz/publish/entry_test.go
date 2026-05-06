@@ -23,7 +23,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -37,6 +39,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/cryptography"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
@@ -143,6 +146,184 @@ func mustPublishResource(
 
 	if err := PublishResource(ctx, resourceType, []string{resourceID}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPublishResourceRejectsUnsupportedTypeAndMissingIDs(t *testing.T) {
+	_, ctx := newPublishGatewayContext(t, "3.11.0")
+
+	err := PublishResource(ctx, constant.Schema, []string{"schema-id"})
+	assert.ErrorContains(t, err, "unsupported resource type")
+
+	err = PublishResource(ctx, constant.Route, []string{"missing-route-id"})
+	assert.ErrorContains(t, err, "未找到指定的 路由 资源 IDs")
+}
+
+func TestPublishResourceTriggersBackgroundSync(t *testing.T) {
+	synced := make(chan constant.APISIXResource, 1)
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	patches.ApplyFunc(
+		wrapPublishResource,
+		func(context.Context, constant.APISIXResource, []string, publishResourceHandlers) error {
+			return nil
+		},
+	)
+	patches.ApplyFunc(
+		unifyopbiz.SyncResources,
+		func(ctx context.Context, resourceType constant.APISIXResource) (map[constant.APISIXResource]int, error) {
+			synced <- resourceType
+			return map[constant.APISIXResource]int{resourceType: 1}, nil
+		},
+	)
+
+	err := PublishResource(context.Background(), constant.Route, []string{"route-id"})
+	assert.NoError(t, err)
+
+	select {
+	case resourceType := <-synced:
+		assert.Equal(t, constant.Route, resourceType)
+	case <-time.After(2 * time.Second):
+		t.Fatal("background sync was not triggered")
+	}
+}
+
+func TestPublishResourceWritesAuditLog(t *testing.T) {
+	gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+	ctx = context.WithValue(ctx, constant.UserIDKey, "publish-audit-tester")
+
+	route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+	if err := resourcebiz.CreateRoute(ctx, *route); err != nil {
+		t.Fatal(err)
+	}
+
+	mustPublishResource(t, ctx, constant.Route, route.ID)
+
+	u := repo.OperationAuditLog
+	logs, err := u.WithContext(ctx).
+		Where(
+			u.GatewayID.Eq(gateway.ID),
+			u.ResourceType.Eq(string(constant.Route)),
+			u.OperationType.Eq(string(constant.OperationTypePublish)),
+		).
+		Find()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !assert.Len(t, logs, 1) {
+		return
+	}
+	assert.Equal(t, constant.OperationTypePublish, logs[0].OperationType)
+	assert.Equal(t, route.ID, logs[0].ResourceIDs)
+	assert.Equal(t, "publish-audit-tester", logs[0].Operator)
+}
+
+func TestPublishResourceDeleteIntegrityGuards(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, gateway *model.Gateway, ctx context.Context) (constant.APISIXResource, string)
+		wantErrText string
+	}{
+		{
+			name: "service with route",
+			setup: func(t *testing.T, gateway *model.Gateway, ctx context.Context) (constant.APISIXResource, string) {
+				t.Helper()
+				service := data.Service1WithNoRelation(gateway, constant.ResourceStatusDeleteDraft)
+				if err := resourcebiz.CreateService(ctx, *service); err != nil {
+					t.Fatal(err)
+				}
+				route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusSuccess)
+				route.ServiceID = service.ID
+				if err := resourcebiz.CreateRoute(ctx, *route); err != nil {
+					t.Fatal(err)
+				}
+				return constant.Service, service.ID
+			},
+			wantErrText: "服务不可删除",
+		},
+		{
+			name: "upstream with service",
+			setup: func(t *testing.T, gateway *model.Gateway, ctx context.Context) (constant.APISIXResource, string) {
+				t.Helper()
+				upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusDeleteDraft)
+				if err := resourcebiz.CreateUpstream(ctx, *upstream); err != nil {
+					t.Fatal(err)
+				}
+				service := data.Service1WithNoRelation(gateway, constant.ResourceStatusSuccess)
+				service.UpstreamID = upstream.ID
+				if err := resourcebiz.CreateService(ctx, *service); err != nil {
+					t.Fatal(err)
+				}
+				return constant.Upstream, upstream.ID
+			},
+			wantErrText: "上游不可删除",
+		},
+		{
+			name: "plugin config with route",
+			setup: func(t *testing.T, gateway *model.Gateway, ctx context.Context) (constant.APISIXResource, string) {
+				t.Helper()
+				pluginConfig := data.PluginConfig1WithNoRelation(
+					gateway,
+					constant.ResourceStatusDeleteDraft,
+				)
+				if err := resourcebiz.CreatePluginConfig(ctx, *pluginConfig); err != nil {
+					t.Fatal(err)
+				}
+				route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusSuccess)
+				route.PluginConfigID = pluginConfig.ID
+				if err := resourcebiz.CreateRoute(ctx, *route); err != nil {
+					t.Fatal(err)
+				}
+				return constant.PluginConfig, pluginConfig.ID
+			},
+			wantErrText: "插件组不可删除",
+		},
+		{
+			name: "consumer group with consumer",
+			setup: func(t *testing.T, gateway *model.Gateway, ctx context.Context) (constant.APISIXResource, string) {
+				t.Helper()
+				group := data.ConsumerGroup1WithNoRelation(gateway, constant.ResourceStatusDeleteDraft)
+				if err := resourcebiz.CreateConsumerGroup(ctx, *group); err != nil {
+					t.Fatal(err)
+				}
+				consumer := data.Consumer1WithNoRelation(gateway, constant.ResourceStatusSuccess)
+				consumer.GroupID = group.ID
+				if err := resourcebiz.CreateConsumer(ctx, *consumer); err != nil {
+					t.Fatal(err)
+				}
+				return constant.ConsumerGroup, group.ID
+			},
+			wantErrText: "消费者组不可删除",
+		},
+		{
+			name: "ssl with upstream",
+			setup: func(t *testing.T, gateway *model.Gateway, ctx context.Context) (constant.APISIXResource, string) {
+				t.Helper()
+				ssl := data.SSL1(gateway, constant.ResourceStatusDeleteDraft)
+				if err := resourcebiz.CreateSSL(ctx, ssl); err != nil {
+					t.Fatal(err)
+				}
+				upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusSuccess)
+				upstream.SSLID = ssl.ID
+				if err := resourcebiz.CreateUpstream(ctx, *upstream); err != nil {
+					t.Fatal(err)
+				}
+				return constant.SSL, ssl.ID
+			},
+			wantErrText: "ssl 不可删除",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+			resourceType, resourceID := tt.setup(t, gateway, ctx)
+
+			err := PublishResource(ctx, resourceType, []string{resourceID})
+			assert.ErrorContains(t, err, tt.wantErrText)
+		})
 	}
 }
 
@@ -363,6 +544,32 @@ func TestPublishDependencyFanout_CurrentSeams(t *testing.T) {
 
 		assert.Equal(t, service.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Service, service.ID).ID)
 		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
+	})
+
+	t.Run("route republishes already-success upstream dependency", func(t *testing.T) {
+		gateway, ctx := newPublishGatewayContext(t, "3.11.0")
+
+		upstream := data.Upstream1WithNoRelation(gateway, constant.ResourceStatusSuccess)
+		if err := resourcebiz.CreateUpstream(ctx, *upstream); err != nil {
+			t.Fatal(err)
+		}
+
+		route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusCreateDraft)
+		route.UpstreamID = upstream.ID
+		route.Config = datatypes.JSON(`{"uris":["/already-success-dep"],"methods":["GET"]}`)
+		if err := resourcebiz.CreateRoute(ctx, *route); err != nil {
+			t.Fatal(err)
+		}
+
+		mustPublishResource(t, ctx, constant.Route, route.ID)
+
+		assert.Equal(t, route.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Route, route.ID).ID)
+		assert.Equal(t, upstream.ID, mustSyncAndGetSyncedItem(t, ctx, constant.Upstream, upstream.ID).ID)
+		storedUpstream, err := resourcebiz.GetUpstream(ctx, upstream.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, constant.ResourceStatusSuccess, storedUpstream.Status)
 	})
 
 	t.Run("upstream publishes ssl dependency", func(t *testing.T) {

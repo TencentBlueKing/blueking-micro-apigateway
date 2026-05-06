@@ -195,6 +195,21 @@ func TestBuildPublishResourceOperation(t *testing.T) {
 			wantKey:    "pc-id",
 			wantConfig: `{"id":"pc-id","name":"pc-demo","create_time":1700000000,"update_time":1700000001,"plugins":{}}`,
 		},
+		{
+			name: "consumer removes nil base id before publish",
+			input: publishResourceOperationInput{
+				ResourceType: constant.Consumer,
+				ResourceKey:  "consumer-id",
+				BaseInfo: entity.BaseInfo{
+					CreateTime: 1700000000,
+					UpdateTime: 1700000001,
+				},
+				Version:   constant.APISIXVersion311,
+				RawConfig: json.RawMessage(`{"username":"consumer-demo","plugins":{}}`),
+			},
+			wantKey:    "consumer-id",
+			wantConfig: `{"username":"consumer-demo","create_time":1700000000,"update_time":1700000001,"plugins":{}}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -206,4 +221,19 @@ func TestBuildPublishResourceOperation(t *testing.T) {
 			assert.JSONEq(t, tt.wantConfig, string(got.Config))
 		})
 	}
+}
+
+func TestBuildPublishResourceOperationReturnsErrorForInvalidRawConfig(t *testing.T) {
+	t.Parallel()
+
+	_, err := buildPublishResourceOperation(publishResourceOperationInput{
+		ResourceType: constant.Route,
+		ResourceKey:  "route-id",
+		BaseInfo: entity.BaseInfo{
+			ID: "route-id",
+		},
+		Version:   constant.APISIXVersion311,
+		RawConfig: json.RawMessage(`{"uri":`),
+	})
+	assert.Error(t, err)
 }

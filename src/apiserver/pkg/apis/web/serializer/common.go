@@ -24,10 +24,10 @@ import (
 	"fmt"
 
 	validator "github.com/go-playground/validator/v10"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -46,6 +46,49 @@ type ResourceCommonPathParam struct {
 	Type      constant.APISIXResource `json:"type" uri:"type"`
 }
 
+type webValidationInput struct {
+	ResourceType     constant.APISIXResource
+	Version          constant.APISIXVersion
+	ResourceID       string
+	Name             string
+	RawConfig        json.RawMessage
+	FallbackIdentity string
+}
+
+func resolveWebValidationIdentity(input webValidationInput) (string, bool) {
+	if identity := schema.GetResourceIdentification(input.RawConfig); identity != "" {
+		return identity, false
+	}
+	return input.FallbackIdentity, true
+}
+
+func prepareWebValidationPayload(input webValidationInput) (json.RawMessage, string) {
+	rawConfig := resourcebiz.InjectGeneratedIDForValidation(
+		input.RawConfig,
+		input.ResourceType,
+		input.Version,
+		input.ResourceID,
+	)
+
+	resourceIdentification, usedFallback := resolveWebValidationIdentity(webValidationInput{
+		RawConfig:        rawConfig,
+		FallbackIdentity: input.FallbackIdentity,
+	})
+	// FIXME: config modified logical
+	if usedFallback && shouldInjectResourceNameForValidation(input.ResourceType, input.Version) {
+		rawConfig, _ = sjson.SetBytes(
+			rawConfig,
+			model.GetResourceNameKey(input.ResourceType),
+			resourceIdentification,
+		)
+	}
+	// FIXME: config modified logical
+	if input.ResourceType == constant.PluginMetadata {
+		rawConfig, _ = sjson.SetBytes(rawConfig, "id", input.Name)
+	}
+	return rawConfig, resourceIdentification
+}
+
 // CheckAPISIXConfig 校验 APISIX 配置 schema
 func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	rawConfig, ok := fl.Field().Interface().(json.RawMessage)
@@ -60,24 +103,14 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	// the plain string name.
 	resourceTypeName := resourceType.String()
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	rawConfig = injectGeneratedIDForValidation(
-		rawConfig,
-		resourceType,
-		gatewayInfo.GetAPISIXVersionX(),
-		fl.Parent().FieldByName("ID").String(),
-	)
-	resourceIdentification := schema.GetResourceIdentification(rawConfig)
-	if resourceIdentification == "" {
-		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
-		resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
-		if shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
-			rawConfig, _ = sjson.SetBytes(
-				rawConfig,
-				model.GetResourceNameKey(resourceType),
-				resourceIdentification,
-			)
-		}
-	}
+	rawConfig, resourceIdentification := prepareWebValidationPayload(webValidationInput{
+		ResourceType:     resourceType,
+		Version:          gatewayInfo.GetAPISIXVersionX(),
+		ResourceID:       fl.Parent().FieldByName("ID").String(),
+		Name:             fl.Parent().FieldByName("Name").String(),
+		RawConfig:        rawConfig,
+		FallbackIdentity: getResourceNameByResourceType(resourceTypeName, fl),
+	})
 	// 基础 schema 校验
 	schemaValidator, err := schema.NewAPISIXSchemaValidator(
 		gatewayInfo.GetAPISIXVersionX(),
@@ -89,17 +122,13 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		logging.Errorf("new schema validator failed, err: %v", err)
 		return false
 	}
-	// metadata 校验需要带上插件 name
-	if resourceTypeName == constant.PluginMetadata.String() {
-		rawConfig, _ = sjson.SetBytes(rawConfig, "id", fl.Parent().FieldByName("Name").String())
-	}
 	if err = schemaValidator.Validate(rawConfig); err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
 		logging.Errorf("schema validate failed, err: %v", err)
 		return false
 	}
 	// 配置校验
-	customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
+	customizePluginSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(ctx)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
@@ -125,24 +154,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	return true
-}
-
-// injectGeneratedIDForValidation injects the server-generated resource ID into config only for validation time.
-// This keeps create requests client-friendly while still satisfying schemas whose config requires "id".
-func injectGeneratedIDForValidation(
-	rawConfig json.RawMessage,
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	resourceID string,
-) json.RawMessage {
-	if !constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) || resourceID == "" {
-		return rawConfig
-	}
-	if gjson.GetBytes(rawConfig, "id").Exists() {
-		return rawConfig
-	}
-	rawConfig, _ = sjson.SetBytes(rawConfig, "id", resourceID)
-	return rawConfig
 }
 
 func shouldInjectResourceNameForValidation(

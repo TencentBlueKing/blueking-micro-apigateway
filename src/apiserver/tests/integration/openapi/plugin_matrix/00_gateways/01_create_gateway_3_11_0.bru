@@ -1,0 +1,39 @@
+meta {
+  name: create_plugin_matrix_gateway_3_11_0
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  {
+    "name": "bk-apisix-plugin-matrix-311",
+    "description": "Plugin matrix gateway 3.11.0",
+    "mode": 1,
+    "apisix_type": "bk-apisix",
+    "apisix_version": "3.11.0",
+    "etcd_endpoints": [
+      "{{etcd_endpoints}}"
+    ],
+    "maintainers": [
+      "admin"
+    ],
+    "etcd_prefix": "/plugin-matrix-311",
+    "etcd_schema_type": "http",
+    "etcd_username": "{{etcd_username}}",
+    "etcd_password": "{{etcd_password}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.token: eq {{x_bk_api_token}}
+}

@@ -1,0 +1,10 @@
+.git/
+bin/
+vendor/
+tests/
+v3logs/
+coverage/
+*.log*
+.env*
+*.test
+*.out

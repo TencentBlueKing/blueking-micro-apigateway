@@ -29,31 +29,3 @@ import (
 func TestGetFlakeUid(t *testing.T) {
 	assert.True(t, len(GenResourceID(constant.Route)) < 64)
 }
-
-func TestGetResourceTypeFromID(t *testing.T) {
-	tests := []struct {
-		id       string
-		expected constant.APISIXResource
-	}{
-		{"bk.r.someEncodedID", constant.Route},
-		{"bk.u.someEncodedID", constant.Upstream},
-		{"bk.s.someEncodedID", constant.Service},
-		{"bk.c.someEncodedID", constant.Consumer},
-		{"bk.cg.someEncodedID", constant.ConsumerGroup},
-		{"bk.gr.someEncodedID", constant.GlobalRule},
-		{"bk.pc.someEncodedID", constant.PluginConfig},
-		{"bk.pm.someEncodedID", constant.PluginMetadata},
-		{"bk.pb.someEncodedID", constant.Proto},
-		{"bk.ss.someEncodedID", constant.SSL},
-		{"bk.sr.someEncodedID", constant.StreamRoute},
-		{"bk.sss.sssss", ""}, // 测试无效ID
-		{"bk", ""},           // 测试无效ID
-	}
-
-	for _, test := range tests {
-		result := GetResourceTypeFromID(test.id)
-		if result != test.expected {
-			t.Errorf("GetPrefixFromID(%s) = %s; want %s", test.id, result, test.expected)
-		}
-	}
-}

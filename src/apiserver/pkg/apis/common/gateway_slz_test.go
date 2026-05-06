@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -58,7 +58,7 @@ func createTestGateway(ctx context.Context, name, endpoint, prefix string) (*mod
 			},
 		},
 	}
-	err := biz.CreateGateway(ctx, gateway)
+	err := gatewaybiz.CreateGateway(ctx, gateway)
 	return gateway, err
 }
 
@@ -79,7 +79,7 @@ func checkPrefixConflictLogic(
 		}
 
 		// 查询 endpoint 包含当前地址的网关
-		sameClusterGateways, err := biz.GetGatewaysByEndpointLike(ctx, cleanEndpoint, gatewayID)
+		sameClusterGateways, err := gatewaybiz.GetGatewaysByEndpointLike(ctx, cleanEndpoint, gatewayID)
 		if err != nil {
 			return fmt.Errorf("查询相同 etcd 集群的网关失败: %w", err)
 		}
@@ -214,7 +214,7 @@ func TestCheckEtcdPrefixConflictLogic(t *testing.T) {
 			}
 
 			// 清理：删除测试网关
-			_ = biz.DeleteGateway(ctx, existingGateway)
+			_ = gatewaybiz.DeleteGateway(ctx, existingGateway)
 		})
 	}
 }
@@ -246,5 +246,5 @@ func TestCheckEtcdPrefixConflictLogic_EditGateway(t *testing.T) {
 	})
 
 	// 清理
-	_ = biz.DeleteGateway(ctx, existingGateway)
+	_ = gatewaybiz.DeleteGateway(ctx, existingGateway)
 }

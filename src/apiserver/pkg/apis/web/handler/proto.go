@@ -27,9 +27,10 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -53,19 +54,10 @@ func ProtoCreate(c *gin.Context) {
 		return
 	}
 	proto := model.Proto{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        idx.GenResourceID(constant.Proto),
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		ResourceCommonModel: buildWebCreateDraft(c, idx.GenResourceID(constant.Proto), req.Config),
 	}
-	if err := biz.CreateProto(c.Request.Context(), proto); err != nil {
+	if err := resourcebiz.CreateProto(c.Request.Context(), proto); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -96,14 +88,14 @@ func ProtoUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.Proto, pathParam.ID, req.Config, map[string]any{
+	if !resourcebiz.IsResourceChanged(c.Request.Context(), constant.Proto, pathParam.ID, req.Config, map[string]any{
 		"name": req.Name,
 	}) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.Proto, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.Proto, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -120,7 +112,7 @@ func ProtoUpdate(c *gin.Context) {
 			},
 		},
 	}
-	if err := biz.UpdateProto(c.Request.Context(), proto); err != nil {
+	if err := resourcebiz.UpdateProto(c.Request.Context(), proto); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -143,7 +135,7 @@ func ProtoGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	proto, err := biz.GetProto(c.Request.Context(), pathParam.ID)
+	proto, err := resourcebiz.GetProto(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -182,14 +174,14 @@ func ProtoDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	proto, err := biz.GetProto(c.Request.Context(), pathParam.ID)
+	proto, err := resourcebiz.GetProto(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if proto.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteProtos(c.Request.Context(), []string{proto.ID})
+		err = resourcebiz.BatchDeleteProtos(c.Request.Context(), []string{proto.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -197,7 +189,7 @@ func ProtoDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.Proto, proto.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -231,14 +223,14 @@ func ProtoList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	protoList, total, err := biz.ListPagedProtos(
+	protoList, total, err := resourcebiz.ListPagedProtos(
 		c.Request.Context(),
 		queryParam,
 		strings.Split(req.Status, ","),
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -278,7 +270,7 @@ func ProtoList(c *gin.Context) {
 //	@Success	200			{object}	serializer.ProtoDropDownResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/protos-dropdown/ [get]
 func ProtoDropDownList(c *gin.Context) {
-	protos, err := biz.ListProtos(c.Request.Context())
+	protos, err := resourcebiz.ListProtos(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

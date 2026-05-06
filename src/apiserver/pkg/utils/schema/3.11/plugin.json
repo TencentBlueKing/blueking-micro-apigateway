@@ -41,14 +41,14 @@
     "name": "ai-proxy",
     "type": "AI",
     "example": {
-      "provider": "openai",
       "auth": {
         "header": {
           "Authorization": "Bearer OPENAI_API_KEY"
         }
       },
-      "options": {
-        "model": "gpt-4"
+      "model": {
+        "provider": "openai",
+        "name": "gpt-4"
       }
     }
   },

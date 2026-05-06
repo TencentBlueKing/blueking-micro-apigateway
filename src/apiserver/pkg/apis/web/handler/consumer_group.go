@@ -28,11 +28,11 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
@@ -49,32 +49,21 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups/ [post]
 func ConsumerGroupCreate(c *gin.Context) {
 	var req serializer.ConsumerGroupInfo
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
-		return
-	}
-	// consumer_group schema requires config.id, but that ID is server-owned. Bind first so we can generate the real
-	// resource ID and validate against the same value that will be persisted.
-	req.ID = idx.GenResourceID(constant.ConsumerGroup)
-	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
+	if err := bindAndValidateWebCreateWithGeneratedID(
+		c,
+		&req,
+		constant.ConsumerGroup,
+		func(resourceID string) { req.ID = resourceID },
+	); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	consumerGroup := model.ConsumerGroup{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
 
-	if err := biz.CreateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {
+	if err := resourcebiz.CreateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -106,14 +95,24 @@ func ConsumerGroupUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.ConsumerGroup, pathParam.ID, req.Config, map[string]any{
-		"name": req.Name,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.ConsumerGroup,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name": req.Name,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.ConsumerGroup, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(
+		c.Request.Context(),
+		constant.ConsumerGroup,
+		pathParam.ID,
+	)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -132,7 +131,7 @@ func ConsumerGroupUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {
+	if err := resourcebiz.UpdateConsumerGroup(c.Request.Context(), consumerGroup); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -169,7 +168,7 @@ func ConsumerGroupList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	consumerGroups, total, err := biz.ListPagedConsumerGroups(
+	consumerGroups, total, err := resourcebiz.ListPagedConsumerGroups(
 		c.Request.Context(),
 		queryParam,
 		labelMap,
@@ -177,7 +176,7 @@ func ConsumerGroupList(c *gin.Context) {
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -223,12 +222,14 @@ func ConsumerGroupGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	consumerGroup, err := biz.GetConsumerGroup(c.Request.Context(), pathParam.ID)
+	consumerGroup, err := resourcebiz.GetConsumerGroup(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	output := serializer.ConsumerGroupOutputInfo{
+		AutoID:    consumerGroup.AutoID,
+		ID:        consumerGroup.ID,
 		GatewayID: consumerGroup.GatewayID,
 		ConsumerGroupInfo: serializer.ConsumerGroupInfo{
 			ID:     consumerGroup.ID,
@@ -260,14 +261,14 @@ func ConsumerGroupDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	consumerGroup, err := biz.GetConsumerGroup(c.Request.Context(), pathParam.ID)
+	consumerGroup, err := resourcebiz.GetConsumerGroup(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if consumerGroup.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteConsumerGroups(c.Request.Context(), []string{consumerGroup.ID})
+		err = resourcebiz.BatchDeleteConsumerGroups(c.Request.Context(), []string{consumerGroup.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -275,7 +276,7 @@ func ConsumerGroupDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.ConsumerGroup, consumerGroup.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -294,7 +295,7 @@ func ConsumerGroupDelete(c *gin.Context) {
 //	@Success	200			{object}	ginx.PaginatedResponse{results=serializer.ConsumerGroupDropDownListResponse}
 //	@Router		/api/v1/web/gateways/{gateway_id}/consumer_groups-dropdown/ [get]
 func ConsumerGroupDropDownList(c *gin.Context) {
-	consumerGroups, err := biz.ListConsumerGroups(c.Request.Context())
+	consumerGroups, err := resourcebiz.ListConsumerGroups(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

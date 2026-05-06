@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	publishbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/publish"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -44,7 +44,7 @@ func PublishResource(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	err := biz.PublishResource(c.Request.Context(), req.ResourceType, req.ResourceIDList)
+	err := publishbiz.PublishResource(c.Request.Context(), req.ResourceType, req.ResourceIDList)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -63,7 +63,7 @@ func PublishResource(c *gin.Context) {
 //	@Success	201
 //	@Router		/api/v1/web/gateways/{gateway_id}/publish/all/ [post]
 func PublishResourceAll(c *gin.Context) {
-	err := biz.PublishAllResource(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
+	err := publishbiz.PublishAllResource(c.Request.Context(), ginx.GetGatewayInfo(c).ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

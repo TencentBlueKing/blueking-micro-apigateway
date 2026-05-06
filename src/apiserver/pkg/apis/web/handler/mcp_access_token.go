@@ -25,7 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -49,12 +49,12 @@ func MCPAccessTokenList(c *gin.Context) {
 
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
-	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
+	if err := mcpbiz.CheckGatewayMCPSupport(gateway); err != nil {
 		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
-	tokens, err := biz.ListMCPAccessTokens(c.Request.Context(), pathParam.GatewayID)
+	tokens, err := mcpbiz.ListMCPAccessTokens(c.Request.Context(), pathParam.GatewayID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -94,7 +94,7 @@ func MCPAccessTokenCreate(c *gin.Context) {
 
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
-	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
+	if err := mcpbiz.CheckGatewayMCPSupport(gateway); err != nil {
 		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
@@ -118,12 +118,12 @@ func MCPAccessTokenCreate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.CreateMCPAccessToken(c.Request.Context(), token); err != nil {
-		if errors.Is(err, biz.ErrMCPTokenNameExists) {
+	if err := mcpbiz.CreateMCPAccessToken(c.Request.Context(), token); err != nil {
+		if errors.Is(err, mcpbiz.ErrMCPTokenNameExists) {
 			ginx.ConflictJSONResponse(c, err)
 			return
 		}
-		if errors.Is(err, biz.ErrMCPTokenLimitExceeded) {
+		if errors.Is(err, mcpbiz.ErrMCPTokenLimitExceeded) {
 			ginx.BadRequestErrorJSONResponse(c, err)
 			return
 		}
@@ -132,7 +132,7 @@ func MCPAccessTokenCreate(c *gin.Context) {
 	}
 
 	// Audit log failure should not fail the response
-	_ = biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeCreate, token)
+	_ = mcpbiz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeCreate, token)
 
 	ginx.SuccessCreateJSONResponse(c, serializer.MCPAccessTokenToCreateOutputInfo(token))
 }
@@ -156,14 +156,18 @@ func MCPAccessTokenGet(c *gin.Context) {
 
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
-	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
+	if err := mcpbiz.CheckGatewayMCPSupport(gateway); err != nil {
 		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
-	token, err := biz.GetMCPAccessTokenByGatewayAndID(c.Request.Context(), pathParam.GatewayID, pathParam.TokenID)
+	token, err := mcpbiz.GetMCPAccessTokenByGatewayAndID(
+		c.Request.Context(),
+		pathParam.GatewayID,
+		pathParam.TokenID,
+	)
 	if err != nil {
-		if errors.Is(err, biz.ErrMCPTokenNotFound) {
+		if errors.Is(err, mcpbiz.ErrMCPTokenNotFound) {
 			ginx.NotFoundJSONResponse(c, err)
 			return
 		}
@@ -193,15 +197,19 @@ func MCPAccessTokenDelete(c *gin.Context) {
 
 	// 检查网关是否支持 MCP
 	gateway := ginx.GetGatewayInfo(c)
-	if err := biz.CheckGatewayMCPSupport(gateway); err != nil {
+	if err := mcpbiz.CheckGatewayMCPSupport(gateway); err != nil {
 		ginx.NotImplementedJSONResponse(c, err)
 		return
 	}
 
 	// 检查令牌是否属于该网关
-	token, err := biz.GetMCPAccessTokenByGatewayAndID(c.Request.Context(), pathParam.GatewayID, pathParam.TokenID)
+	token, err := mcpbiz.GetMCPAccessTokenByGatewayAndID(
+		c.Request.Context(),
+		pathParam.GatewayID,
+		pathParam.TokenID,
+	)
 	if err != nil {
-		if errors.Is(err, biz.ErrMCPTokenNotFound) {
+		if errors.Is(err, mcpbiz.ErrMCPTokenNotFound) {
 			ginx.NotFoundJSONResponse(c, err)
 			return
 		}
@@ -209,13 +217,13 @@ func MCPAccessTokenDelete(c *gin.Context) {
 		return
 	}
 
-	if err := biz.DeleteMCPAccessToken(c.Request.Context(), pathParam.TokenID); err != nil {
+	if err := mcpbiz.DeleteMCPAccessToken(c.Request.Context(), pathParam.TokenID); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 
 	// Audit log failure should not fail the response
-	_ = biz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeDelete, token)
+	_ = mcpbiz.AddMCPAccessTokenAuditLog(c.Request.Context(), constant.OperationTypeDelete, token)
 
 	ginx.SuccessNoContentResponse(c)
 }

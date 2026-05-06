@@ -46,9 +46,11 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	syncdatabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/syncdata"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -79,12 +81,12 @@ func SyncedItemList(c *gin.Context) {
 	var total int64
 	var err error
 	if req.Status != "" || req.Name != "" {
-		syncDataList, err = biz.QuerySyncedItems(c.Request.Context(), queryParam)
+		syncDataList, err = syncdatabiz.QuerySyncedItems(c.Request.Context(), queryParam)
 	} else {
-		syncDataList, total, err = biz.ListPagedSyncedItems(
+		syncDataList, total, err = syncdatabiz.ListPagedSyncedItems(
 			c.Request.Context(),
 			queryParam,
-			biz.PageParam{
+			utils.PageParam{
 				Offset: ginx.GetOffset(c),
 				Limit:  ginx.GetLimit(c),
 			},
@@ -135,7 +137,7 @@ func SyncedItemSummary(c *gin.Context) {
 		queryParam["type"] = req.ResourceType
 	}
 	// 需查询全部数据，不带分页
-	syncDataList, err := biz.QuerySyncedItems(c.Request.Context(), queryParam)
+	syncDataList, err := syncdatabiz.QuerySyncedItems(c.Request.Context(), queryParam)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -195,7 +197,7 @@ func enrichOutputInfo(
 
 	dbResourceIDMap := make(map[string]*model.ResourceCommonModel)
 	for resourceType, idList := range resourceIDMap {
-		dbResources, err := biz.BatchGetResources(ctx, resourceType, idList)
+		dbResources, err := resourcebiz.BatchGetResources(ctx, resourceType, idList)
 		if err != nil {
 			return nil, err
 		}

@@ -24,7 +24,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -80,7 +80,7 @@ func ValidateProtoName(ctx context.Context, fl validator.FieldLevel) bool {
 	if ProtoName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.Proto,
 		fl.Parent().FieldByName("ID").String(),

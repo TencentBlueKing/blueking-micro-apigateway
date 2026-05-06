@@ -1,0 +1,33 @@
+meta {
+  name: plugin_metadata_path_unsupported_3_11_0
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-311/resources/plugin_metadata/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "log_format": {
+          "client_ip": "$remote_addr",
+          "host": "$host"
+        }
+      },
+      "name": "clickhouse-logger"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

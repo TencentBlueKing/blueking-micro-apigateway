@@ -29,7 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -200,7 +200,7 @@ func ValidateGatewayName(ctx context.Context, fl validator.FieldLevel) bool {
 	if gatewayInfo != nil {
 		gatewayID = gatewayInfo.ID
 	}
-	return !biz.ExistsGatewayName(ctx, gatewayName, gatewayID)
+	return !gatewaybiz.ExistsGatewayName(ctx, gatewayName, gatewayID)
 }
 
 // CheckEtcdConnAndAPISIXInstance 检查 etcd 连接和 apisix 实例
@@ -235,7 +235,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 	}
 	// 校验实例 id 是否存在
 	if instanceID != "" {
-		gateways, err := biz.GetGatewayEtcdConfigList(ctx, "instance_id", instanceID)
+		gateways, err := gatewaybiz.GetGatewayEtcdConfigList(ctx, "instance_id", instanceID)
 		if err != nil {
 			return "", "", err
 		}
@@ -257,7 +257,7 @@ func CheckEtcdConnAndAPISIXInstance(gatewayID int, etcdConf EtcdConfig) (string,
 		}
 
 		// 查询 endpoint 包含当前地址的网关
-		sameClusterGateways, err := biz.GetGatewaysByEndpointLike(ctx, cleanStoreEndpoint, gatewayID)
+		sameClusterGateways, err := gatewaybiz.GetGatewaysByEndpointLike(ctx, cleanStoreEndpoint, gatewayID)
 		if err != nil {
 			logging.Errorf("query gateways by endpoint failed: %s", err.Error())
 			return "", "", fmt.Errorf("查询相同 etcd 集群的网关失败: %w", err)

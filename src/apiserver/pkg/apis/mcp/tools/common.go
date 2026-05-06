@@ -27,7 +27,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
@@ -87,7 +88,7 @@ func CheckWriteScope(ctx context.Context) error {
 		return fmt.Errorf("no access token found in context")
 	}
 	if !token.CanWrite() {
-		return biz.ErrMCPInsufficientScope
+		return mcpbiz.ErrMCPInsufficientScope
 	}
 	return nil
 }
@@ -111,7 +112,7 @@ func getGatewayFromContext(ctx context.Context) (*model.Gateway, error) {
 	}
 
 	// Fetch gateway from database using the token's gateway ID
-	gateway, err := biz.GetGateway(ctx, token.GatewayID)
+	gateway, err := gatewaybiz.GetGateway(ctx, token.GatewayID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gateway: %w", err)
 	}
@@ -165,16 +166,6 @@ func errorResult(err error) *mcp.CallToolResult {
 			&mcp.TextContent{Text: err.Error()},
 		},
 	}
-}
-
-// ResourceTypeDescription returns a description of valid resource types
-func ResourceTypeDescription() string {
-	return "One of: " + strings.Join(ValidResourceTypes, ", ")
-}
-
-// StatusDescription returns a description of valid resource statuses
-func StatusDescription() string {
-	return "One of: " + strings.Join(ValidResourceStatuses, ", ")
 }
 
 // APISIXVersionDescription returns a description of valid APISIX versions

@@ -24,7 +24,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	entity "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/apisix"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
@@ -108,7 +108,7 @@ func ValidateSSLID(ctx context.Context, fl validator.FieldLevel) bool {
 	if sslID == "" {
 		return true
 	}
-	return biz.ExistsSSL(ctx, sslID)
+	return resourcebiz.ExistsSSL(ctx, sslID)
 }
 
 // ValidationSSLName 校验证书名称
@@ -117,7 +117,7 @@ func ValidationSSLName(ctx context.Context, fl validator.FieldLevel) bool {
 	if routeName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.SSL,
 		fl.Parent().FieldByName("ID").String(),

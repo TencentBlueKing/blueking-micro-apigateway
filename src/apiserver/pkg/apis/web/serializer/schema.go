@@ -28,7 +28,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"go.uber.org/zap/buffer"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
@@ -87,7 +87,7 @@ func ValidationSchemaName(ctx context.Context, fl validator.FieldLevel) bool {
 	if schemaInfo != nil {
 		return false
 	}
-	return biz.DuplicatedSchemaName(
+	return schemabiz.DuplicatedSchemaName(
 		ctx,
 		cast.ToInt(fl.Parent().FieldByName("AutoID").Int()),
 		schemaName,

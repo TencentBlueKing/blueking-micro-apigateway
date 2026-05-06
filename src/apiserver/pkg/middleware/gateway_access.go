@@ -25,7 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -33,7 +33,7 @@ import (
 func GatewayAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gatewayID := c.Param("gateway_id")
-		gatewayInfo, err := biz.GetGateway(c.Request.Context(), cast.ToInt(gatewayID))
+		gatewayInfo, err := gatewaybiz.GetGateway(c.Request.Context(), cast.ToInt(gatewayID))
 		if err != nil {
 			ginx.BadRequestErrorJSONResponse(c, err)
 			c.Abort()

@@ -24,7 +24,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	diffbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/diff"
+	unifyopbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/unifyop"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -92,7 +93,7 @@ func diffResourcesHandler(
 	}
 
 	// Call DiffResources once - it returns results organized by resource type internally
-	diffResults, err := biz.DiffResources(ctx, resourceType, idList, "", nil, input.ResourceID == "")
+	diffResults, err := diffbiz.DiffResources(ctx, resourceType, idList, "", nil, input.ResourceID == "")
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to get diff: %w", err)), nil, nil
 	}
@@ -145,7 +146,7 @@ func diffDetailHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Get detailed config diff
-	diffDetail, err := biz.GetResourceConfigDiffDetail(ctx, resourceType, input.ResourceID)
+	diffDetail, err := unifyopbiz.GetResourceConfigDiffDetail(ctx, resourceType, input.ResourceID)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to get diff detail: %w", err)), nil, nil
 	}

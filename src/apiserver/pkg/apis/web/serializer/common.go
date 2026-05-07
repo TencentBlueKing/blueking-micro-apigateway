@@ -21,6 +21,7 @@ package serializer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	validator "github.com/go-playground/validator/v10"
@@ -32,7 +33,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
@@ -66,22 +66,6 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		fl.Parent().FieldByName("Name").String(),
 		getResourceNameByResourceType(resourceTypeName, fl),
 	)
-	// 基础 schema 校验
-	schemaValidator, err := schema.NewAPISIXSchemaValidator(
-		gatewayInfo.GetAPISIXVersionX(),
-		"main."+resourceTypeName,
-	)
-	if err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
-			resourceIdentification, err)
-		logging.Errorf("new schema validator failed, err: %v", err)
-		return false
-	}
-	if err = schemaValidator.Validate(rawConfig); err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
-		logging.Errorf("schema validate failed, err: %v", err)
-		return false
-	}
 	// 配置校验
 	customizePluginSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(ctx)
 	if err != nil {
@@ -90,22 +74,25 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		logging.Errorf("get customize plugin schema map failed, err: %v", err)
 		return false
 	}
-	jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
+	databaseValidator, err := resourcevalidationbiz.NewDatabasePayloadValidator(
 		gatewayInfo.GetAPISIXVersionX(),
 		resourceType,
-		"main."+resourceTypeName,
 		customizePluginSchemaMap,
-		constant.DATABASE,
 	)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
-		logging.Errorf("new schema config validator failed, err: %v", err)
+		logging.Errorf("new database payload validator failed, err: %v", err)
 		return false
 	}
-	if err = jsonConfigValidator.Validate(rawConfig); err != nil { // 校验 json schema
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
-		logging.Errorf("json schema validate failed, err: %v", err)
+	if err = databaseValidator.Validate(rawConfig); err != nil {
+		validateErr := err
+		var stageErr *resourcevalidationbiz.ValidationStageError
+		if errors.As(err, &stageErr) {
+			validateErr = stageErr.Err
+		}
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = validateErr
+		logging.Errorf("database payload validate failed, err: %v", validateErr)
 		return false
 	}
 	return true

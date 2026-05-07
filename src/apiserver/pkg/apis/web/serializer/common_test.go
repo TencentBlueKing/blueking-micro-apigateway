@@ -25,9 +25,11 @@ import (
 	"sync"
 	"testing"
 
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -57,8 +59,80 @@ func newWebSerializerValidationContext(t *testing.T, gateway *model.Gateway) *gi
 	return c
 }
 
+type webCaptureDatabasePayloadValidator struct {
+	validate func(json.RawMessage) error
+}
+
+func (v webCaptureDatabasePayloadValidator) Validate(raw json.RawMessage) error {
+	if v.validate != nil {
+		return v.validate(raw)
+	}
+	return nil
+}
+
 func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
 	initWebSerializerTestEnv()
+
+	t.Run("delegates prepared payload to shared database runner", func(t *testing.T) {
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1100, APISIXVersion: "3.13.0"})
+		req := ConsumerGroupInfo{
+			ID:   "cg-generated-id",
+			Name: "consumer-group-probe",
+			Config: json.RawMessage(`{
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`),
+		}
+		var gotVersion constant.APISIXVersion
+		var gotResourceType constant.APISIXResource
+		var gotPayload json.RawMessage
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(
+			resourcevalidationbiz.NewDatabasePayloadValidator,
+			func(
+				version constant.APISIXVersion,
+				resourceType constant.APISIXResource,
+				customPluginSchemaMap map[string]any,
+			) (resourcevalidationbiz.DatabasePayloadValidator, error) {
+				gotVersion = version
+				gotResourceType = resourceType
+				return webCaptureDatabasePayloadValidator{
+					validate: func(raw json.RawMessage) error {
+						gotPayload = append(json.RawMessage(nil), raw...)
+						return nil
+					},
+				}, nil
+			},
+		)
+
+		err := validation.ValidateStruct(ctx.Request.Context(), &req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, constant.APISIXVersion313, gotVersion)
+		assert.Equal(t, constant.ConsumerGroup, gotResourceType)
+		assert.JSONEq(
+			t,
+			`{
+				"id": "cg-generated-id",
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`,
+			string(gotPayload),
+		)
+	})
 
 	t.Run("identity fallback uses outer name when config has no id", func(t *testing.T) {
 		t.Parallel()

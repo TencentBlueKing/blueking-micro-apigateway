@@ -50,6 +50,17 @@ module.exports = {
     config
       .plugin('monaco')
       .use(MonacoWebpackPlugin);
+    if (config.optimization.minimizers.has('js')) {
+      config.optimization
+        .minimizer('js')
+        .tap((args) => {
+          const [options = {}] = args;
+          return [{
+            ...options,
+            extractComments: false,
+          }];
+        });
+    }
     return config;
   },
 };

@@ -1,0 +1,52 @@
+meta {
+  name: plugin_matrix_invalid_3_13_0_request-id_root-wrong-type
+  type: http
+  seq: 130
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-313/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "request-id": "invalid-object"
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-request-id"
+        ]
+      },
+      "name": "plugin-request-id"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

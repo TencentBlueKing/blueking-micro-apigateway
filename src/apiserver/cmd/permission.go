@@ -24,7 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	systembiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/system"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
@@ -65,13 +65,13 @@ func NewPermissionCmd() *cobra.Command {
 			repo.SetDefault(database.Client())
 			switch action {
 			case "add":
-				err = biz.AddAllowUsers(baseCtx, []string{user})
+				err = systembiz.AddAllowUsers(baseCtx, []string{user})
 				if err != nil {
 					log.Fatalf("add user %s failed: %s", user, err)
 					return
 				}
 			case "delete":
-				err = biz.RemoveUsers(baseCtx, []string{user})
+				err = systembiz.RemoveUsers(baseCtx, []string{user})
 				if err != nil {
 					log.Fatalf("delete user %s failed: %s", user, err)
 					return
@@ -80,7 +80,7 @@ func NewPermissionCmd() *cobra.Command {
 				log.Fatalf("action %s not support", action)
 			}
 			var users dto.UserWhiteList
-			err = biz.GetSystemConfigWithEntity(baseCtx, constant.SystemConfigUserWhitest, &users)
+			err = systembiz.GetSystemConfigWithEntity(baseCtx, constant.SystemConfigUserWhitest, &users)
 			if err != nil {
 				log.Fatalf("get user whitelist failed: %s", err)
 				return

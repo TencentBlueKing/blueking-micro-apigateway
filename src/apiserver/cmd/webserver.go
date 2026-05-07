@@ -30,7 +30,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	unifyopbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/unifyop"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
@@ -93,7 +93,7 @@ func NewWebServerCmd() *cobra.Command {
 			}()
 			baseCtx := context.Background()
 			// 启动同步
-			biz.SyncAll(baseCtx)
+			unifyopbiz.SyncAll(baseCtx)
 			ctx, cancel := context.WithTimeout(
 				baseCtx, time.Duration(cfg.Service.Server.GraceTimeout)*time.Second,
 			)

@@ -26,8 +26,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/tidwall/gjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	unifyopbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/unifyop"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -96,7 +96,7 @@ func syncFromEtcdHandler(
 	ctx = ginx.SetGatewayInfoToContext(ctx, gateway)
 
 	// Create UnifyOp for sync
-	unifyOp, err := biz.NewUnifyOp(gateway, false)
+	unifyOp, err := unifyopbiz.NewUnifyOp(gateway, false)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to create sync operator: %w", err)), nil, nil
 	}
@@ -180,7 +180,7 @@ func listSyncedResourceHandler(
 	// Get resources that exist in edit-area
 	managedIDSet := make(map[string]bool)
 	if len(resourceIDs) > 0 {
-		dbResources, err := biz.BatchGetResources(ctx, resourceType, resourceIDs)
+		dbResources, err := resourcebiz.BatchGetResources(ctx, resourceType, resourceIDs)
 		if err != nil {
 			return errorResult(fmt.Errorf("failed to check managed status: %w", err)), nil, nil
 		}
@@ -202,13 +202,8 @@ func listSyncedResourceHandler(
 
 	var filteredResources []enrichedResource
 	for _, sync := range syncedData {
-		// Extract name from config JSON (username for Consumer, name for others)
-		var resourceName string
-		if resourceType == constant.Consumer {
-			resourceName = gjson.GetBytes(sync.Config, "username").String()
-		} else {
-			resourceName = gjson.GetBytes(sync.Config, "name").String()
-		}
+		// Extract name from config JSON using the resource-specific name key.
+		resourceName := gjson.GetBytes(sync.Config, model.GetResourceNameKey(resourceType)).String()
 
 		// Filter by name if specified
 		if input.Name != "" && !strings.Contains(resourceName, input.Name) {
@@ -294,7 +289,7 @@ func addSyncedResourcesToEditAreaHandler(
 	}
 
 	// Import resources using AddSyncedResources
-	stats, err := biz.AddSyncedResources(ctx, allResourceIDs)
+	stats, err := unifyopbiz.AddSyncedResources(ctx, allResourceIDs)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to add resources to edit area: %w", err)), nil, nil
 	}

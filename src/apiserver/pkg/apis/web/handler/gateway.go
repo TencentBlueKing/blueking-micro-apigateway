@@ -24,7 +24,8 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/common"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -84,7 +85,7 @@ func GatewayCreate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.CreateGateway(c.Request.Context(), &gateway); err != nil {
+	if err := gatewaybiz.CreateGateway(c.Request.Context(), &gateway); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -157,7 +158,7 @@ func GatewayUpdate(c *gin.Context) {
 			Updater: ginx.GetUserID(c),
 		},
 	}
-	if err := biz.UpdateGateway(c.Request.Context(), gateway); err != nil {
+	if err := gatewaybiz.UpdateGateway(c.Request.Context(), gateway); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -180,7 +181,7 @@ func GatewayList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	gateways, err := biz.ListGateways(c.Request.Context(), req.Mode)
+	gateways, err := gatewaybiz.ListGateways(c.Request.Context(), req.Mode)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -193,17 +194,17 @@ func GatewayList(c *gin.Context) {
 		}
 		// 设置 gateway
 		ctx := ginx.SetGatewayInfoToContext(c.Request.Context(), gateway)
-		routeCount, err := biz.GetRouteCount(ctx, gateway.ID)
+		routeCount, err := resourcebiz.GetRouteCount(ctx, gateway.ID)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		serviceCount, err := biz.GetServiceCount(ctx)
+		serviceCount, err := resourcebiz.GetServiceCount(ctx)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
 		}
-		upstreamCount, err := biz.GetUpstreamCount(ctx)
+		upstreamCount, err := resourcebiz.GetUpstreamCount(ctx)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -253,7 +254,7 @@ func GatewayGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	gateway, err := biz.GetGateway(c.Request.Context(), req.GatewayID)
+	gateway, err := gatewaybiz.GetGateway(c.Request.Context(), req.GatewayID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -276,12 +277,12 @@ func GatewayDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	gateway, err := biz.GetGateway(c.Request.Context(), req.GatewayID)
+	gateway, err := gatewaybiz.GetGateway(c.Request.Context(), req.GatewayID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
-	err = biz.DeleteGateway(c, gateway)
+	err = gatewaybiz.DeleteGateway(c, gateway)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -303,7 +304,7 @@ func GatewayCheckName(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	if biz.ExistsGatewayName(c.Request.Context(), req.Name, req.ID) {
+	if gatewaybiz.ExistsGatewayName(c.Request.Context(), req.Name, req.ID) {
 		output := serializer.CheckGatewayNameResponse{
 			Status: "error",
 		}
@@ -331,7 +332,7 @@ func EtcdTestConnection(c *gin.Context) {
 		return
 	}
 	if req.GatewayID != 0 {
-		gateway, err := biz.GetGateway(c.Request.Context(), req.GatewayID)
+		gateway, err := gatewaybiz.GetGateway(c.Request.Context(), req.GatewayID)
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return

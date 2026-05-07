@@ -171,6 +171,72 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 	}
 }
 
+func TestPluginCanonicalScopeInventory(t *testing.T) {
+	versions := []constant.APISIXVersion{
+		constant.APISIXVersion311,
+		constant.APISIXVersion313,
+	}
+
+	for _, version := range versions {
+		plugins, err := GetPlugins(constant.APISIXTypeAPISIX, version)
+		if !assert.NoError(t, err) {
+			continue
+		}
+
+		scopeCounts := map[string]int{
+			"http":     0,
+			"consumer": 0,
+			"metadata": 0,
+			"stream":   0,
+		}
+
+		for _, plugin := range plugins {
+			switch {
+			case plugin.MetadataExample != nil:
+				scopeCounts["metadata"]++
+				assert.NotEmpty(
+					t,
+					plugin.MetadataExample,
+					"%s/%s metadata example should not be empty",
+					version,
+					plugin.Name,
+				)
+			case StreamRoutePluginMap[plugin.Name] != "":
+				scopeCounts["stream"]++
+				assert.NotEmpty(
+					t,
+					plugin.Example,
+					"%s/%s stream example should not be empty",
+					version,
+					plugin.Name,
+				)
+			case plugin.ConsumerExample != nil:
+				scopeCounts["consumer"]++
+				assert.NotEmpty(
+					t,
+					plugin.ConsumerExample,
+					"%s/%s consumer example should not be empty",
+					version,
+					plugin.Name,
+				)
+			case plugin.Example != nil:
+				scopeCounts["http"]++
+			default:
+				t.Errorf(
+					"plugin %q in version %s has no canonical example for any supported scope",
+					plugin.Name,
+					version,
+				)
+			}
+		}
+
+		assert.Positive(t, scopeCounts["http"], "%s should have http plugins", version)
+		assert.Positive(t, scopeCounts["consumer"], "%s should have consumer plugins", version)
+		assert.Positive(t, scopeCounts["metadata"], "%s should have metadata plugins", version)
+		assert.Positive(t, scopeCounts["stream"], "%s should have stream plugins", version)
+	}
+}
+
 func TestOpenFunctionAuthorizationSchemaShape(t *testing.T) {
 	schemaValue := GetPluginSchema(constant.APISIXVersion313, "openfunction", "")
 

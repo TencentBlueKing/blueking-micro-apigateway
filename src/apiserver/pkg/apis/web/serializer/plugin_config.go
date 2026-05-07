@@ -24,7 +24,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -81,7 +81,7 @@ func ValidatePluginConfigID(ctx context.Context, fl validator.FieldLevel) bool {
 	if pluginConfigID == "" {
 		return true
 	}
-	return biz.ExistsPluginConfig(ctx, pluginConfigID)
+	return resourcebiz.ExistsPluginConfig(ctx, pluginConfigID)
 }
 
 // ValidatePluginConfigName 校验 PluginConfigName
@@ -90,7 +90,7 @@ func ValidatePluginConfigName(ctx context.Context, fl validator.FieldLevel) bool
 	if pluginConfigName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.PluginConfig,
 		fl.Parent().FieldByName("ID").String(),

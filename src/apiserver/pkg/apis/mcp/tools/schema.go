@@ -25,7 +25,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
@@ -35,13 +35,13 @@ import (
 
 // GetResourceSchemaInput is the input for the get_resource_schema tool
 type GetResourceSchemaInput struct {
-	APISIXVersion string `json:"apisix_version" jsonschema:"Required. APISIX schema version: 3.11 or 3.13."`
+	APISIXVersion string `json:"apisix_version" jsonschema:"Required. MCP-supported APISIX schema version: 3.13."`
 	ResourceType  string `json:"resource_type" jsonschema:"Required. APISIX resource type."`
 }
 
 // GetPluginSchemaInput is the input for the get_plugin_schema tool
 type GetPluginSchemaInput struct {
-	APISIXVersion string `json:"apisix_version" jsonschema:"Required. APISIX schema version: 3.11 or 3.13."`
+	APISIXVersion string `json:"apisix_version" jsonschema:"Required. MCP-supported APISIX schema version: 3.13."`
 	//nolint:lll // Keep common plugin examples in metadata for discoverability.
 	PluginName string `json:"plugin_name" jsonschema:"Required plugin name (for example: limit-req, proxy-rewrite, jwt-auth)."`
 	//nolint:lll // Keep valid schema scope values explicit for callers.
@@ -50,7 +50,7 @@ type GetPluginSchemaInput struct {
 
 // ValidateResourceConfigInput is the input for the validate_resource_config tool
 type ValidateResourceConfigInput struct {
-	APISIXVersion string         `json:"apisix_version" jsonschema:"Required. APISIX schema version: 3.11 or 3.13."`
+	APISIXVersion string         `json:"apisix_version" jsonschema:"Required. MCP-supported APISIX schema version: 3.13."`
 	ResourceType  string         `json:"resource_type" jsonschema:"Required. APISIX resource type."`
 	Config        map[string]any `json:"config" jsonschema:"Required. Resource config object to validate."`
 }
@@ -64,14 +64,14 @@ func RegisterSchemaTools(server *mcp.Server) {
 	// get_resource_schema
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_resource_schema",
-		Description: "Return APISIX JSON schema for a resource type and schema version (3.11 or 3.13). " +
+		Description: "Return APISIX JSON schema for a resource type and MCP-supported schema version (3.13). " +
 			"Read-only helper for config design and validation.",
 	}, getResourceSchemaHandler)
 
 	// get_plugin_schema
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_plugin_schema",
-		Description: "Return APISIX plugin schema by plugin_name and schema version (3.11 or 3.13). " +
+		Description: "Return APISIX plugin schema by plugin_name and MCP-supported schema version (3.13). " +
 			"Supports main/consumer/metadata schema types.",
 	}, getPluginSchemaHandler)
 
@@ -227,7 +227,7 @@ func listPluginsHandler(
 	apisixType := gateway.APISIXType
 
 	// Get plugins list based on gateway's version and type
-	plugins, err := biz.GetPluginsList(ctx, apisixVersion, apisixType)
+	plugins, err := mcpbiz.GetPluginsList(ctx, apisixVersion, apisixType)
 	if err != nil {
 		return errorResult(fmt.Errorf("failed to get plugins: %w", err)), nil, nil
 	}

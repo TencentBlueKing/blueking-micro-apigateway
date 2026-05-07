@@ -40,6 +40,30 @@ func StartEmbedEtcdClient(ctx context.Context) (*clientv3.Client, *embed.Etcd, e
 	cfg.Dir, _ = os.MkdirTemp("", "etcd")
 	cfg.LogLevel = "error"
 
+	return startEmbedEtcdClient(ctx, cfg)
+}
+
+// StartEmbedEtcdClientRandom starts an embedded etcd server on random loopback ports.
+func StartEmbedEtcdClientRandom(ctx context.Context) (*clientv3.Client, *embed.Etcd, string, error) {
+	cfg := embed.NewConfig()
+	cfg.ListenClientUrls = []url.URL{{Scheme: "http", Host: "127.0.0.1:0"}}
+	cfg.ListenPeerUrls = []url.URL{{Scheme: "http", Host: "127.0.0.1:0"}}
+	// ListenClientHttpUrls cannot share an unbound :0 URL with ListenClientUrls.
+	cfg.ListenClientHttpUrls = nil
+	cfg.AdvertiseClientUrls = cfg.ListenClientUrls
+	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
+	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
+	cfg.Dir, _ = os.MkdirTemp("", "etcd")
+	cfg.LogLevel = "error"
+
+	client, etcd, err := startEmbedEtcdClient(ctx, cfg)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return client, etcd, etcd.Clients[0].Addr().String(), nil
+}
+
+func startEmbedEtcdClient(ctx context.Context, cfg *embed.Config) (*clientv3.Client, *embed.Etcd, error) {
 	etcd, err := embed.StartEtcd(cfg)
 	if err != nil {
 		return nil, nil, err

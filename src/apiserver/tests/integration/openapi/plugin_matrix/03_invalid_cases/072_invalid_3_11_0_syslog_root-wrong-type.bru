@@ -1,0 +1,49 @@
+meta {
+  name: plugin_matrix_invalid_3_11_0_syslog_root-wrong-type
+  type: http
+  seq: 72
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-311/resources/stream_routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "syslog": "invalid-object"
+        },
+        "remote_addr": "127.0.0.1",
+        "server_addr": "127.0.0.1",
+        "server_port": 9100,
+        "upstream": {
+          "nodes": [
+            {
+              "host": "127.0.0.1",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "tcp",
+          "type": "roundrobin"
+        }
+      },
+      "name": "plugin-syslog"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

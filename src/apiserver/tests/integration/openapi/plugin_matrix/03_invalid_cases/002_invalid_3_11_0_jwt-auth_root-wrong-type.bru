@@ -1,0 +1,36 @@
+meta {
+  name: plugin_matrix_invalid_3_11_0_jwt-auth_root-wrong-type
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-311/resources/consumers/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "jwt-auth": "invalid-object"
+        },
+        "username": "plugin_jwt_auth"
+      },
+      "name": "plugin_jwt_auth"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

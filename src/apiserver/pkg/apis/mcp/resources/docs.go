@@ -534,7 +534,7 @@ const apiErrorDetailsDoc = `# API Error Details
 ## Notes
 
 - MCP publish tools are disabled by design; publish is performed via Web UI/OpenAPI.
-- Schema tools support versions ` + "`3.11`" + ` and ` + "`3.13`" + `.
+- Schema tools support MCP-supported APISIX version ` + "`3.13.X`" + `.
 `
 
 const pluginPrecedenceDoc = `# Plugin Merging Precedence

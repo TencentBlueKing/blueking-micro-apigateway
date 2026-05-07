@@ -30,22 +30,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
-var noneValidateSchemaHandlerMap = map[string]bool{
+var noneValidateSchemaHandlerSet = map[string]struct{}{
 	// 发布接口不需要进行 schema 校验
-	"handler.ResourcePublish": false,
+	"handler.ResourcePublish": {},
 }
 
 // OpenAPIResourceCheck 资源操作校验
@@ -71,7 +70,11 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 
 		// 针对单个资源操作进行统一的状态机判断：
 		if c.Param("id") != "" && (method == http.MethodPut || method == http.MethodDelete) {
-			resourceInfo, err := biz.GetResourceByID(c.Request.Context(), resourceType, c.Param("id"))
+			resourceInfo, err := resourcebiz.GetResourceByID(
+				c.Request.Context(),
+				resourceType,
+				c.Param("id"),
+			)
 			if err != nil {
 				ginx.BadRequestErrorJSONResponse(c, err)
 				c.Abort()
@@ -115,79 +118,54 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 		fullHandlerName := c.HandlerName()
 		lastSlashIndex := strings.LastIndex(fullHandlerName, "/")
 		handlerName := fullHandlerName[lastSlashIndex+1:]
-		if _, ok := noneValidateSchemaHandlerMap[handlerName]; ok {
+		if _, ok := noneValidateSchemaHandlerSet[handlerName]; ok {
 			c.Next()
 			return
 		}
 		// validate config schema
 		configs := gjson.ParseBytes(reqBody).Array()
-		for _, config := range configs {
-			schemaValidator, err := schema.NewAPISIXSchemaValidator(
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
-				"main."+resourceType.String(),
-			)
-			if err != nil {
-				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
-				c.Abort()
-				return
-			}
-			configRaw := config.Get("config").Raw
-
-			// Inject auto-generated ID before validation for resources that need it
-			// This handles the case where schema requires 'id' but users expect auto-generation
-			if constant.ResourceRequiresIDInSchema(resourceType) {
-				id := gjson.Get(configRaw, "id").String()
-				if id == "" {
-					// Temporarily inject ID for validation - will be regenerated in handler if
-					// needed
-					configRaw, _ = sjson.Set(configRaw, "id", idx.GenResourceID(resourceType))
-				}
-			}
-
-			configRawForValidation := biz.BuildConfigRawForValidation(
-				configRaw,
-				resourceType,
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
-			)
-
-			if err = schemaValidator.Validate(configRawForValidation); err != nil {
-				logging.Errorf("schema validate failed, err: %v", err)
-				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
-				c.Abort()
-				return
-			}
-			// 配置校验
-			customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(c.Request.Context())
+		version := ginx.GetGatewayInfo(c).GetAPISIXVersionX()
+		drafts := make([]serializer.OpenResolvedDraft, 0, len(configs))
+		var databaseValidator resourcevalidationbiz.DatabasePayloadValidator
+		if len(configs) > 0 {
+			customizePluginSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(c.Request.Context())
 			if err != nil {
 				ginx.SystemErrorJSONResponse(c, err)
 				c.Abort()
 				return
 			}
-			jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
-				ginx.GetGatewayInfo(c).GetAPISIXVersionX(),
+			databaseValidator, err = resourcevalidationbiz.NewDatabasePayloadValidator(
+				version,
 				resourceType,
-				"main."+string(resourceType),
 				customizePluginSchemaMap,
-				constant.DATABASE,
 			)
 			if err != nil {
-				ginx.BadRequestErrorJSONResponse(
-					c,
-					fmt.Errorf(
-						"NewAPISIXJsonSchemaValidator failed, resource config:%s validate failed, err: %w",
-						configRaw,
-						err,
-					),
-				)
+				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
 				c.Abort()
 				return
 			}
-			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil { // 校验 json schema
-				ginx.BadRequestErrorJSONResponse(
-					c,
-					fmt.Errorf("resource config:%s validate failed, err: %w",
-						configRaw, err),
-				)
+		}
+		for _, config := range configs {
+			configRaw := config.Get("config").Raw
+
+			configRawForValidation := resourcevalidationbiz.PrepareOpenValidationPayload(
+				version,
+				resourceType,
+				configRaw,
+			)
+			resolvedID := gjson.GetBytes(configRawForValidation, "id").String()
+			drafts = append(drafts, serializer.BuildOpenResolvedDraft(
+				resourceType,
+				serializer.ResourceCreateRequest{
+					Name:   config.Get("name").String(),
+					Config: json.RawMessage(configRaw),
+				},
+				resolvedID,
+			))
+
+			if err = databaseValidator.Validate(configRawForValidation); err != nil {
+				logging.Errorf("database payload validate failed, err: %v", err)
+				ginx.BadRequestErrorJSONResponse(c, err)
 				c.Abort()
 				return
 			}
@@ -207,6 +185,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				return
 			}
 		}
+		serializer.SetOpenResolvedDrafts(c, drafts)
 		c.Next()
 	}
 }

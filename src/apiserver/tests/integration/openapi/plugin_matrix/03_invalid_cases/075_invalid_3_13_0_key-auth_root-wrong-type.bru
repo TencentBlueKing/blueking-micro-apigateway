@@ -1,0 +1,36 @@
+meta {
+  name: plugin_matrix_invalid_3_13_0_key-auth_root-wrong-type
+  type: http
+  seq: 75
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-313/resources/consumers/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "key-auth": "invalid-object"
+        },
+        "username": "plugin_key_auth"
+      },
+      "name": "plugin_key_auth"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

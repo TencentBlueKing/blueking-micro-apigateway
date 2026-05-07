@@ -19,6 +19,7 @@
 package idx
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,34 +27,22 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
-func TestGetFlakeUid(t *testing.T) {
-	assert.True(t, len(GenResourceID(constant.Route)) < 64)
+func TestGenResourceID(t *testing.T) {
+	id := GenResourceID(constant.Route)
+	assert.True(t, len(id) < 64)
+	assert.Regexp(t, `^bk\.r\.[0-9a-z]+$`, id)
+	assert.Equal(t, strings.ToLower(id), id)
 }
 
-func TestGetResourceTypeFromID(t *testing.T) {
-	tests := []struct {
-		id       string
-		expected constant.APISIXResource
-	}{
-		{"bk.r.someEncodedID", constant.Route},
-		{"bk.u.someEncodedID", constant.Upstream},
-		{"bk.s.someEncodedID", constant.Service},
-		{"bk.c.someEncodedID", constant.Consumer},
-		{"bk.cg.someEncodedID", constant.ConsumerGroup},
-		{"bk.gr.someEncodedID", constant.GlobalRule},
-		{"bk.pc.someEncodedID", constant.PluginConfig},
-		{"bk.pm.someEncodedID", constant.PluginMetadata},
-		{"bk.pb.someEncodedID", constant.Proto},
-		{"bk.ss.someEncodedID", constant.SSL},
-		{"bk.sr.someEncodedID", constant.StreamRoute},
-		{"bk.sss.sssss", ""}, // 测试无效ID
-		{"bk", ""},           // 测试无效ID
-	}
-
-	for _, test := range tests {
-		result := GetResourceTypeFromID(test.id)
-		if result != test.expected {
-			t.Errorf("GetPrefixFromID(%s) = %s; want %s", test.id, result, test.expected)
+func TestGenResourceIDCaseFoldedUnique(t *testing.T) {
+	seen := make(map[string]string)
+	for i := 0; i < 1000; i++ {
+		id := GenResourceID(constant.Route)
+		folded := strings.ToLower(id)
+		previous, ok := seen[folded]
+		if !assert.Falsef(t, ok, "case-folded duplicate resource ID: previous=%s current=%s", previous, id) {
+			return
 		}
+		seen[folded] = id
 	}
 }

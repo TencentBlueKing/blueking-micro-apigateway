@@ -1,0 +1,82 @@
+meta {
+  name: plugin_matrix_success_3_13_0_consumer
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-313/resources/consumers/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "hmac-auth": {
+            "key_id": "user-key",
+            "secret_key": "my-secret-key"
+          }
+        },
+        "username": "plugin_hmac_auth"
+      },
+      "name": "plugin_hmac_auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "jwt-auth": {
+            "key": "user-key",
+            "secret": "my-secret-key"
+          }
+        },
+        "username": "plugin_jwt_auth"
+      },
+      "name": "plugin_jwt_auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "key-auth": {
+            "key": "auth-one"
+          }
+        },
+        "username": "plugin_key_auth"
+      },
+      "name": "plugin_key_auth"
+    },
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "ldap-auth": {
+            "user_dn": "cn=user01,ou=users,dc=example,dc=org"
+          }
+        },
+        "username": "plugin_ldap_auth"
+      },
+      "name": "plugin_ldap_auth"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.length: eq 4
+}

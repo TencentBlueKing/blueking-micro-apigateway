@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	log "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
@@ -40,7 +40,7 @@ func OpenAPIAccess() gin.HandlerFunc {
 		gatewayName := c.Param("gateway_name")
 		queryToken := c.GetHeader(constant.OpenAPITokenHeaderKey)
 		if gatewayName != "" {
-			gatewayInfo, err := biz.GetGatewayByName(c.Request.Context(), gatewayName)
+			gatewayInfo, err := gatewaybiz.GetGatewayByName(c.Request.Context(), gatewayName)
 			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 				ginx.SystemErrorJSONResponse(c, err)
 				c.Abort()

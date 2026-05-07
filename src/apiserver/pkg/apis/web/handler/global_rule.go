@@ -27,11 +27,11 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
@@ -48,32 +48,20 @@ import (
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/ [post]
 func GlobalRuleCreate(c *gin.Context) {
 	var req serializer.GlobalRuleInfo
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
-		return
-	}
-	// global_rule schema requires config.id, but that ID is assigned by the server. Bind first so validation sees
-	// the
-	// real generated ID instead of forcing clients to send a placeholder value.
-	req.ID = idx.GenResourceID(constant.GlobalRule)
-	if err := validation.ValidateStruct(c.Request.Context(), &req); err != nil {
+	if err := bindAndValidateWebCreateWithGeneratedID(
+		c,
+		&req,
+		constant.GlobalRule,
+		func(resourceID string) { req.ID = resourceID },
+	); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	globalRule := model.GlobalRule{
-		Name: req.Name,
-		ResourceCommonModel: model.ResourceCommonModel{
-			ID:        req.ID,
-			GatewayID: ginx.GetGatewayInfo(c).ID,
-			Config:    datatypes.JSON(req.Config),
-			Status:    constant.ResourceStatusCreateDraft,
-			BaseModel: model.BaseModel{
-				Creator: ginx.GetUserID(c),
-				Updater: ginx.GetUserID(c),
-			},
-		},
+		Name:                req.Name,
+		ResourceCommonModel: buildWebCreateDraft(c, req.ID, req.Config),
 	}
-	if err := biz.CreateGlobalRule(c.Request.Context(), globalRule); err != nil {
+	if err := resourcebiz.CreateGlobalRule(c.Request.Context(), globalRule); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -105,14 +93,20 @@ func GlobalRuleUpdate(c *gin.Context) {
 	}
 
 	// if resource not changed (config and extra fields), return success directly
-	if !biz.IsResourceChanged(c.Request.Context(), constant.GlobalRule, pathParam.ID, req.Config, map[string]any{
-		"name": req.Name,
-	}) {
+	if !resourcebiz.IsResourceChanged(
+		c.Request.Context(),
+		constant.GlobalRule,
+		pathParam.ID,
+		req.Config,
+		map[string]any{
+			"name": req.Name,
+		},
+	) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
 
-	updateStatus, err := biz.GetResourceUpdateStatus(c.Request.Context(), constant.GlobalRule, pathParam.ID)
+	updateStatus, err := resourcebiz.GetResourceUpdateStatus(c.Request.Context(), constant.GlobalRule, pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -131,7 +125,7 @@ func GlobalRuleUpdate(c *gin.Context) {
 		},
 	}
 
-	if err := biz.UpdateGlobalRule(c.Request.Context(), globalRule); err != nil {
+	if err := resourcebiz.UpdateGlobalRule(c.Request.Context(), globalRule); err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
@@ -163,14 +157,14 @@ func GlobalRuleList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
-	globalRules, total, err := biz.ListPagedGlobalRules(
+	globalRules, total, err := resourcebiz.ListPagedGlobalRules(
 		c.Request.Context(),
 		queryParam,
 		strings.Split(req.Status, ","),
 		req.Name,
 		req.Updater,
 		req.OrderBy,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: ginx.GetOffset(c),
 			Limit:  ginx.GetLimit(c),
 		},
@@ -216,7 +210,7 @@ func GlobalRuleGet(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	globalRule, err := biz.GetGlobalRule(c.Request.Context(), pathParam.ID)
+	globalRule, err := resourcebiz.GetGlobalRule(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -255,14 +249,14 @@ func GlobalRuleDelete(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	globalRule, err := biz.GetGlobalRule(c.Request.Context(), pathParam.ID)
+	globalRule, err := resourcebiz.GetGlobalRule(c.Request.Context(), pathParam.ID)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}
 	// create_draft 状态可以直接删除
 	if globalRule.Status == constant.ResourceStatusCreateDraft {
-		err = biz.BatchDeleteGlobalRules(c.Request.Context(), []string{globalRule.ID})
+		err = resourcebiz.BatchDeleteGlobalRules(c.Request.Context(), []string{globalRule.ID})
 		if err != nil {
 			ginx.SystemErrorJSONResponse(c, err)
 			return
@@ -270,7 +264,7 @@ func GlobalRuleDelete(c *gin.Context) {
 		ginx.SuccessNoContentResponse(c)
 		return
 	}
-	err = biz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
+	err = resourcebiz.UpdateResourceStatusWithAuditLog(c.Request.Context(),
 		constant.GlobalRule, globalRule.ID, constant.ResourceStatusDeleteDraft)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
@@ -289,7 +283,7 @@ func GlobalRuleDelete(c *gin.Context) {
 //	@Success	200			{object}	serializer.GlobalRuleDropDownListResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules-dropdown/ [get]
 func GlobalRuleDropDownList(c *gin.Context) {
-	rules, err := biz.ListGlobalRules(c.Request.Context())
+	rules, err := resourcebiz.ListGlobalRules(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return
@@ -319,7 +313,7 @@ func GlobalRuleDropDownList(c *gin.Context) {
 //	@Success	200			{object}	serializer.GlobalRulePluginsResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/global_rules/-/plugins/ [get]
 func GlobalRulePlugins(c *gin.Context) {
-	globalRuleToIDMap, err := biz.GetGlobalRulePluginToID(c.Request.Context())
+	globalRuleToIDMap, err := resourcebiz.GetGlobalRulePluginToID(c.Request.Context())
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

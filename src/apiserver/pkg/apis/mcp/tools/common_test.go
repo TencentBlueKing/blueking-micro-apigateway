@@ -25,7 +25,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -146,16 +146,16 @@ func TestParseAPISIXVersion(t *testing.T) {
 		expectedError   bool
 	}{
 		{
-			name:            "valid version 3.11",
-			version:         "3.11.X",
-			expectedVersion: constant.APISIXVersion311,
-			expectedError:   false,
-		},
-		{
 			name:            "valid version 3.13",
 			version:         "3.13.X",
 			expectedVersion: constant.APISIXVersion313,
 			expectedError:   false,
+		},
+		{
+			name:            "unsupported version 3.11",
+			version:         "3.11.X",
+			expectedVersion: "",
+			expectedError:   true,
 		},
 		{
 			name:            "invalid version",
@@ -182,7 +182,9 @@ func TestParseAPISIXVersion(t *testing.T) {
 			t.Parallel()
 			result, err := parseAPISIXVersion(tt.version)
 			if tt.expectedError {
-				assert.Error(t, err)
+				if !assert.Error(t, err) {
+					return
+				}
 				assert.Contains(t, err.Error(), "invalid APISIX version")
 			} else {
 				assert.NoError(t, err)
@@ -243,7 +245,7 @@ func TestGetGatewayFromContextReturnsGateway(t *testing.T) {
 		Name:          "mcp-tools-gateway",
 		APISIXVersion: string(constant.APISIXVersion313),
 	}
-	err := biz.CreateGateway(ctx, gateway)
+	err := gatewaybiz.CreateGateway(ctx, gateway)
 	assert.NoError(t, err)
 	assert.Greater(t, gateway.ID, 0)
 
@@ -295,34 +297,13 @@ func TestErrorResult(t *testing.T) {
 // Note: getXxxParamFromArgs helper functions were removed in favor of typed inputs
 // with the MCP SDK's generic AddTool[In, Out] function, which auto-parses inputs.
 
-func TestResourceTypeDescription(t *testing.T) {
-	t.Parallel()
-
-	desc := ResourceTypeDescription()
-	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "route")
-	assert.Contains(t, desc, "service")
-	assert.Contains(t, desc, "upstream")
-}
-
-func TestStatusDescription(t *testing.T) {
-	t.Parallel()
-
-	desc := StatusDescription()
-	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "create_draft")
-	assert.Contains(t, desc, "update_draft")
-	assert.Contains(t, desc, "delete_draft")
-	assert.Contains(t, desc, "success")
-}
-
 func TestAPISIXVersionDescription(t *testing.T) {
 	t.Parallel()
 
 	desc := APISIXVersionDescription()
 	assert.Contains(t, desc, "One of:")
-	assert.Contains(t, desc, "3.11.X")
 	assert.Contains(t, desc, "3.13.X")
+	assert.NotContains(t, desc, "3.11.X")
 }
 
 func TestValidResourceTypes(t *testing.T) {
@@ -358,7 +339,6 @@ func TestValidAPISIXVersions(t *testing.T) {
 	t.Parallel()
 
 	// Verify all supported versions are present
-	assert.Len(t, ValidAPISIXVersions, 2)
-	assert.Contains(t, ValidAPISIXVersions, "3.11.X")
+	assert.Len(t, ValidAPISIXVersions, 1)
 	assert.Contains(t, ValidAPISIXVersions, "3.13.X")
 }

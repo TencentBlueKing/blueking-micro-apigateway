@@ -2,69 +2,99 @@
 
 ## Code Architecture
 
-The backend follows a layered architecture pattern:
+The backend is a Gin-based control plane for managing APISIX data-plane resources.
 
-**Call Chain**: `handler -> biz -> repo -> infras(database)`
+**Typical Call Chain**: `router -> middleware -> handler/serializer -> focused biz package -> repo/infras`
+
+Do not assume old flat `pkg/biz/*.go` ownership. The current refactor split business logic into focused
+subpackages, and the root `pkg/biz` package is only a package marker.
 
 ```plaintext
 pkg/
-├── apis/           # HTTP handlers and routing
-│   ├── basic/      # Basic API handlers
-│   └── web/        # Web API handlers with session/CSRF middleware
-├── biz/            # Business logic layer
-│   ├── common.go   # Shared business logic for all APISIX resources
-│   ├── consumer.go # Consumer-specific business logic
-│   ├── route.go    # Route-specific business logic
-│   └── ...         # Other resource-specific business logic
-├── repo/           # Repository layer (generated code via gorm/gen)
-│   └── *.gen.go    # Auto-generated repository code
-├── infras/         # Infrastructure layer
-│   ├── database/   # Database connections and operations
-│   ├── storage/    # APISIX admin API client
-│   ├── logging/    # Logging utilities
-│   ├── trace/      # OpenTelemetry tracing
-│   ├── sentry/     # Error tracking
-│   └── leaderelection/ # Leader election for distributed scheduler
-├── entity/         # Data structures
-│   ├── model/      # Database models
-│   ├── dto/        # Data transfer objects
-│   ├── apisix/     # APISIX resource definitions
-│   └── base/       # Base entities
-├── middleware/     # Gin middlewares
-│   ├── access_control.go # Access control
-│   ├── user_auth.go     # User authentication
+├── apis/                  # HTTP and MCP interfaces
+│   ├── basic/             # Health/readiness/basic endpoints
+│   ├── common/            # Shared API serializers/helpers
+│   ├── mcp/               # MCP server, tools, resources, and prompts
+│   ├── open/              # Public Open API
+│   └── web/               # Management-console Web API
+├── account/               # Account/session helpers
+├── async/                 # Async task helpers
+├── biz/                   # Focused business packages; root package should stay thin
+│   ├── auditlog/          # Operation audit-log creation/query helpers
+│   ├── diff/              # Edit-area vs sync-area diff summaries
+│   ├── gateway/           # Gateway CRUD and gateway-scoped lookup helpers
+│   ├── importflow/        # Import preview, classification, and validation preparation
+│   ├── mcp/               # MCP token and MCP-facing resource operation helpers
+│   ├── publish/           # Publish orchestration, dependency fan-out, payload cleanup, persistence
+│   ├── resource/          # Shared and per-resource CRUD/query/status helpers
+│   ├── schema/            # Custom plugin schema business helpers
+│   ├── syncdata/          # gateway_sync_data query helpers
+│   ├── system/            # System configuration helpers
+│   └── unifyop/           # Sync/import/revert/export orchestration
+├── repo/                  # Repository layer (generated code via gorm/gen)
+│   └── *.gen.go           # Auto-generated repository code; do not edit manually
+├── infras/                # Infrastructure layer
+│   ├── database/          # Database connections
+│   ├── storage/           # etcd storage client
+│   ├── logging/           # Logging utilities
+│   ├── trace/             # OpenTelemetry tracing
+│   ├── sentry/            # Error tracking
+│   └── leaderelection/    # Leader election for distributed scheduler
+├── config/                # Configuration management
+├── entity/                # Data structures
+│   ├── apisix/            # APISIX resource definitions
+│   ├── base/              # Base entities
+│   ├── dto/               # Data transfer objects
+│   └── model/             # GORM models and HandleConfig hooks
+├── middleware/            # Gin middlewares
+│   ├── gateway_access.go
+│   ├── mcp_auth.go
+│   ├── openapi_resource_check.go
+│   ├── permission.go
+│   ├── resource_op_check.go
 │   └── ...
-├── publisher/      # Event publishing to etcd
-├── config/         # Configuration management
-├── utils/          # Utility functions
-│   └── schema/     # APISIX JSON schema validation
-│       ├── 3.11/   # Schema for APISIX 3.11
-│       └── 3.13/   # Schema for APISIX 3.13
-└── version/        # Version information
+├── publisher/             # Low-level etcd publish operations and ETCD schema validation
+├── router/                # Route registration and middleware mounting
+├── status/                # Resource state machine
+├── utils/                 # Utility functions
+│   └── schema/            # Versioned APISIX resource/plugin schemas and validators
+│       ├── 3.2/
+│       ├── 3.3/
+│       ├── 3.11/
+│       └── 3.13/
+└── version/               # Version information
 ```
 
 **Key Patterns**:
 
-1. **Resource Management**: All APISIX resource types share common CRUD operations in `biz/common.go`, with resource-specific logic in separate files
-2. **Schema Validation**: JSON schema validation for different APISIX versions (3.11, 3.13) in `pkg/utils/schema/`
-3. **Publisher Pattern**: Changes are published to etcd for synchronization with data plane
-4. **Repository Generation**: Use `gorm/gen` for type-safe database queries (run `make mock` to regenerate)
-5. **Middleware Chain**: Web APIs use session, CSRF, user auth, and permission middlewares
+1. **Focused Biz Packages**: Place resource CRUD in `pkg/biz/resource`, publish logic in `pkg/biz/publish`,
+   sync/revert/export in `pkg/biz/unifyop`, import preparation in `pkg/biz/importflow`, and diffing in
+   `pkg/biz/diff`. Do not add new cross-cutting helpers to the root `pkg/biz` package.
+2. **Three Config Shapes**: Request-time validation payload, persisted DB `config`, and publish-time ETCD payload are
+   distinct. Keep the conversion boundary explicit.
+3. **Schema Validation**: Versioned APISIX schemas and plugin schemas live in `pkg/utils/schema/`; custom plugin schema
+   lookup lives in `pkg/biz/schema`.
+4. **Publisher Pattern**: `pkg/biz/publish` builds version-cleaned operations; `pkg/publisher` validates ETCD payloads
+   and writes to etcd.
+5. **Repository Generation**: Use `gorm/gen` for type-safe database queries (run `make mock` to regenerate).
+6. **Middleware Chain**: Web/Open/MCP APIs rely on middleware to load gateway context, enforce auth/permissions, and
+   run request-time resource checks.
 
 ## Layer Responsibilities
 
 | Layer | Package | Key Responsibilities |
 |-------|---------|---------------------|
 | **Router** | `pkg/router` | Route registration and middleware mounting |
-| **API** | `pkg/apis` | HTTP interface layer containing Handler and Serializer |
+| **API** | `pkg/apis` | HTTP/MCP interface layer containing handlers, serializers, tools, resources, and prompts |
 | **Middleware** | `pkg/middleware` | Authentication, CSRF protection, access control, gateway context injection |
-| **Biz** | `pkg/biz` | Business logic, CRUD orchestration, state transitions, audit logging |
+| **Biz** | `pkg/biz/*` | Focused business packages for resource CRUD, publish, diff, sync/import, schema, gateway, MCP, audit, and system config |
 | **Status** | `pkg/status` | Resource state machine (FSM) for lifecycle management |
-| **Publisher** | `pkg/publisher` | etcd publish operations with schema validation before write |
+| **Publisher** | `pkg/publisher` | Low-level etcd publish operations with ETCD schema validation before write |
 | **Repo** | `pkg/repo` | Database operations (auto-generated by gorm/gen, DO NOT edit manually) |
 | **Infras** | `pkg/infras` | Infrastructure: DB connections, etcd client, logging, tracing |
 | **Model** | `pkg/entity/model` | GORM models with HandleConfig hooks for field injection |
 | **DTO** | `pkg/entity/dto` | Data transfer objects for inter-layer communication |
+| **Schema Utils** | `pkg/utils/schema` | Versioned APISIX schema/plugin-schema loading and validators |
 
 ### API Layer Structure
 
@@ -74,13 +104,17 @@ The API layer (`pkg/apis`) is organized into multiple sub-modules to serve diffe
 |------------|---------|-------------|
 | **Web API** | `pkg/apis/web` | Management console API for frontend/admin operations |
 | **Open API** | `pkg/apis/open` | Public API for external system integration |
+| **MCP API** | `pkg/apis/mcp` | MCP server exposing tools, resources, prompts, and streamable HTTP/SSE transports |
 | **Basic API** | `pkg/apis/basic` | Basic endpoints (health check, readiness, etc.) |
 | **Common** | `pkg/apis/common` | Shared utilities and common response handling |
 
-Each API sub-module contains:
+Web/Open/Basic API sub-modules normally contain:
 
 - **Handler** - HTTP request handling, parameter binding, response formatting
 - **Serializer** - Request/response struct definitions with validation tags
+
+MCP is different: read `pkg/apis/mcp/AGENTS.md` before changing MCP tools, resources, prompts, or auth flows.
+MCP gateway support is restricted to APISIX `3.13.X`.
 
 ```plaintext
 pkg/apis/
@@ -90,31 +124,57 @@ pkg/apis/
 ├── open/                   # Open API (External Integration)
 │   ├── handler/            # Request handlers
 │   └── serializer/         # Request/response serialization
+├── mcp/                    # MCP server
+│   ├── tools/              # MCP tools
+│   ├── resources/          # MCP docs resources
+│   └── prompts/            # MCP prompts
 ├── basic/                  # Basic API (Health, Readiness)
-│   └── handler/            # Basic endpoint handlers
+│   ├── handler/            # Basic endpoint handlers
+│   └── serializer/         # Basic serializers
 └── common/                 # Common utilities
-    └── response.go         # Shared response handling
 ```
+
+### Biz Layer Structure
+
+| Package | Owns |
+|---------|------|
+| `pkg/biz/resource` | Shared and per-resource CRUD/query/status helpers for the 11 APISIX resource tables |
+| `pkg/biz/publish` | `PublishResource`, `PublishAllResource`, dependency fan-out, publish payload cleanup, and status persistence |
+| `pkg/biz/diff` | `DiffResources` and change-summary calculation |
+| `pkg/biz/unifyop` | etcd sync, sync-to-edit import, revert, upload commit, and etcd export orchestration |
+| `pkg/biz/importflow` | Import-file indexing, classification, schema merging, ignore-field handling, and validation preparation |
+| `pkg/biz/syncdata` | `gateway_sync_data` list/query/get helpers |
+| `pkg/biz/schema` | Custom plugin schema CRUD and schema maps used by validation |
+| `pkg/biz/mcp` | MCP token management and MCP-facing resource helpers |
+| `pkg/biz/gateway` | Gateway CRUD and gateway lookup helpers |
+| `pkg/biz/auditlog` | Operation audit-log creation and query helpers |
+| `pkg/biz/system` | System configuration helpers such as user whitelist |
+
+When adding or moving business logic, choose the owning subpackage above. If two packages need the same helper, prefer a
+small lower-level helper in the package that owns the data or invariant instead of recreating a broad root facade.
 
 ## Layer Dependency Rules
 
 | Layer | Can Depend On | Must NOT Depend On |
 |-------|---------------|-------------------|
-| Handler | Serializer, Biz, Middleware | Repo, Publisher, Infras |
-| Serializer | Model, DTO, Biz (partial) | Repo, Publisher |
-| Middleware | Biz, Config, Utils | Handler, Serializer |
-| Biz | Repo, Status, Publisher, Model, DTO, Infras | Handler, Middleware |
+| Handler | Serializer, focused Biz packages, DTO/Model, Utils | Repo, Publisher, Infras |
+| Serializer | Model, DTO, focused Biz packages, Schema Utils | Repo, Publisher |
+| Middleware | focused Biz packages, Config, Utils, Serializer when it owns request-context data | Handler, Repo, Publisher |
+| Biz | Repo, Status, Publisher, Model, DTO, Infras, focused sibling Biz packages | Handler, Middleware |
 | Status | Constant, Config | Biz, Handler |
-| Publisher | Infras/Storage, Constant | Biz, Handler |
+| Publisher | Infras/Storage, Constant, Model, Repo for custom plugin schema lookup | Biz, Handler |
 | Repo | Model, Infras/Database | Biz, Handler |
 | Infras | Config | Any business layer |
 | Model/DTO | Constant | Any other layer |
 
+`pkg/publisher` currently duplicates custom plugin schema lookup through `repo` instead of importing `pkg/biz/schema`;
+keep that direction unless you are explicitly changing the layering contract.
+
 ## Design
 
-### 1. Core Flow: Sync and Publish Lifecycle
+### 1. Core Flow: Sync, Edit, Import, Diff, Publish
 
-The apiserver implements a **two-area resource management pattern** for managing APISIX configurations:
+The apiserver manages APISIX configuration across three storage surfaces:
 
 ```mermaid
 flowchart TD
@@ -140,26 +200,33 @@ flowchart TD
         StreamRoute[(stream_route)]
     end
 
-    ETCD -->|"1. Periodic Sync via SyncWithPrefix"| SyncData
-    SyncData -->|"2. User Import via AddSyncedResources"| editArea
-    editArea -->|"3. User CRUD operations"| editArea
-    editArea -->|"4. Diff via DiffResources"| DiffEngine[DiffResources]
-    DiffEngine -->|"5. Publish via PublishResource"| ETCD
+    API[Web/Open/MCP APIs] -->|"CRUD via pkg/biz/resource"| editArea
+    ETCD -->|"1. SyncWithPrefix / SyncResources"| SyncData
+    SyncData -->|"2. AddSyncedResources"| editArea
+    API -->|"Upload/Import via importflow + UploadResources"| editArea
+    editArea -->|"4. DiffResources / GetResourceConfigDiffDetail"| DiffEngine[Diff Engine]
+    editArea -->|"5. PublishResource / PublishAllResource"| Publish[pkg/biz/publish]
+    Publish -->|"buildPublishResourceOperation + payload cleanup"| Publisher[pkg/publisher]
+    Publisher -->|"ETCD validation + BatchCreate/BatchDelete"| ETCD
+    Publish -->|"background SyncResources"| SyncData
 ```
 
 #### 1.1 Key Functions in the Flow
 
 | Step | Function | File | Description |
 |------|----------|------|-------------|
-| 1. Sync | `SyncWithPrefix()` | `pkg/biz/unify_op.go` | Fetches resources from etcd, stores in `gateway_sync_data` |
-| 1. Sync | `SyncerRun()` | `pkg/biz/unify_op.go` | Periodic scheduler that runs sync for all gateways |
-| 2. Import | `AddSyncedResources()` | `pkg/biz/unify_op.go` | Copies synced resources to edit area tables |
-| 3. CRUD | Various handlers | `pkg/apis/web/handler/*.go` | User creates/updates/deletes resources |
-| 4. Diff | `DiffResources()` | `pkg/biz/unify_op.go` | Compares edit area with sync area |
-| 5. Publish | `PublishResource()` | `pkg/biz/publish.go` | Writes changes to etcd |
-| 5. Publish | `putXxx()` functions | `pkg/biz/publish.go` | Resource-specific publish logic |
+| 1. Sync | `SyncWithPrefix()`, `SyncResources()`, `SyncerRun()` | `pkg/biz/unifyop/sync.go` | Fetch from etcd and upsert `gateway_sync_data` snapshots |
+| 2. Manage synced resources | `AddSyncedResources()` | `pkg/biz/unifyop/sync.go` | Copy selected sync-area resources into edit-area tables |
+| 3. Import preview | `BuildImportIndex()`, `ValidateImportedResources()`, `ClassifyImportResources()` | `pkg/biz/importflow/*.go` | Parse import files, merge schema state, validate, and split add/update previews |
+| 3. Import commit | `PrepareImportUpload()`, `UploadResources()` | `pkg/biz/importflow/flow.go`, `pkg/biz/unifyop/sync.go` | Prepare add/update groups and write them into edit-area tables |
+| 4. CRUD | `CreateXxx`, `UpdateXxx`, `BatchCreateResources`, `GetResourceUpdateStatus` | `pkg/biz/resource/*.go` | User/Open/MCP resource create/update/delete/list operations |
+| 5. Diff | `DiffResources()` | `pkg/biz/diff/diff.go` | Build draft change summaries and related-resource fan-out |
+| 5. Diff detail | `GetResourceConfigDiffDetail()` | `pkg/biz/unifyop/sync.go` | Compare stored edit-area config with sync-area config |
+| 6. Publish | `PublishResource()`, `PublishAllResource()` | `pkg/biz/publish/entry.go` | State-machine check, publish fan-out, audit logging, background sync |
+| 6. Publish payload | `buildPublishResourceOperation()`, `cleanupPublishPayloadFields()` | `pkg/biz/publish/payload.go` | Merge base info and remove version-incompatible/internal fields |
+| 6. ETCD write | `BatchCreate()`, `BatchDelete()`, `Validate()` | `pkg/publisher/etcd.go` | Validate ETCD payloads and write/delete etcd keys |
 
-#### 1.2 Two-Area Design Rationale
+#### 1.2 Storage Surface Rationale
 
 1. **Sync Area** (`gateway_sync_data` table): Read-only mirror of etcd state
    - Updated automatically by scheduler
@@ -170,6 +237,11 @@ flowchart TD
    - Resources have draft states (create_draft, update_draft, delete_draft)
    - Changes don't affect APISIX until published
    - Supports rollback by reverting to sync area state
+
+3. **APISIX Data Plane** (etcd): Published runtime state
+   - Written only through `pkg/biz/publish` plus `pkg/publisher`
+   - Validated as `constant.ETCD` payloads before write
+   - Re-synced into `gateway_sync_data` after publish
 
 ### 2. Resource State Machine
 
@@ -231,7 +303,8 @@ nextStatus, err := statusOp.NextStatus(ctx, constant.OperationTypePublish)
 
 ### 3. Multi-Version APISIX Support
 
-The system supports multiple APISIX versions (3.2.X, 3.3.X, 3.11.X, 3.13.X) with version-aware schema validation and field cleanup. Primary integration testing uses APISIX 3.11.
+The system supports APISIX 3.2.X, 3.3.X, 3.11.X, and 3.13.X with version-aware schema validation
+and field cleanup. Integration coverage includes 3.11 and 3.13 plugin-matrix cases.
 
 **Schema Breaking Change**: APISIX 3.x introduced `additionalProperties: false` which strictly enforces that NO extra fields are allowed beyond those defined in the schema.
 
@@ -249,6 +322,9 @@ The system supports multiple APISIX versions (3.2.X, 3.3.X, 3.11.X, 3.13.X) with
 | `proto` | name | No | No | No | Yes | Remove in < 3.13 |
 | `global_rule` | name | No | No | No | No | Always remove |
 | `ssl` | name | No | No | No | No | Always remove |
+| `consumer_group` | id | No | No | Required | Required | Inject for validation when schema requires it |
+| `plugin_config` | id | Present | Present | Required | Required | Inject for validation when schema requires it |
+| `global_rule` | id | Present | Present | Required | Required | Inject for validation when schema requires it |
 
 #### 3.2 Key Functions for Version Handling
 
@@ -261,8 +337,11 @@ ResourceSupportsNameFieldForVersion(resourceType, version) bool
 // Check if field should be removed before publish
 ShouldRemoveFieldBeforeValidationOrPublish(resourceType, fieldName, version) bool
 
-// Check if resource requires ID in schema
+// Check if resource requires ID in the current schema baseline
 ResourceRequiresIDInSchema(resourceType) bool
+
+// Check if resource requires ID in a specific APISIX version schema
+ResourceRequiresIDInSchemaForVersion(resourceType, version) bool
 ```
 
 #### 3.3 Version Detection Flow
@@ -274,21 +353,26 @@ sequenceDiagram
     participant Publisher
     participant etcd
 
-    Handler->>Biz: PublishResource(ctx, resourceType, ids)
-    Biz->>Biz: gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-    Biz->>Biz: version := gatewayInfo.GetAPISIXVersionX()
-    Biz->>Biz: Remove unsupported fields for version
-    Biz->>Publisher: BatchCreate(ctx, operations)
+    Handler->>PublishBiz: PublishResource(ctx, resourceType, ids)
+    PublishBiz->>PublishBiz: gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
+    PublishBiz->>PublishBiz: version := gatewayInfo.GetAPISIXVersionX()
+    PublishBiz->>PublishBiz: buildPublishResourceOperation()
+    PublishBiz->>PublishBiz: cleanupPublishPayloadFields()
+    PublishBiz->>Publisher: BatchCreate(ctx, operations)
     Publisher->>Publisher: Validate(resourceType, config) // ETCD schema
     Publisher->>etcd: Write to etcd
 ```
 
 #### 3.4 Schema Verify and Update
 
-the dir is `pkg/utils/schema/{version}/schema.json` and `pkg/utils/schema/{version}/plugin.json`
+The schema directories are `pkg/utils/schema/{version}/schema.json` and
+`pkg/utils/schema/{version}/plugin.json` for `3.2`, `3.3`, `3.11`, and `3.13`.
 
-- schema.json is the schema for the APISIX resource.
-- plugin.json is the schema for the APISIX plugin.
+- `schema.json` is the APISIX resource schema.
+- `plugin.json` is the APISIX plugin list/schema source.
+- `pkg/utils/schema/plugin.go` also has APISIX-type-specific plugin maps for `apisix`, `tapisix`, and `bk-apisix`.
+- When changing field compatibility rules, update `pkg/constant/resource_schema.go` and its tests together with
+  schema/plugin fixtures.
 
 ### 4. Resource Field Management
 
@@ -297,6 +381,13 @@ the dir is `pkg/utils/schema/{version}/schema.json` and `pkg/utils/schema/{versi
 All resource models implement a `HandleConfig()` method called by GORM hooks (BeforeCreate/BeforeUpdate/BeforeSave) to inject fields into the `config` JSON column:
 
 **Purpose**: Sync database column values into the config JSON for internal use and APISIX compatibility.
+
+**Persistence Contract**:
+
+- `HandleConfig()` is the save-time materialization boundary for all 11 APISIX resource models.
+- Before a row is inserted or updated, `HandleConfig()` must write the model-owned identity fields and association fields back into `config`.
+- Therefore, the `config` stored in the database is expected to be a complete persisted config, not a raw request payload and not a publish-time temporary shape.
+- Refactors, cleanups, publish/sync optimizations, and similar changes must not move, weaken, or bypass this contract. If behavior changes are needed, treat them as explicit contract changes and prove them with targeted `HandleConfig()` tests first.
 
 **Example** (`pkg/entity/model/route.go`):
 
@@ -323,52 +414,70 @@ func (r *Route) HandleConfig() error {
 
 #### 4.2 Publish Field Cleanup
 
-Before publishing to APISIX/etcd, `pkg/biz/publish.go` removes fields based on version compatibility using `ShouldRemoveFieldBeforeValidationOrPublish()`.
+Before publishing to APISIX/etcd, `pkg/biz/publish/payload.go` removes fields based on version compatibility using
+`ShouldRemoveFieldBeforeValidationOrPublish()`. It also removes publish-only internal fields such as SSL
+`validity_start` / `validity_end` and stream-route `labels`.
 
 ### 5. Schema Validation
 
 #### 5.1 DATABASE Validation
 
-- **When**: Middleware validation of user input (before HandleConfig injection)
+- **When**: Web serializer validation, Open API middleware validation, and import validation before `HandleConfig()`
 - **Purpose**: Validate user-provided config is valid for APISIX
-- **Constraint**: Looser, allows missing fields that HandleConfig will inject
-- **Datatype**: `constant.DatatypeDATABASE`
-- **Example**: User doesn't need to provide `id` for consumer_group (auto-generated)
+- **Constraint**: Looser than publish validation; can validate temporary payloads that include generated IDs or names
+  needed by the target APISIX schema
+- **Datatype**: `constant.DATABASE`
+- **Key helpers**:
+  - Web API: `pkg/apis/web/serializer.CheckAPISIXConfig()` and `prepareWebValidationPayload()`
+  - Open API: `pkg/middleware.OpenAPIResourceCheck()` and `prepareOpenValidationPayload()`
+  - Import: `pkg/biz/importflow.ValidateImportedResources()`
+  - Shared validation shaping: `pkg/biz/resource.InjectGeneratedIDForValidation()` and
+    `pkg/biz/resource.BuildConfigRawForValidation()`
+- **Example**: callers do not need to provide `id` for `consumer_group`, `plugin_config`, or `global_rule` when the
+  versioned schema requires a server-generated validation ID
 
 #### 5.2 ETCD Validation
 
 - **When**: Publisher validation before writing to etcd (after HandleConfig and field cleanup)
 - **Purpose**: Ensure config sent to APISIX is complete and valid
 - **Constraint**: Strict, `additionalProperties: false`, all required fields must be present
-- **Datatype**: `constant.DatatypeETCD`
-- **Example**: consumer_group MUST have `id` in config when publishing to APISIX 3.11/3.13
+- **Datatype**: `constant.ETCD`
+- **Key helpers**: `pkg/biz/publish.buildPublishResourceOperation()`,
+  `pkg/biz/publish.cleanupPublishPayloadFields()`, and `pkg/publisher.EtcdPublisher.Validate()`
+- **Example**: `consumer_group` must have `id` in config when publishing to APISIX 3.11/3.13
 
 ### 5.3 Validation Flow
 
 ```plaintext
-User Request (without id/name)
+User Request / Import File
     ↓
-[Middleware] DATABASE Validation
-    - Validates user input
-    - Injects ID if required by schema (consumer_group, plugin_config, global_rule)
-    ✅ PASS
+[Request-Time DATABASE Validation]
+    - Web: validation.BindAndValidate() -> serializer.CheckAPISIXConfig()
+    - Open: middleware.OpenAPIResourceCheck()
+    - Import: importflow.ValidateImportedResources()
+    - May inject temporary id/name for validation only
+    - May remove version-incompatible id/name before validation
+    PASS
     ↓
-[Handler] Process Request
+[Handler / Biz]
+    - Web/Open/MCP CRUD writes through pkg/biz/resource
+    - Import commit writes through importflow.PrepareImportUpload() + unifyop.UploadResources()
     ↓
 [Model.HandleConfig()] GORM Hook
     - Injects id, name, association fields into config
-    - Saves to database
+    - Stores complete persisted DB config
     ↓
-[Publish] Read from Database
-    - Get gateway APISIX version
-    - Remove fields not supported in that version
+[Publish Biz]
+    - Reads persisted DB config
+    - Merges APISIX BaseInfo into payload
+    - Removes version-incompatible/internal publish fields
     ↓
-[Publisher] ETCD Validation
-    - Validates cleaned config
-    - Strict validation with additionalProperties: false
-    ✅ PASS
+[Publisher ETCD Validation]
+    - NewAPISIXJsonSchemaValidator(..., constant.ETCD)
+    - Strict validation before etcd write
+    PASS
     ↓
-Write to etcd → APISIX
+Write to etcd -> APISIX
 ```
 
 ## Build and test commands
@@ -403,7 +512,7 @@ go version
 
 3. If both methods fail, ask the user to provide the correct Go toolchain path.
 
-There is a @Makefile in the `src/apiserver` directory, you can use it to build and test the project.
+There is a `Makefile` in the `src/apiserver` directory; use it to build and test the project.
 
 ### Build
 
@@ -421,8 +530,8 @@ make build
 # run unittest
 make test
 
-# run single test
-go test ./pkg/biz -run TestPublishConsumerGroups -v
+# run a focused package test
+go test ./pkg/biz/publish -run TestPublishConsumerGroups -v
 
 # clear test cache
 go clean -testcache
@@ -445,13 +554,14 @@ make integration-test
 make lint
 ```
 
-always run the commands before you finish your coding work and before you push your code, and fix the issues if any.
+For code changes, run the relevant focused tests first, then `make lint` and `make test` before finishing or pushing.
+Fix any issues you introduced.
 
 If the change only touches Markdown documentation files (for example `*.md`), you can skip `make lint` and `make test`.
 
 ## Local Tools Installed
 
-- `ag` and `grep` for command-line text search
+- `rg`, `ag`, and `grep` for command-line text search
 - `jq` for command-line JSON processing
 - `gh` for github cli tools
 

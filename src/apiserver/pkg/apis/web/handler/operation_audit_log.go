@@ -28,9 +28,11 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	auditlogbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/auditlog"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -133,7 +135,7 @@ func getOperationAuditLogResourceIDNames(
 				resourceIDNameMap[resourceID] = ginx.GetGatewayInfoFromContext(ctx).Name
 			}
 		case constant.Schema:
-			schemas, err := biz.GetSchemaByIDs(ctx, resourceIDs)
+			schemas, err := resourcebiz.GetSchemaByIDs(ctx, resourceIDs)
 			if err != nil {
 				return nil, err
 			}
@@ -141,7 +143,7 @@ func getOperationAuditLogResourceIDNames(
 				resourceIDNameMap[strconv.Itoa(schema.AutoID)] = schema.Name
 			}
 		default:
-			resources, err := biz.GetResourceByIDs(ctx, resourceType, resourceIDs)
+			resources, err := resourcebiz.GetResourceByIDs(ctx, resourceType, resourceIDs)
 			if err != nil {
 				return nil, err
 			}
@@ -167,14 +169,14 @@ func getOperationAuditLogResults(
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
-	operationAuditLogs, total, err := biz.ListPagedOperationAuditLogs(
+	operationAuditLogs, total, err := auditlogbiz.ListPagedOperationAuditLogs(
 		ctx,
 		queryParam,
 		req.ResourceID,
 		req.Operator,
 		req.TimeStart,
 		req.TimeEnd,
-		biz.PageParam{
+		utils.PageParam{
 			Offset: offset,
 			Limit:  limit,
 		},
@@ -219,7 +221,7 @@ func getOperationAuditLogResultsByName(
 	offset int,
 	limit int,
 ) ([]serializer.OperationAuditLogListResponse, int64, error) {
-	operationAuditLogs, err := biz.ListOperationAuditLogs(
+	operationAuditLogs, err := auditlogbiz.ListOperationAuditLogs(
 		ctx,
 		queryParam,
 		req.ResourceID,

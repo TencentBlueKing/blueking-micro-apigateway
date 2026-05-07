@@ -836,7 +836,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
                   "model": "path/to/model.conf",
                   "policy": "path/to/policy.csv",
                   "username": "admin"
-                }  
+                }
               },
               "upstream": {
                 "scheme": "http",

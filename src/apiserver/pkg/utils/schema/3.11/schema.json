@@ -7011,7 +7011,7 @@
                 "provider": {
                   "type": "string",
                   "description": "Name of the AI service provider.",
-                  "oneOf": [
+                  "enum": [
                     "openai"
                   ]
                 },
@@ -13290,6 +13290,46 @@
           "protocol_name",
           "protocol_level"
         ]
+      }
+    },
+    "prometheus": {
+      "version": 0.2,
+      "priority": 500,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "properties": {
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              }
+            }
+          },
+          "prefer_name": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema"
       }
     }
   }

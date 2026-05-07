@@ -20,137 +20,191 @@ package serializer
 
 import (
 	"encoding/json"
-	"reflect"
+	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 
+	gomonkey "github.com/agiledragon/gomonkey/v2"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/data"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
-func TestInjectGeneratedIDForValidation(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceType constant.APISIXResource
-		version      constant.APISIXVersion
-		resourceID   string
-		rawConfig    json.RawMessage
-		wantConfig   string
-	}{
-		{
-			name:         "inject generated id for consumer group",
-			resourceType: constant.ConsumerGroup,
-			version:      constant.APISIXVersion313,
-			resourceID:   "cg-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			wantConfig:   `{"plugins":{},"id":"cg-generated-id"}`,
-		},
-		{
-			name:         "inject generated id for plugin config",
-			resourceType: constant.PluginConfig,
-			version:      constant.APISIXVersion311,
-			resourceID:   "pc-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			wantConfig:   `{"plugins":{},"id":"pc-generated-id"}`,
-		},
-		{
-			name:         "inject generated id for global rule",
-			resourceType: constant.GlobalRule,
-			version:      constant.APISIXVersion313,
-			resourceID:   "gr-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{"ip-restriction":{}}}`),
-			wantConfig:   `{"plugins":{"ip-restriction":{}},"id":"gr-generated-id"}`,
-		},
-		{
-			name:         "do not inject id for old consumer group schema",
-			resourceType: constant.ConsumerGroup,
-			version:      constant.APISIXVersion33,
-			resourceID:   "cg-generated-id",
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			wantConfig:   `{"plugins":{}}`,
-		},
-		{
-			name:         "keep existing id",
-			resourceType: constant.GlobalRule,
-			version:      constant.APISIXVersion313,
-			resourceID:   "gr-generated-id",
-			rawConfig:    json.RawMessage(`{"id":"client-id","plugins":{}}`),
-			wantConfig:   `{"id":"client-id","plugins":{}}`,
-		},
-		{
-			name:         "do not inject for consumer",
-			resourceType: constant.Consumer,
-			version:      constant.APISIXVersion313,
-			resourceID:   "consumer-generated-id",
-			rawConfig:    json.RawMessage(`{"username":"demo"}`),
-			wantConfig:   `{"username":"demo"}`,
-		},
-	}
+var webSerializerTestOnce sync.Once
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := injectGeneratedIDForValidation(tt.rawConfig, tt.resourceType, tt.version, tt.resourceID)
-
-			var gotObj any
-			if err := json.Unmarshal(got, &gotObj); err != nil {
-				t.Fatalf("unmarshal got config failed: %v", err)
-			}
-
-			var wantObj any
-			if err := json.Unmarshal([]byte(tt.wantConfig), &wantObj); err != nil {
-				t.Fatalf("unmarshal want config failed: %v", err)
-			}
-
-			if !reflect.DeepEqual(gotObj, wantObj) {
-				t.Fatalf("unexpected config: got %s want %s", string(got), tt.wantConfig)
-			}
-		})
-	}
+func initWebSerializerTestEnv() {
+	webSerializerTestOnce.Do(func() {
+		gin.SetMode(gin.TestMode)
+		util.InitEmbedDb()
+		validation.RegisterValidator()
+	})
 }
 
-func TestShouldInjectResourceNameForValidation(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceType constant.APISIXResource
-		version      constant.APISIXVersion
-		want         bool
-	}{
-		{
-			name:         "inject consumer username",
-			resourceType: constant.Consumer,
-			version:      constant.APISIXVersion313,
-			want:         true,
-		},
-		{
-			name:         "inject route name",
-			resourceType: constant.Route,
-			version:      constant.APISIXVersion311,
-			want:         true,
-		},
-		{
-			name:         "do not inject ssl name",
-			resourceType: constant.SSL,
-			version:      constant.APISIXVersion313,
-			want:         false,
-		},
-		{
-			name:         "do not inject proto name on old schema",
-			resourceType: constant.Proto,
-			version:      constant.APISIXVersion311,
-			want:         false,
-		},
-		{
-			name:         "inject proto name on 3.13",
-			resourceType: constant.Proto,
-			version:      constant.APISIXVersion313,
-			want:         true,
-		},
-	}
+func newWebSerializerValidationContext(t *testing.T, gateway *model.Gateway) *gin.Context {
+	t.Helper()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := shouldInjectResourceNameForValidation(tt.resourceType, tt.version)
-			if got != tt.want {
-				t.Fatalf("unexpected result: got %v want %v", got, tt.want)
-			}
-		})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
+	ginx.SetGatewayInfo(c, gateway)
+	ginx.SetValidateErrorInfo(c)
+	return c
+}
+
+type webCaptureDatabasePayloadValidator struct {
+	validate func(json.RawMessage) error
+}
+
+func (v webCaptureDatabasePayloadValidator) Validate(raw json.RawMessage) error {
+	if v.validate != nil {
+		return v.validate(raw)
 	}
+	return nil
+}
+
+func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
+	initWebSerializerTestEnv()
+
+	t.Run("delegates prepared payload to shared database runner", func(t *testing.T) {
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1100, APISIXVersion: "3.13.0"})
+		req := ConsumerGroupInfo{
+			ID:   "cg-generated-id",
+			Name: "consumer-group-probe",
+			Config: json.RawMessage(`{
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`),
+		}
+		var gotVersion constant.APISIXVersion
+		var gotResourceType constant.APISIXResource
+		var gotPayload json.RawMessage
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(
+			resourcevalidationbiz.NewDatabasePayloadValidator,
+			func(
+				version constant.APISIXVersion,
+				resourceType constant.APISIXResource,
+				customPluginSchemaMap map[string]any,
+			) (resourcevalidationbiz.DatabasePayloadValidator, error) {
+				gotVersion = version
+				gotResourceType = resourceType
+				return webCaptureDatabasePayloadValidator{
+					validate: func(raw json.RawMessage) error {
+						gotPayload = append(json.RawMessage(nil), raw...)
+						return nil
+					},
+				}, nil
+			},
+		)
+
+		err := validation.ValidateStruct(ctx.Request.Context(), &req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, constant.APISIXVersion313, gotVersion)
+		assert.Equal(t, constant.ConsumerGroup, gotResourceType)
+		assert.JSONEq(
+			t,
+			`{
+				"id": "cg-generated-id",
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`,
+			string(gotPayload),
+		)
+	})
+
+	t.Run("identity fallback uses outer name when config has no id", func(t *testing.T) {
+		t.Parallel()
+
+		type validationTarget struct {
+			Name   string          `validate:"required"`
+			Config json.RawMessage `validate:"apisixConfig=web_validation_identity_probe"`
+		}
+
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1101, APISIXVersion: "3.13.0"})
+		req := validationTarget{
+			Name:   "identity-probe",
+			Config: json.RawMessage(`{"plugins":{}}`),
+		}
+
+		err := validation.ValidateStruct(ctx.Request.Context(), &req)
+		assert.Error(t, err)
+		assert.Contains(
+			t,
+			ginx.GetValidateErrorInfoFromContext(ctx.Request.Context()).Err.Error(),
+			"resource:identity-probe validate failed",
+		)
+	})
+
+	t.Run("consumer group validation accepts generated id and outer name on 3.13", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1102, APISIXVersion: "3.13.0"})
+		req := ConsumerGroupInfo{
+			ID:   "cg-generated-id",
+			Name: "consumer-group-probe",
+			Config: json.RawMessage(`{
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`),
+		}
+
+		assert.NoError(t, validation.ValidateStruct(ctx.Request.Context(), &req))
+	})
+
+	t.Run("plugin metadata validation uses outer name as schema id", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1103, APISIXVersion: "3.13.0"})
+		req := PluginMetadataInfo{
+			ID:   "existing-plugin-metadata-id",
+			Name: "authz-casbin",
+			Config: json.RawMessage(`{
+				"model": "rbac_model.conf",
+				"policy": "rbac_policy.csv"
+			}`),
+		}
+
+		assert.NoError(t, validation.ValidateStruct(ctx.Request.Context(), &req))
+	})
+
+	t.Run("ssl validation succeeds without injecting synthetic name into payload", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1104, APISIXVersion: "3.13.0"})
+		sslFixture := data.SSL1(&model.Gateway{ID: 1104}, constant.ResourceStatusCreateDraft)
+		req := SSLInfo{
+			Name:   "ssl-validation-probe",
+			Config: json.RawMessage(sslFixture.Config),
+		}
+
+		assert.NoError(t, validation.ValidateStruct(ctx.Request.Context(), &req))
+	})
 }

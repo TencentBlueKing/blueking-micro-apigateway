@@ -1,13 +1,12 @@
-version: '2.2'
 services:
   etcd:
     image: bitnamilegacy/etcd:3.5.9-debian-11-r99
     environment:
       - ALLOW_NONE_AUTHENTICATION=no
       - ETCD_ROOT_PASSWORD=123456     # 设置root密码
-    ports:
-      - "2479:2379"
-      - "2480:2380"
+    expose:
+      - "2379"
+      - "2380"
   mysql:
     image: docker.io/bitnamilegacy/mysql:8.0
     environment:
@@ -20,15 +19,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    ports:
-      - "3310:3306"
+    expose:
+      - "3306"
   bk-micro-gateway:
     build:
       context: ../../
       dockerfile: Dockerfile
     image: bk-micro-apigw:dev
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       - CRYPTO_NONCE=k2dbCGetyusW
       - CRYPTO_KEY=jxi28GX82qgHwfZCFpn07q8FScXJOd58

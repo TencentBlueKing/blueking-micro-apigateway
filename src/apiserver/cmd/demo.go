@@ -31,7 +31,8 @@ import (
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	publishbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/publish"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
@@ -145,14 +146,14 @@ func truncateAndInitialize(db *gorm.DB) error {
 		return fmt.Errorf("failed to scan sql statements: %w", err)
 	}
 
-	gateway, err := biz.GetGateway(context.Background(), 1)
+	gateway, err := gatewaybiz.GetGateway(context.Background(), 1)
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to get gateway: %w", err)
 	}
 	ctx := context.WithValue(context.Background(), constant.GatewayInfoKey, gateway)
 	// 进行发布
-	if err := biz.PublishAllResource(ctx, 1); err != nil {
+	if err := publishbiz.PublishAllResource(ctx, 1); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to publish all resources: %w", err)
 	}

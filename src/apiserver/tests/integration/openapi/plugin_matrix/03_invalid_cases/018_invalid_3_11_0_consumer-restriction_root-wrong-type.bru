@@ -1,0 +1,52 @@
+meta {
+  name: plugin_matrix_invalid_3_11_0_consumer-restriction_root-wrong-type
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-311/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "consumer-restriction": "invalid-object"
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-consumer-restriction"
+        ]
+      },
+      "name": "plugin-consumer-restriction"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

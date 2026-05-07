@@ -24,17 +24,14 @@ import (
 	"fmt"
 
 	validator "github.com/go-playground/validator/v10"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
+	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
@@ -60,97 +57,39 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 	// the plain string name.
 	resourceTypeName := resourceType.String()
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
-	rawConfig = injectGeneratedIDForValidation(
-		rawConfig,
+	rawConfig, resourceIdentification := resourcevalidationbiz.PrepareWebValidationPayload(
+		gatewayInfo.GetAPISIXVersionX(),
 		resourceType,
-		gatewayInfo.GetAPISIXVersionX(),
+		string(rawConfig),
 		fl.Parent().FieldByName("ID").String(),
+		fl.Parent().FieldByName("Name").String(),
+		getResourceNameByResourceType(resourceTypeName, fl),
 	)
-	resourceIdentification := schema.GetResourceIdentification(rawConfig)
-	if resourceIdentification == "" {
-		// 兼容第一次创建没有 id 的情况以及 rawConfig 没有 name 的情况
-		resourceIdentification = getResourceNameByResourceType(resourceTypeName, fl)
-		if shouldInjectResourceNameForValidation(resourceType, gatewayInfo.GetAPISIXVersionX()) {
-			rawConfig, _ = sjson.SetBytes(
-				rawConfig,
-				model.GetResourceNameKey(resourceType),
-				resourceIdentification,
-			)
-		}
-	}
-	// 基础 schema 校验
-	schemaValidator, err := schema.NewAPISIXSchemaValidator(
-		gatewayInfo.GetAPISIXVersionX(),
-		"main."+resourceTypeName,
-	)
-	if err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
-			resourceIdentification, err)
-		logging.Errorf("new schema validator failed, err: %v", err)
-		return false
-	}
-	// metadata 校验需要带上插件 name
-	if resourceTypeName == constant.PluginMetadata.String() {
-		rawConfig, _ = sjson.SetBytes(rawConfig, "id", fl.Parent().FieldByName("Name").String())
-	}
-	if err = schemaValidator.Validate(rawConfig); err != nil {
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
-		logging.Errorf("schema validate failed, err: %v", err)
-		return false
-	}
 	// 配置校验
-	customizePluginSchemaMap, err := biz.GetCustomizePluginSchemaMap(ctx)
+	customizePluginSchemaMap, err := schemabiz.GetCustomizePluginSchemaMap(ctx)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
 		logging.Errorf("get customize plugin schema map failed, err: %v", err)
 		return false
 	}
-	jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
+	databaseValidator, err := resourcevalidationbiz.NewDatabasePayloadValidator(
 		gatewayInfo.GetAPISIXVersionX(),
 		resourceType,
-		"main."+resourceTypeName,
 		customizePluginSchemaMap,
-		constant.DATABASE,
 	)
 	if err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = fmt.Errorf("resource:%s validate failed, err: %w",
 			resourceIdentification, err)
-		logging.Errorf("new schema config validator failed, err: %v", err)
+		logging.Errorf("new database payload validator failed, err: %v", err)
 		return false
 	}
-	if err = jsonConfigValidator.Validate(rawConfig); err != nil { // 校验 json schema
+	if err = databaseValidator.Validate(rawConfig); err != nil {
 		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
-		logging.Errorf("json schema validate failed, err: %v", err)
+		logging.Errorf("database payload validate failed, err: %v", err)
 		return false
 	}
 	return true
-}
-
-// injectGeneratedIDForValidation injects the server-generated resource ID into config only for validation time.
-// This keeps create requests client-friendly while still satisfying schemas whose config requires "id".
-func injectGeneratedIDForValidation(
-	rawConfig json.RawMessage,
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	resourceID string,
-) json.RawMessage {
-	if !constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) || resourceID == "" {
-		return rawConfig
-	}
-	if gjson.GetBytes(rawConfig, "id").Exists() {
-		return rawConfig
-	}
-	rawConfig, _ = sjson.SetBytes(rawConfig, "id", resourceID)
-	return rawConfig
-}
-
-func shouldInjectResourceNameForValidation(
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-) bool {
-	return resourceType == constant.Consumer ||
-		constant.ResourceSupportsNameFieldForVersion(resourceType, version)
 }
 
 func getResourceNameByResourceType(resourceType string, fl validator.FieldLevel) string {

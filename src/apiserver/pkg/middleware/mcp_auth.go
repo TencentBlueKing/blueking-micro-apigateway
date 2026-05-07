@@ -27,7 +27,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	log "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -94,7 +94,7 @@ func MCPAuth() gin.HandlerFunc {
 		}
 
 		// Validate token and get gateway info
-		token, gateway, err := biz.ValidateMCPAccessToken(c.Request.Context(), tokenStr)
+		token, gateway, err := mcpbiz.ValidateMCPAccessToken(c.Request.Context(), tokenStr)
 		if err != nil {
 			handleMCPAuthError(c, err)
 			return
@@ -133,13 +133,13 @@ func MCPAuth() gin.HandlerFunc {
 // handleMCPAuthError handles MCP authentication errors
 func handleMCPAuthError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, biz.ErrMCPTokenNotFound):
+	case errors.Is(err, mcpbiz.ErrMCPTokenNotFound):
 		log.ErrorFWithContext(c.Request.Context(), "MCP auth: token not found")
 		abortWithMCPError(c, http.StatusUnauthorized, "invalid token")
-	case errors.Is(err, biz.ErrMCPTokenExpired):
+	case errors.Is(err, mcpbiz.ErrMCPTokenExpired):
 		log.ErrorFWithContext(c.Request.Context(), "MCP auth: token expired")
 		abortWithMCPError(c, http.StatusForbidden, "token has expired")
-	case errors.Is(err, biz.ErrMCPGatewayNotSupported):
+	case errors.Is(err, mcpbiz.ErrMCPGatewayNotSupported):
 		log.ErrorFWithContext(c.Request.Context(), "MCP auth: gateway does not support MCP")
 		abortWithMCPError(c, http.StatusNotImplemented, "gateway does not support MCP (requires APISIX 3.13.X)")
 	default:

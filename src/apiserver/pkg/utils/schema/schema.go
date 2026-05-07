@@ -123,7 +123,7 @@ func GetPluginSchema(version constant.APISIXVersion, name, schemaType string) an
 		ret = schemaVersionMap[version].Get("plugins." + name + ".schema").Value()
 	}
 	if ret != nil {
-		return ret
+		return normalizePluginSchema(ret)
 	}
 	// 如果 apisix 插件不存在，再去 bk-apisix 插件中查找
 	bkAPISIXPluginSchemaVersion, ok := bkAPISIXPluginSchemaVersionMap[version]
@@ -131,7 +131,7 @@ func GetPluginSchema(version constant.APISIXVersion, name, schemaType string) an
 		ret = bkAPISIXPluginSchemaVersion.Get("plugins." + name + ".schema").Value()
 	}
 	if ret != nil {
-		return ret
+		return normalizePluginSchema(ret)
 	}
 	// 如果 bk-apisix 插件也不存在，再去 tapisix 插件中查找
 	tapisixPluginSchemaVersion, ok := tapisixPluginSchemaVersionMap[version]
@@ -139,5 +139,19 @@ func GetPluginSchema(version constant.APISIXVersion, name, schemaType string) an
 		ret = tapisixPluginSchemaVersion.Get("plugins." + name + ".schema").Value()
 	}
 
-	return ret
+	return normalizePluginSchema(ret)
+}
+
+func normalizePluginSchema(schemaValue any) any {
+	schemaMap, ok := schemaValue.(map[string]any)
+	if !ok {
+		return schemaValue
+	}
+
+	pluginSchema, ok := schemaMap["plugin_schema"]
+	if !ok {
+		return schemaValue
+	}
+
+	return pluginSchema
 }

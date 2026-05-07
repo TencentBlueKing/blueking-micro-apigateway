@@ -24,7 +24,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -83,7 +83,7 @@ func ValidateServiceID(ctx context.Context, fl validator.FieldLevel) bool {
 	if serviceID == "" {
 		return true
 	}
-	return biz.ExistsService(ctx, serviceID)
+	return resourcebiz.ExistsService(ctx, serviceID)
 }
 
 // ValidateServiceName 校验 service 资源名称
@@ -92,7 +92,7 @@ func ValidateServiceName(ctx context.Context, fl validator.FieldLevel) bool {
 	if serviceName == "" {
 		return false
 	}
-	return !biz.DuplicatedResourceName(
+	return !resourcebiz.DuplicatedResourceName(
 		ctx,
 		constant.Service,
 		fl.Parent().FieldByName("ID").String(),

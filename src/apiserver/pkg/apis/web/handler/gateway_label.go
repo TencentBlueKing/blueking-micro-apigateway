@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz"
+	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -40,7 +40,7 @@ func GatewayLabelList(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	labels, err := biz.ListGatewayResourceLabels(c.Request.Context(), pathParam.Type)
+	labels, err := gatewaybiz.ListGatewayResourceLabels(c.Request.Context(), pathParam.Type)
 	if err != nil {
 		ginx.SystemErrorJSONResponse(c, err)
 		return

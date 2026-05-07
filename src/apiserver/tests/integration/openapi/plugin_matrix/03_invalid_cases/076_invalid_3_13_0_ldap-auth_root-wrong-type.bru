@@ -1,0 +1,36 @@
+meta {
+  name: plugin_matrix_invalid_3_13_0_ldap-auth_root-wrong-type
+  type: http
+  seq: 76
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-313/resources/consumers/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "ldap-auth": "invalid-object"
+        },
+        "username": "plugin_ldap_auth"
+      },
+      "name": "plugin_ldap_auth"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

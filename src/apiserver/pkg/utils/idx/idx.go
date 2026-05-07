@@ -23,17 +23,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/sony/sonyflake"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
-
-// 资源ID正则
-var resourceIDRegex = regexp.MustCompile(`^bk\.([^.]+)\.`)
 
 var resourceIDResourceTypePrefixMap = map[constant.APISIXResource]string{
 	constant.Route:          "r",
@@ -47,20 +42,6 @@ var resourceIDResourceTypePrefixMap = map[constant.APISIXResource]string{
 	constant.Proto:          "pb",
 	constant.SSL:            "ss",
 	constant.StreamRoute:    "sr",
-}
-
-var resourcePrefixResourceTypeMap = map[string]constant.APISIXResource{
-	"r":  constant.Route,
-	"u":  constant.Upstream,
-	"s":  constant.Service,
-	"c":  constant.Consumer,
-	"cg": constant.ConsumerGroup,
-	"gr": constant.GlobalRule,
-	"pc": constant.PluginConfig,
-	"pm": constant.PluginMetadata,
-	"pb": constant.Proto,
-	"ss": constant.SSL,
-	"sr": constant.StreamRoute,
 }
 
 var _sf *sonyflake.Sonyflake
@@ -113,27 +94,6 @@ func getLocalIPs() ([]net.IP, error) {
 	return ips, nil
 }
 
-const base64Charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._"
-
-// uint64ToBase64
-func uint64ToBase64(num uint64) string {
-	if num == 0 {
-		return string(base64Charset[0])
-	}
-	var sb strings.Builder
-	for num > 0 {
-		remainder := num % 64
-		sb.WriteByte(base64Charset[remainder])
-		num /= 64
-	}
-	result := sb.String()
-	runes := []rune(result)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
-}
-
 // GenResourceID ...
 func GenResourceID(resourceType constant.APISIXResource) string {
 	uid, err := _sf.NextID()
@@ -141,15 +101,5 @@ func GenResourceID(resourceType constant.APISIXResource) string {
 		panic("get sony flake uid failed:" + err.Error())
 	}
 	prefix := resourceIDResourceTypePrefixMap[resourceType]
-	return fmt.Sprintf("bk.%s.%s", prefix, uint64ToBase64(uid))
-}
-
-// GetResourceTypeFromID ...
-func GetResourceTypeFromID(id string) constant.APISIXResource {
-	// 正则表达式匹配前缀部分
-	matches := resourceIDRegex.FindStringSubmatch(id)
-	if len(matches) != 2 {
-		return ""
-	}
-	return resourcePrefixResourceTypeMap[matches[1]]
+	return fmt.Sprintf("bk.%s.%s", prefix, strconv.FormatUint(uid, 36))
 }

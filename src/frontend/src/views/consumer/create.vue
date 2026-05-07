@@ -79,12 +79,9 @@ import { Form, InfoBox, Message } from 'bkui-vue';
 import { IConsumer, IConsumerConfig } from '@/types/consumer';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, onBeforeMount, ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { getConsumer, postConsumer, putConsumer } from '@/http/consumer';
 import SelectConsumerGroup from '@/components/select/select-consumer-group.vue';
-import Ajv from 'ajv';
-import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
-import { getResourceSchema } from '@/http/schema';
 import useConfigFilter from '@/hooks/use-config-filter';
 import useResourcePageDetector from '@/hooks/use-resource-page-detector';
 import useElementScroll from '@/hooks/use-element-scroll';
@@ -103,11 +100,9 @@ interface ILocalPlugin {
   enabled?: boolean
 }
 
-const ajv = new Ajv();
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { showSchemaErrorMessages } = useSchemaErrorMessage();
 const { showFirstErrorFormItem } = useElementScroll();
 const { filterEmpty } = useConfigFilter();
 const { isEditMode, isCloneMode } = useResourcePageDetector();
@@ -123,7 +118,6 @@ const consumer = ref<IConsumerConfig>({
 });
 
 const enabledPluginList = ref<ILocalPlugin[]>([]);
-const schema = ref<Record<string, any>>({});
 const isPluginConfigManageSliderVisible = ref(false);
 
 const formRef = useTemplateRef<InstanceType<typeof Form>>('form-ref');
@@ -209,41 +203,35 @@ const handleSubmit = async () => {
       config = filterEmpty(config);
     }
 
-    const schemaValidate = ajv.compile(schema.value);
+    const data = {
+      config,
+      username: formModel.value.username,
+      name: formModel.value.username,
+      group_id: formModel.value.group_id,
+    };
 
-    if (schemaValidate(config)) {
-      const data = {
-        config,
-        username: formModel.value.username,
-        name: formModel.value.username,
-        group_id: formModel.value.group_id,
-      };
-
-      InfoBox({
-        title: t('确认提交？'),
-        confirmText: t('提交'),
-        cancelText: t('取消'),
-        onConfirm: async () => {
-          if (isEditMode.value) {
-            await putConsumer({
-              data,
-              id: consumerId.value,
-            });
-          } else {
-            await postConsumer({ data });
-          }
-
-          Message({
-            theme: 'success',
-            message: t('提交成功'),
+    InfoBox({
+      title: t('确认提交？'),
+      confirmText: t('提交'),
+      cancelText: t('取消'),
+      onConfirm: async () => {
+        if (isEditMode.value) {
+          await putConsumer({
+            data,
+            id: consumerId.value,
           });
+        } else {
+          await postConsumer({ data });
+        }
 
-          await router.push({ name: 'consumer', replace: true });
-        },
-      });
-    } else {
-      showSchemaErrorMessages(schemaValidate.errors);
-    }
+        Message({
+          theme: 'success',
+          message: t('提交成功'),
+        });
+
+        await router.push({ name: 'consumer', replace: true });
+      },
+    });
   } catch (e) {
     const error = e as Error;
     showFirstErrorFormItem();
@@ -257,10 +245,6 @@ const handleSubmit = async () => {
 const handleCancelClick = () => {
   router.back();
 };
-
-onBeforeMount(async () => {
-  schema.value = await getResourceSchema({ type: 'consumer' });
-});
 
 </script>
 

@@ -20,7 +20,6 @@ package resourcevalidation
 
 import (
 	"encoding/json"
-	"errors"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	schemax "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
@@ -80,6 +79,7 @@ func NewDatabasePayloadValidator(
 	}, nil
 }
 
+// Validate validates rawConfig with APISIX resource schema first, then DATABASE JSON schema.
 func (v *databasePayloadValidator) Validate(rawConfig json.RawMessage) error {
 	if err := validateResourceSchemaPayload(v.schemaValidator, rawConfig); err != nil {
 		return err
@@ -128,12 +128,4 @@ func validateJSONSchemaPayload(validator schemax.Validator, rawConfig json.RawMe
 		return &ValidationStageError{Stage: ValidationStageJSONSchemaValidate, Err: err}
 	}
 	return nil
-}
-
-func validationStage(err error) ValidationStage {
-	var stageErr *ValidationStageError
-	if !errors.As(err, &stageErr) {
-		return ""
-	}
-	return stageErr.Stage
 }

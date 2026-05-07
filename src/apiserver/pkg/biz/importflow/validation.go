@@ -21,6 +21,7 @@ package importflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
@@ -29,7 +30,6 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
 // ValidateImportedResources validates imported resources with schema and
@@ -42,19 +42,10 @@ func ValidateImportedResources(
 ) error {
 	gatewayInfo := ginx.GetGatewayInfoFromContext(ctx)
 	for resourceType, resource := range resources {
-		schemaValidator, err := schema.NewAPISIXSchemaValidator(
-			gatewayInfo.GetAPISIXVersionX(),
-			"main."+resourceType.String(),
-		)
-		if err != nil {
-			return err
-		}
-		jsonConfigValidator, err := schema.NewAPISIXJsonSchemaValidator(
+		databaseValidator, err := resourcevalidationbiz.NewDatabasePayloadValidator(
 			gatewayInfo.GetAPISIXVersionX(),
 			resourceType,
-			"main."+string(resourceType),
 			allPluginSchemaMap,
-			constant.DATABASE,
 		)
 		if err != nil {
 			return err
@@ -66,11 +57,17 @@ func ValidateImportedResources(
 				string(r.Config),
 			)
 
-			if err = schemaValidator.Validate(configRawForValidation); err != nil {
-				logging.Errorf("schema validate failed, err: %v", err)
-				return err
-			}
-			if err = jsonConfigValidator.Validate(configRawForValidation); err != nil {
+			if err = databaseValidator.Validate(configRawForValidation); err != nil {
+				var stageErr *resourcevalidationbiz.ValidationStageError
+				if errors.As(err, &stageErr) {
+					if stageErr.Stage == resourcevalidationbiz.ValidationStageResourceSchemaValidate {
+						logging.Errorf("schema validate failed, err: %v", stageErr.Err)
+						return stageErr.Err
+					}
+					if stageErr.Stage == resourcevalidationbiz.ValidationStageJSONSchemaValidate {
+						return fmt.Errorf("resource config:%s validate failed, err: %w", r.Config, stageErr.Err)
+					}
+				}
 				return fmt.Errorf("resource config:%s validate failed, err: %w", r.Config, err)
 			}
 

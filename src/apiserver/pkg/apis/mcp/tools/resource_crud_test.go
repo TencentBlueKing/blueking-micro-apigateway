@@ -148,6 +148,27 @@ func TestCreateResourceHandlerInjectsConsumerUsernameIntoConfig(t *testing.T) {
 	assert.Equal(t, constant.ResourceStatusCreateDraft, createdConsumer.Status)
 }
 
+func TestCreateResourceHandlerRejectsInvalidConfig(t *testing.T) {
+	ctx, _ := newMCPToolTestContext(t)
+	inputName := fmt.Sprintf("mcp-route-invalid-create-%d", time.Now().UnixNano())
+
+	result, _, err := createResourceHandler(ctx, nil, CreateResourceInput{
+		ResourceType: constant.Route.String(),
+		Name:         inputName,
+		Config: map[string]any{
+			"uri": 123,
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, mustDecodeResultText(t, result), "validate failed")
+
+	routes, queryErr := resourcebiz.QueryRoutes(ctx, map[string]any{"name": inputName})
+	assert.NoError(t, queryErr)
+	assert.Empty(t, routes)
+}
+
 func TestUpdateResourceHandlerSyncsTypedNameIntoConfig(t *testing.T) {
 	ctx, gateway := newMCPToolTestContext(t)
 	route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusSuccess)
@@ -211,6 +232,35 @@ func TestUpdateResourceHandlerWithoutNamePreservesConfigShape(t *testing.T) {
 	assert.Equal(t, constant.ResourceStatusCreateDraft, updatedRoute.Status)
 }
 
+func TestUpdateResourceHandlerRejectsInvalidConfigWithoutMutatingResource(t *testing.T) {
+	ctx, gateway := newMCPToolTestContext(t)
+	route := data.Route1WithNoRelationResource(gateway, constant.ResourceStatusSuccess)
+	route.Name = fmt.Sprintf("mcp-route-before-invalid-update-%d", time.Now().UnixNano())
+	assert.NoError(t, resourcebiz.CreateRoute(ctx, *route))
+
+	storedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
+	assert.NoError(t, err)
+
+	result, _, err := updateResourceHandler(ctx, nil, UpdateResourceInput{
+		ResourceType: constant.Route.String(),
+		ResourceID:   route.ID,
+		Name:         fmt.Sprintf("mcp-route-after-invalid-update-%d", time.Now().UnixNano()),
+		Config: map[string]any{
+			"uri": 123,
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, mustDecodeResultText(t, result), "validate failed")
+
+	updatedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, storedRoute.Name, updatedRoute.Name)
+	assert.JSONEq(t, string(storedRoute.Config), string(updatedRoute.Config))
+	assert.Equal(t, storedRoute.Status, updatedRoute.Status)
+}
+
 func newMCPToolTestContext(t *testing.T) (context.Context, *model.Gateway) {
 	t.Helper()
 
@@ -237,6 +287,24 @@ func mustDecodeConfigMap(t *testing.T, raw []byte) map[string]any {
 	assert.NoError(t, err)
 
 	return config
+}
+
+func mustDecodeResultText(t *testing.T, result *mcp.CallToolResult) string {
+	t.Helper()
+
+	if !assert.NotNil(t, result) {
+		return ""
+	}
+	if !assert.Len(t, result.Content, 1) {
+		return ""
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !assert.True(t, ok) {
+		return ""
+	}
+
+	return textContent.Text
 }
 
 func mustDecodeResultPayload(t *testing.T, result *mcp.CallToolResult) map[string]any {

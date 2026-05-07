@@ -30,6 +30,7 @@ import (
 	"gorm.io/datatypes"
 
 	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
@@ -414,6 +415,68 @@ func TestValidateImportedResources(t *testing.T) {
 		nil,
 	)
 	assert.ErrorContains(t, err, "associated upstream [id:up-missing] not found")
+}
+
+func TestValidateImportedResourcesUsesSharedDatabaseValidator(t *testing.T) {
+	ctx := ginx.SetGatewayInfoToContext(
+		context.Background(),
+		&model.Gateway{APISIXVersion: string(constant.APISIXVersion313)},
+	)
+
+	customPluginSchemaMap := map[string]any{
+		"custom-plugin": map[string]any{"type": "object"},
+	}
+	var gotVersion constant.APISIXVersion
+	var gotResourceType constant.APISIXResource
+	var gotCustomPluginSchemaMap map[string]any
+	var gotPayloads []json.RawMessage
+
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(
+		resourcevalidationbiz.NewDatabasePayloadValidator,
+		func(
+			version constant.APISIXVersion,
+			resourceType constant.APISIXResource,
+			customizePluginSchemaMap map[string]any,
+		) (resourcevalidationbiz.DatabasePayloadValidator, error) {
+			gotVersion = version
+			gotResourceType = resourceType
+			gotCustomPluginSchemaMap = customizePluginSchemaMap
+			return importflowCaptureValidator{
+				validate: func(raw json.RawMessage) error {
+					gotPayloads = append(gotPayloads, append(json.RawMessage(nil), raw...))
+					return nil
+				},
+			}, nil
+		},
+	)
+	defer patches.Reset()
+
+	err := ValidateImportedResources(
+		ctx,
+		map[constant.APISIXResource][]*model.GatewaySyncData{
+			constant.Route: {
+				{
+					Type: constant.Route,
+					ID:   "route-1",
+					Config: datatypes.JSON(
+						[]byte(`{"id":"route-1","name":"route-1","uris":["/route-1"]}`),
+					),
+				},
+			},
+		},
+		map[string]struct{}{},
+		customPluginSchemaMap,
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, constant.APISIXVersion313, gotVersion)
+	assert.Equal(t, constant.Route, gotResourceType)
+	assert.Equal(t, customPluginSchemaMap, gotCustomPluginSchemaMap)
+	if assert.Len(t, gotPayloads, 1) {
+		assert.JSONEq(t, `{"id":"route-1","name":"route-1","uris":["/route-1"]}`, string(gotPayloads[0]))
+	}
 }
 
 func TestValidateImportedResourcesBuildsValidatorsOncePerResourceType(t *testing.T) {

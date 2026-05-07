@@ -25,13 +25,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
-
-	"github.com/tidwall/sjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -873,45 +870,4 @@ func GetResourceUpdateStatus(
 		updateStatus = constant.ResourceStatusCreateDraft
 	}
 	return updateStatus, nil
-}
-
-// InjectGeneratedIDForValidation injects a server-side resource ID only for validation time.
-// Callers decide the ID source; this helper only applies the schema/version rule consistently.
-func InjectGeneratedIDForValidation(
-	rawConfig json.RawMessage,
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	resourceID string,
-) json.RawMessage {
-	if !constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) || resourceID == "" {
-		return rawConfig
-	}
-	if gjson.GetBytes(rawConfig, "id").Exists() {
-		return rawConfig
-	}
-	// FIXME: config modified logical
-	rawConfig, _ = sjson.SetBytes(rawConfig, "id", resourceID)
-	return rawConfig
-}
-
-// BuildConfigRawForValidation 构建配置用于验证
-// FIXME: maybe we should refactor this to `remove` the Name from the r.Config totally,
-// FIXME: instead of hack in validation
-func BuildConfigRawForValidation(
-	configRaw string,
-	resourceType constant.APISIXResource,
-	apisixVersion constant.APISIXVersion,
-) json.RawMessage {
-	configRawForValidationBytes := make([]byte, len(configRaw))
-	copy(configRawForValidationBytes, configRaw)
-	configRawForValidation := json.RawMessage(configRawForValidationBytes)
-
-	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id", apisixVersion) {
-		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "id")
-	}
-	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "name", apisixVersion) {
-		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "name")
-	}
-
-	return configRawForValidation
 }

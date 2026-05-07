@@ -60,7 +60,6 @@ var ValidResourceStatuses = []string{
 
 // ValidAPISIXVersions lists APISIX versions for schema validation tools.
 var ValidAPISIXVersions = []string{
-	string(constant.APISIXVersion311),
 	string(constant.APISIXVersion313),
 }
 
@@ -133,7 +132,7 @@ func parseResourceType(resourceType string) (constant.APISIXResource, error) {
 func parseAPISIXVersion(version string) (constant.APISIXVersion, error) {
 	v := constant.APISIXVersion(version)
 	switch v {
-	case constant.APISIXVersion311, constant.APISIXVersion313:
+	case constant.APISIXVersion313:
 		return v, nil
 	default:
 		return "", fmt.Errorf("invalid APISIX version: %s", version)
@@ -171,7 +170,7 @@ func errorResult(err error) *mcp.CallToolResult {
 // APISIXVersionDescription returns a description of valid APISIX versions
 func APISIXVersionDescription() string {
 	return fmt.Sprintf(
-		"One of: %s. Note: gateway-bound MCP operations require APISIX 3.13.X.",
+		"One of: %s. Future MCP-supported versions must be added explicitly.",
 		strings.Join(ValidAPISIXVersions, ", "),
 	)
 }

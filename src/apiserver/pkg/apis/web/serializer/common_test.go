@@ -25,9 +25,11 @@ import (
 	"sync"
 	"testing"
 
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
@@ -57,8 +59,80 @@ func newWebSerializerValidationContext(t *testing.T, gateway *model.Gateway) *gi
 	return c
 }
 
+type webCaptureDatabasePayloadValidator struct {
+	validate func(json.RawMessage) error
+}
+
+func (v webCaptureDatabasePayloadValidator) Validate(raw json.RawMessage) error {
+	if v.validate != nil {
+		return v.validate(raw)
+	}
+	return nil
+}
+
 func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
 	initWebSerializerTestEnv()
+
+	t.Run("delegates prepared payload to shared database runner", func(t *testing.T) {
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1100, APISIXVersion: "3.13.0"})
+		req := ConsumerGroupInfo{
+			ID:   "cg-generated-id",
+			Name: "consumer-group-probe",
+			Config: json.RawMessage(`{
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`),
+		}
+		var gotVersion constant.APISIXVersion
+		var gotResourceType constant.APISIXResource
+		var gotPayload json.RawMessage
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(
+			resourcevalidationbiz.NewDatabasePayloadValidator,
+			func(
+				version constant.APISIXVersion,
+				resourceType constant.APISIXResource,
+				customPluginSchemaMap map[string]any,
+			) (resourcevalidationbiz.DatabasePayloadValidator, error) {
+				gotVersion = version
+				gotResourceType = resourceType
+				return webCaptureDatabasePayloadValidator{
+					validate: func(raw json.RawMessage) error {
+						gotPayload = append(json.RawMessage(nil), raw...)
+						return nil
+					},
+				}, nil
+			},
+		)
+
+		err := validation.ValidateStruct(ctx.Request.Context(), &req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, constant.APISIXVersion313, gotVersion)
+		assert.Equal(t, constant.ConsumerGroup, gotResourceType)
+		assert.JSONEq(
+			t,
+			`{
+				"id": "cg-generated-id",
+				"plugins": {
+					"limit-count": {
+						"count": 100,
+						"time_window": 60,
+						"key": "remote_addr",
+						"policy": "local"
+					}
+				}
+			}`,
+			string(gotPayload),
+		)
+	})
 
 	t.Run("identity fallback uses outer name when config has no id", func(t *testing.T) {
 		t.Parallel()
@@ -133,184 +207,4 @@ func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
 
 		assert.NoError(t, validation.ValidateStruct(ctx.Request.Context(), &req))
 	})
-}
-
-func TestResolveWebValidationIdentity(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name             string
-		input            webValidationInput
-		wantIdentity     string
-		wantUsedFallback bool
-	}{
-		{
-			name: "falls back to provided identity when config id is absent",
-			input: webValidationInput{
-				RawConfig:        json.RawMessage(`{"plugins":{}}`),
-				FallbackIdentity: "route-a",
-			},
-			wantIdentity:     "route-a",
-			wantUsedFallback: true,
-		},
-		{
-			name: "existing config id wins",
-			input: webValidationInput{
-				RawConfig:        json.RawMessage(`{"id":"route-fixed","plugins":{}}`),
-				FallbackIdentity: "route-a",
-			},
-			wantIdentity:     "route-fixed",
-			wantUsedFallback: false,
-		},
-		{
-			name: "empty fallback is preserved when no config id exists",
-			input: webValidationInput{
-				RawConfig: json.RawMessage(`{"plugins":{}}`),
-			},
-			wantIdentity:     "",
-			wantUsedFallback: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotIdentity, gotUsedFallback := resolveWebValidationIdentity(tt.input)
-			assert.Equal(t, tt.wantIdentity, gotIdentity)
-			assert.Equal(t, tt.wantUsedFallback, gotUsedFallback)
-		})
-	}
-}
-
-func TestPrepareWebValidationPayload(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		input        webValidationInput
-		wantPayload  string
-		wantIdentity string
-	}{
-		{
-			name: "consumer group injects generated id and then uses that id as identity on 3.13",
-			input: webValidationInput{
-				ResourceType:     constant.ConsumerGroup,
-				Version:          constant.APISIXVersion313,
-				ResourceID:       "cg-generated-id",
-				FallbackIdentity: "cg-demo",
-				RawConfig:        json.RawMessage(`{"plugins":{}}`),
-			},
-			wantPayload:  `{"plugins":{},"id":"cg-generated-id"}`,
-			wantIdentity: "cg-generated-id",
-		},
-		{
-			name: "proto on 3.11 keeps name out of payload",
-			input: webValidationInput{
-				ResourceType:     constant.Proto,
-				Version:          constant.APISIXVersion311,
-				FallbackIdentity: "proto-demo",
-				RawConfig:        json.RawMessage(`{"content":"syntax = \"proto3\";"}`),
-			},
-			wantPayload:  `{"content":"syntax = \"proto3\";"}`,
-			wantIdentity: "proto-demo",
-		},
-		{
-			name: "plugin metadata uses outer name as id on update-like input",
-			input: webValidationInput{
-				ResourceType:     constant.PluginMetadata,
-				Version:          constant.APISIXVersion313,
-				ResourceID:       "existing-plugin-metadata-id",
-				Name:             "authz-casbin",
-				FallbackIdentity: "authz-casbin",
-				RawConfig: json.RawMessage(`{
-					"model": "rbac_model.conf",
-					"policy": "rbac_policy.csv"
-				}`),
-			},
-			wantPayload: `{
-				"model": "rbac_model.conf",
-				"policy": "rbac_policy.csv",
-				"id": "authz-casbin"
-			}`,
-			wantIdentity: "authz-casbin",
-		},
-		{
-			name: "ssl never injects name",
-			input: webValidationInput{
-				ResourceType:     constant.SSL,
-				Version:          constant.APISIXVersion313,
-				FallbackIdentity: "ssl-demo",
-				RawConfig:        json.RawMessage(`{"cert":"demo","key":"demo","snis":["demo.com"]}`),
-			},
-			wantPayload:  `{"cert":"demo","key":"demo","snis":["demo.com"]}`,
-			wantIdentity: "ssl-demo",
-		},
-		{
-			name: "existing config id stays authoritative when fallback is empty",
-			input: webValidationInput{
-				ResourceType: constant.ConsumerGroup,
-				Version:      constant.APISIXVersion313,
-				ResourceID:   "cg-generated-id",
-				RawConfig:    json.RawMessage(`{"id":"cg-fixed","plugins":{}}`),
-			},
-			wantPayload:  `{"id":"cg-fixed","plugins":{}}`,
-			wantIdentity: "cg-fixed",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotPayload, gotIdentity := prepareWebValidationPayload(tt.input)
-			assert.JSONEq(t, tt.wantPayload, string(gotPayload))
-			assert.Equal(t, tt.wantIdentity, gotIdentity)
-		})
-	}
-}
-
-func TestShouldInjectResourceNameForValidation(t *testing.T) {
-	tests := []struct {
-		name         string
-		resourceType constant.APISIXResource
-		version      constant.APISIXVersion
-		want         bool
-	}{
-		{
-			name:         "inject consumer username",
-			resourceType: constant.Consumer,
-			version:      constant.APISIXVersion313,
-			want:         true,
-		},
-		{
-			name:         "inject route name",
-			resourceType: constant.Route,
-			version:      constant.APISIXVersion311,
-			want:         true,
-		},
-		{
-			name:         "do not inject ssl name",
-			resourceType: constant.SSL,
-			version:      constant.APISIXVersion313,
-			want:         false,
-		},
-		{
-			name:         "do not inject proto name on old schema",
-			resourceType: constant.Proto,
-			version:      constant.APISIXVersion311,
-			want:         false,
-		},
-		{
-			name:         "inject proto name on 3.13",
-			resourceType: constant.Proto,
-			version:      constant.APISIXVersion313,
-			want:         true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := shouldInjectResourceNameForValidation(tt.resourceType, tt.version)
-			if got != tt.want {
-				t.Fatalf("unexpected result: got %v want %v", got, tt.want)
-			}
-		})
-	}
 }

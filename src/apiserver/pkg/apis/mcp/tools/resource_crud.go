@@ -28,6 +28,7 @@ import (
 
 	mcpbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/mcp"
 	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
@@ -286,6 +287,26 @@ func createResourceHandler(
 		return errorResult(err), nil, nil
 	}
 
+	validationPayload, err := resourcevalidationbiz.PrepareMCPDatabaseValidationPayload(
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		string(config),
+		resourceID,
+		input.Name,
+	)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	err = validateMCPDatabaseResourceConfig(
+		ctx,
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		validationPayload,
+	)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+
 	resource := buildMCPCreateDraft(gateway.ID, resourceID, config)
 
 	// Convert to specific resource type and create
@@ -338,6 +359,26 @@ func updateResourceHandler(
 	}
 
 	config, err := prepareMCPUpdateConfig(resourceType, input.Config, input.Name)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+
+	validationPayload, err := resourcevalidationbiz.PrepareMCPDatabaseValidationPayload(
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		string(config),
+		input.ResourceID,
+		input.Name,
+	)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	err = validateMCPDatabaseResourceConfig(
+		ctx,
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		validationPayload,
+	)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}

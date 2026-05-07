@@ -134,6 +134,7 @@ func TestPrepareOpenValidationPayload(t *testing.T) {
 			configRaw:    `{"plugins":{}}`,
 			assertPayload: func(t *testing.T, payload string) {
 				t.Helper()
+				assert.True(t, gjson.Get(payload, "id").Exists())
 				assert.NotEmpty(t, gjson.Get(payload, "id").String())
 			},
 		},
@@ -148,6 +149,27 @@ func TestPrepareOpenValidationPayload(t *testing.T) {
 			},
 		},
 		{
+			name:         "plugin config on 3.3 does not inject id",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion33,
+			configRaw:    `{"plugins":{}}`,
+			assertPayload: func(t *testing.T, payload string) {
+				t.Helper()
+				assert.False(t, gjson.Get(payload, "id").Exists())
+				assert.JSONEq(t, `{"plugins":{}}`, payload)
+			},
+		},
+		{
+			name:         "consumer strips id and name before validation",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"id":"consumer-id","name":"consumer-demo","username":"consumer-demo","plugins":{}}`,
+			assertPayload: func(t *testing.T, payload string) {
+				t.Helper()
+				assert.JSONEq(t, `{"username":"consumer-demo","plugins":{}}`, payload)
+			},
+		},
+		{
 			name:         "proto on 3.11 strips unsupported name before validation",
 			resourceType: constant.Proto,
 			version:      constant.APISIXVersion311,
@@ -156,6 +178,16 @@ func TestPrepareOpenValidationPayload(t *testing.T) {
 				t.Helper()
 				assert.False(t, gjson.Get(payload, "name").Exists())
 				assert.Equal(t, `syntax = "proto3";`, gjson.Get(payload, "content").String())
+			},
+		},
+		{
+			name:         "route keeps supported id and name",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"id":"route-id","name":"route-demo","uri":"/demo"}`,
+			assertPayload: func(t *testing.T, payload string) {
+				t.Helper()
+				assert.JSONEq(t, `{"id":"route-id","name":"route-demo","uri":"/demo"}`, payload)
 			},
 		},
 	}
@@ -171,13 +203,61 @@ func TestPrepareOpenValidationPayload(t *testing.T) {
 func TestPrepareImportValidationPayload(t *testing.T) {
 	t.Parallel()
 
-	payload := PrepareImportValidationPayload(
-		constant.APISIXVersion313,
-		constant.Consumer,
-		`{"id":"consumer-id","name":"consumer-demo","username":"consumer-demo","plugins":{}}`,
-	)
+	tests := []struct {
+		name         string
+		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
+		configRaw    string
+		wantPayload  string
+	}{
+		{
+			name:         "consumer strips id and name",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"id":"consumer-id","name":"consumer-demo","username":"consumer-demo","plugins":{}}`,
+			wantPayload:  `{"username":"consumer-demo","plugins":{}}`,
+		},
+		{
+			name:         "consumer group missing id stays missing because import does not inject ids",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"plugins":{}}`,
+			wantPayload:  `{"plugins":{}}`,
+		},
+		{
+			name:         "global rule keeps id and strips unsupported name",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"id":"global-rule-id","name":"global-rule-demo","plugins":{}}`,
+			wantPayload:  `{"id":"global-rule-id","plugins":{}}`,
+		},
+		{
+			name:         "proto 3.11 strips unsupported name",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion311,
+			configRaw:    `{"name":"proto-demo","content":"syntax = \"proto3\";"}`,
+			wantPayload:  `{"content":"syntax = \"proto3\";"}`,
+		},
+		{
+			name:         "route 3.13 keeps supported id and name",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion313,
+			configRaw:    `{"id":"route-id","name":"route-demo","uri":"/demo"}`,
+			wantPayload:  `{"id":"route-id","name":"route-demo","uri":"/demo"}`,
+		},
+	}
 
-	assert.JSONEq(t, `{"username":"consumer-demo","plugins":{}}`, string(payload))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload := PrepareImportValidationPayload(
+				tt.version,
+				tt.resourceType,
+				tt.configRaw,
+			)
+
+			assert.JSONEq(t, tt.wantPayload, string(payload))
+		})
+	}
 }
 
 func TestResolveWebValidationIdentity(t *testing.T) {
@@ -264,6 +344,24 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 			wantIdentity:     "route-demo",
 		},
 		{
+			name:             "existing config name wins over fallback identity",
+			resourceType:     constant.Route,
+			version:          constant.APISIXVersion313,
+			configRaw:        `{"name":"route-fixed","uri":"/demo"}`,
+			fallbackIdentity: "route-demo",
+			wantPayload:      `{"name":"route-fixed","uri":"/demo"}`,
+			wantIdentity:     "route-fixed",
+		},
+		{
+			name:             "route with empty fallback identity still injects empty name",
+			resourceType:     constant.Route,
+			version:          constant.APISIXVersion313,
+			configRaw:        `{"uri":"/demo"}`,
+			fallbackIdentity: "",
+			wantPayload:      `{"uri":"/demo","name":""}`,
+			wantIdentity:     "",
+		},
+		{
 			name:             "consumer uses fallback identity as validation username",
 			resourceType:     constant.Consumer,
 			version:          constant.APISIXVersion313,
@@ -271,6 +369,25 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 			fallbackIdentity: "consumer-demo",
 			wantPayload:      `{"plugins":{},"username":"consumer-demo"}`,
 			wantIdentity:     "consumer-demo",
+		},
+		{
+			name:             "proto on 3.13 uses fallback identity as validation name",
+			resourceType:     constant.Proto,
+			version:          constant.APISIXVersion313,
+			configRaw:        `{"content":"syntax = \"proto3\";"}`,
+			fallbackIdentity: "proto-demo",
+			wantPayload:      `{"content":"syntax = \"proto3\";","name":"proto-demo"}`,
+			wantIdentity:     "proto-demo",
+		},
+		{
+			name:             "consumer group without resource id uses fallback identity as validation name on 3.13",
+			resourceType:     constant.ConsumerGroup,
+			version:          constant.APISIXVersion313,
+			configRaw:        `{"plugins":{}}`,
+			resourceID:       "",
+			fallbackIdentity: "consumer-group-demo",
+			wantPayload:      `{"plugins":{},"name":"consumer-group-demo"}`,
+			wantIdentity:     "consumer-group-demo",
 		},
 		{
 			name:             "plugin metadata uses outer name as id on update-like input",
@@ -282,6 +399,16 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 			fallbackIdentity: "authz-casbin",
 			wantPayload:      `{"model":"rbac_model.conf","policy":"rbac_policy.csv","id":"authz-casbin"}`,
 			wantIdentity:     "authz-casbin",
+		},
+		{
+			name:             "plugin metadata returns fallback identity even though id is set from outer name",
+			resourceType:     constant.PluginMetadata,
+			version:          constant.APISIXVersion313,
+			configRaw:        `{"value":{"regex_uri":["^/old","/new"]}}`,
+			nameValue:        "proxy-rewrite",
+			fallbackIdentity: "metadata-display",
+			wantPayload:      `{"value":{"regex_uri":["^/old","/new"]},"id":"proxy-rewrite"}`,
+			wantIdentity:     "metadata-display",
 		},
 		{
 			name:             "ssl never injects name",
@@ -325,64 +452,128 @@ func TestPrepareMCPDatabaseValidationPayload(t *testing.T) {
 	tests := []struct {
 		name         string
 		resourceType constant.APISIXResource
+		version      constant.APISIXVersion
 		resourceID   string
 		nameValue    string
 		configRaw    string
-		assertConfig func(t *testing.T, config []byte)
+		wantPayload  string
 	}{
 		{
 			name:         "consumer group injects generated id",
 			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
 			resourceID:   "consumer-group-id",
 			nameValue:    "consumer-group-demo",
 			configRaw:    `{"plugins":{}}`,
-			assertConfig: func(t *testing.T, config []byte) {
-				assert.Equal(t, "consumer-group-id", gjson.GetBytes(config, "id").String())
-				assert.False(t, gjson.GetBytes(config, "name").Exists())
-			},
+			wantPayload:  `{"plugins":{},"id":"consumer-group-id"}`,
+		},
+		{
+			name:         "existing config id wins over resource id",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
+			resourceID:   "consumer-group-generated-id",
+			nameValue:    "consumer-group-demo",
+			configRaw:    `{"id":"consumer-group-fixed","plugins":{}}`,
+			wantPayload:  `{"id":"consumer-group-fixed","plugins":{}}`,
+		},
+		{
+			name:         "empty resource id does not inject id",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion313,
+			resourceID:   "",
+			nameValue:    "consumer-group-demo",
+			configRaw:    `{"plugins":{}}`,
+			wantPayload:  `{"plugins":{},"name":"consumer-group-demo"}`,
 		},
 		{
 			name:         "route injects name when config has no identity",
 			resourceType: constant.Route,
+			version:      constant.APISIXVersion313,
 			resourceID:   "route-id",
 			nameValue:    "route-demo",
 			configRaw:    `{"uri":"/demo"}`,
-			assertConfig: func(t *testing.T, config []byte) {
-				assert.Equal(t, "route-demo", gjson.GetBytes(config, "name").String())
-			},
+			wantPayload:  `{"uri":"/demo","name":"route-demo"}`,
+		},
+		{
+			name:         "route existing name is not overwritten",
+			resourceType: constant.Route,
+			version:      constant.APISIXVersion313,
+			resourceID:   "route-id",
+			nameValue:    "route-demo",
+			configRaw:    `{"name":"route-fixed","uri":"/demo"}`,
+			wantPayload:  `{"name":"route-fixed","uri":"/demo"}`,
 		},
 		{
 			name:         "global rule strips persisted name before validation",
 			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion313,
 			resourceID:   "global-rule-id",
 			nameValue:    "global-rule-demo",
 			configRaw:    `{"name":"global-rule-demo","plugins":{}}`,
-			assertConfig: func(t *testing.T, config []byte) {
-				assert.Equal(t, "global-rule-id", gjson.GetBytes(config, "id").String())
-				assert.False(t, gjson.GetBytes(config, "name").Exists())
-			},
+			wantPayload:  `{"plugins":{},"id":"global-rule-id"}`,
 		},
 		{
 			name:         "consumer strips id and name before validation",
 			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
 			resourceID:   "consumer-id",
 			nameValue:    "consumer-demo",
 			configRaw:    `{"id":"consumer-id","name":"consumer-demo","username":"consumer-demo","plugins":{}}`,
-			assertConfig: func(t *testing.T, config []byte) {
-				assert.False(t, gjson.GetBytes(config, "id").Exists())
-				assert.False(t, gjson.GetBytes(config, "name").Exists())
-				assert.Equal(t, "consumer-demo", gjson.GetBytes(config, "username").String())
-			},
+			wantPayload:  `{"username":"consumer-demo","plugins":{}}`,
+		},
+		{
+			name:         "consumer missing identity injects username",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion313,
+			resourceID:   "consumer-id",
+			nameValue:    "consumer-demo",
+			configRaw:    `{"plugins":{}}`,
+			wantPayload:  `{"plugins":{},"username":"consumer-demo"}`,
+		},
+		{
+			name:         "proto 3.11 does not inject unsupported name",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion311,
+			resourceID:   "proto-id",
+			nameValue:    "proto-demo",
+			configRaw:    `{"content":"syntax = \"proto3\";"}`,
+			wantPayload:  `{"content":"syntax = \"proto3\";"}`,
+		},
+		{
+			name:         "proto 3.13 injects name",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion313,
+			resourceID:   "proto-id",
+			nameValue:    "proto-demo",
+			configRaw:    `{"content":"syntax = \"proto3\";"}`,
+			wantPayload:  `{"content":"syntax = \"proto3\";","name":"proto-demo"}`,
+		},
+		{
+			name:         "ssl never injects name",
+			resourceType: constant.SSL,
+			version:      constant.APISIXVersion313,
+			resourceID:   "ssl-id",
+			nameValue:    "ssl-demo",
+			configRaw:    `{"cert":"demo","key":"demo","snis":["demo.com"]}`,
+			wantPayload:  `{"cert":"demo","key":"demo","snis":["demo.com"]}`,
 		},
 		{
 			name:         "plugin metadata uses outer name as validation id",
 			resourceType: constant.PluginMetadata,
+			version:      constant.APISIXVersion313,
 			resourceID:   "plugin-metadata-id",
 			nameValue:    "proxy-rewrite",
 			configRaw:    `{"value":{"regex_uri":["^/old","/new"]}}`,
-			assertConfig: func(t *testing.T, config []byte) {
-				assert.Equal(t, "proxy-rewrite", gjson.GetBytes(config, "id").String())
-			},
+			wantPayload:  `{"value":{"regex_uri":["^/old","/new"]},"id":"proxy-rewrite"}`,
+		},
+		{
+			name:         "plugin metadata empty name does not inject id",
+			resourceType: constant.PluginMetadata,
+			version:      constant.APISIXVersion313,
+			resourceID:   "plugin-metadata-id",
+			nameValue:    "",
+			configRaw:    `{"value":{"regex_uri":["^/old","/new"]}}`,
+			wantPayload:  `{"value":{"regex_uri":["^/old","/new"]}}`,
 		},
 	}
 
@@ -391,7 +582,7 @@ func TestPrepareMCPDatabaseValidationPayload(t *testing.T) {
 			originalConfig := tt.configRaw
 
 			config, err := PrepareMCPDatabaseValidationPayload(
-				constant.APISIXVersion313,
+				tt.version,
 				tt.resourceType,
 				tt.configRaw,
 				tt.resourceID,
@@ -399,7 +590,7 @@ func TestPrepareMCPDatabaseValidationPayload(t *testing.T) {
 			)
 
 			assert.NoError(t, err)
-			tt.assertConfig(t, config)
+			assert.JSONEq(t, tt.wantPayload, string(config))
 			assert.JSONEq(t, originalConfig, tt.configRaw)
 		})
 	}

@@ -457,9 +457,11 @@ func TestValidateImportedResourcesUsesSharedDatabaseValidator(t *testing.T) {
 		map[constant.APISIXResource][]*model.GatewaySyncData{
 			constant.Route: {
 				{
-					Type:   constant.Route,
-					ID:     "route-1",
-					Config: datatypes.JSON([]byte(`{"id":"route-1","name":"route-1","uris":["/route-1"]}`)),
+					Type: constant.Route,
+					ID:   "route-1",
+					Config: datatypes.JSON(
+						[]byte(`{"id":"route-1","name":"route-1","uris":["/route-1"]}`),
+					),
 				},
 			},
 		},

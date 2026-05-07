@@ -182,7 +182,10 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				if stderrors.As(err, &stageErr) &&
 					stageErr.Stage == resourcevalidationbiz.ValidationStageResourceSchemaValidate {
 					logging.Errorf("schema validate failed, err: %v", stageErr.Err)
-					ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(stageErr.Err, "config validate failed"))
+					ginx.BadRequestErrorJSONResponse(
+						c,
+						errors.Wrapf(stageErr.Err, "config validate failed"),
+					)
 				} else {
 					validateErr := err
 					if stageErr != nil {

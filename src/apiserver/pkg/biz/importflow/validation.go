@@ -65,7 +65,11 @@ func ValidateImportedResources(
 						return stageErr.Err
 					}
 					if stageErr.Stage == resourcevalidationbiz.ValidationStageJSONSchemaValidate {
-						return fmt.Errorf("resource config:%s validate failed, err: %w", r.Config, stageErr.Err)
+						return fmt.Errorf(
+							"resource config:%s validate failed, err: %w",
+							r.Config,
+							stageErr.Err,
+						)
 					}
 				}
 				return fmt.Errorf("resource config:%s validate failed, err: %w", r.Config, err)

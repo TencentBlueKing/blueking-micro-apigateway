@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 
@@ -178,13 +179,20 @@ func ResourcesDiffAll(c *gin.Context) {
 //	@Success	200			{object}	serializer.ResourceDiffResponse
 //	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/{type}/diff/ [post]
 func ResourcesDiff(c *gin.Context) {
+	resourceType := constant.APISIXResource(c.Param("type"))
+	if !isSupportedDiffResourceType(resourceType) {
+		// 批量发布会统一调用 diff；暂未映射到 APISIX 资源的批量操作类型先返回空 diff，避免阻塞发布流程。
+		ginx.SuccessJSONResponse(c, serializer.ResourceDiffResponse{})
+		return
+	}
+
 	var req serializer.ResourceDiffRequest
 	if err := validation.BindAndValidate(c, &req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
 	result, err := diffbiz.DiffResources(c.Request.Context(),
-		constant.APISIXResource(c.Param("type")),
+		resourceType,
 		req.ResourceIDList,
 		req.Name,
 		serializer.OperationTypeToResourceStatus(req.OperationType),
@@ -195,6 +203,10 @@ func ResourcesDiff(c *gin.Context) {
 		return
 	}
 	ginx.SuccessJSONResponse(c, result)
+}
+
+func isSupportedDiffResourceType(resourceType constant.APISIXResource) bool {
+	return slices.Contains(constant.ResourceTypeList, resourceType)
 }
 
 // ResourceConfigDiffDetail  资源配置详情对比 ...

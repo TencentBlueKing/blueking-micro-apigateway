@@ -6051,12 +6051,12 @@
         "type": "object",
         "properties": {
           "action": {
-            "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
+            "pattern": "^([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)$",
             "type": "string",
             "maxLength": 256
           },
           "package": {
-            "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
+            "pattern": "^([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)$",
             "type": "string",
             "maxLength": 256
           },
@@ -6120,7 +6120,7 @@
             "type": "integer"
           },
           "namespace": {
-            "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
+            "pattern": "^([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)$",
             "type": "string",
             "maxLength": 256
           },

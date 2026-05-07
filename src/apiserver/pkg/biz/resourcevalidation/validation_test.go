@@ -111,6 +111,88 @@ func TestValidateDatabaseResourceConfigDoesNotRewritePayload(t *testing.T) {
 	assert.JSONEq(t, string(originalRaw), string(rawConfig))
 }
 
+func TestValidateDatabaseResourceConfigSkipsCustomSchemaLookupWhenSchemaValidationFails(t *testing.T) {
+	ctx := newResourceValidationTestContext()
+	expectedErr := errors.New("schema validate failed")
+	customSchemaLookupCalled := false
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(
+		schemax.NewAPISIXSchemaValidator,
+		func(version constant.APISIXVersion, jsonPath string) (schemax.Validator, error) {
+			return captureValidator{
+				validate: func(raw json.RawMessage) error {
+					return expectedErr
+				},
+			}, nil
+		},
+	)
+	patches.ApplyFunc(
+		schemabiz.GetCustomizePluginSchemaMap,
+		func(ctx context.Context) (map[string]any, error) {
+			customSchemaLookupCalled = true
+			return map[string]any{}, nil
+		},
+	)
+
+	err := ValidateDatabaseResourceConfig(ctx, Input{
+		Version:                constant.APISIXVersion313,
+		ResourceType:           constant.Route,
+		ResourceIdentification: "route-demo",
+		RawConfig:              json.RawMessage(`{"uri":"/demo"}`),
+	})
+
+	assert.ErrorIs(t, err, expectedErr)
+	assert.Contains(t, err.Error(), "resource:route-demo validate failed")
+	assert.False(t, customSchemaLookupCalled)
+}
+
+func TestValidateDatabaseResourceConfigBuildsDatabaseJsonValidatorWithCustomSchemaMap(t *testing.T) {
+	ctx := newResourceValidationTestContext()
+	customSchemaMap := map[string]any{"custom-plugin": map[string]any{"type": "object"}}
+	var gotMap map[string]any
+	var gotDataType constant.DataType
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(
+		schemax.NewAPISIXSchemaValidator,
+		func(version constant.APISIXVersion, jsonPath string) (schemax.Validator, error) {
+			return captureValidator{}, nil
+		},
+	)
+	patches.ApplyFunc(
+		schemabiz.GetCustomizePluginSchemaMap,
+		func(ctx context.Context) (map[string]any, error) {
+			return customSchemaMap, nil
+		},
+	)
+	patches.ApplyFunc(
+		schemax.NewAPISIXJsonSchemaValidator,
+		func(
+			version constant.APISIXVersion,
+			resourceType constant.APISIXResource,
+			jsonPath string,
+			customizePluginSchemaMap map[string]any,
+			dataType constant.DataType,
+		) (schemax.Validator, error) {
+			gotMap = customizePluginSchemaMap
+			gotDataType = dataType
+			return captureValidator{}, nil
+		},
+	)
+
+	err := ValidateDatabaseResourceConfig(ctx, Input{
+		Version:                constant.APISIXVersion313,
+		ResourceType:           constant.Route,
+		ResourceIdentification: "route-demo",
+		RawConfig:              json.RawMessage(`{"uri":"/demo"}`),
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, customSchemaMap, gotMap)
+	assert.Equal(t, constant.DATABASE, gotDataType)
+}
+
 func TestValidateDatabaseResourceConfigReturnsCustomSchemaMapError(t *testing.T) {
 	ctx := newResourceValidationTestContext()
 	expectedErr := errors.New("custom schema lookup failed")

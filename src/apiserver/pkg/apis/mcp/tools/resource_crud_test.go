@@ -162,6 +162,7 @@ func TestCreateResourceHandlerRejectsInvalidConfig(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.True(t, result.IsError)
+	assert.Contains(t, mustDecodeResultText(t, result), "validate failed")
 
 	routes, queryErr := resourcebiz.QueryRoutes(ctx, map[string]any{"name": inputName})
 	assert.NoError(t, queryErr)
@@ -251,6 +252,7 @@ func TestUpdateResourceHandlerRejectsInvalidConfigWithoutMutatingResource(t *tes
 
 	assert.NoError(t, err)
 	assert.True(t, result.IsError)
+	assert.Contains(t, mustDecodeResultText(t, result), "validate failed")
 
 	updatedRoute, err := resourcebiz.GetRoute(ctx, route.ID)
 	assert.NoError(t, err)
@@ -285,6 +287,24 @@ func mustDecodeConfigMap(t *testing.T, raw []byte) map[string]any {
 	assert.NoError(t, err)
 
 	return config
+}
+
+func mustDecodeResultText(t *testing.T, result *mcp.CallToolResult) string {
+	t.Helper()
+
+	if !assert.NotNil(t, result) {
+		return ""
+	}
+	if !assert.Len(t, result.Content, 1) {
+		return ""
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !assert.True(t, ok) {
+		return ""
+	}
+
+	return textContent.Text
 }
 
 func mustDecodeResultPayload(t *testing.T, result *mcp.CallToolResult) map[string]any {

@@ -43,7 +43,7 @@ func PrepareOpenValidationPayload(
 		!gjson.Get(configRaw, "id").Exists() {
 		resourceID = idx.GenResourceID(resourceType)
 	}
-	validationRaw := injectGeneratedIDForValidation(
+	validationRaw := injectRequiredResourceIDForValidation(
 		apisixVersion,
 		resourceType,
 		json.RawMessage(configRaw),
@@ -70,7 +70,7 @@ func PrepareWebValidationPayload(
 	name string,
 	fallbackIdentity string,
 ) (json.RawMessage, string) {
-	validationConfig := injectGeneratedIDForValidation(
+	validationConfig := injectRequiredResourceIDForValidation(
 		apisixVersion,
 		resourceType,
 		json.RawMessage(configRaw),
@@ -78,17 +78,16 @@ func PrepareWebValidationPayload(
 	)
 
 	resourceIdentification, usedFallback := resolveWebValidationIdentity(validationConfig, fallbackIdentity)
-	// FIXME: config modified logical
-	if usedFallback && shouldInjectResourceNameForValidation(apisixVersion, resourceType) {
-		validationConfig, _ = sjson.SetBytes(
+	if usedFallback {
+		validationConfig, _ = injectResourceNameForValidation(
+			apisixVersion,
+			resourceType,
 			validationConfig,
-			model.GetResourceNameKey(resourceType),
 			resourceIdentification,
 		)
 	}
-	// FIXME: config modified logical
 	if resourceType == constant.PluginMetadata {
-		validationConfig, _ = sjson.SetBytes(validationConfig, "id", name)
+		validationConfig, _ = injectPluginMetadataIDForValidation(validationConfig, name)
 	}
 	return validationConfig, resourceIdentification
 }
@@ -104,7 +103,7 @@ func PrepareMCPDatabaseValidationPayload(
 	// if create, the resourceID is idx.GenResourceID(resourceType)
 	// if update, get from request
 	validationConfig := json.RawMessage(configRaw)
-	validationConfig = injectGeneratedIDForValidation(
+	validationConfig = injectRequiredResourceIDForValidation(
 		apisixVersion,
 		resourceType,
 		validationConfig,
@@ -112,12 +111,12 @@ func PrepareMCPDatabaseValidationPayload(
 	)
 
 	if schemax.GetResourceIdentification(validationConfig) == "" &&
-		name != "" &&
-		shouldInjectResourceNameForValidation(apisixVersion, resourceType) {
+		name != "" {
 		var err error
-		validationConfig, err = sjson.SetBytes(
+		validationConfig, err = injectResourceNameForValidation(
+			apisixVersion,
+			resourceType,
 			validationConfig,
-			model.GetResourceNameKey(resourceType),
 			name,
 		)
 		if err != nil {
@@ -126,7 +125,7 @@ func PrepareMCPDatabaseValidationPayload(
 	}
 	if resourceType == constant.PluginMetadata && name != "" {
 		var err error
-		validationConfig, err = sjson.SetBytes(validationConfig, "id", name)
+		validationConfig, err = injectPluginMetadataIDForValidation(validationConfig, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to inject plugin metadata id into validation payload: %w", err)
 		}
@@ -135,16 +134,9 @@ func PrepareMCPDatabaseValidationPayload(
 	return buildConfigRawForValidation(apisixVersion, resourceType, string(validationConfig)), nil
 }
 
-func resolveWebValidationIdentity(configRaw json.RawMessage, fallbackIdentity string) (string, bool) {
-	if identity := schemax.GetResourceIdentification(configRaw); identity != "" {
-		return identity, false
-	}
-	return fallbackIdentity, true
-}
-
-// injectGeneratedIDForValidation injects a server-side resource ID only for validation time.
+// injectRequiredResourceIDForValidation injects a server-side resource ID only for validation time.
 // Callers decide the ID source; this helper only applies the schema/version rule consistently.
-func injectGeneratedIDForValidation(
+func injectRequiredResourceIDForValidation(
 	apisixVersion constant.APISIXVersion,
 	resourceType constant.APISIXResource,
 	configRaw json.RawMessage,
@@ -156,9 +148,31 @@ func injectGeneratedIDForValidation(
 	if gjson.GetBytes(configRaw, "id").Exists() {
 		return configRaw
 	}
-	// FIXME: config modified logical
 	configRaw, _ = sjson.SetBytes(configRaw, "id", resourceID)
 	return configRaw
+}
+
+func injectResourceNameForValidation(
+	apisixVersion constant.APISIXVersion,
+	resourceType constant.APISIXResource,
+	configRaw json.RawMessage,
+	name string,
+) (json.RawMessage, error) {
+	if !shouldInjectResourceNameForValidation(apisixVersion, resourceType) {
+		return configRaw, nil
+	}
+	return sjson.SetBytes(configRaw, model.GetResourceNameKey(resourceType), name)
+}
+
+func injectPluginMetadataIDForValidation(configRaw json.RawMessage, name string) (json.RawMessage, error) {
+	return sjson.SetBytes(configRaw, "id", name)
+}
+
+func resolveWebValidationIdentity(configRaw json.RawMessage, fallbackIdentity string) (string, bool) {
+	if identity := schemax.GetResourceIdentification(configRaw); identity != "" {
+		return identity, false
+	}
+	return fallbackIdentity, true
 }
 
 // buildConfigRawForValidation builds a validation-only config payload.
@@ -171,14 +185,22 @@ func buildConfigRawForValidation(
 	copy(configRawForValidationBytes, configRaw)
 	configRawForValidation := json.RawMessage(configRawForValidationBytes)
 
+	return cleanupUnsupportedFieldsForValidation(apisixVersion, resourceType, configRawForValidation)
+}
+
+func cleanupUnsupportedFieldsForValidation(
+	apisixVersion constant.APISIXVersion,
+	resourceType constant.APISIXResource,
+	configRaw json.RawMessage,
+) json.RawMessage {
 	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "id", apisixVersion) {
-		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "id")
+		configRaw, _ = sjson.DeleteBytes(configRaw, "id")
 	}
 	if constant.ShouldRemoveFieldBeforeValidationOrPublish(resourceType, "name", apisixVersion) {
-		configRawForValidation, _ = sjson.DeleteBytes(configRawForValidation, "name")
+		configRaw, _ = sjson.DeleteBytes(configRaw, "name")
 	}
 
-	return configRawForValidation
+	return configRaw
 }
 
 func shouldInjectResourceNameForValidation(

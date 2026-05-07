@@ -28,7 +28,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
-func TestInjectGeneratedIDForValidation(t *testing.T) {
+func TestInjectRequiredResourceIDForValidation(t *testing.T) {
 	tests := []struct {
 		name         string
 		resourceType constant.APISIXResource
@@ -73,7 +73,7 @@ func TestInjectGeneratedIDForValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := injectGeneratedIDForValidation(tt.version, tt.resourceType, tt.rawConfig, tt.resourceID)
+			got := injectRequiredResourceIDForValidation(tt.version, tt.resourceType, tt.rawConfig, tt.resourceID)
 			assert.JSONEq(t, tt.wantConfig, string(got))
 		})
 	}
@@ -299,6 +299,18 @@ func TestResolveWebValidationIdentity(t *testing.T) {
 			assert.Equal(t, tt.wantUsedFallback, gotUsedFallback)
 		})
 	}
+}
+
+func TestInjectResourceNameForValidation(t *testing.T) {
+	got, err := injectResourceNameForValidation(
+		constant.APISIXVersion313,
+		constant.Consumer,
+		json.RawMessage(`{"plugins":{}}`),
+		"consumer-demo",
+	)
+
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"plugins":{},"username":"consumer-demo"}`, string(got))
 }
 
 func TestPrepareWebValidationPayload(t *testing.T) {

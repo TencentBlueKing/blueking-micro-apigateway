@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -60,10 +60,10 @@ func ValidateImportedResources(
 			return err
 		}
 		for _, r := range resource {
-			configRawForValidation := resourcebiz.BuildConfigRawForValidation(
-				string(r.Config),
-				resourceType,
+			configRawForValidation := resourcevalidationbiz.PrepareImportValidationPayload(
 				gatewayInfo.GetAPISIXVersionX(),
+				resourceType,
+				string(r.Config),
 			)
 
 			if err = schemaValidator.Validate(configRawForValidation); err != nil {

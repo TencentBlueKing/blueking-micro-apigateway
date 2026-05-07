@@ -26,7 +26,6 @@ import (
 
 	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	"github.com/tidwall/gjson"
 
 	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -53,11 +52,10 @@ func TestValidateDatabaseResourceConfigAcceptsValidRoute(t *testing.T) {
 	route := data.Route1WithNoRelationResource(&model.Gateway{ID: 1}, constant.ResourceStatusCreateDraft)
 
 	err := ValidateDatabaseResourceConfig(ctx, Input{
-		Version:      constant.APISIXVersion313,
-		ResourceType: constant.Route,
-		ResourceID:   "route-validation-id",
-		Name:         "route-validation-name",
-		RawConfig:    json.RawMessage(route.Config),
+		Version:                constant.APISIXVersion313,
+		ResourceType:           constant.Route,
+		ResourceIdentification: "route-validation-name",
+		RawConfig:              json.RawMessage(route.Config),
 	})
 
 	assert.NoError(t, err)
@@ -67,11 +65,10 @@ func TestValidateDatabaseResourceConfigRejectsInvalidRoute(t *testing.T) {
 	ctx := newResourceValidationTestContext()
 
 	err := ValidateDatabaseResourceConfig(ctx, Input{
-		Version:      constant.APISIXVersion313,
-		ResourceType: constant.Route,
-		ResourceID:   "route-validation-id",
-		Name:         "route-validation-name",
-		RawConfig:    json.RawMessage(`{"uri":123}`),
+		Version:                constant.APISIXVersion313,
+		ResourceType:           constant.Route,
+		ResourceIdentification: "route-validation-name",
+		RawConfig:              json.RawMessage(`{"uri":123}`),
 	})
 
 	if !assert.Error(t, err) {
@@ -80,76 +77,38 @@ func TestValidateDatabaseResourceConfigRejectsInvalidRoute(t *testing.T) {
 	assert.Contains(t, err.Error(), "validate failed")
 }
 
-func TestValidateDatabaseResourceConfigBuildsValidationOnlyPayload(t *testing.T) {
-	tests := []struct {
-		name          string
-		resourceType  constant.APISIXResource
-		rawConfig     json.RawMessage
-		assertPayload func(t *testing.T, payload json.RawMessage)
-	}{
-		{
-			name:         "consumer group injects generated id",
-			resourceType: constant.ConsumerGroup,
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			assertPayload: func(t *testing.T, payload json.RawMessage) {
-				assert.Equal(t, "generated-resource-id", gjson.GetBytes(payload, "id").String())
-			},
+func TestValidateDatabaseResourceConfigDoesNotRewritePayload(t *testing.T) {
+	ctx := newResourceValidationTestContext()
+	rawConfig := json.RawMessage(`{"id":"consumer-id","username":"consumer-demo","name":"keep-me","plugins":{}}`)
+	originalRaw := append(json.RawMessage(nil), rawConfig...)
+	var schemaPayload json.RawMessage
+	var jsonSchemaPayload json.RawMessage
+	patches := patchResourceValidationValidators(
+		t,
+		func(raw json.RawMessage) error {
+			schemaPayload = append(json.RawMessage(nil), raw...)
+			return nil
 		},
-		{
-			name:         "plugin config injects generated id",
-			resourceType: constant.PluginConfig,
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			assertPayload: func(t *testing.T, payload json.RawMessage) {
-				assert.Equal(t, "generated-resource-id", gjson.GetBytes(payload, "id").String())
-			},
+		func(raw json.RawMessage) error {
+			jsonSchemaPayload = append(json.RawMessage(nil), raw...)
+			return nil
 		},
-		{
-			name:         "global rule injects generated id",
-			resourceType: constant.GlobalRule,
-			rawConfig:    json.RawMessage(`{"plugins":{}}`),
-			assertPayload: func(t *testing.T, payload json.RawMessage) {
-				assert.Equal(t, "generated-resource-id", gjson.GetBytes(payload, "id").String())
-			},
-		},
-		{
-			name:         "route injects name",
-			resourceType: constant.Route,
-			rawConfig:    json.RawMessage(`{"uri":"/demo"}`),
-			assertPayload: func(t *testing.T, payload json.RawMessage) {
-				assert.Equal(t, "validation-name", gjson.GetBytes(payload, "name").String())
-			},
-		},
+	)
+	defer patches.Reset()
+
+	err := ValidateDatabaseResourceConfig(ctx, Input{
+		Version:                constant.APISIXVersion313,
+		ResourceType:           constant.Consumer,
+		ResourceIdentification: "consumer-demo",
+		RawConfig:              rawConfig,
+	})
+
+	if !assert.NoError(t, err) {
+		return
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := newResourceValidationTestContext()
-			originalRaw := append(json.RawMessage(nil), tt.rawConfig...)
-			var schemaPayload json.RawMessage
-			patches := patchResourceValidationValidators(t, func(raw json.RawMessage) error {
-				schemaPayload = append(json.RawMessage(nil), raw...)
-				return nil
-			})
-			defer patches.Reset()
-
-			err := ValidateDatabaseResourceConfig(ctx, Input{
-				Version:      constant.APISIXVersion313,
-				ResourceType: tt.resourceType,
-				ResourceID:   "generated-resource-id",
-				Name:         "validation-name",
-				RawConfig:    tt.rawConfig,
-			})
-
-			if !assert.NoError(t, err) {
-				return
-			}
-			if !assert.NotEmpty(t, schemaPayload) {
-				return
-			}
-			tt.assertPayload(t, schemaPayload)
-			assert.JSONEq(t, string(originalRaw), string(tt.rawConfig))
-		})
-	}
+	assert.JSONEq(t, string(originalRaw), string(schemaPayload))
+	assert.JSONEq(t, string(originalRaw), string(jsonSchemaPayload))
+	assert.JSONEq(t, string(originalRaw), string(rawConfig))
 }
 
 func TestValidateDatabaseResourceConfigReturnsCustomSchemaMapError(t *testing.T) {
@@ -171,11 +130,10 @@ func TestValidateDatabaseResourceConfigReturnsCustomSchemaMapError(t *testing.T)
 	)
 
 	err := ValidateDatabaseResourceConfig(ctx, Input{
-		Version:      constant.APISIXVersion313,
-		ResourceType: constant.Route,
-		ResourceID:   "route-validation-id",
-		Name:         "route-validation-name",
-		RawConfig:    json.RawMessage(`{"uri":"/demo"}`),
+		Version:                constant.APISIXVersion313,
+		ResourceType:           constant.Route,
+		ResourceIdentification: "route-validation-name",
+		RawConfig:              json.RawMessage(`{"uri":"/demo"}`),
 	})
 
 	if !assert.Error(t, err) {
@@ -244,11 +202,10 @@ func TestValidateDatabaseResourceConfigReturnsValidatorCreationError(t *testing.
 			tt.patch(patches, expectedErr)
 
 			err := ValidateDatabaseResourceConfig(ctx, Input{
-				Version:      constant.APISIXVersion313,
-				ResourceType: constant.Route,
-				ResourceID:   "route-validation-id",
-				Name:         "route-validation-name",
-				RawConfig:    json.RawMessage(`{"uri":"/demo"}`),
+				Version:                constant.APISIXVersion313,
+				ResourceType:           constant.Route,
+				ResourceIdentification: "route-validation-name",
+				RawConfig:              json.RawMessage(`{"uri":"/demo"}`),
 			})
 
 			if !assert.Error(t, err) {
@@ -271,6 +228,7 @@ func newResourceValidationTestContext() context.Context {
 func patchResourceValidationValidators(
 	t *testing.T,
 	onSchemaValidate func(json.RawMessage) error,
+	onJSONSchemaValidate func(json.RawMessage) error,
 ) *gomonkey.Patches {
 	t.Helper()
 
@@ -290,7 +248,7 @@ func patchResourceValidationValidators(
 			customizePluginSchemaMap map[string]any,
 			dataType constant.DataType,
 		) (schemax.Validator, error) {
-			return captureValidator{}, nil
+			return captureValidator{validate: onJSONSchemaValidate}, nil
 		},
 	)
 	patches.ApplyFunc(

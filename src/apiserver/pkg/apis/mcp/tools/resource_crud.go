@@ -20,7 +20,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -288,12 +287,21 @@ func createResourceHandler(
 		return errorResult(err), nil, nil
 	}
 
+	validationPayload, err := resourcevalidationbiz.PrepareMCPDatabaseValidationPayload(
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		string(config),
+		resourceID,
+		input.Name,
+	)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	err = resourcevalidationbiz.ValidateDatabaseResourceConfig(ctx, resourcevalidationbiz.Input{
-		Version:      gateway.GetAPISIXVersionX(),
-		ResourceType: resourceType,
-		ResourceID:   resourceID,
-		Name:         input.Name,
-		RawConfig:    json.RawMessage(config),
+		Version:                gateway.GetAPISIXVersionX(),
+		ResourceType:           resourceType,
+		ResourceIdentification: input.Name,
+		RawConfig:              validationPayload,
 	})
 	if err != nil {
 		return errorResult(err), nil, nil
@@ -355,12 +363,21 @@ func updateResourceHandler(
 		return errorResult(err), nil, nil
 	}
 
+	validationPayload, err := resourcevalidationbiz.PrepareMCPDatabaseValidationPayload(
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		string(config),
+		input.ResourceID,
+		input.Name,
+	)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	err = resourcevalidationbiz.ValidateDatabaseResourceConfig(ctx, resourcevalidationbiz.Input{
-		Version:      gateway.GetAPISIXVersionX(),
-		ResourceType: resourceType,
-		ResourceID:   input.ResourceID,
-		Name:         input.Name,
-		RawConfig:    json.RawMessage(config),
+		Version:                gateway.GetAPISIXVersionX(),
+		ResourceType:           resourceType,
+		ResourceIdentification: input.Name,
+		RawConfig:              validationPayload,
 	})
 	if err != nil {
 		return errorResult(err), nil, nil

@@ -33,12 +33,12 @@ import (
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/open/serializer"
 	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/status"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
@@ -46,25 +46,6 @@ import (
 var noneValidateSchemaHandlerSet = map[string]struct{}{
 	// 发布接口不需要进行 schema 校验
 	"handler.ResourcePublish": {},
-}
-
-func prepareOpenValidationPayload(
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	configRaw string,
-) json.RawMessage {
-	resourceID := ""
-	if constant.ResourceRequiresIDInSchemaForVersion(resourceType, version) &&
-		!gjson.Get(configRaw, "id").Exists() {
-		resourceID = idx.GenResourceID(resourceType)
-	}
-	validationRaw := resourcebiz.InjectGeneratedIDForValidation(
-		json.RawMessage(configRaw),
-		resourceType,
-		version,
-		resourceID,
-	)
-	return resourcebiz.BuildConfigRawForValidation(string(validationRaw), resourceType, version)
 }
 
 // OpenAPIResourceCheck 资源操作校验
@@ -158,9 +139,9 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			}
 			configRaw := config.Get("config").Raw
 
-			configRawForValidation := prepareOpenValidationPayload(
-				resourceType,
+			configRawForValidation := resourcevalidationbiz.PrepareOpenValidationPayload(
 				version,
+				resourceType,
 				configRaw,
 			)
 			resolvedID := gjson.GetBytes(configRawForValidation, "id").String()

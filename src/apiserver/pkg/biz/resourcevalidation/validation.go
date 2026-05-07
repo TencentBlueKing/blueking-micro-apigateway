@@ -24,27 +24,25 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/tidwall/sjson"
-
-	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	schemax "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
-// Input describes one resource config to validate before it is persisted.
+// Input describes one prepared DATABASE validation payload.
 type Input struct {
-	Version      constant.APISIXVersion
-	ResourceType constant.APISIXResource
-	ResourceID   string
-	Name         string
-	RawConfig    json.RawMessage
+	Version                constant.APISIXVersion
+	ResourceType           constant.APISIXResource
+	ResourceIdentification string
+	RawConfig              json.RawMessage
 }
 
 // ValidateDatabaseResourceConfig validates a resource config as a DATABASE payload.
 func ValidateDatabaseResourceConfig(ctx context.Context, input Input) error {
-	validationRaw, resourceIdentification := buildDatabaseValidationPayload(input)
+	resourceIdentification := input.ResourceIdentification
+	if resourceIdentification == "" {
+		resourceIdentification = schemax.GetResourceIdentification(input.RawConfig)
+	}
 
 	schemaValidator, err := schemax.NewAPISIXSchemaValidator(
 		input.Version,
@@ -54,7 +52,7 @@ func ValidateDatabaseResourceConfig(ctx context.Context, input Input) error {
 		return fmt.Errorf("new APISIX schema validator failed, resource:%s validate failed: %w",
 			resourceIdentification, err)
 	}
-	if err = schemaValidator.Validate(validationRaw); err != nil {
+	if err = schemaValidator.Validate(input.RawConfig); err != nil {
 		return fmt.Errorf("resource:%s validate failed: %w", resourceIdentification, err)
 	}
 
@@ -73,50 +71,9 @@ func ValidateDatabaseResourceConfig(ctx context.Context, input Input) error {
 		return fmt.Errorf("new APISIX json schema validator failed, resource:%s validate failed: %w",
 			resourceIdentification, err)
 	}
-	if err = jsonConfigValidator.Validate(validationRaw); err != nil {
+	if err = jsonConfigValidator.Validate(input.RawConfig); err != nil {
 		return fmt.Errorf("resource config:%s validate failed, err: %w", input.RawConfig, err)
 	}
 
 	return nil
-}
-
-func buildDatabaseValidationPayload(input Input) (json.RawMessage, string) {
-	rawConfig := append(json.RawMessage(nil), input.RawConfig...)
-	rawConfig = resourcebiz.InjectGeneratedIDForValidation(
-		rawConfig,
-		input.ResourceType,
-		input.Version,
-		input.ResourceID,
-	)
-
-	resourceIdentification := schemax.GetResourceIdentification(rawConfig)
-	if resourceIdentification == "" {
-		resourceIdentification = input.Name
-		if shouldInjectResourceNameForValidation(input.ResourceType, input.Version, input.Name) {
-			rawConfig, _ = sjson.SetBytes(
-				rawConfig,
-				model.GetResourceNameKey(input.ResourceType),
-				input.Name,
-			)
-		}
-	}
-	if input.ResourceType == constant.PluginMetadata && input.Name != "" {
-		rawConfig, _ = sjson.SetBytes(rawConfig, "id", input.Name)
-		resourceIdentification = input.Name
-	}
-
-	return resourcebiz.BuildConfigRawForValidation(string(rawConfig), input.ResourceType, input.Version),
-		resourceIdentification
-}
-
-func shouldInjectResourceNameForValidation(
-	resourceType constant.APISIXResource,
-	version constant.APISIXVersion,
-	name string,
-) bool {
-	if name == "" {
-		return false
-	}
-	return resourceType == constant.Consumer ||
-		constant.ResourceSupportsNameFieldForVersion(resourceType, version)
 }

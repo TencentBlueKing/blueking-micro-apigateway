@@ -31,20 +31,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 
+	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	schemabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
-	schemax "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 )
 
-type middlewareCaptureValidator struct {
+type middlewareCaptureDatabasePayloadValidator struct {
 	validate func(json.RawMessage) error
 }
 
-func (v middlewareCaptureValidator) Validate(raw json.RawMessage) error {
+func (v middlewareCaptureDatabasePayloadValidator) Validate(raw json.RawMessage) error {
 	if v.validate != nil {
 		return v.validate(raw)
 	}
@@ -79,21 +79,13 @@ func patchOpenResourceCheckValidation(t *testing.T, onValidate func(json.RawMess
 
 	patches := gomonkey.NewPatches()
 	patches.ApplyFunc(
-		schemax.NewAPISIXSchemaValidator,
-		func(version constant.APISIXVersion, jsonPath string) (schemax.Validator, error) {
-			return middlewareCaptureValidator{validate: onValidate}, nil
-		},
-	)
-	patches.ApplyFunc(
-		schemax.NewAPISIXJsonSchemaValidator,
+		resourcevalidationbiz.NewDatabasePayloadValidator,
 		func(
 			version constant.APISIXVersion,
 			resourceType constant.APISIXResource,
-			jsonPath string,
 			customizePluginSchemaMap map[string]any,
-			dataType constant.DataType,
-		) (schemax.Validator, error) {
-			return middlewareCaptureValidator{}, nil
+		) (resourcevalidationbiz.DatabasePayloadValidator, error) {
+			return middlewareCaptureDatabasePayloadValidator{validate: onValidate}, nil
 		},
 	)
 	patches.ApplyFunc(
@@ -199,4 +191,37 @@ func TestOpenAPIResourceCheckDoesNotInjectIDForOldConsumerGroupSchema(t *testing
 		return
 	}
 	assert.False(t, gjson.Get(validationPayloads[0], "id").Exists())
+}
+
+func TestOpenAPIResourceCheckValidatesEachPreparedPayloadWithSharedRunner(t *testing.T) {
+	var validationPayloads []string
+
+	patches := patchOpenResourceCheckValidation(t, func(raw json.RawMessage) error {
+		validationPayloads = append(validationPayloads, string(raw))
+		return nil
+	})
+	defer patches.Reset()
+
+	router := newOpenResourceCheckRouter("3.13.0")
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/open/gateways/demo/resources/routes/",
+		strings.NewReader(`[
+			{"name":"route-one","config":{"id":"route-1","name":"route-one","uri":"/one"}},
+			{"name":"route-two","config":{"id":"route-2","name":"route-two","uri":"/two"}}
+		]`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, req)
+
+	if !assert.Equal(t, http.StatusNoContent, recorder.Code) {
+		return
+	}
+	if !assert.Len(t, validationPayloads, 2) {
+		return
+	}
+	assert.JSONEq(t, `{"id":"route-1","name":"route-one","uri":"/one"}`, validationPayloads[0])
+	assert.JSONEq(t, `{"id":"route-2","name":"route-two","uri":"/two"}`, validationPayloads[1])
 }

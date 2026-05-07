@@ -171,6 +171,45 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 	}
 }
 
+func TestOpenWhiskNamePatternsUseEcmaCompatibleAnchors(t *testing.T) {
+	versions := []constant.APISIXVersion{
+		constant.APISIXVersion311,
+		constant.APISIXVersion313,
+	}
+	expectedPattern := `^([\w]|[\w][\w@ .-]*[\w@.-]+)$`
+
+	for _, version := range versions {
+		t.Run(string(version), func(t *testing.T) {
+			schemaValue := GetPluginSchema(version, "openwhisk", "")
+			schemaMap, ok := schemaValue.(map[string]any)
+			if !assert.True(t, ok) {
+				return
+			}
+
+			properties, ok := schemaMap["properties"].(map[string]any)
+			if !assert.True(t, ok) {
+				return
+			}
+
+			for _, field := range []string{"action", "package", "namespace"} {
+				fieldSchema, ok := properties[field].(map[string]any)
+				if !assert.True(t, ok, field) {
+					continue
+				}
+
+				pattern, ok := fieldSchema["pattern"].(string)
+				if !assert.True(t, ok, field) {
+					continue
+				}
+
+				assert.Equal(t, expectedPattern, pattern, field)
+				assert.NotContains(t, pattern, `\A`, field)
+				assert.NotContains(t, pattern, `\z`, field)
+			}
+		})
+	}
+}
+
 func TestPluginCanonicalScopeInventory(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,

@@ -245,7 +245,7 @@ const {
       cell: (h, { row }: TableRowData) => row.config?.desc || '--',
     },
   ],
-  selectionColumn = [],
+  selectionColumn,
   actionColumn = [],
   excludeColumns = [],
   extraSearchOptions = [],
@@ -309,7 +309,7 @@ const setIndeterminate = computed(() => {
 });
 
 // 这里采用自定义checkbox是为了后续功能扩展，用自带的无法自定义渲染函数(暂时支持跨页选择，不支持跨页全选)
-const selectionColumns = shallowRef(selectionColumn?.length ? selectionColumn : [{
+const selectionColumns = shallowRef(selectionColumn === undefined ? [{
   colKey: 'row-select',
   type: 'custom-checkbox',
   align: 'center',
@@ -363,7 +363,7 @@ const selectionColumns = shallowRef(selectionColumn?.length ? selectionColumn : 
       />
     );
   },
-}]);
+}] : selectionColumn);
 
 const searchParams = ref<ISearchParam[]>([]);
 

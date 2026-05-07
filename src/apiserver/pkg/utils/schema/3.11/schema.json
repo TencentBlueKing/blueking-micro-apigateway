@@ -7720,7 +7720,7 @@
         "properties": {
           "package": {
             "type": "string",
-            "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
+            "pattern": "^([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)$",
             "maxLength": 256
           },
           "keepalive_pool": {
@@ -7730,7 +7730,7 @@
           },
           "namespace": {
             "type": "string",
-            "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
+            "pattern": "^([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)$",
             "maxLength": 256
           },
           "service_token": {
@@ -7747,7 +7747,7 @@
           },
           "action": {
             "type": "string",
-            "pattern": "\\A([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)\\z",
+            "pattern": "^([\\w]|[\\w][\\w@ .-]*[\\w@.-]+)$",
             "maxLength": 256
           },
           "_meta": {

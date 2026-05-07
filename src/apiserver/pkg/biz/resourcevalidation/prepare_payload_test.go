@@ -73,7 +73,12 @@ func TestInjectRequiredResourceIDForValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := injectRequiredResourceIDForValidation(tt.version, tt.resourceType, tt.rawConfig, tt.resourceID)
+			got := injectRequiredResourceIDForValidation(
+				tt.version,
+				tt.resourceType,
+				tt.rawConfig,
+				tt.resourceID,
+			)
 			assert.JSONEq(t, tt.wantConfig, string(got))
 		})
 	}

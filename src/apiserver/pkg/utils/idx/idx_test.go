@@ -19,6 +19,7 @@
 package idx
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,22 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
-func TestGetFlakeUid(t *testing.T) {
-	assert.True(t, len(GenResourceID(constant.Route)) < 64)
+func TestGenResourceID(t *testing.T) {
+	id := GenResourceID(constant.Route)
+	assert.True(t, len(id) < 64)
+	assert.Regexp(t, `^bk\.r\.[0-9a-z]+$`, id)
+	assert.Equal(t, strings.ToLower(id), id)
+}
+
+func TestGenResourceIDCaseFoldedUnique(t *testing.T) {
+	seen := make(map[string]string)
+	for i := 0; i < 1000; i++ {
+		id := GenResourceID(constant.Route)
+		folded := strings.ToLower(id)
+		previous, ok := seen[folded]
+		if !assert.Falsef(t, ok, "case-folded duplicate resource ID: previous=%s current=%s", previous, id) {
+			return
+		}
+		seen[folded] = id
+	}
 }

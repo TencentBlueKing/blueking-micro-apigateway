@@ -21,7 +21,6 @@ package serializer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	validator "github.com/go-playground/validator/v10"
@@ -86,13 +85,8 @@ func CheckAPISIXConfig(ctx context.Context, fl validator.FieldLevel) bool {
 		return false
 	}
 	if err = databaseValidator.Validate(rawConfig); err != nil {
-		validateErr := err
-		var stageErr *resourcevalidationbiz.ValidationStageError
-		if errors.As(err, &stageErr) {
-			validateErr = stageErr.Err
-		}
-		ginx.GetValidateErrorInfoFromContext(ctx).Err = validateErr
-		logging.Errorf("database payload validate failed, err: %v", validateErr)
+		ginx.GetValidateErrorInfoFromContext(ctx).Err = err
+		logging.Errorf("database payload validate failed, err: %v", err)
 		return false
 	}
 	return true

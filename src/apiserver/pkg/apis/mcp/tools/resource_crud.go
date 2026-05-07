@@ -297,12 +297,12 @@ func createResourceHandler(
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	err = resourcevalidationbiz.ValidateDatabaseResourceConfig(ctx, resourcevalidationbiz.Input{
-		Version:                gateway.GetAPISIXVersionX(),
-		ResourceType:           resourceType,
-		ResourceIdentification: input.Name,
-		RawConfig:              validationPayload,
-	})
+	err = validateMCPDatabaseResourceConfig(
+		ctx,
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		validationPayload,
+	)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -373,12 +373,12 @@ func updateResourceHandler(
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	err = resourcevalidationbiz.ValidateDatabaseResourceConfig(ctx, resourcevalidationbiz.Input{
-		Version:                gateway.GetAPISIXVersionX(),
-		ResourceType:           resourceType,
-		ResourceIdentification: input.Name,
-		RawConfig:              validationPayload,
-	})
+	err = validateMCPDatabaseResourceConfig(
+		ctx,
+		gateway.GetAPISIXVersionX(),
+		resourceType,
+		validationPayload,
+	)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}

@@ -30,6 +30,17 @@ import (
 	schemax "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 )
 
+type captureValidator struct {
+	validate func(json.RawMessage) error
+}
+
+func (v captureValidator) Validate(raw json.RawMessage) error {
+	if v.validate != nil {
+		return v.validate(raw)
+	}
+	return nil
+}
+
 func TestNewDatabasePayloadValidatorBuildsDatabaseValidators(t *testing.T) {
 	customSchemaMap := map[string]any{"custom-plugin": map[string]any{"type": "object"}}
 	var gotSchemaVersion constant.APISIXVersion
@@ -172,21 +183,20 @@ func TestDatabasePayloadValidatorValidateStopsWhenSchemaValidationFails(t *testi
 	if !assert.NoError(t, err) {
 		return
 	}
-	err = validator.Validate(json.RawMessage(`{"uri":"/demo"}`))
+	err = validator.Validate(json.RawMessage(`{"id":"route-demo","uri":"/demo"}`))
 
-	var stageErr *ValidationStageError
-	assert.ErrorAs(t, err, &stageErr)
 	assert.ErrorIs(t, err, expectedErr)
-	assert.Equal(t, ValidationStageResourceSchemaValidate, stageErr.Stage)
+	assert.Contains(t, err.Error(), "resource:route-demo validate failed")
 	assert.False(t, jsonValidateCalled)
 }
 
-func TestDatabasePayloadValidatorReturnsStageErrors(t *testing.T) {
+func TestDatabasePayloadValidatorReturnsFormattedErrors(t *testing.T) {
 	tests := []struct {
-		name      string
-		patch     func(*gomonkey.Patches, error)
-		validate  bool
-		wantStage ValidationStage
+		name          string
+		patch         func(*gomonkey.Patches, error)
+		validate      bool
+		rawConfig     json.RawMessage
+		expectedError string
 	}{
 		{
 			name: "resource schema build error",
@@ -198,7 +208,7 @@ func TestDatabasePayloadValidatorReturnsStageErrors(t *testing.T) {
 					},
 				)
 			},
-			wantStage: ValidationStageResourceSchemaBuild,
+			expectedError: "new APISIX schema validator failed, resource type:route validate failed",
 		},
 		{
 			name: "json schema build error",
@@ -222,7 +232,7 @@ func TestDatabasePayloadValidatorReturnsStageErrors(t *testing.T) {
 					},
 				)
 			},
-			wantStage: ValidationStageJSONSchemaBuild,
+			expectedError: "NewAPISIXJsonSchemaValidator failed, resource type:route validate failed",
 		},
 		{
 			name: "json schema validate error",
@@ -250,8 +260,9 @@ func TestDatabasePayloadValidatorReturnsStageErrors(t *testing.T) {
 					},
 				)
 			},
-			validate:  true,
-			wantStage: ValidationStageJSONSchemaValidate,
+			validate:      true,
+			rawConfig:     json.RawMessage(`{"id":"route-demo","uri":"/demo"}`),
+			expectedError: `resource config:{"id":"route-demo","uri":"/demo"} validate failed`,
 		},
 	}
 
@@ -268,13 +279,11 @@ func TestDatabasePayloadValidatorReturnsStageErrors(t *testing.T) {
 				nil,
 			)
 			if tt.validate && err == nil {
-				err = validator.Validate(json.RawMessage(`{"uri":"/demo"}`))
+				err = validator.Validate(tt.rawConfig)
 			}
 
-			var stageErr *ValidationStageError
-			assert.ErrorAs(t, err, &stageErr)
 			assert.ErrorIs(t, err, expectedErr)
-			assert.Equal(t, tt.wantStage, stageErr.Stage)
+			assert.Contains(t, err.Error(), tt.expectedError)
 		})
 	}
 }

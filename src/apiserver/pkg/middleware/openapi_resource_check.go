@@ -22,7 +22,6 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
-	stderrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -141,20 +140,7 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 				customizePluginSchemaMap,
 			)
 			if err != nil {
-				var stageErr *resourcevalidationbiz.ValidationStageError
-				if stderrors.As(err, &stageErr) &&
-					stageErr.Stage == resourcevalidationbiz.ValidationStageJSONSchemaBuild {
-					ginx.BadRequestErrorJSONResponse(
-						c,
-						fmt.Errorf(
-							"NewAPISIXJsonSchemaValidator failed, resource config:%s validate failed, err: %w",
-							configs[0].Get("config").Raw,
-							stageErr.Err,
-						),
-					)
-				} else {
-					ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
-				}
+				ginx.BadRequestErrorJSONResponse(c, errors.Wrapf(err, "config validate failed"))
 				c.Abort()
 				return
 			}
@@ -178,25 +164,8 @@ func OpenAPIResourceCheck() gin.HandlerFunc {
 			))
 
 			if err = databaseValidator.Validate(configRawForValidation); err != nil {
-				var stageErr *resourcevalidationbiz.ValidationStageError
-				if stderrors.As(err, &stageErr) &&
-					stageErr.Stage == resourcevalidationbiz.ValidationStageResourceSchemaValidate {
-					logging.Errorf("schema validate failed, err: %v", stageErr.Err)
-					ginx.BadRequestErrorJSONResponse(
-						c,
-						errors.Wrapf(stageErr.Err, "config validate failed"),
-					)
-				} else {
-					validateErr := err
-					if stageErr != nil {
-						validateErr = stageErr.Err
-					}
-					ginx.BadRequestErrorJSONResponse(
-						c,
-						fmt.Errorf("resource config:%s validate failed, err: %w",
-							configRaw, validateErr),
-					)
-				}
+				logging.Errorf("database payload validate failed, err: %v", err)
+				ginx.BadRequestErrorJSONResponse(c, err)
 				c.Abort()
 				return
 			}

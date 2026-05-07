@@ -21,14 +21,12 @@ package importflow
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/dto"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
@@ -58,21 +56,7 @@ func ValidateImportedResources(
 			)
 
 			if err = databaseValidator.Validate(configRawForValidation); err != nil {
-				var stageErr *resourcevalidationbiz.ValidationStageError
-				if errors.As(err, &stageErr) {
-					if stageErr.Stage == resourcevalidationbiz.ValidationStageResourceSchemaValidate {
-						logging.Errorf("schema validate failed, err: %v", stageErr.Err)
-						return stageErr.Err
-					}
-					if stageErr.Stage == resourcevalidationbiz.ValidationStageJSONSchemaValidate {
-						return fmt.Errorf(
-							"resource config:%s validate failed, err: %w",
-							r.Config,
-							stageErr.Err,
-						)
-					}
-				}
-				return fmt.Errorf("resource config:%s validate failed, err: %w", r.Config, err)
+				return err
 			}
 
 			var resourceAssociateIDInfo dto.ResourceAssociateID

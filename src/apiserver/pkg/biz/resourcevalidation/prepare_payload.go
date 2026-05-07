@@ -134,6 +134,8 @@ func PrepareMCPDatabaseValidationPayload(
 	return buildConfigRawForValidation(apisixVersion, resourceType, string(validationConfig)), nil
 }
 
+// =====================================
+
 // injectRequiredResourceIDForValidation injects a server-side resource ID only for validation time.
 // Callers decide the ID source; this helper only applies the schema/version rule consistently.
 func injectRequiredResourceIDForValidation(
@@ -152,6 +154,16 @@ func injectRequiredResourceIDForValidation(
 	return configRaw
 }
 
+// =====================================
+
+func shouldInjectResourceNameForValidation(
+	apisixVersion constant.APISIXVersion,
+	resourceType constant.APISIXResource,
+) bool {
+	return resourceType == constant.Consumer ||
+		constant.ResourceSupportsNameFieldForVersion(resourceType, apisixVersion)
+}
+
 func injectResourceNameForValidation(
 	apisixVersion constant.APISIXVersion,
 	resourceType constant.APISIXResource,
@@ -164,16 +176,13 @@ func injectResourceNameForValidation(
 	return sjson.SetBytes(configRaw, model.GetResourceNameKey(resourceType), name)
 }
 
+// =====================================
+
 func injectPluginMetadataIDForValidation(configRaw json.RawMessage, name string) (json.RawMessage, error) {
 	return sjson.SetBytes(configRaw, "id", name)
 }
 
-func resolveWebValidationIdentity(configRaw json.RawMessage, fallbackIdentity string) (string, bool) {
-	if identity := schemax.GetResourceIdentification(configRaw); identity != "" {
-		return identity, false
-	}
-	return fallbackIdentity, true
-}
+// =====================================
 
 // buildConfigRawForValidation builds a validation-only config payload.
 func buildConfigRawForValidation(
@@ -203,10 +212,11 @@ func cleanupUnsupportedFieldsForValidation(
 	return configRaw
 }
 
-func shouldInjectResourceNameForValidation(
-	apisixVersion constant.APISIXVersion,
-	resourceType constant.APISIXResource,
-) bool {
-	return resourceType == constant.Consumer ||
-		constant.ResourceSupportsNameFieldForVersion(resourceType, apisixVersion)
+// =====================================
+
+func resolveWebValidationIdentity(configRaw json.RawMessage, fallbackIdentity string) (string, bool) {
+	if identity := schemax.GetResourceIdentification(configRaw); identity != "" {
+		return identity, false
+	}
+	return fallbackIdentity, true
 }

@@ -44,15 +44,15 @@ func ValidateDatabaseResourceConfig(ctx context.Context, input Input) error {
 		resourceIdentification = schemax.GetResourceIdentification(input.RawConfig)
 	}
 
-	schemaValidator, err := schemax.NewAPISIXSchemaValidator(
+	schemaValidator, err := newResourceSchemaPayloadValidator(
 		input.Version,
-		"main."+input.ResourceType.String(),
+		input.ResourceType,
 	)
 	if err != nil {
 		return fmt.Errorf("new APISIX schema validator failed, resource:%s validate failed: %w",
 			resourceIdentification, err)
 	}
-	if err = schemaValidator.Validate(input.RawConfig); err != nil {
+	if err = validateResourceSchemaPayload(schemaValidator, input.RawConfig); err != nil {
 		return fmt.Errorf("resource:%s validate failed: %w", resourceIdentification, err)
 	}
 
@@ -60,18 +60,16 @@ func ValidateDatabaseResourceConfig(ctx context.Context, input Input) error {
 	if err != nil {
 		return fmt.Errorf("get customize plugin schema map failed: %w", err)
 	}
-	jsonConfigValidator, err := schemax.NewAPISIXJsonSchemaValidator(
+	jsonConfigValidator, err := newJSONSchemaPayloadValidator(
 		input.Version,
 		input.ResourceType,
-		"main."+input.ResourceType.String(),
 		customizePluginSchemaMap,
-		constant.DATABASE,
 	)
 	if err != nil {
 		return fmt.Errorf("new APISIX json schema validator failed, resource:%s validate failed: %w",
 			resourceIdentification, err)
 	}
-	if err = jsonConfigValidator.Validate(input.RawConfig); err != nil {
+	if err = validateJSONSchemaPayload(jsonConfigValidator, input.RawConfig); err != nil {
 		return fmt.Errorf("resource config:%s validate failed, err: %w", input.RawConfig, err)
 	}
 

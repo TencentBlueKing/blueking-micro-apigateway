@@ -19,6 +19,7 @@
 package serializer
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
 	resourcevalidationbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resourcevalidation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -203,6 +205,28 @@ func TestCheckAPISIXConfigCurrentSeams(t *testing.T) {
 		req := SSLInfo{
 			Name:   "ssl-validation-probe",
 			Config: json.RawMessage(sslFixture.Config),
+		}
+
+		assert.NoError(t, validation.ValidateStruct(ctx.Request.Context(), &req))
+	})
+
+	t.Run("stream route update validation removes unsupported config name on 3.11", func(t *testing.T) {
+		ctx := newWebSerializerValidationContext(t, &model.Gateway{ID: 1105, APISIXVersion: "3.11.0"})
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(resourcebiz.ExistsUpstream, func(ctx context.Context, upstreamID string) bool {
+			return upstreamID == "bk.u.eyaO7.AAM7"
+		})
+		req := StreamRouteInfo{
+			ID:         "bk.sr.gjP32QAAN.",
+			Name:       "stream-route-validation-probe",
+			UpstreamID: "bk.u.eyaO7.AAM7",
+			Config: json.RawMessage(`{
+				"id": "bk.sr.gjP32QAAN.",
+				"name": "stream-route-validation-probe",
+				"server_port": 9090,
+				"upstream_id": "bk.u.eyaO7.AAM7"
+			}`),
 		}
 
 		assert.NoError(t, validation.ValidateStruct(ctx.Request.Context(), &req))

@@ -352,6 +352,15 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 			wantIdentity:     "proto-demo",
 		},
 		{
+			name:             "stream route on 3.11 removes existing config name before validation",
+			resourceType:     constant.StreamRoute,
+			version:          constant.APISIXVersion311,
+			configRaw:        `{"id":"bk.sr.gjP32QAAN.","name":"stream-route-demo","server_port":9090}`,
+			fallbackIdentity: "stream-route-demo",
+			wantPayload:      `{"id":"bk.sr.gjP32QAAN.","server_port":9090}`,
+			wantIdentity:     "bk.sr.gjP32QAAN.",
+		},
+		{
 			name:             "route uses fallback identity as validation name",
 			resourceType:     constant.Route,
 			version:          constant.APISIXVersion313,

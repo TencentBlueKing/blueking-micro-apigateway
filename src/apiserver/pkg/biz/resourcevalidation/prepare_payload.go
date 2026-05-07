@@ -89,7 +89,11 @@ func PrepareWebValidationPayload(
 	if resourceType == constant.PluginMetadata {
 		validationConfig, _ = injectPluginMetadataIDForValidation(validationConfig, name)
 	}
-	return validationConfig, resourceIdentification
+	return buildConfigRawForValidation(
+		apisixVersion,
+		resourceType,
+		string(validationConfig),
+	), resourceIdentification
 }
 
 // PrepareMCPDatabaseValidationPayload builds the validation-only DATABASE payload for MCP resource writes.

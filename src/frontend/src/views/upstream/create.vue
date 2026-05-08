@@ -51,15 +51,12 @@ import { IUpstream, IUpstreamConfig } from '@/types/upstream';
 import FormUpstream, { type IFlags } from '@/components/form/form-upstream.vue';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import { Form, InfoBox, Message } from 'bkui-vue';
-import UPSTREAM_JSON from '@/assets/schemas/upstream.json';
-import Ajv from 'ajv';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { computed, ref, useTemplateRef, watch } from 'vue';
 import { getUpstream, postUpstream, putUpstream } from '@/http/upstream';
 import { cloneDeep, uniq, isPlainObject } from 'lodash-es';
-import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
 import useConfigFilter from '@/hooks/use-config-filter';
 import useResourcePageDetector from '@/hooks/use-resource-page-detector';
 import useElementScroll from '@/hooks/use-element-scroll';
@@ -68,7 +65,6 @@ import FormCard from '@/components/form-card.vue';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { showSchemaErrorMessages } = useSchemaErrorMessage();
 const { showFirstErrorFormItem } = useElementScroll();
 const { createDefaultUpstream } = useUpstreamForm();
 const {
@@ -76,9 +72,6 @@ const {
   filterAdvanced,
 } = useConfigFilter();
 const { isEditMode, isCloneMode } = useResourcePageDetector();
-
-const ajv = new Ajv();
-const schemaValidate = ajv.compile(UPSTREAM_JSON);
 
 const formModel = ref<Omit<IUpstream, 'config'>>({
   name: '',
@@ -200,39 +193,34 @@ const handleSubmit = async () => {
     upstreamCopy = filterAdvanced(upstreamCopy, 'upstream');
     // }
 
-    // 校验 schema
-    if (schemaValidate(upstreamCopy)) {
-      InfoBox({
-        title: t('确认提交？'),
-        confirmText: t('提交'),
-        cancelText: t('取消'),
-        onConfirm: async () => {
-          const data = {
-            name: formModel.value.name,
-            ssl_id: formModel.value.ssl_id,
-            config: upstreamCopy,
-          };
+    InfoBox({
+      title: t('确认提交？'),
+      confirmText: t('提交'),
+      cancelText: t('取消'),
+      onConfirm: async () => {
+        const data = {
+          name: formModel.value.name,
+          ssl_id: formModel.value.ssl_id,
+          config: upstreamCopy,
+        };
 
-          if (isEditMode.value) {
-            await putUpstream({
-              data,
-              id: upstreamDtoId.value,
-            });
-          } else {
-            await postUpstream({ data });
-          }
-
-          Message({
-            theme: 'success',
-            message: t('提交成功'),
+        if (isEditMode.value) {
+          await putUpstream({
+            data,
+            id: upstreamDtoId.value,
           });
+        } else {
+          await postUpstream({ data });
+        }
 
-          await router.push({ name: 'upstream', replace: true });
-        },
-      });
-    } else {
-      showSchemaErrorMessages(schemaValidate.errors);
-    }
+        Message({
+          theme: 'success',
+          message: t('提交成功'),
+        });
+
+        await router.push({ name: 'upstream', replace: true });
+      },
+    });
   } catch (e) {
     const error = e as Error;
     showFirstErrorFormItem();

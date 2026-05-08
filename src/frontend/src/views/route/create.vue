@@ -227,9 +227,6 @@ import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import FormUris from '@/components/form/form-uris.vue';
 import { Form, InfoBox, Message } from 'bkui-vue';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-import ROUTE_JSON from '@/assets/schemas/route.json';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { computed, ref, useTemplateRef, watch } from 'vue';
@@ -237,7 +234,6 @@ import { getRoute, postRoute, putRoute } from '@/http/route';
 import { getUpstream } from '@/http/upstream';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
 import SelectUpstream from '@/components/select/select-upstream.vue';
-import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
 import SelectPluginConfig from '@/components/select/select-plugin-config.vue';
 import SelectService from '@/components/select/select-service.vue';
 import useConfigFilter from '@/hooks/use-config-filter';
@@ -261,14 +257,9 @@ interface ILocalPlugin {
   enabled?: boolean
 }
 
-const ajv = new Ajv();
-addFormats(ajv);
-const schemaValidate = ajv.compile(ROUTE_JSON);
-
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { showSchemaErrorMessages } = useSchemaErrorMessage();
 const { showFirstErrorFormItem } = useElementScroll();
 const { createDefaultUpstream } = useUpstreamForm();
 const {
@@ -548,58 +539,52 @@ const handleSubmit = async () => {
     }
     // }
 
-    // 校验 schema
-    if (schemaValidate(config)) {
-      const data: Partial<IRoute> = {
-        config,
-        name: formModel.value.name,
-      };
+    const data: Partial<IRoute> = {
+      config,
+      name: formModel.value.name,
+    };
 
-      if (formModel.value.service_id !== '__none__') {
-        data.service_id = formModel.value.service_id;
+    if (formModel.value.service_id !== '__none__') {
+      data.service_id = formModel.value.service_id;
 
-        if (formModel.value.service_id) {
-          data.config.service_id = formModel.value.service_id;
-        }
+      if (formModel.value.service_id) {
+        data.config.service_id = formModel.value.service_id;
       }
-
-      // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
-      if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
-        data.upstream_id = formModel.value.upstream_id;
-      } else {
-        delete data.config.upstream_id;
-      }
-
-      if (routeConfig.value.plugin_config_id) {
-        data.plugin_config_id = routeConfig.value.plugin_config_id;
-      }
-
-      InfoBox({
-        title: t('确认提交？'),
-        confirmText: t('提交'),
-        cancelText: t('取消'),
-        onConfirm: async () => {
-          if (isEditMode.value) {
-            await putRoute({
-              data,
-              id: routeDtoId.value,
-            });
-          } else {
-            await postRoute({ data });
-          }
-
-          Message({
-            theme: 'success',
-            message: t('提交成功'),
-          });
-
-          await router.push({ name: 'route', replace: true });
-        },
-      });
-    } else {
-      showSchemaErrorMessages(schemaValidate.errors);
-      // throw new Error;
     }
+
+    // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
+    if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
+      data.upstream_id = formModel.value.upstream_id;
+    } else {
+      delete data.config.upstream_id;
+    }
+
+    if (routeConfig.value.plugin_config_id) {
+      data.plugin_config_id = routeConfig.value.plugin_config_id;
+    }
+
+    InfoBox({
+      title: t('确认提交？'),
+      confirmText: t('提交'),
+      cancelText: t('取消'),
+      onConfirm: async () => {
+        if (isEditMode.value) {
+          await putRoute({
+            data,
+            id: routeDtoId.value,
+          });
+        } else {
+          await postRoute({ data });
+        }
+
+        Message({
+          theme: 'success',
+          message: t('提交成功'),
+        });
+
+        await router.push({ name: 'route', replace: true });
+      },
+    });
   } catch (e) {
     const error = e as Error;
     showFirstErrorFormItem();

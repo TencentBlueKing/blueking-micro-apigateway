@@ -201,6 +201,7 @@ interface IProps {
     code?: boolean,
     clone?: boolean,
   };
+  showSelection?: boolean;
   resourceType?: string;
   tableRowKey?: string;
   tableLayout?: string;
@@ -250,6 +251,7 @@ const {
   excludeColumns = [],
   extraSearchOptions = [],
   extraSearchParams = [],
+  showSelection = true,
   resourceType,
   // 表格唯一标识
   tableRowKey = 'id',
@@ -364,6 +366,9 @@ const selectionColumns = shallowRef(selectionColumn?.length ? selectionColumn : 
     );
   },
 }]);
+if (!showSelection) {
+  selectionColumns.value = [];
+}
 
 const searchParams = ref<ISearchParam[]>([]);
 

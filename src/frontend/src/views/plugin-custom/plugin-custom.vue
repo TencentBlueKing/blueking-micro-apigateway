@@ -25,7 +25,7 @@
     resource-type="plugin_custom"
     :exclude-columns="['label', 'status']"
     :table-row-key="'auto_id'"
-    :selection-column="[]"
+    :show-selection="false"
   />
 </template>
 

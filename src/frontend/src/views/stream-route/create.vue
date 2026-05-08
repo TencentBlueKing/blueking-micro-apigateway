@@ -170,12 +170,8 @@ import { IUpstreamConfig } from '@/types/upstream';
 import { getUpstream } from '@/http/upstream';
 import { getStreamRoute, postStreamRoute, putStreamRoute } from '@/http/stream-route';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-import STREAM_ROUTE_JSON from '@/assets/schemas/stream-route.json';
 import useConfigFilter from '@/hooks/use-config-filter';
 import useElementScroll from '@/hooks/use-element-scroll';
-import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
 import useResourcePageDetector from '@/hooks/use-resource-page-detector';
 import UpstreamForm, { type IFlags } from '@/components/form/form-upstream.vue';
 import ButtonIcon from '@/components/button-icon.vue';
@@ -197,14 +193,9 @@ interface ILocalPlugin {
   enabled?: boolean
 }
 
-const ajv = new Ajv();
-addFormats(ajv);
-const schemaValidate = ajv.compile(STREAM_ROUTE_JSON);
-
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { showSchemaErrorMessages } = useSchemaErrorMessage();
 const { showFirstErrorFormItem } = useElementScroll();
 const { createDefaultUpstream } = useUpstreamForm();
 const {
@@ -460,51 +451,47 @@ const handleSubmit = async () => {
       delete config.server_addrs;
     }
 
-    // 校验 schema
-    if (schemaValidate(config)) {
-      const data: Partial<IStreamRoute> = {
-        config,
-        name: formModel.value.name,
-      };
+    const data: Partial<IStreamRoute> = {
+      config,
+      name: formModel.value.name,
+    };
 
-      if (!['__none__'].includes(formModel.value.service_id)) {
-        data.service_id = formModel.value.service_id;
-        if (formModel.value.service_id) {
-          data.config.service_id = formModel.value.service_id;
-        }
+    if (!['__none__'].includes(formModel.value.service_id)) {
+      data.service_id = formModel.value.service_id;
+      if (formModel.value.service_id) {
+        data.config.service_id = formModel.value.service_id;
       }
-
-      // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
-      if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
-        data.upstream_id = formModel.value.upstream_id;
-      }
-
-      InfoBox({
-        title: t('确认提交？'),
-        confirmText: t('提交'),
-        cancelText: t('取消'),
-        onConfirm: async () => {
-          if (isEditMode.value) {
-            await putStreamRoute({
-              data,
-              id: routeDtoId.value,
-            });
-          } else {
-            await postStreamRoute({ data });
-          }
-
-          Message({
-            theme: 'success',
-            message: t('提交成功'),
-          });
-
-          await router.push({ name: 'stream-route', replace: true });
-        },
-      });
-    } else {
-      showSchemaErrorMessages(schemaValidate.errors);
     }
-  } catch (error: Error) {
+
+    // 既没选择“手动填写” upstream，也没选择“不选择”时才传入 upstream_id
+    if (!['__none__', '__config__'].includes(formModel.value.upstream_id)) {
+      data.upstream_id = formModel.value.upstream_id;
+    }
+
+    InfoBox({
+      title: t('确认提交？'),
+      confirmText: t('提交'),
+      cancelText: t('取消'),
+      onConfirm: async () => {
+        if (isEditMode.value) {
+          await putStreamRoute({
+            data,
+            id: routeDtoId.value,
+          });
+        } else {
+          await postStreamRoute({ data });
+        }
+
+        Message({
+          theme: 'success',
+          message: t('提交成功'),
+        });
+
+        await router.push({ name: 'stream-route', replace: true });
+      },
+    });
+  } catch (e) {
+    const error = e as Error;
     showFirstErrorFormItem();
     Message({
       theme: 'error',

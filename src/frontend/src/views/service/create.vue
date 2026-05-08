@@ -133,8 +133,6 @@ import { IUpstream, IUpstreamConfig } from '@/types/upstream';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
 import FormPageFooter from '@/components/form/form-page-footer.vue';
 import { IService, IServiceConfig } from '@/types/service';
-import Ajv from 'ajv';
-import SERVICE_JSON from '@/assets/schemas/service.json';
 import { Form, InfoBox, Message } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -142,7 +140,6 @@ import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { getService, postService, putService } from '@/http/service';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
 import SelectUpstream from '@/components/select/select-upstream.vue';
-import useSchemaErrorMessage from '@/hooks/use-schema-error-message';
 import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 import { getUpstream } from '@/http/upstream';
 import useConfigFilter from '@/hooks/use-config-filter';
@@ -167,7 +164,6 @@ interface ILocalPlugin {
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const { showSchemaErrorMessages } = useSchemaErrorMessage();
 const { showFirstErrorFormItem } = useElementScroll();
 const { createDefaultUpstream } = useUpstreamForm();
 const {
@@ -175,9 +171,6 @@ const {
   filterAdvanced,
 } = useConfigFilter();
 const { isEditMode, isCloneMode } = useResourcePageDetector();
-
-const ajv = new Ajv();
-const schemaValidate = ajv.compile(SERVICE_JSON);
 
 const formModel = ref<IServiceConfig>({
   name: '',
@@ -396,41 +389,36 @@ const handleSubmit = async () => {
     }
     // }
 
-    // 校验 schema
-    if (schemaValidate(config)) {
-      InfoBox({
-        title: t('确认提交？'),
-        confirmText: t('提交'),
-        cancelText: t('取消'),
-        onConfirm: async () => {
-          if (isEditMode.value) {
-            await putService({
-              id: serviceDtoId.value,
-              data: {
-                config,
-                ...data,
-              },
-            });
-          } else {
-            await postService({
-              data: {
-                config,
-                ...data,
-              },
-            });
-          }
-
-          Message({
-            theme: 'success',
-            message: t('提交成功'),
+    InfoBox({
+      title: t('确认提交？'),
+      confirmText: t('提交'),
+      cancelText: t('取消'),
+      onConfirm: async () => {
+        if (isEditMode.value) {
+          await putService({
+            id: serviceDtoId.value,
+            data: {
+              config,
+              ...data,
+            },
           });
+        } else {
+          await postService({
+            data: {
+              config,
+              ...data,
+            },
+          });
+        }
 
-          await router.push({ name: 'service', replace: true });
-        },
-      });
-    } else {
-      showSchemaErrorMessages(schemaValidate.errors);
-    }
+        Message({
+          theme: 'success',
+          message: t('提交成功'),
+        });
+
+        await router.push({ name: 'service', replace: true });
+      },
+    });
   } catch (e) {
     const error = e as Error;
     showFirstErrorFormItem();

@@ -636,6 +636,10 @@
       "header": "Authorization",
       "forward_header": "X-Decrypted-Token",
       "strict": true
+    },
+    "consumer_example": {
+      "key": "user-key",
+      "secret": "my-secret-key"
     }
   },
   {

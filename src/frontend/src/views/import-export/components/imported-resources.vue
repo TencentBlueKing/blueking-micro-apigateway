@@ -224,6 +224,18 @@ watch(() => data, () => {
   rawTableDataToUpdate.value = data.update ? data.update.map(row => ({ ...row, __source__: 'update' })) : [];
 }, { deep: true, immediate: true });
 
+watch(
+  () => [filterInputAddClone.value, filterInputUpdateClone.value],
+  ([add, update]) => {
+    if (!add) {
+      filterData('add');
+    }
+    if (!update) {
+      filterData('update');
+    }
+  },
+);
+
 const filterData = (action: string) => {
   if (action === 'add') {
     filterInputAdd.value = filterInputAddClone.value;

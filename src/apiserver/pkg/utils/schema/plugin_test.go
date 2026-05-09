@@ -171,6 +171,84 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 	}
 }
 
+func TestConsumerPluginFrontendFallbackExamplesMatchConsumerSchema(t *testing.T) {
+	versions := []constant.APISIXVersion{
+		constant.APISIXVersion311,
+		constant.APISIXVersion313,
+	}
+
+	for _, version := range versions {
+		plugins, err := GetPlugins(constant.APISIXTypeAPISIX, version)
+		if !assert.NoError(t, err) {
+			continue
+		}
+
+		for _, plugin := range plugins {
+			if !schemaVersionMap[version].Get("plugins." + plugin.Name + ".consumer_schema").Exists() {
+				continue
+			}
+
+			t.Run(fmt.Sprintf("%s/%s", version, plugin.Name), func(t *testing.T) {
+				example := plugin.ConsumerExample
+				if example == nil {
+					example = plugin.Example
+				}
+
+				schemaValue := GetPluginSchema(version, plugin.Name, "consumer")
+				if !assert.NotNil(t, schemaValue) {
+					return
+				}
+
+				schemaBytes, err := json.Marshal(schemaValue)
+				assert.NoError(t, err)
+
+				s, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaBytes))
+				assert.NoError(t, err)
+
+				result, err := s.Validate(gojsonschema.NewGoLoader(example))
+				assert.NoError(t, err)
+				assert.Truef(
+					t,
+					result.Valid(),
+					"schema validation errors: %s",
+					strings.Join(flattenSchemaErrors(result.Errors()), "; "),
+				)
+			})
+		}
+	}
+}
+
+func TestAnonymousConsumerIsDeclaredPropertyIn313PluginSchemas(t *testing.T) {
+	pluginNames := []string{
+		"hmac-auth",
+		"basic-auth",
+		"jwt-auth",
+		"key-auth",
+	}
+
+	for _, pluginName := range pluginNames {
+		t.Run(pluginName, func(t *testing.T) {
+			schemaValue := GetPluginSchema(constant.APISIXVersion313, pluginName, "")
+			if !assert.NotNil(t, schemaValue) {
+				return
+			}
+
+			schemaMap, ok := schemaValue.(map[string]any)
+			if !assert.True(t, ok) {
+				return
+			}
+
+			assert.NotContains(t, schemaMap, "anonymous_consumer")
+
+			properties, ok := schemaMap["properties"].(map[string]any)
+			if !assert.True(t, ok) {
+				return
+			}
+			assert.Contains(t, properties, "anonymous_consumer")
+		})
+	}
+}
+
 func TestOpenWhiskNamePatternsUseEcmaCompatibleAnchors(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,

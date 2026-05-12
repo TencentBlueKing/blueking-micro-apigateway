@@ -34,7 +34,7 @@
             <button-icon icon="copy" @click="handleCopy">{{ t('复制') }}</button-icon>
             <button-icon icon="geshihua" @click="handleFormat">{{ t('格式化') }}</button-icon>
             <button-icon
-              v-if="localPlugin.type !== 'customize plugin'"
+              v-if="localPlugin.type !== 'customize plugin' && hasDocUrl"
               icon="link"
               @click="handleDocClick"
             >{{ t('文档') }}
@@ -63,7 +63,7 @@ import ButtonIcon from '@/components/button-icon.vue';
 import { Message } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 import { useClipboard } from '@vueuse/core';
-import { ref, toValue, useTemplateRef, watch } from 'vue';
+import { computed, ref, toValue, useTemplateRef, watch } from 'vue';
 import { cloneDeep } from 'lodash-es';
 import { useCommon } from '@/store';
 
@@ -107,6 +107,11 @@ watch(() => plugin, () => {
 
 watch(sourceLanguage, () => {
   editor.value?.setLanguage(sourceLanguage.value);
+});
+
+const hasDocUrl = computed(() => {
+  if (plugin.doc_url) return true;
+  return common.plugins.find(item => item.name === localPlugin.value.name)?.doc_url || false;
 });
 
 const handleEditorChange = ({ source }: { source: string }) => {

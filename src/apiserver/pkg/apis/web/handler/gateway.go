@@ -326,35 +326,34 @@ func GatewayCheckName(c *gin.Context) {
 //	@Success	200	{object}	serializer.EtcdTestConOutputInfo	"连通性测试结果信息"
 //	@Router		/api/v1/web/gateways/etcd/test_connection/ [post]
 func EtcdTestConnection(c *gin.Context) {
+	handleEtcdTestConnection(c, nil)
+}
+
+// GatewayEtcdTestConnection 编辑态 etcd 连通性测试（受 GatewayAccess 保护，gateway_id 从路径获取）
+//
+//	@ID			gateway_etcd_test_connection
+//	@Summary	网关 etcd 连通性测试
+//	@Param		gateway_id	path	int					true	"网关 ID"
+//	@Param		request		body	serializer.EtcdTestConnectionRequest	true	"etcd 配置连通性测试"
+//	@Tags		webapi.gateway
+//	@Success	200	{object}	serializer.EtcdTestConOutputInfo	"连通性测试结果信息"
+//	@Router		/api/v1/web/gateways/{gateway_id}/etcd/test_connection/ [post]
+func GatewayEtcdTestConnection(c *gin.Context) {
+	handleEtcdTestConnection(c, ginx.GetGatewayInfo(c))
+}
+
+func handleEtcdTestConnection(c *gin.Context, gateway *model.Gateway) {
 	var req serializer.EtcdTestConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	if req.GatewayID != 0 {
-		gateway, err := gatewaybiz.GetGateway(c.Request.Context(), req.GatewayID)
-		if err != nil {
-			ginx.SystemErrorJSONResponse(c, err)
-			return
-		}
-		// 如果输入密码为脱敏信息，则替换为已保存的密码进行连通性测试
-		if req.EtcdSchemaType == constant.HTTP {
-			if req.EtcdPassword == constant.SensitiveInfoFiledDisplay {
-				req.EtcdPassword = gateway.EtcdConfig.Password
-			}
-		} else {
-			if req.EtcdCACert == gateway.EtcdConfig.GetMaskCaCert() {
-				req.EtcdCACert = gateway.EtcdConfig.CACert
-			}
-			if req.EtcdCertCert == gateway.EtcdConfig.GetMaskCertCert() {
-				req.EtcdCertCert = gateway.EtcdConfig.CertCert
-			}
-			if req.EtcdCertKey == gateway.EtcdConfig.GetMaskCertKey() {
-				req.EtcdCertKey = gateway.EtcdConfig.CertKey
-			}
-		}
+	fillEtcdTestConnectionSensitiveFields(&req, gateway)
+	gatewayID := 0
+	if gateway != nil {
+		gatewayID = gateway.ID
 	}
-	apisixVersion, _, err := common.CheckEtcdConnAndAPISIXInstance(req.GatewayID, req.EtcdConfig)
+	apisixVersion, _, err := common.CheckEtcdConnAndAPISIXInstance(gatewayID, req.EtcdConfig)
 	if err != nil {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
@@ -363,4 +362,27 @@ func EtcdTestConnection(c *gin.Context) {
 		APISIXVersion: apisixVersion,
 	}
 	ginx.SuccessJSONResponse(c, output)
+}
+
+// fillEtcdTestConnectionSensitiveFields 将请求中的脱敏敏感字段替换为网关已保存的真实值。
+// 仅当 gateway 非 nil 时执行替换。
+func fillEtcdTestConnectionSensitiveFields(req *serializer.EtcdTestConnectionRequest, gateway *model.Gateway) {
+	if gateway == nil {
+		return
+	}
+	if req.EtcdSchemaType == constant.HTTP {
+		if req.EtcdPassword == constant.SensitiveInfoFiledDisplay {
+			req.EtcdPassword = gateway.EtcdConfig.Password
+		}
+		return
+	}
+	if req.EtcdCACert == gateway.EtcdConfig.GetMaskCaCert() {
+		req.EtcdCACert = gateway.EtcdConfig.CACert
+	}
+	if req.EtcdCertCert == gateway.EtcdConfig.GetMaskCertCert() {
+		req.EtcdCertCert = gateway.EtcdConfig.CertCert
+	}
+	if req.EtcdCertKey == gateway.EtcdConfig.GetMaskCertKey() {
+		req.EtcdCertKey = gateway.EtcdConfig.CertKey
+	}
 }

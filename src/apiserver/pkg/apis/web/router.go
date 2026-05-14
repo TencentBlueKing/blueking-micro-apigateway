@@ -67,6 +67,7 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 	gatewayGroup.Use(middleware.GatewayAccess())
 	gatewayGroup.Use(middleware.ResourceOperationCheck())
 
+	gatewayGroup.POST("/etcd/test_connection/", handler.GatewayEtcdTestConnection)
 	gatewayGroup.PUT("/", handler.GatewayUpdate)
 
 	gatewayGroup.GET("/", handler.GatewayGet)

@@ -39,7 +39,7 @@ export const getGatewaysDetail = (gatewayId: number) => fetch.get(`${BK_DASHBOAR
 export const etcdConnectTest = (data: IConnectTest) => fetch.post(`${BK_DASHBOARD_URL}/gateways/etcd/test_connection/`, data);
 
 // etcd 连通性测试--编辑时
-export const etcdConnectTestEdit = (data: IConnectTest) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gateway_id}/etcd/test_connection/`, data);
+export const etcdConnectTestEdit = (apigwId: number, data: IConnectTest) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${apigwId}/etcd/test_connection/`, data);
 
 // 网关重名检测
 export const checkName = (data: ICheckName) => fetch.post(`${BK_DASHBOARD_URL}/gateways/check_name/`, data);

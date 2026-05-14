@@ -528,13 +528,13 @@ const handleConnect = async () => {
       params.etcd_cert_key = etcd_cert_key;
     }
 
-    let etcdTest = etcdConnectTest;
     if (formData.value?.id) {
       params.gateway_id = formData.value.id;
-      etcdTest = etcdConnectTestEdit;
     }
 
-    const response = await etcdTest(params);
+    const response = !formData.value?.id
+      ? await etcdConnectTest(params)
+      : await etcdConnectTestEdit(params.gateway_id, params);
 
     Message({
       theme: 'success',

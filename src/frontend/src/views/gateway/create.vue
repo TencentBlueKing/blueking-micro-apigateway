@@ -277,7 +277,7 @@ import MemberSelect from '@/components/member-select';
 import FormDivider from '@/components/form-divider.vue';
 // @ts-ignore
 import formEtcdEndpoints from '@/components/form/form-etcd-endpoints.vue';
-import { checkName, createGateway, etcdConnectTest, updateGateways } from '@/http';
+import { checkName, createGateway, etcdConnectTest, etcdConnectTestEdit, updateGateways } from '@/http';
 import { useCommon } from '@/store';
 import { useSidebar } from '@/hooks/index';
 
@@ -528,11 +528,13 @@ const handleConnect = async () => {
       params.etcd_cert_key = etcd_cert_key;
     }
 
+    let etcdTest = etcdConnectTest;
     if (formData.value?.id) {
       params.gateway_id = formData.value.id;
+      etcdTest = etcdConnectTestEdit;
     }
 
-    const response = await etcdConnectTest(params);
+    const response = await etcdTest(params);
 
     Message({
       theme: 'success',

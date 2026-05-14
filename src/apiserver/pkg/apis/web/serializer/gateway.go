@@ -77,7 +77,6 @@ type CheckGatewayNameRequest struct {
 
 // EtcdTestConnectionRequest 探测etcd连接请求
 type EtcdTestConnectionRequest struct {
-	GatewayID int `json:"gateway_id"` // 编辑下探测需要传
 	common.EtcdConfig
 }
 

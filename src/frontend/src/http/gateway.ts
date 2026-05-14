@@ -35,8 +35,11 @@ export const updateGateways = (apigwId: number, data: ICreatePayload) => fetch.p
 // 获取网关详情
 export const getGatewaysDetail = (gatewayId: number) => fetch.get(`${BK_DASHBOARD_URL}/gateways/${gatewayId}/`);
 
-// etcd 连通性测试
+// etcd 连通性测试--创建时
 export const etcdConnectTest = (data: IConnectTest) => fetch.post(`${BK_DASHBOARD_URL}/gateways/etcd/test_connection/`, data);
+
+// etcd 连通性测试--编辑时
+export const etcdConnectTestEdit = (data: IConnectTest) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gateway_id}/etcd/test_connection/`, data);
 
 // 网关重名检测
 export const checkName = (data: ICheckName) => fetch.post(`${BK_DASHBOARD_URL}/gateways/check_name/`, data);

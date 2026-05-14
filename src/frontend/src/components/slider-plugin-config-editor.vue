@@ -85,6 +85,7 @@ interface IProps {
 const isShow = defineModel<boolean>({
   required: true,
   default: false,
+
 });
 
 const { plugin, mountOn = 'plugin-config-editor' } = defineProps<IProps>();

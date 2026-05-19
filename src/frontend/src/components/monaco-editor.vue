@@ -22,7 +22,7 @@
 
 <script lang="ts" setup>
 import monaco from 'monaco-editor';
-import yaml from 'js-yaml';
+import { parse, stringify } from 'yaml';
 import { Message } from 'bkui-vue';
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -183,9 +183,9 @@ const setLanguage = (language: string) => {
     let code = '';
 
     if (language.toLowerCase() === 'yaml') {
-      code = yaml.dump(yaml.load(source));
+      code = stringify(parse(source));
     } else if (language.toLowerCase() === 'json') {
-      code = JSON.stringify(yaml.load(getValue()));
+      code = JSON.stringify(parse(getValue()));
     }
 
     setValue(code);

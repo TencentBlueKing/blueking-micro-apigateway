@@ -22,6 +22,20 @@ Future version bumps must preserve the same fixes so the same bugs are not reint
 
 These are not one-off fixes. Treat them as authoring rules for every new APISIX version added here.
 
+## APISIX 3.17 Source Baseline
+
+- Official APISIX 3.17 assets are pinned to commit
+  `9ef2ecab67f652d38365049613610ef649bb4ad0`.
+- BK-APISIX 3.17 assets are pinned to `blueking-apigateway-apisix` commit
+  `c1c44e5dc192120ccfa432e9f54703285a80ca38`, whose APISIX submodule points to the official commit above.
+- The pinned BK runtime exposes four of the seven compatibility-catalog plugins:
+  `bk-break-recursive-call`, `bk-delete-cookie`, `bk-jwt`, and `bk-traffic-label`.
+- `bk-echo`, `bk-header-rewrite`, and `bk-login-required` remain in the 3.17 control-plane catalog for
+  3.13-compatible composition. Their 3.17 Schema entries are compatibility snapshots copied from 3.13, not
+  runtime-exported evidence from the pinned BK image.
+- The 3.17 official catalog excludes `mcp-bridge`, `server-info`, `node-status`, and `log-rotate`.
+- The 3.17 TAPISIX catalog and Schema files are intentionally empty compatibility placeholders.
+
 ## Directory Contract
 
 - `plugin.json` is a plugin catalog consumed by `plugin.go`.
@@ -79,7 +93,10 @@ If those paths move or disappear, validation and example lookup will silently br
 ### Preserve And Fix
 
 - Any schema node that behaves like an object and has `properties` must explicitly declare `"type": "object"`.
+- Keep authentication fields such as `anonymous_consumer` inside the enclosing Schema's `properties` object.
 - Keep `openfunction.authorization` as an object with `service_token` nested under `properties`. Do not place `service_token` beside `type`.
+- Flatten Lua positional URI definitions such as `{schema_def.uri_def, default = ...}` into standard JSON Schema
+  keywords (`type`, `pattern`, and `default`); numeric keys such as `"1"` are not valid Schema keywords.
 - Keep `proxy-rewrite` as a valid object schema with correctly typed `headers`, `regex_uri`, `host`, `uri`, `_meta`, and `use_real_request_uri_unsafe` fields.
 - Preserve the core resource fields restored by this branch: `plugins`, `upstream`, `service_id`, `remote_addrs`, and `consumer`.
 - Keep id-like fields that accept either strings or integers as `anyOf` unions when upstream expects both.
@@ -104,5 +121,6 @@ Run these checks after every schema refresh or new version addition:
 - `go test ./pkg/utils/schema`
 - `go test ./pkg/utils/schema -run TestPluginExamplesMatchSchema`
 - `go test ./pkg/utils/schema -run TestOpenFunctionAuthorizationSchemaShape`
+- From `src/frontend`, `npm run test:schema`
 
 If any example fails validation, fix the JSON files first. Do not weaken the tests to accept an invalid schema or example.

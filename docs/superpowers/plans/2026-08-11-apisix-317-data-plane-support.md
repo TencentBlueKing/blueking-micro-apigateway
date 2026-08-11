@@ -15,6 +15,8 @@
 - 对外仅新增 `apisix 3.17.0` 和 `bk-apisix 3.17.0`；不新增 `tapisix 3.17.0` 入口。
 - 内部版本常量必须是 `3.17.X`，不得用版本阈值让未来 minor 自动继承 3.17 能力。
 - 3.17 必须是完整独立快照；禁止复用 3.13 `schema.json` 或在运行时叠加差异。
+- BK 3.17 目录继续暴露 3.13 的七个 BK 插件：固定 BK 运行时实证其中四个，另外三个使用明确标注的
+  3.13 兼容 Schema 快照。
 - `tapisix_plugin.json` 必须是 `[]`，`tapisix_plugin_schema.json` 必须是 `{"plugins": {}}`，并继续参与组合与 fallback。
 - 插件组合保持：`apisix = official`、`tapisix = official + TAPISIX`、`bk-apisix = official + TAPISIX + BK`。
 - 不修改 `{etcd_prefix}/data_plane/server_info` 第一条记录探测、版本回填、缺失容忍或版本不一致处理。
@@ -355,27 +357,24 @@ Expected: FAIL because the 3.17 BK and TAPISIX assets/maps do not exist.
 
 - [ ] **Step 3: Export BK plugin Schema from the pinned BK data plane**
 
-Use an isolated checkout at exactly `c1c44e5dc192120ccfa432e9f54703285a80ca38`. Build and run the image with Control API enabled and only these control-plane-exposed BK plugins loaded:
+Use an isolated checkout at exactly `c1c44e5dc192120ccfa432e9f54703285a80ca38`. Build and run the image with Control API enabled. The pinned runtime exports these four control-plane plugins:
 
 ```text
 bk-break-recursive-call
 bk-delete-cookie
-bk-echo
-bk-header-rewrite
 bk-jwt
-bk-login-required
 bk-traffic-label
 ```
 
-Capture `/v1/schema`, select only those seven keys, and normalize with the same object-type and `encrypt_fields` rules from Task 2:
+Capture `/v1/schema`, select those four keys, and normalize with the same object-type and `encrypt_fields` rules from Task 2. Then add compatibility Schema snapshots for `bk-echo`, `bk-header-rewrite`, and
+`bk-login-required` from 3.13 so the final file has the confirmed seven-plugin control-plane composition:
 
 ```bash
 curl --fail --silent --show-error http://127.0.0.1:19090/v1/schema \
   -o /tmp/bk-apisix-3.17-schema.raw.json
 jq -S '
   {plugins: (.plugins | with_entries(select(.key as $name | [
-    "bk-break-recursive-call", "bk-delete-cookie", "bk-echo",
-    "bk-header-rewrite", "bk-jwt", "bk-login-required", "bk-traffic-label"
+    "bk-break-recursive-call", "bk-delete-cookie", "bk-jwt", "bk-traffic-label"
   ] | index($name))))}
   | walk(
       if type == "object" then
@@ -387,7 +386,8 @@ jq -S '
   > src/apiserver/pkg/utils/schema/3.17/bk_apisix_plugin_schema.json
 ```
 
-Assert the output contains exactly seven plugin keys before continuing.
+Assert the runtime export contains exactly four plugin keys and the final compatibility-composed output contains exactly
+seven plugin keys before continuing. Do not describe the three compatibility entries as runtime verified.
 
 - [ ] **Step 4: Create the BK catalog and empty TAPISIX assets**
 

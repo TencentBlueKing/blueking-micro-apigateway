@@ -60,8 +60,9 @@ src/apiserver/pkg/utils/schema/3.17/
 
 - `schema.json`：APISIX 核心资源、官方 HTTP 插件和 stream 插件的完整 3.17 Schema。
 - `plugin.json`：控制面开放的 3.17 官方插件目录及最小合法示例。
-- `bk_apisix_plugin.json`：目标 BK 3.17 数据面实际提供的 BK 插件目录及示例。
-- `bk_apisix_plugin_schema.json`：同一 BK 3.17 数据面版本对应的插件 Schema。
+- `bk_apisix_plugin.json`：沿用 3.13 的七插件控制面目录；其中四个由目标 BK 3.17 数据面实证，
+  三个为兼容性保留。
+- `bk_apisix_plugin_schema.json`：四个运行时导出 Schema 加三个从 3.13 保留的兼容 Schema。
 - `tapisix_plugin.json`：与 3.13 一致的空数组 `[]`。
 - `tapisix_plugin_schema.json`：与 3.13 一致的空对象 `{"plugins": {}}`。
 
@@ -122,9 +123,13 @@ src/apiserver/pkg/utils/schema/3.17/
 
 ### 5.2 BK 插件 Schema
 
-BK 目录和 Schema 从目标 `bk-apisix 3.17` 数据面版本获取。即使 3.13 与 3.17 的文件表面相似，也不能默认复用 3.13 资产。
+BK 数据面固定到 `c1c44e5dc192120ccfa432e9f54703285a80ca38`。该运行时只导出
+`bk-break-recursive-call`、`bk-delete-cookie`、`bk-jwt` 和 `bk-traffic-label` 四个既有 BK 插件。
+按已确认的“插件组合保持 3.13 逻辑”，控制面继续暴露
+`bk-echo`、`bk-header-rewrite` 和 `bk-login-required`；这三个插件的 Schema 明确使用 3.13 兼容快照，
+不得标记为目标 3.17 BK 运行时导出结果。
 
-需要对 3.13 和 3.17 BK 插件执行与官方插件相同的全量结构比较，覆盖主配置、consumer 和 metadata 作用域。
+对四个运行时实证插件执行 3.13/3.17 全量结构比较；对三个兼容保留插件验证目录、Schema 和示例完整性。
 
 ### 5.3 全量 Schema 差异审计
 

@@ -1,0 +1,51 @@
+meta {
+  name: plugin_matrix_invalid_3_17_0_hmac-auth_max-body-size
+  type: http
+  seq: 152
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-317/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "hmac-auth": {
+            "max_req_body_size": 0
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-hmac-auth-max-body-size-317"
+        ]
+      },
+      "name": "plugin-hmac-auth-max-body-size-317"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq "BadRequest"
+}

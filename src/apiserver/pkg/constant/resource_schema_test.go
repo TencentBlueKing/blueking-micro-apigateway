@@ -161,6 +161,13 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			reason:       "consumer_group name added in 3.13",
 		},
 		{
+			name:         "consumer_group supports name in 3.17",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion317,
+			expected:     true,
+			reason:       "consumer_group name remains supported in 3.17",
+		},
+		{
 			name:         "stream_route does NOT support name in 3.11",
 			resourceType: constant.StreamRoute,
 			version:      constant.APISIXVersion311,
@@ -170,6 +177,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			name:         "stream_route DOES support name in 3.13",
 			resourceType: constant.StreamRoute,
 			version:      constant.APISIXVersion313,
+			expected:     true,
+		},
+		{
+			name:         "stream_route supports name in 3.17",
+			resourceType: constant.StreamRoute,
+			version:      constant.APISIXVersion317,
 			expected:     true,
 		},
 		{
@@ -184,6 +197,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			version:      constant.APISIXVersion313,
 			expected:     true,
 		},
+		{
+			name:         "proto supports name in 3.17",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion317,
+			expected:     true,
+		},
 
 		// Resources that never support name
 		{
@@ -196,6 +215,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			name:         "global_rule does NOT support name in 3.13",
 			resourceType: constant.GlobalRule,
 			version:      constant.APISIXVersion313,
+			expected:     false,
+		},
+		{
+			name:         "global_rule does NOT support name in 3.17",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion317,
 			expected:     false,
 		},
 		{
@@ -450,6 +475,27 @@ func TestResourceRequiresIDInSchemaForVersion(t *testing.T) {
 			version:      constant.APISIXVersion313,
 			expected:     true,
 			reason:       "global_rule id is required in 3.13",
+		},
+		{
+			name:         "consumer_group requires id in 3.17",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion317,
+			expected:     true,
+			reason:       "consumer_group id remains required in 3.17",
+		},
+		{
+			name:         "plugin_config requires id in 3.17",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion317,
+			expected:     true,
+			reason:       "plugin_config id remains required in 3.17",
+		},
+		{
+			name:         "global_rule requires id in 3.17",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion317,
+			expected:     true,
+			reason:       "global_rule id remains required in 3.17",
 		},
 		{
 			name:         "route never requires id",

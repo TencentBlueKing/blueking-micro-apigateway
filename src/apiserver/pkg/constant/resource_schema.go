@@ -24,7 +24,7 @@ type ResourceSchemaCapability struct {
 	// SupportsNameField indicates if the resource type has "name" property in APISIX schema
 	// This varies by APISIX version:
 	// - 3.11: route, service, upstream, plugin_config
-	// - 3.13: adds consumer_group, stream_route, proto
+	// - 3.13/3.17: adds consumer_group, stream_route, proto
 	SupportsNameField bool
 
 	// RequiresIDInSchema indicates if the resource type requires "id" in the schema
@@ -63,7 +63,7 @@ func ResourceSupportsNameField(resourceType APISIXResource) bool {
 //   - consumer_group, stream_route, proto: NO "name"
 //   - global_rule, ssl: NO "name"
 //
-// APISIX 3.13:
+// APISIX 3.13/3.17:
 //   - route, service, upstream, plugin_config: have "name"
 //   - consumer_group, stream_route, proto: have "name" (ADDED in 3.13)
 //   - global_rule, ssl: NO "name"
@@ -73,8 +73,8 @@ func ResourceSupportsNameFieldForVersion(resourceType APISIXResource, version AP
 	case Route, Service, Upstream, PluginConfig:
 		return true
 	case ConsumerGroup, StreamRoute, Proto:
-		// Added in 3.13 only; older schemas do not expose name.
-		return version == APISIXVersion313
+		// Added in 3.13; older schemas do not expose name.
+		return version == APISIXVersion313 || version == APISIXVersion317
 	case GlobalRule, SSL:
 		// Never supported
 		return false
@@ -139,13 +139,13 @@ func ResourceRequiresIDInSchema(resourceType APISIXResource) bool {
 //   - plugin_config, global_rule: expose id property but do not require it
 //   - consumer_group: still uses the old group_name schema and does not expose id
 //
-// APISIX 3.11/3.13:
+// APISIX 3.11/3.13/3.17:
 //   - consumer_group, plugin_config, global_rule: require id
 func ResourceRequiresIDInSchemaForVersion(resourceType APISIXResource, version APISIXVersion) bool {
 	switch resourceType {
 	case ConsumerGroup, PluginConfig, GlobalRule:
 		switch version {
-		case APISIXVersion311, APISIXVersion313:
+		case APISIXVersion311, APISIXVersion313, APISIXVersion317:
 			return true
 		default:
 			return false

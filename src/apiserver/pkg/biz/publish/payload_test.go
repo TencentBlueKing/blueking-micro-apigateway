@@ -46,6 +46,13 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			wantConfig:   `{"username":"demo","plugins":{"key-auth":{"key":"demo"}}}`,
 		},
 		{
+			name:         "consumer drops id in 3.17",
+			resourceType: constant.Consumer,
+			version:      constant.APISIXVersion317,
+			rawConfig:    `{"id":"consumer-id","username":"demo","plugins":{}}`,
+			wantConfig:   `{"username":"demo","plugins":{}}`,
+		},
+		{
 			name:         "consumer group drops name in 3.11 but keeps id",
 			resourceType: constant.ConsumerGroup,
 			version:      constant.APISIXVersion311,
@@ -58,6 +65,13 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			version:      constant.APISIXVersion313,
 			rawConfig:    `{"id":"cg-id","name":"cg-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
 			wantConfig:   `{"id":"cg-id","name":"cg-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		},
+		{
+			name:         "consumer group keeps id and name in 3.17",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion317,
+			rawConfig:    `{"id":"cg-id","name":"cg-demo","plugins":{}}`,
+			wantConfig:   `{"id":"cg-id","name":"cg-demo","plugins":{}}`,
 		},
 		{
 			name:         "plugin config keeps id and name",
@@ -74,6 +88,13 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			wantConfig:   `{"id":"gr-id","plugins":{"prometheus":{"prefer_name":true}}}`,
 		},
 		{
+			name:         "global rule drops name in 3.17",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion317,
+			rawConfig:    `{"id":"gr-id","name":"global-demo","plugins":{}}`,
+			wantConfig:   `{"id":"gr-id","plugins":{}}`,
+		},
+		{
 			name:         "proto drops name in 3.11",
 			resourceType: constant.Proto,
 			version:      constant.APISIXVersion311,
@@ -84,6 +105,13 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			name:         "ssl drops name and internal validity fields",
 			resourceType: constant.SSL,
 			version:      constant.APISIXVersion311,
+			rawConfig:    `{"id":"ssl-id","name":"ssl-demo","validity_start":1,"validity_end":2,"cert":"x","key":"y","snis":["demo.com"]}`,
+			wantConfig:   `{"id":"ssl-id","cert":"x","key":"y","snis":["demo.com"]}`,
+		},
+		{
+			name:         "ssl drops name and internal validity fields in 3.17",
+			resourceType: constant.SSL,
+			version:      constant.APISIXVersion317,
 			rawConfig:    `{"id":"ssl-id","name":"ssl-demo","validity_start":1,"validity_end":2,"cert":"x","key":"y","snis":["demo.com"]}`,
 			wantConfig:   `{"id":"ssl-id","cert":"x","key":"y","snis":["demo.com"]}`,
 		},
@@ -100,6 +128,20 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			version:      constant.APISIXVersion313,
 			rawConfig:    `{"id":"sr-id","name":"stream-demo","labels":{"env":"prod"},"server_addr":"0.0.0.0","server_port":9100,"upstream":{"nodes":[{"host":"127.0.0.1","port":80,"weight":1}],"type":"roundrobin"}}`,
 			wantConfig:   `{"id":"sr-id","name":"stream-demo","server_addr":"0.0.0.0","server_port":9100,"upstream":{"nodes":[{"host":"127.0.0.1","port":80,"weight":1}],"type":"roundrobin"}}`,
+		},
+		{
+			name:         "stream route keeps name in 3.17 but still drops labels",
+			resourceType: constant.StreamRoute,
+			version:      constant.APISIXVersion317,
+			rawConfig:    `{"id":"sr-id","name":"stream-demo","labels":{"env":"prod"},"server_port":9100}`,
+			wantConfig:   `{"id":"sr-id","name":"stream-demo","server_port":9100}`,
+		},
+		{
+			name:         "proto keeps name in 3.17",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion317,
+			rawConfig:    `{"id":"proto-id","name":"demo.proto","content":"syntax = \"proto3\";"}`,
+			wantConfig:   `{"id":"proto-id","name":"demo.proto","content":"syntax = \"proto3\";"}`,
 		},
 		{
 			name:         "route stays unchanged",

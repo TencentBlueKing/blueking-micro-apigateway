@@ -5865,10 +5865,6 @@
       "priority": 2520,
       "schema": {
         "$comment": "this is a mark for our injected plugin schema",
-        "anonymous_consumer": {
-          "minLength": 1,
-          "type": "string"
-        },
         "properties": {
           "_meta": {
             "additionalProperties": false,
@@ -5900,6 +5896,10 @@
               }
             },
             "type": "object"
+          },
+          "anonymous_consumer": {
+            "minLength": 1,
+            "type": "string"
           },
           "hide_credentials": {
             "default": false,
@@ -7674,11 +7674,9 @@
                 "type": "string"
               },
               "endpoint_addr": {
-                "1": {
-                  "pattern": "^[^\\/]+:\\/\\/([\\da-zA-Z.-]+|\\[[\\da-fA-F:]+\\])(:\\d+)?",
-                  "type": "string"
-                },
-                "default": "http://127.0.0.1:8123"
+                "default": "http://127.0.0.1:8123",
+                "pattern": "^[^\\/]+:\\/\\/([\\da-zA-Z.-]+|\\[[\\da-fA-F:]+\\])(:\\d+)?",
+                "type": "string"
               },
               "logtable": {
                 "default": "",
@@ -7836,7 +7834,9 @@
           "skywalking": {
             "properties": {
               "endpoint_addr": {
-                "default": "http://127.0.0.1:12900/v3/logs"
+                "default": "http://127.0.0.1:12900/v3/logs",
+                "pattern": "^[^\\/]+:\\/\\/([\\da-zA-Z.-]+|\\[[\\da-fA-F:]+\\])(:\\d+)?",
+                "type": "string"
               },
               "service_instance_name": {
                 "default": "APISIX Service Instance",
@@ -12356,9 +12356,12 @@
             "type": "object"
           },
           "authorization": {
-            "service_token": {
-              "type": "string"
-            }
+            "properties": {
+              "service_token": {
+                "type": "string"
+              }
+            },
+            "type": "object"
           },
           "function_uri": {
             "type": "string"

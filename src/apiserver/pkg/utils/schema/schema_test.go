@@ -48,6 +48,11 @@ func TestGetResourceSchema(t *testing.T) {
 			shouldFail: false,
 		},
 		{
+			name:       "APISIX 3.17 - Existing Resource",
+			version:    constant.APISIXVersion317,
+			shouldFail: false,
+		},
+		{
 			name:       "APISIX 3.13 - Existing Resource",
 			version:    constant.APISIXVersion313,
 			shouldFail: false,
@@ -71,6 +76,12 @@ func TestGetResourceSchema(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestGet317OfficialAssets(t *testing.T) {
+	assert.NotNil(t, GetResourceSchema(constant.APISIXVersion317, constant.Route.String()))
+	assert.NotNil(t, GetPluginSchema(constant.APISIXVersion317, "jwt-auth", ""))
+	assert.NotNil(t, GetPluginSchema(constant.APISIXVersion317, "traffic-split", "stream"))
 }
 
 func TestGetPluginSchema(t *testing.T) {
@@ -127,10 +138,11 @@ func TestGetPluginSchema(t *testing.T) {
 	}
 }
 
-func TestGetPluginSchemaStreamPrometheusExistsFor311And313(t *testing.T) {
+func TestGetPluginSchemaStreamPrometheusExistsForSupportedVersions(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	for _, version := range versions {

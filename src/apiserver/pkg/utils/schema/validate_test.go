@@ -31,6 +31,7 @@ import (
 )
 
 var APISIXVersionList = []constant.APISIXVersion{
+	constant.APISIXVersion317,
 	constant.APISIXVersion313,
 	constant.APISIXVersion311,
 }

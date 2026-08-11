@@ -26,6 +26,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
+//go:embed 3.17/schema.json
+var rawSchemaV317 []byte
+
 //go:embed 3.13/schema.json
 var rawSchemaV313 []byte
 
@@ -58,6 +61,7 @@ var rawSchemaV33 []byte
 var rawSchemaV32 []byte
 
 var schemaVersionMap = map[constant.APISIXVersion]gjson.Result{
+	constant.APISIXVersion317: gjson.ParseBytes(rawSchemaV317),
 	constant.APISIXVersion32:  gjson.ParseBytes(rawSchemaV32),
 	constant.APISIXVersion33:  gjson.ParseBytes(rawSchemaV33),
 	constant.APISIXVersion311: gjson.ParseBytes(rawSchemaV311),

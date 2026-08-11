@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -37,6 +38,12 @@ func TestGetPlugins(t *testing.T) {
 		version    constant.APISIXVersion
 		shouldFail bool
 	}{
+		{
+			name:       "APISIX 3.17",
+			apisixType: constant.APISIXTypeAPISIX,
+			version:    constant.APISIXVersion317,
+			shouldFail: false,
+		},
 		{
 			name:       "APISIX 3.13",
 			apisixType: constant.APISIXTypeAPISIX,
@@ -95,6 +102,7 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	type exampleCase struct {
@@ -152,13 +160,13 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 					}
 
 					schemaBytes, err := json.Marshal(schemaValue)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					s, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaBytes))
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					result, err := s.Validate(gojsonschema.NewGoLoader(tc.example))
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					assert.Truef(
 						t,
 						result.Valid(),
@@ -175,6 +183,7 @@ func TestConsumerPluginFrontendFallbackExamplesMatchConsumerSchema(t *testing.T)
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	for _, version := range versions {
@@ -253,6 +262,7 @@ func TestOpenWhiskNamePatternsUseEcmaCompatibleAnchors(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 	expectedPattern := `^([\w]|[\w][\w@ .-]*[\w@.-]+)$`
 
@@ -292,6 +302,7 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	for _, version := range versions {

@@ -1,0 +1,1367 @@
+[
+  {
+    "example": {
+      "allow_labels": {
+        "groups": [
+          "admin"
+        ]
+      }
+    },
+    "name": "acl",
+    "type": "security"
+  },
+  {
+    "example": {
+      "access_key_id": "access-key-id",
+      "access_key_secret": "access-key-secret",
+      "endpoint": "https://green-cip.cn-shanghai.aliyuncs.com",
+      "region_id": "cn-shanghai"
+    },
+    "name": "ai-aliyun-content-moderation",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "comprehend": {
+        "access_key_id": "ACCESS_KEY_ID",
+        "region": "us-east-1",
+        "secret_access_key": "SECRET_ACCESS_KEY"
+      },
+      "moderation_categories": {
+        "PROFANITY": 0.5
+      }
+    },
+    "name": "ai-aws-content-moderation",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "append": [
+        {
+          "content": "End the response with an analogy.",
+          "role": "system"
+        }
+      ],
+      "prepend": [
+        {
+          "content": "I have exams tomorrow so explain conceptually and briefly",
+          "role": "system"
+        }
+      ]
+    },
+    "name": "ai-prompt-decorator",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "allow_patterns": [
+        "goodword"
+      ],
+      "deny_patterns": [
+        "badword"
+      ],
+      "match_all_roles": true
+    },
+    "name": "ai-prompt-guard",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "templates": [
+        {
+          "name": "level of detail",
+          "template": {
+            "messages": [
+              {
+                "content": "Explain about {{ topic }} in {{ level }}.",
+                "role": "user"
+              }
+            ],
+            "model": "gpt-4"
+          }
+        }
+      ]
+    },
+    "name": "ai-prompt-template",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "auth": {
+        "header": {
+          "Authorization": "Bearer OPENAI_API_KEY"
+        }
+      },
+      "options": {
+        "model": "gpt-4"
+      },
+      "provider": "openai"
+    },
+    "name": "ai-proxy",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "instances": [
+        {
+          "auth": {
+            "header": {
+              "Authorization": "Bearer OPENAI_API_KEY"
+            }
+          },
+          "name": "openai-instance",
+          "options": {
+            "model": "gpt-4"
+          },
+          "provider": "openai",
+          "weight": 8
+        },
+        {
+          "auth": {
+            "header": {
+              "Authorization": "Bearer OPENAI_API_KEY"
+            }
+          },
+          "name": "deepseek-instance",
+          "options": {
+            "model": "deepseek-chat"
+          },
+          "provider": "deepseek",
+          "weight": 2
+        }
+      ]
+    },
+    "name": "ai-proxy-multi",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "embeddings_provider": {
+        "azure_openai": {
+          "api_key": "AZ_OPENAI_API_KEY",
+          "endpoint": "AZ_EMBEDDINGS_ENDPOINT"
+        }
+      },
+      "vector_search_provider": {
+        "azure_ai_search": {
+          "api_key": "AZ_AI_SEARCH_KEY",
+          "endpoint": "AZ_AI_SEARCH_ENDPOINT"
+        }
+      }
+    },
+    "name": "ai-rag",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "limit": 300,
+      "limit_strategy": "prompt_tokens",
+      "time_window": 30
+    },
+    "name": "ai-rate-limiting",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "auth": {
+        "header": {
+          "Authorization": "Bearer <some-token>"
+        }
+      },
+      "options": {
+        "max_tokens": 1024,
+        "model": "qwen-plus",
+        "temperature": 1
+      },
+      "override": {
+        "endpoint": "https://example.com"
+      },
+      "prompt": "test",
+      "provider": "openai-compatible"
+    },
+    "name": "ai-request-rewrite",
+    "type": "AI"
+  },
+  {
+    "example": {
+      "break_response_body": "Service is unavailable",
+      "break_response_code": 500,
+      "healthy": {
+        "http_statuses": [
+          200
+        ],
+        "successes": 3
+      },
+      "max_breaker_sec": 300,
+      "unhealthy": {
+        "failures": 3,
+        "http_statuses": [
+          500
+        ]
+      }
+    },
+    "name": "api-breaker",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "headers": {
+        "X-Consumer-ID": "$consumer_name",
+        "X-Consumer-Username": "$consumer_name"
+      }
+    },
+    "name": "attach-consumer-label",
+    "type": "security"
+  },
+  {
+    "example": {
+      "model": "path/to/model.conf",
+      "policy": "path/to/policy.csv",
+      "username": "admin"
+    },
+    "metadata_example": {
+      "model": "rbac_model.conf",
+      "policy": "rbac_policy.csv"
+    },
+    "name": "authz-casbin",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "callback_url": "http://example.com/callback",
+      "client_id": "your_client_id",
+      "client_secret": "your_client_secret",
+      "endpoint_addr": "https://casdoor.org:8000"
+    },
+    "name": "authz-casdoor",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "client_id": "your_client_id",
+      "discovery": "https://your-keycloak-server.com/auth/realms/your-realm/.well-known/openid-configuration"
+    },
+    "name": "authz-keycloak",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "authorization": {
+        "apikey": "your_api_key"
+      },
+      "function_uri": "arn:aws:lambda:us-east-1:123456789012:function:my-function"
+    },
+    "name": "aws-lambda",
+    "type": "serverless"
+  },
+  {
+    "example": {
+      "authorization": {
+        "apikey": "your_api_key"
+      },
+      "function_uri": "https://your-function-app.azurewebsites.net/api/your-function"
+    },
+    "metadata_example": {
+      "master_apikey": "<Your Azure master access key>"
+    },
+    "name": "azure-functions",
+    "type": "serverless"
+  },
+  {
+    "example": {
+      "password": "admin",
+      "username": "admin"
+    },
+    "name": "basic-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {},
+    "hidden": true,
+    "metadata_example": {
+      "max_body_size": 1048576
+    },
+    "name": "batch-requests",
+    "type": "general"
+  },
+  {
+    "example": {
+      "request": {
+        "input_format": "json",
+        "template": "{\"transformed_data\": \"{{data}}\"}"
+      },
+      "response": {
+        "input_format": "json",
+        "template": "{\"result\": \"{{response}}\"}"
+      }
+    },
+    "name": "body-transformer",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "cas_callback_uri": "/api/cas/callback",
+      "cookie": {
+        "secret": "0123456789abcdef0123456789abcdef"
+      },
+      "idp_uri": "https://cas.example.com",
+      "logout_uri": "https://cas.example.com/logout"
+    },
+    "name": "cas-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "append_waf_debug_header": false,
+      "append_waf_resp_header": true,
+      "mode": "monitor"
+    },
+    "name": "chaitin-waf",
+    "type": "security"
+  },
+  {
+    "example": {
+      "database": "your_database",
+      "endpoint_addr": "http://clickhouse:8123",
+      "logtable": "your_log_table",
+      "password": "your_password",
+      "user": "default"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "clickhouse-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "max_body_size": 1048576
+    },
+    "name": "client-control",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "blacklist": [
+        "user3",
+        "user4"
+      ],
+      "rejected_code": 403,
+      "rejected_msg": "Access denied",
+      "whitelist": [
+        "user1",
+        "user2"
+      ]
+    },
+    "name": "consumer-restriction",
+    "type": "security"
+  },
+  {
+    "example": {
+      "allow_headers": "Content-Type",
+      "allow_methods": "GET,POST",
+      "allow_origins": "*"
+    },
+    "metadata_example": {
+      "allow_origins": {
+        "EXAMPLE": "https://example.com"
+      }
+    },
+    "name": "cors",
+    "type": "security"
+  },
+  {
+    "example": {
+      "expires": 7200,
+      "key": "your_secret_key",
+      "name": "csrf-token"
+    },
+    "name": "csrf",
+    "type": "security"
+  },
+  {
+    "example": {
+      "request": [
+        {
+          "action": "remove",
+          "name": "Authorization",
+          "type": "header"
+        }
+      ]
+    },
+    "name": "data-mask",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "constant_tags": [
+        "source:apisix"
+      ],
+      "host": "127.0.0.1",
+      "namespace": "apisix",
+      "port": 8125
+    },
+    "metadata_example": {
+      "constant_tags": [
+        "source:apisix",
+        "service:custom"
+      ],
+      "host": "172.168.45.29",
+      "namespace": "apisix",
+      "port": 8126
+    },
+    "name": "datadog",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "operation_name": "GetUser",
+      "query": "query GetUser($id: ID!) { user(id: $id) { name email } }",
+      "variables": [
+        "id"
+      ]
+    },
+    "name": "degraphql",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "app_key": "app-key",
+      "app_secret": "app-secret",
+      "redirect_uri": "https://apisix.example.com/dingtalk/callback",
+      "secret": "12345678"
+    },
+    "name": "dingtalk-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "method": "your_method",
+      "service_name": "your_service_name",
+      "service_version": "1.0.0"
+    },
+    "hidden": true,
+    "name": "dubbo-proxy",
+    "type": "other protocols"
+  },
+  {
+    "example": {
+      "after_body": "request body after filter",
+      "before_body": "request body before filter",
+      "body": "response body",
+      "headers": {
+        "Content-Type": "text/plain"
+      }
+    },
+    "hidden": true,
+    "name": "echo",
+    "type": "general"
+  },
+  {
+    "example": {
+      "endpoint_addr": "http://elasticsearch:9200",
+      "field": {
+        "index": "logs",
+        "type": "_doc"
+      }
+    },
+    "metadata_example": {
+      "endpoint_addr": "http://elasticsearch:9200",
+      "field": {
+        "index": "your_index"
+      }
+    },
+    "name": "elasticsearch-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "batch_max_size": 1000,
+      "buffer_duration": 60,
+      "inactive_timeout": 5,
+      "max_retry_count": 0,
+      "retry_delay": 1
+    },
+    "hidden": true,
+    "metadata_example": {
+      "inactive_timeout": 1,
+      "tcp": {
+        "host": "127.0.0.1",
+        "port": 1999
+      }
+    },
+    "name": "error-log-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "allow_degradation": false,
+      "conf": [
+        {
+          "name": "header1",
+          "value": "value1"
+        }
+      ]
+    },
+    "name": "ext-plugin-post-req",
+    "type": "general"
+  },
+  {
+    "example": {
+      "allow_degradation": false,
+      "conf": [
+        {
+          "name": "header1",
+          "value": "value1"
+        }
+      ]
+    },
+    "name": "ext-plugin-post-resp",
+    "type": "general"
+  },
+  {
+    "example": {
+      "allow_degradation": false,
+      "conf": [
+        {
+          "name": "header1",
+          "value": "value1"
+        }
+      ]
+    },
+    "name": "ext-plugin-pre-req",
+    "type": "general"
+  },
+  {
+    "example": {
+      "abort": {
+        "http_status": 500,
+        "percentage": 10
+      },
+      "delay": {
+        "duration": 5000,
+        "percentage": 10
+      }
+    },
+    "name": "fault-injection",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "app_id": "app-id",
+      "app_secret": "app-secret",
+      "auth_redirect_uri": "https://open.feishu.cn/open-apis/authen/v1/authorize",
+      "redirect_uri": "https://apisix.example.com/feishu/callback",
+      "secret": "12345678"
+    },
+    "name": "feishu-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "path": "/var/log/apisix/access.log"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "file-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "request_headers": [
+        "Authorization"
+      ],
+      "upstream_headers": [
+        "X-User"
+      ],
+      "uri": "http://example.com/auth"
+    },
+    "name": "forward-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "auth_config": {
+        "client_email": "service-account@example.iam.gserviceaccount.com",
+        "private_key": "your_private_key",
+        "project_id": "your_project_id",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "log_id": "your_log_id"
+    },
+    "name": "google-cloud-logging",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "count": 100,
+      "policy": "local",
+      "time_window": 60
+    },
+    "name": "graphql-limit-count",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "cache_ttl": 300
+    },
+    "name": "graphql-proxy-cache",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "method": "your_method",
+      "proto_id": "your_proto_id",
+      "service": "your_service"
+    },
+    "name": "grpc-transcode",
+    "type": "transformation"
+  },
+  {
+    "example": {},
+    "name": "grpc-web",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "buffers": {
+        "number": 32,
+        "size": 4096
+      },
+      "comp_level": 6,
+      "min_length": 20,
+      "types": [
+        "text/html",
+        "text/plain"
+      ]
+    },
+    "name": "gzip",
+    "type": "general"
+  },
+  {
+    "consumer_example": {
+      "key_id": "user-key",
+      "secret_key": "my-secret-key"
+    },
+    "example": {
+      "allowed_algorithms": [
+        "hmac-sha256"
+      ],
+      "clock_skew": 300,
+      "signed_headers": [
+        "date",
+        "@request-target"
+      ]
+    },
+    "name": "hmac-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "method": "getUserInfo",
+      "params_type_desc": "Ljava/lang/String;",
+      "serialized": false,
+      "service_name": "com.example.UserService",
+      "service_version": "1.0.0"
+    },
+    "name": "http-dubbo",
+    "type": "other protocols"
+  },
+  {
+    "example": {
+      "batch_max_size": 1000,
+      "buffer_duration": 60,
+      "inactive_timeout": 5,
+      "uri": "http://example.com/log"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "http-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "message": "Access denied",
+      "whitelist": [
+        "192.168.1.1/24"
+      ]
+    },
+    "name": "ip-restriction",
+    "type": "security"
+  },
+  {
+    "consumer_example": {
+      "key": "user-key",
+      "secret": "my-secret-key"
+    },
+    "example": {
+      "forward_header": "X-Decrypted-Token",
+      "header": "Authorization",
+      "strict": true
+    },
+    "name": "jwe-decrypt",
+    "type": "security"
+  },
+  {
+    "consumer_example": {
+      "key": "user-key",
+      "secret": "my-secret-key"
+    },
+    "example": {
+      "algorithm": "HS256",
+      "key": "your_jwt_key"
+    },
+    "name": "jwt-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "broker_list": {
+        "kafka1": 9092,
+        "kafka2": 9092
+      },
+      "kafka_topic": "your_topic"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "kafka-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "sasl": {
+        "password": "your_password",
+        "username": "your_username"
+      }
+    },
+    "name": "kafka-proxy",
+    "type": "other protocols"
+  },
+  {
+    "consumer_example": {
+      "key": "auth-one"
+    },
+    "example": {
+      "key": "your_api_key"
+    },
+    "name": "key-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "endpoint_addrs": [
+        "http://127.0.0.1:3000"
+      ],
+      "endpoint_uri": "/test",
+      "event_code": "code",
+      "event_properties": {
+        "key": "value"
+      },
+      "event_subscription_id": "sid",
+      "event_transaction_id": "tid",
+      "keepalive": true,
+      "keepalive_pool": 5,
+      "keepalive_timeout": 60000,
+      "ssl_verify": true,
+      "timeout": 3000,
+      "token": "token"
+    },
+    "name": "lago",
+    "type": "observability"
+  },
+  {
+    "consumer_example": {
+      "user_dn": "cn=user01,ou=users,dc=example,dc=org"
+    },
+    "example": {
+      "base_dn": "ou=users,dc=example,dc=org",
+      "ldap_uri": "localhost:1389",
+      "uid": "cn"
+    },
+    "name": "ldap-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "burst": 20,
+      "conn": 100,
+      "default_conn_delay": 0.1,
+      "key": "remote_addr",
+      "policy": "local"
+    },
+    "name": "limit-conn",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "count": 100,
+      "key": "remote_addr",
+      "policy": "local",
+      "time_window": 60
+    },
+    "name": "limit-count",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "burst": 20,
+      "key": "remote_addr",
+      "policy": "local",
+      "rate": 100
+    },
+    "name": "limit-req",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "customer_token": "your_customer_token",
+      "tags": [
+        "apisix",
+        "loggly"
+      ]
+    },
+    "metadata_example": {
+      "protocol": "http"
+    },
+    "name": "loggly",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "batch_max_size": 1,
+      "endpoint_addrs": [
+        "http://127.0.0.1:8199"
+      ],
+      "tenant_id": "tenant_1"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "loki-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "content_type": "application/json",
+      "response_example": "{\"status\":\"success\"}",
+      "response_status": 200
+    },
+    "name": "mocking",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "protocol_level": 4,
+      "protocol_name": "MQTT"
+    },
+    "name": "mqtt-proxy",
+    "proxy_type": "stream",
+    "type": "other protocols"
+  },
+  {
+    "example": {
+      "auth_plugins": [
+        {
+          "key-auth": {}
+        },
+        {
+          "jwt-auth": {}
+        }
+      ]
+    },
+    "name": "multi-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "spec": "{\"openapi\":\"3.0.0\",\"info\":{\"title\":\"Example\",\"version\":\"1.0.0\"},\"paths\":{}}"
+    },
+    "metadata_example": {
+      "spec_url_ttl": 3600
+    },
+    "name": "oas-validator",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "host": "http://opa.example.com",
+      "policy": "your_policy"
+    },
+    "name": "opa",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "authorization": {
+        "service_token": "your_api_key"
+      },
+      "function_uri": "https://your-function-app.azurewebsites.net/api/your-function"
+    },
+    "name": "openfunction",
+    "type": "serverless"
+  },
+  {
+    "example": {
+      "client_id": "your_client_id",
+      "client_secret": "your_client_secret",
+      "discovery": "https://your-oidc-server.com/.well-known/openid-configuration"
+    },
+    "name": "openid-connect",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "sampler": {
+        "name": "always_on"
+      }
+    },
+    "name": "opentelemetry",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "action": "your_action",
+      "api_host": "https://openwhisk.example.com",
+      "namespace": "your_namespace",
+      "service_token": "your_service_token"
+    },
+    "name": "openwhisk",
+    "type": "serverless"
+  },
+  {
+    "example": {
+      "prefer_name": true
+    },
+    "name": "prometheus",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "disable_proxy_buffering": true
+    },
+    "name": "proxy-buffering",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "cache_key": [
+        "$host",
+        "$request_uri"
+      ],
+      "cache_ttl": 300
+    },
+    "name": "proxy-cache",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "request_buffering": true
+    },
+    "name": "proxy-control",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "host": "http://mirror.example.com",
+      "sample_ratio": 0.5
+    },
+    "name": "proxy-mirror",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "host": "new-host.example.com",
+      "uri": "/new-uri"
+    },
+    "name": "proxy-rewrite",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "uri": "/public-api"
+    },
+    "name": "public-api",
+    "type": "security"
+  },
+  {
+    "example": {
+      "source": "X-Real-IP",
+      "trusted_addresses": [
+        "192.168.1.1/24"
+      ]
+    },
+    "name": "real-ip",
+    "type": "general"
+  },
+  {
+    "example": {
+      "ret_code": 302,
+      "uri": "/new-uri"
+    },
+    "hidden": true,
+    "name": "redirect",
+    "type": "general"
+  },
+  {
+    "example": {
+      "bypass_missing": false,
+      "message": "Access denied",
+      "whitelist": [
+        "example.com"
+      ]
+    },
+    "name": "referer-restriction",
+    "type": "security"
+  },
+  {
+    "example": {
+      "algorithm": "uuid",
+      "header_name": "X-Request-Id",
+      "include_in_response": true
+    },
+    "name": "request-id",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "body_schema": {
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "header_schema": {
+        "Content-Type": "application/json"
+      }
+    },
+    "name": "request-validation",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "body": "new response body",
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "status_code": 200
+    },
+    "name": "response-rewrite",
+    "type": "transformation"
+  },
+  {
+    "example": {
+      "nameserver_list": [
+        "nameserver1:9876",
+        "nameserver2:9876"
+      ],
+      "topic": "your_topic"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "rocketmq-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "idp_cert": "idp-certificate",
+      "idp_uri": "https://idp.example.com/saml",
+      "login_callback_uri": "/saml/login/callback",
+      "logout_callback_uri": "/saml/logout/callback",
+      "logout_redirect_uri": "/",
+      "logout_uri": "/saml/logout",
+      "secret": "12345678",
+      "sp_cert": "sp-certificate",
+      "sp_issuer": "https://apisix.example.com",
+      "sp_private_key": "sp-private-key"
+    },
+    "name": "saml-auth",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "functions": [
+        "func1",
+        "func2"
+      ],
+      "phase": "access"
+    },
+    "name": "serverless-post-function",
+    "type": "serverless"
+  },
+  {
+    "example": {
+      "functions": [
+        "func1",
+        "func2"
+      ],
+      "phase": "access"
+    },
+    "name": "serverless-pre-function",
+    "type": "serverless"
+  },
+  {
+    "example": {
+      "endpoint_addr": "http://127.0.0.1:12800",
+      "sample_ratio": 0.5
+    },
+    "name": "skywalking",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "endpoint_addr": "http://skywalking.example.com:12900/v3/logs",
+      "service_instance_name": "APISIX Instance Name",
+      "service_name": "APISIX"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "skywalking-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "access_key_id": "your_access_key_id",
+      "access_key_secret": "your_access_key_secret",
+      "host": "sls.example.com",
+      "logstore": "your_logstore",
+      "port": 80,
+      "project": "your_project"
+    },
+    "name": "sls-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "endpoint": {
+        "token": "your_hec_token",
+        "uri": "https://hec.splunk.example.com:8088/services/collector"
+      }
+    },
+    "name": "splunk-hec-logging",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "host": "syslog.example.com",
+      "port": 514,
+      "sock_type": "tcp"
+    },
+    "name": "syslog",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "host": "tcp-logger.example.com",
+      "port": 12345,
+      "tls": false
+    },
+    "name": "tcp-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "cls_host": "cls.tencentcloudapi.com",
+      "cls_topic": "your_topic",
+      "secret_id": "your_secret_id",
+      "secret_key": "your_secret_key"
+    },
+    "metadata_example": {
+      "log_format": {
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr",
+        "host": "$host"
+      }
+    },
+    "name": "tencent-cloud-cls",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "rules": [
+        {
+          "actions": [
+            {
+              "set_headers": {
+                "X-Traffic-Label": "canary"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "name": "traffic-label",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "rules": [
+        {
+          "actions": [
+            {
+              "weighted_upstreams": [
+                {
+                  "upstream": {
+                    "nodes": {
+                      "node1": 1,
+                      "node2": 2
+                    },
+                    "type": "roundrobin"
+                  },
+                  "weight": 70
+                },
+                {
+                  "upstream": {
+                    "nodes": {
+                      "node3": 1,
+                      "node4": 2
+                    },
+                    "type": "roundrobin"
+                  },
+                  "weight": 30
+                }
+              ]
+            }
+          ],
+          "case": [
+            "some_condition"
+          ]
+        }
+      ]
+    },
+    "name": "traffic-split",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "allowlist": [
+        "Mozilla/5.0"
+      ],
+      "bypass_missing": false,
+      "message": "User agent not allowed"
+    },
+    "name": "ua-restriction",
+    "type": "security"
+  },
+  {
+    "example": {
+      "host": "udp-logger.example.com",
+      "port": 514,
+      "timeout": 3
+    },
+    "name": "udp-logger",
+    "type": "observability"
+  },
+  {
+    "example": {
+      "block_rules": [
+        "/blocked-uri",
+        "/forbidden-path"
+      ],
+      "case_insensitive": true,
+      "rejected_code": 403,
+      "rejected_msg": "Your request is blocked"
+    },
+    "name": "uri-blocker",
+    "type": "security"
+  },
+  {
+    "example": {
+      "appid": "your_app_id",
+      "header_prefix": "X-",
+      "server": "http://127.0.0.1:12180"
+    },
+    "name": "wolf-rbac",
+    "type": "authentication"
+  },
+  {
+    "example": {
+      "rules": [
+        {
+          "actions": [
+            [
+              "return",
+              {
+                "code": 403
+              }
+            ]
+          ],
+          "case": [
+            [
+              "uri",
+              "==",
+              "/hello/rejected"
+            ]
+          ]
+        },
+        {
+          "actions": [
+            [
+              "limit-count",
+              {
+                "count": 2,
+                "rejected_code": 429,
+                "time_window": 60
+              }
+            ]
+          ],
+          "case": [
+            [
+              "uri",
+              "==",
+              "/hello/v2/appid"
+            ]
+          ]
+        }
+      ]
+    },
+    "name": "workflow",
+    "type": "traffic"
+  },
+  {
+    "example": {
+      "endpoint": "http://zipkin.example.com/api/v2/spans",
+      "sample_ratio": 0.1,
+      "service_name": "APISIX"
+    },
+    "name": "zipkin",
+    "type": "observability"
+  }
+]

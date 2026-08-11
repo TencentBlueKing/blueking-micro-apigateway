@@ -26,6 +26,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
+//go:embed 3.17/plugin.json
+var rawPluginV317 []byte
+
 //go:embed 3.13/plugin.json
 var rawPluginV313 []byte
 
@@ -58,6 +61,7 @@ var rawTAPISIXPluginV311 []byte
 var rawTAPISIXPluginV33 []byte
 
 var versionPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion317: rawPluginV317,
 	constant.APISIXVersion32:  rawPluginV32,
 	constant.APISIXVersion33:  rawPluginV33,
 	constant.APISIXVersion311: rawPluginV311,
@@ -77,6 +81,7 @@ var versionTAPISIXPluginMap = map[constant.APISIXVersion][]byte{
 
 // VersionDocUrlMap ...
 var VersionDocUrlMap = map[constant.APISIXVersion]string{
+	constant.APISIXVersion317: "https://apisix.apache.org/zh/docs/apisix/plugins/%s/",
 	constant.APISIXVersion32:  "https://apache-apisix.netlify.app/zh/docs/apisix/3.2/plugins/%s/",
 	constant.APISIXVersion33:  "https://apache-apisix.netlify.app/zh/docs/apisix/3.3/plugins/%s/",
 	constant.APISIXVersion311: "https://apache-apisix.netlify.app/zh/docs/apisix/3.11/plugins/%s/",

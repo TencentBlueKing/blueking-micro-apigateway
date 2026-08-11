@@ -12921,7 +12921,7 @@
               },
               "request_headers": {
                 "additionalProperties": {
-                  "one_of": [
+                  "oneOf": [
                     {
                       "type": "boolean"
                     },
@@ -12945,17 +12945,19 @@
             "type": "object"
           },
           "resource": {
-            "additionalProperties": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              }
-            ],
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
             "description": "additional resource",
             "type": "object"
           },

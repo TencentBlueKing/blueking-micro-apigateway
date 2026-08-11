@@ -1,0 +1,309 @@
+{
+  "plugins": {
+    "bk-break-recursive-call": {
+      "priority": 17700,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "additionalProperties": false,
+            "properties": {
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "version": 0.1
+    },
+    "bk-delete-cookie": {
+      "priority": 17440,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "additionalProperties": false,
+            "properties": {
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "version": 0.1
+    },
+    "bk-echo": {
+      "priority": 700,
+      "schema": {},
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-header-rewrite": {
+      "priority": 1110,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "add": {
+            "additionalProperties": false,
+            "minProperties": 1,
+            "patternProperties": {
+              "^[^:]+$": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "remove": {
+            "items": {
+              "pattern": "^[^:]+$",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "set": {
+            "additionalProperties": false,
+            "minProperties": 1,
+            "patternProperties": {
+              "^[^:]+$": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-jwt": {
+      "priority": 17670,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "additionalProperties": false,
+            "properties": {
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "version": 0.1
+    },
+    "bk-login-required": {
+      "priority": 1900,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "add_header_username": {
+            "default": true,
+            "description": "Whether to add username header",
+            "type": "boolean"
+          },
+          "auth_type": {
+            "description": "Authentication type",
+            "enum": [
+              "bk_token",
+              "bk_ticket"
+            ],
+            "type": "string"
+          },
+          "bk_app_code": {
+            "description": "BlueKing application code",
+            "type": "string"
+          },
+          "bk_app_secret": {
+            "description": "BlueKing application secret",
+            "type": "string"
+          },
+          "bk_tenant_id": {
+            "description": "BlueKing tenant ID",
+            "type": "string"
+          },
+          "url": {
+            "description": "API endpoint URL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth_type",
+          "url"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "bk-traffic-label": {
+      "priority": 17460,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "additionalProperties": false,
+            "properties": {
+              "disable": {
+                "type": "boolean"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "rules": {
+            "items": {
+              "properties": {
+                "actions": {
+                  "items": {
+                    "properties": {
+                      "set_headers": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "weight": {
+                        "default": 1,
+                        "description": "percentage of all matched which would do the actions",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "maxItems": 20,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "match": {
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "type": "object"
+      },
+      "version": 0.1
+    }
+  }
+}

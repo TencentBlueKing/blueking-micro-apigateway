@@ -34,6 +34,9 @@ var rawSchemaV313 []byte
 
 // BK-APISIX plugin schema
 //
+//go:embed 3.17/bk_apisix_plugin_schema.json
+var rawBkAPISIXPluginSchemaV317 []byte
+
 //go:embed 3.11/bk_apisix_plugin_schema.json
 var rawBkAPISIXPluginSchemaV311 []byte
 
@@ -42,6 +45,9 @@ var rawBkAPISIXPluginSchemaV313 []byte
 
 // TAPISIX plugin schema
 //
+//go:embed 3.17/tapisix_plugin_schema.json
+var rawTAPISIXPluginSchemaV317 []byte
+
 //go:embed 3.3/tapisix_plugin_schema.json
 var rawTAPISIXPluginSchemaV33 []byte
 
@@ -69,11 +75,13 @@ var schemaVersionMap = map[constant.APISIXVersion]gjson.Result{
 }
 
 var bkAPISIXPluginSchemaVersionMap = map[constant.APISIXVersion]gjson.Result{
+	constant.APISIXVersion317: gjson.ParseBytes(rawBkAPISIXPluginSchemaV317),
 	constant.APISIXVersion313: gjson.ParseBytes(rawBkAPISIXPluginSchemaV313),
 	constant.APISIXVersion311: gjson.ParseBytes(rawBkAPISIXPluginSchemaV311),
 }
 
 var tapisixPluginSchemaVersionMap = map[constant.APISIXVersion]gjson.Result{
+	constant.APISIXVersion317: gjson.ParseBytes(rawTAPISIXPluginSchemaV317),
 	constant.APISIXVersion33:  gjson.ParseBytes(rawTAPISIXPluginSchemaV33),
 	constant.APISIXVersion311: gjson.ParseBytes(rawTAPISIXPluginSchemaV311),
 	constant.APISIXVersion313: gjson.ParseBytes(rawTAPISIXPluginSchemaV313),

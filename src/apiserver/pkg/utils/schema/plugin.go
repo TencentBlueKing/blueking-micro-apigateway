@@ -43,6 +43,9 @@ var rawPluginV32 []byte
 
 // bk-apisix plugin
 //
+//go:embed 3.17/bk_apisix_plugin.json
+var rawBkAPISIXPluginV317 []byte
+
 //go:embed 3.13/bk_apisix_plugin.json
 var rawBkAPISIXPluginV313 []byte
 
@@ -51,6 +54,9 @@ var rawBkAPISIXPluginV311 []byte
 
 // tapisix plugin
 //
+//go:embed 3.17/tapisix_plugin.json
+var rawTAPISIXPluginV317 []byte
+
 //go:embed 3.13/tapisix_plugin.json
 var rawTAPISIXPluginV313 []byte
 
@@ -69,11 +75,13 @@ var versionPluginMap = map[constant.APISIXVersion][]byte{
 }
 
 var versionBkAPISIXPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion317: rawBkAPISIXPluginV317,
 	constant.APISIXVersion313: rawBkAPISIXPluginV313,
 	constant.APISIXVersion311: rawBkAPISIXPluginV311,
 }
 
 var versionTAPISIXPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion317: rawTAPISIXPluginV317,
 	constant.APISIXVersion33:  rawTAPISIXPluginV33,
 	constant.APISIXVersion311: rawTAPISIXPluginV311,
 	constant.APISIXVersion313: rawTAPISIXPluginV313,
@@ -106,6 +114,7 @@ var StreamRoutePluginMap = map[string]string{
 	"mqtt-proxy":     "mqtt-proxy",
 	"prometheus":     "prometheus",
 	"syslog":         "syslog",
+	"traffic-split":  "traffic-split",
 }
 
 // GetPlugins 获取插件

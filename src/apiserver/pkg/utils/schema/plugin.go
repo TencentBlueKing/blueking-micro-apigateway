@@ -107,14 +107,9 @@ type Plugin struct {
 	DocUrl          string         `json:"doc_url"`
 }
 
-// StreamRoutePluginMap ...
-var StreamRoutePluginMap = map[string]string{
-	"ip-restriction": "ip-restriction",
-	"limit-conn":     "limit-conn",
-	"mqtt-proxy":     "mqtt-proxy",
-	"prometheus":     "prometheus",
-	"syslog":         "syslog",
-	"traffic-split":  "traffic-split",
+// IsStreamRoutePlugin reports whether the selected APISIX version has a stream schema for the plugin.
+func IsStreamRoutePlugin(version constant.APISIXVersion, name string) bool {
+	return GetPluginSchema(version, name, "stream") != nil
 }
 
 // GetPlugins 获取插件

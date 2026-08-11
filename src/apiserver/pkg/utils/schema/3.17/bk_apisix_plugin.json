@@ -47,10 +47,7 @@
     "type": "bk-apisix"
   },
   {
-    "example": {
-      "instance_id": "instance-id1",
-      "instance_id_header": "X-BKAPISIX-Instance-Id"
-    },
+    "example": {},
     "name": "bk-break-recursive-call",
     "type": "bk-apisix"
   },
@@ -82,12 +79,7 @@
     "type": "bk-apisix"
   },
   {
-    "example": {
-      "add_headers": true,
-      "public_key": "PUBLIC KEY",
-      "verify_app": true,
-      "verify_user": false
-    },
+    "example": {},
     "name": "bk-jwt",
     "type": "bk-apisix"
   },

@@ -1234,34 +1234,27 @@
     "example": {
       "rules": [
         {
-          "actions": [
+          "weighted_upstreams": [
             {
-              "weighted_upstreams": [
-                {
-                  "upstream": {
-                    "nodes": {
-                      "node1": 1,
-                      "node2": 2
-                    },
-                    "type": "roundrobin"
-                  },
-                  "weight": 70
+              "upstream": {
+                "nodes": {
+                  "node1": 1,
+                  "node2": 2
                 },
-                {
-                  "upstream": {
-                    "nodes": {
-                      "node3": 1,
-                      "node4": 2
-                    },
-                    "type": "roundrobin"
-                  },
-                  "weight": 30
-                }
-              ]
+                "type": "roundrobin"
+              },
+              "weight": 70
+            },
+            {
+              "upstream": {
+                "nodes": {
+                  "node3": 1,
+                  "node4": 2
+                },
+                "type": "roundrobin"
+              },
+              "weight": 30
             }
-          ],
-          "case": [
-            "some_condition"
           ]
         }
       ]

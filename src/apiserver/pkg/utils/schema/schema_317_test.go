@@ -128,6 +128,51 @@ func Test317CatalogSchemasAndExamples(t *testing.T) {
 	}
 }
 
+func Test317TrafficSplitExampleUsesRuntimeShape(t *testing.T) {
+	plugins, err := GetPlugins(constant.APISIXTypeAPISIX, constant.APISIXVersion317)
+	require.NoError(t, err)
+
+	var trafficSplit *Plugin
+	for _, plugin := range plugins {
+		if plugin.Name == "traffic-split" {
+			trafficSplit = plugin
+			break
+		}
+	}
+	require.NotNil(t, trafficSplit)
+
+	rules, ok := trafficSplit.Example["rules"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, rules)
+	rule := requireStringMap(t, rules[0], "traffic-split.rules[0]")
+	assert.Contains(t, rule, "weighted_upstreams")
+	assert.NotContains(t, rule, "case")
+	assert.NotContains(t, rule, "actions")
+}
+
+func Test317BKExamplesMatchRuntimeCapabilities(t *testing.T) {
+	plugins, err := GetPlugins(constant.APISIXTypeBKAPISIX, constant.APISIXVersion317)
+	require.NoError(t, err)
+
+	examples := make(map[string]map[string]any, len(plugins))
+	for _, plugin := range plugins {
+		examples[plugin.Name] = plugin.Example
+	}
+
+	assert.Empty(t, examples["bk-break-recursive-call"])
+	assert.Empty(t, examples["bk-jwt"])
+
+	var previous []*Plugin
+	require.NoError(t, json.Unmarshal(rawBkAPISIXPluginV313, &previous))
+	previousExamples := make(map[string]map[string]any, len(previous))
+	for _, plugin := range previous {
+		previousExamples[plugin.Name] = plugin.Example
+	}
+	for _, name := range []string{"bk-echo", "bk-header-rewrite", "bk-login-required"} {
+		assert.Equal(t, previousExamples[name], examples[name])
+	}
+}
+
 func Test317AllSchemaNodesCompile(t *testing.T) {
 	for _, resource := range constant.ResourceTypeList {
 		compile317Schema(

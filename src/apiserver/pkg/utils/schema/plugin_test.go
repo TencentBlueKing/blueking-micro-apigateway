@@ -329,7 +329,7 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 					version,
 					plugin.Name,
 				)
-			case StreamRoutePluginMap[plugin.Name] != "":
+			case IsStreamRoutePlugin(version, plugin.Name):
 				scopeCounts["stream"]++
 				assert.NotEmpty(
 					t,
@@ -363,6 +363,13 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 		assert.Positive(t, scopeCounts["metadata"], "%s should have metadata plugins", version)
 		assert.Positive(t, scopeCounts["stream"], "%s should have stream plugins", version)
 	}
+}
+
+func TestIsStreamRoutePluginUsesVersionSchema(t *testing.T) {
+	assert.True(t, IsStreamRoutePlugin(constant.APISIXVersion313, "syslog"))
+	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion313, "traffic-split"))
+	assert.True(t, IsStreamRoutePlugin(constant.APISIXVersion317, "traffic-split"))
+	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion317, "jwt-auth"))
 }
 
 func TestOpenFunctionAuthorizationSchemaShape(t *testing.T) {

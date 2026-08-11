@@ -61,6 +61,7 @@ var ValidResourceStatuses = []string{
 // ValidAPISIXVersions lists APISIX versions for schema validation tools.
 var ValidAPISIXVersions = []string{
 	string(constant.APISIXVersion313),
+	string(constant.APISIXVersion317),
 }
 
 // WriteToolNames defines MCP tools that require write access scope
@@ -132,7 +133,7 @@ func parseResourceType(resourceType string) (constant.APISIXResource, error) {
 func parseAPISIXVersion(version string) (constant.APISIXVersion, error) {
 	v := constant.APISIXVersion(version)
 	switch v {
-	case constant.APISIXVersion313:
+	case constant.APISIXVersion313, constant.APISIXVersion317:
 		return v, nil
 	default:
 		return "", fmt.Errorf("invalid APISIX version: %s", version)

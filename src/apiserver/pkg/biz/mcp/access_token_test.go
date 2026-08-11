@@ -226,26 +226,28 @@ func TestMCPAccessScope(t *testing.T) {
 }
 
 func TestCheckGatewayMCPSupport(t *testing.T) {
-	// 测试支持 MCP 的网关 (3.13)
-	gateway313 := &model.Gateway{
-		APISIXVersion: string(constant.APISIXVersion313),
+	tests := []struct {
+		name        string
+		version     string
+		expectError bool
+	}{
+		{name: "supports 3.13 family", version: string(constant.APISIXVersion313)},
+		{name: "supports saved 3.17 patch version", version: "3.17.0"},
+		{name: "supports 3.17 family", version: string(constant.APISIXVersion317)},
+		{name: "rejects 3.11", version: string(constant.APISIXVersion311), expectError: true},
+		{name: "rejects other versions", version: "3.2.X", expectError: true},
 	}
-	err := CheckGatewayMCPSupport(gateway313)
-	assert.NoError(t, err)
 
-	// 测试不支持 MCP 的网关 (3.11)
-	gateway311 := &model.Gateway{
-		APISIXVersion: string(constant.APISIXVersion311),
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := CheckGatewayMCPSupport(&model.Gateway{APISIXVersion: tt.version})
+			if tt.expectError {
+				assert.ErrorIs(t, err, ErrMCPGatewayNotSupported)
+				return
+			}
+			assert.NoError(t, err)
+		})
 	}
-	err = CheckGatewayMCPSupport(gateway311)
-	assert.ErrorIs(t, err, ErrMCPGatewayNotSupported)
-
-	// 测试其他版本
-	gatewayOther := &model.Gateway{
-		APISIXVersion: "3.2.X",
-	}
-	err = CheckGatewayMCPSupport(gatewayOther)
-	assert.ErrorIs(t, err, ErrMCPGatewayNotSupported)
 }
 
 func TestMCPAccessTokenNameExists(t *testing.T) {

@@ -141,7 +141,11 @@ func handleMCPAuthError(c *gin.Context, err error) {
 		abortWithMCPError(c, http.StatusForbidden, "token has expired")
 	case errors.Is(err, mcpbiz.ErrMCPGatewayNotSupported):
 		log.ErrorFWithContext(c.Request.Context(), "MCP auth: gateway does not support MCP")
-		abortWithMCPError(c, http.StatusNotImplemented, "gateway does not support MCP (requires APISIX 3.13.X)")
+		abortWithMCPError(
+			c,
+			http.StatusNotImplemented,
+			"gateway does not support MCP (requires APISIX 3.13.X or 3.17.X)",
+		)
 	default:
 		log.ErrorFWithContext(c.Request.Context(), "MCP auth: %v", err)
 		abortWithMCPError(c, http.StatusInternalServerError, "authentication failed")

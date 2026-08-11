@@ -57,6 +57,12 @@ func TestGetPluginsList_ByVersion(t *testing.T) {
 			apisixType:  "bk-apisix",
 			minExpected: 40, // Should have bk-* plugins too
 		},
+		{
+			name:        "bk-apisix 3.17 includes official and BK plugins",
+			version:     constant.APISIXVersion317,
+			apisixType:  "bk-apisix",
+			minExpected: 100,
+		},
 	}
 
 	for _, tt := range tests {
@@ -114,6 +120,15 @@ func TestGetPluginsList_BKApisixHasCustomPlugins(t *testing.T) {
 	for _, expected := range bkPlugins {
 		assert.Contains(t, plugins, expected)
 	}
+}
+
+func TestGetPluginsList_BKApisix317HasOfficialAndCustomPlugins(t *testing.T) {
+	t.Parallel()
+
+	plugins, err := GetPluginsList(context.Background(), constant.APISIXVersion317, "bk-apisix")
+	assert.NoError(t, err)
+	assert.Contains(t, plugins, "oas-validator")
+	assert.Contains(t, plugins, "bk-jwt")
 }
 
 func TestGetPluginsList(t *testing.T) {

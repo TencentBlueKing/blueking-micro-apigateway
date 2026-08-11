@@ -80,13 +80,13 @@ func TestValidateMCPDatabaseResourceConfigBuildsSharedValidatorWithCustomSchemaM
 
 	err := validateMCPDatabaseResourceConfig(
 		context.Background(),
-		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 		constant.Route,
 		rawConfig,
 	)
 
 	assert.NoError(t, err)
-	assert.Equal(t, constant.APISIXVersion313, gotVersion)
+	assert.Equal(t, constant.APISIXVersion317, gotVersion)
 	assert.Equal(t, constant.Route, gotResourceType)
 	assert.Equal(t, customSchemaMap, gotCustomSchemaMap)
 	assert.JSONEq(t, string(rawConfig), string(gotPayload))

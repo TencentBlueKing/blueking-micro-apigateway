@@ -35,13 +35,13 @@ import (
 
 // GetResourceSchemaInput is the input for the get_resource_schema tool
 type GetResourceSchemaInput struct {
-	APISIXVersion string `json:"apisix_version" jsonschema:"Required. MCP-supported APISIX schema version: 3.13.X or 3.17.X."`
+	APISIXVersion string `json:"apisix_version" jsonschema:"Required. Supported APISIX schema: 3.13.X or 3.17.X."`
 	ResourceType  string `json:"resource_type" jsonschema:"Required. APISIX resource type."`
 }
 
 // GetPluginSchemaInput is the input for the get_plugin_schema tool
 type GetPluginSchemaInput struct {
-	APISIXVersion string `json:"apisix_version" jsonschema:"Required. MCP-supported APISIX schema version: 3.13.X or 3.17.X."`
+	APISIXVersion string `json:"apisix_version" jsonschema:"Required. Supported APISIX schema: 3.13.X or 3.17.X."`
 	//nolint:lll // Keep common plugin examples in metadata for discoverability.
 	PluginName string `json:"plugin_name" jsonschema:"Required plugin name (for example: limit-req, proxy-rewrite, jwt-auth)."`
 	//nolint:lll // Keep valid schema scope values explicit for callers.
@@ -50,7 +50,7 @@ type GetPluginSchemaInput struct {
 
 // ValidateResourceConfigInput is the input for the validate_resource_config tool
 type ValidateResourceConfigInput struct {
-	APISIXVersion string         `json:"apisix_version" jsonschema:"Required. MCP-supported APISIX schema version: 3.13.X or 3.17.X."`
+	APISIXVersion string         `json:"apisix_version" jsonschema:"Required. Supported APISIX schema: 3.13.X or 3.17.X."`
 	ResourceType  string         `json:"resource_type" jsonschema:"Required. APISIX resource type."`
 	Config        map[string]any `json:"config" jsonschema:"Required. Resource config object to validate."`
 }

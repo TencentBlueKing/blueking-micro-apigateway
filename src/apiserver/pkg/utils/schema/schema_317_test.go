@@ -104,7 +104,12 @@ func Test317CatalogSchemasAndExamples(t *testing.T) {
 
 		for _, plugin := range plugins {
 			if previousSource, exists := seen[plugin.Name]; exists {
-				t.Errorf("plugin %q exists in both %s and %s catalogs", plugin.Name, previousSource, catalog.name)
+				t.Errorf(
+					"plugin %q exists in both %s and %s catalogs",
+					plugin.Name,
+					previousSource,
+					catalog.name,
+				)
 			}
 			seen[plugin.Name] = catalog.name
 
@@ -125,7 +130,11 @@ func Test317CatalogSchemasAndExamples(t *testing.T) {
 
 func Test317AllSchemaNodesCompile(t *testing.T) {
 	for _, resource := range constant.ResourceTypeList {
-		compile317Schema(t, "main."+resource.String(), GetResourceSchema(constant.APISIXVersion317, resource.String()))
+		compile317Schema(
+			t,
+			"main."+resource.String(),
+			GetResourceSchema(constant.APISIXVersion317, resource.String()),
+		)
 	}
 
 	sources := []struct {
@@ -190,7 +199,10 @@ func Test317RepresentativeSchemaDifferences(t *testing.T) {
 	))
 
 	assert.Nil(t, schemaProperty(t, constant.APISIXVersion313, "batch-requests", "metadata", "max_pipeline_items"))
-	assert.NotNil(t, schemaProperty(t, constant.APISIXVersion317, "batch-requests", "metadata", "max_pipeline_items"))
+	assert.NotNil(
+		t,
+		schemaProperty(t, constant.APISIXVersion317, "batch-requests", "metadata", "max_pipeline_items"),
+	)
 
 	assert.NotContains(
 		t,

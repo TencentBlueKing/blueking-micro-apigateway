@@ -128,6 +128,24 @@ func Test317CatalogSchemasAndExamples(t *testing.T) {
 	}
 }
 
+func Test317SchemasCoverRuntimePluginsExcludedFromCatalog(t *testing.T) {
+	official, err := GetPlugins(constant.APISIXTypeAPISIX, constant.APISIXVersion317)
+	require.NoError(t, err)
+	catalogNames := pluginNames(official)
+
+	for _, name := range []string{
+		"ai",
+		"example-plugin",
+		"inspect",
+		"log-rotate",
+		"mcp-bridge",
+		"node-status",
+	} {
+		assert.NotContains(t, catalogNames, name)
+		assert.NotNil(t, GetPluginSchema(constant.APISIXVersion317, name, ""), name)
+	}
+}
+
 func Test317TrafficSplitExampleUsesRuntimeShape(t *testing.T) {
 	plugins, err := GetPlugins(constant.APISIXTypeAPISIX, constant.APISIXVersion317)
 	require.NoError(t, err)

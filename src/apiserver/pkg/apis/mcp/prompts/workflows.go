@@ -151,7 +151,7 @@ delete_resource(resource_type="route", resource_ids=["old-route"])
 ## Step 4: Validate and Review
 
 ` + "```" + `
-validate_resource_config(apisix_version="3.17.X", resource_type="route", config={...})
+validate_resource_config(resource_type="route", config={...})
 diff_resources()
 diff_detail(resource_type="route", resource_id="route-1")
 publish_preview()
@@ -241,7 +241,7 @@ publish_preview()
 
 **Verify with:**
 ` + "```" + `
-validate_resource_config(apisix_version="3.13.X", resource_type="route", config={...})
+validate_resource_config(resource_type="route", config={...})
 ` + "```" + `
 
 ---
@@ -338,8 +338,8 @@ Typical error text:
 Checks:
 ` + "```" + `
 get_resource(resource_type="route", resource_id="...")
-get_resource_schema(apisix_version="3.17.X", resource_type="route")
-validate_resource_config(apisix_version="3.17.X", resource_type="route", config={...})
+get_resource_schema(resource_type="route")
+validate_resource_config(resource_type="route", config={...})
 ` + "```" + `
 
 ### B) Dependency Missing

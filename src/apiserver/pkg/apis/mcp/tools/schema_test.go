@@ -25,11 +25,15 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 func TestGetResourceSchemaHandlerSupports317(t *testing.T) {
 	result, _, err := getResourceSchemaHandler(
-		context.Background(),
+		gatewayContext("3.17.0"),
 		nil,
 		GetResourceSchemaInput{APISIXVersion: "3.17.X", ResourceType: "route"},
 	)
@@ -45,7 +49,7 @@ func TestGetResourceSchemaHandlerSupports317(t *testing.T) {
 
 func TestGetPluginSchemaHandlerSupports317Plugin(t *testing.T) {
 	result, _, err := getPluginSchemaHandler(
-		context.Background(),
+		gatewayContext("3.17.0"),
 		nil,
 		GetPluginSchemaInput{APISIXVersion: "3.17.X", PluginName: "oas-validator"},
 	)
@@ -57,4 +61,81 @@ func TestGetPluginSchemaHandlerSupports317Plugin(t *testing.T) {
 	require.True(t, ok)
 	assert.Contains(t, content.Text, `"apisix_version": "3.17.X"`)
 	assert.Contains(t, content.Text, `"plugin_name": "oas-validator"`)
+}
+
+func TestGetResourceSchemaHandlerDefaultsToGatewayVersion(t *testing.T) {
+	result, _, err := getResourceSchemaHandler(
+		gatewayContext("3.17.0"),
+		nil,
+		GetResourceSchemaInput{ResourceType: "route"},
+	)
+
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	content, ok := result.Content[0].(*mcp.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, content.Text, `"apisix_version": "3.17.X"`)
+}
+
+func TestSchemaHandlersRejectVersionDifferentFromGateway(t *testing.T) {
+	ctx := gatewayContext("3.13.0")
+	tests := []struct {
+		name string
+		call func() *mcp.CallToolResult
+	}{
+		{
+			name: "resource schema",
+			call: func() *mcp.CallToolResult {
+				result, _, _ := getResourceSchemaHandler(
+					ctx,
+					nil,
+					GetResourceSchemaInput{APISIXVersion: "3.17.X", ResourceType: "route"},
+				)
+				return result
+			},
+		},
+		{
+			name: "plugin schema",
+			call: func() *mcp.CallToolResult {
+				result, _, _ := getPluginSchemaHandler(
+					ctx,
+					nil,
+					GetPluginSchemaInput{APISIXVersion: "3.17.X", PluginName: "oas-validator"},
+				)
+				return result
+			},
+		},
+		{
+			name: "resource validation",
+			call: func() *mcp.CallToolResult {
+				result, _, _ := validateResourceConfigHandler(
+					ctx,
+					nil,
+					ValidateResourceConfigInput{
+						APISIXVersion: "3.17.X",
+						ResourceType:  "route",
+						Config:        map[string]any{"uri": "/example"},
+					},
+				)
+				return result
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.call()
+			require.True(t, result.IsError)
+			content, ok := result.Content[0].(*mcp.TextContent)
+			require.True(t, ok)
+			assert.Contains(t, content.Text, "does not match current gateway version 3.13.X")
+		})
+	}
+}
+
+func gatewayContext(apisixVersion string) context.Context {
+	return ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{
+		APISIXVersion: apisixVersion,
+		APISIXType:    constant.APISIXTypeAPISIX,
+	})
 }

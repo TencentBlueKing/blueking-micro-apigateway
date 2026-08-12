@@ -3384,6 +3384,47 @@
       },
       "version": 0.1
     },
+    "ai": {
+      "scope": "global",
+      "version": 0.1,
+      "priority": 22900,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        }
+      }
+    },
     "ai-aliyun-content-moderation": {
       "priority": 1029,
       "schema": {
@@ -7922,6 +7963,83 @@
       "scope": "global",
       "version": 0.1
     },
+    "example-plugin": {
+      "priority": 0,
+      "version": 0.1,
+      "metadata_schema": {
+        "properties": {
+          "skey": {
+            "type": "string"
+          },
+          "ikey": {
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "ikey",
+          "skey"
+        ],
+        "type": "object"
+      },
+      "schema": {
+        "required": [
+          "i"
+        ],
+        "properties": {
+          "t": {
+            "minItems": 1,
+            "type": "array"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "s": {
+            "type": "string"
+          },
+          "i": {
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object"
+      }
+    },
     "ext-plugin-post-req": {
       "priority": -3000,
       "schema": {
@@ -9738,6 +9856,47 @@
         "type": "object"
       },
       "version": 0.1
+    },
+    "inspect": {
+      "version": 0.1,
+      "priority": 200,
+      "schema": {
+        "properties": {
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object"
+      }
     },
     "ip-restriction": {
       "priority": 3000,
@@ -11561,6 +11720,48 @@
       },
       "version": 0.1
     },
+    "log-rotate": {
+      "version": 0.1,
+      "priority": 100,
+      "scope": "global",
+      "schema": {
+        "properties": {
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object"
+      }
+    },
     "loggly": {
       "metadata_schema": {
         "properties": {
@@ -11957,6 +12158,66 @@
       },
       "version": 0.1
     },
+    "mcp-bridge": {
+      "version": 0.1,
+      "priority": 510,
+      "schema": {
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "args": {
+            "minItems": 0,
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "base_uri": {
+            "default": "",
+            "minLength": 1,
+            "type": "string"
+          },
+          "command": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object"
+      }
+    },
     "mocking": {
       "priority": 10900,
       "schema": {
@@ -12098,6 +12359,48 @@
       },
       "type": "auth",
       "version": 0.1
+    },
+    "node-status": {
+      "version": 0.1,
+      "priority": 1000,
+      "scope": "global",
+      "schema": {
+        "properties": {
+          "_meta": {
+            "properties": {
+              "pre_function": {
+                "type": "string",
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`."
+              },
+              "priority": {
+                "type": "integer",
+                "description": "priority of plugins by customized order"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "filter": {
+                "type": "array",
+                "description": "filter determines whether the plugin needs to be executed at runtime"
+              },
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          }
+        },
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object"
+      }
     },
     "oas-validator": {
       "metadata_schema": {

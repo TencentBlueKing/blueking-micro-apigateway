@@ -463,7 +463,7 @@ delete_resource(resource_type="route", resource_ids=["old-route"])
 
 ## Step 4: Validate and Review
 ` + "```" + `
-validate_resource_config(apisix_version="3.17.X", resource_type="route", config={...})
+validate_resource_config(resource_type="route", config={...})
 diff_resources()
 diff_detail(resource_type="route", resource_id="route-1")
 publish_preview()
@@ -534,7 +534,7 @@ const apiErrorDetailsDoc = `# API Error Details
 ## Notes
 
 - MCP publish tools are disabled by design; publish is performed via Web UI/OpenAPI.
-- Schema tools support MCP-supported APISIX versions ` + "`3.13.X`" + ` and ` + "`3.17.X`" + `.
+- Schema tools always use the current gateway's APISIX version.
 `
 
 const pluginPrecedenceDoc = `# Plugin Merging Precedence

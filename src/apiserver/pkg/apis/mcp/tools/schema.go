@@ -185,13 +185,8 @@ func validateResourceConfigHandler(
 		return errorResult(fmt.Errorf("failed to marshal config: %w", err)), nil, nil
 	}
 
-	// Validate config
-	validator, err := schema.NewAPISIXSchemaValidator(apisixVersion, "main."+resourceType.String())
-	if err != nil {
-		return errorResult(fmt.Errorf("failed to create validator: %w", err)), nil, nil
-	}
-
-	validationErr := validator.Validate(configBytes)
+	// Validate the resource envelope and each plugin config with the same validator used by MCP writes.
+	validationErr := validateMCPDatabaseResourceConfig(ctx, apisixVersion, resourceType, configBytes)
 	if validationErr != nil {
 		// Validation failure is not a handler error - return success with valid=false
 		//nolint:nilerr // validation error is intentionally returned in success response

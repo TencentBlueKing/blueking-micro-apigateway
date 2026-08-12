@@ -372,6 +372,14 @@ func TestIsStreamRoutePluginUsesVersionSchema(t *testing.T) {
 	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion317, "jwt-auth"))
 }
 
+func TestIsStreamRoutePluginDoesNotAllocatePerLookup(t *testing.T) {
+	allocations := testing.AllocsPerRun(100, func() {
+		IsStreamRoutePlugin(constant.APISIXVersion317, "traffic-split")
+	})
+
+	assert.Zero(t, allocations)
+}
+
 func TestOpenFunctionAuthorizationSchemaShape(t *testing.T) {
 	schemaValue := GetPluginSchema(constant.APISIXVersion313, "openfunction", "")
 

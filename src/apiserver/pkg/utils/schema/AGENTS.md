@@ -33,7 +33,7 @@ These are not one-off fixes. Treat them as authoring rules for every new APISIX 
 - `bk-echo`, `bk-header-rewrite`, and `bk-login-required` remain in the 3.17 control-plane catalog for
   3.13-compatible composition. Their 3.17 Schema entries are compatibility snapshots copied from 3.13, not
   runtime-exported evidence from the pinned BK image.
-- The 3.17 official catalog excludes `mcp-bridge`, `server-info`, `node-status`, and `log-rotate`.
+- The 3.17 official catalog excludes `ai`, `example-plugin`, `inspect`, `log-rotate`, `mcp-bridge`, and `node-status`.
 - The 3.17 TAPISIX catalog and Schema files are intentionally empty compatibility placeholders.
 
 ## Directory Contract

@@ -36,6 +36,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/logging"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/storage"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/validation"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/version"
 )
@@ -161,6 +162,42 @@ func CheckAPISIXVersion(fl validator.FieldLevel) bool {
 	// todo:  string 类型下沉到 SupportAPISIXVersionMap
 	_, ok := constant.SupportAPISIXVersionMap[string(ver)]
 	return ok
+}
+
+// CheckAPISIXTypeVersion reports whether the APISIX type advertises support for the version family.
+func CheckAPISIXTypeVersion(apisixType, apisixVersion string) bool {
+	supportInfo, ok := schema.GetSupportVersionMap()[apisixType]
+	if !ok {
+		return false
+	}
+
+	wantVersion, err := version.ToXVersion(apisixVersion)
+	if err != nil {
+		return false
+	}
+	for _, supportedVersion := range supportInfo.SupportVersion {
+		gotVersion, err := version.ToXVersion(supportedVersion)
+		if err == nil && gotVersion == wantVersion {
+			return true
+		}
+	}
+	return false
+}
+
+// GatewayAPISIXTypeVersionCheckValidation validates APISIX type and version as one contract.
+func GatewayAPISIXTypeVersionCheckValidation(_ context.Context, sl validator.StructLevel) {
+	gatewayInfo, ok := sl.Current().Interface().(GatewayInputInfo)
+	if !ok || CheckAPISIXTypeVersion(gatewayInfo.APISIXType, gatewayInfo.APISIXVersion) {
+		return
+	}
+
+	sl.ReportError(
+		gatewayInfo.APISIXVersion,
+		"APISIXVersion",
+		"apisix_version",
+		"apisixTypeVersion",
+		"",
+	)
 }
 
 // EtcdConfigCheckValidation etcd 配置校验
@@ -350,4 +387,11 @@ func init() {
 		"etcd_https_error": "{0}={1} 证书或密钥或 ca 不能为空",
 		"etcd_http_error":  "{0}={1} 用户名或密码不能为空",
 	})
+	validation.AddBizStructValidator(
+		GatewayInputInfo{},
+		GatewayAPISIXTypeVersionCheckValidation,
+		map[string]string{
+			"apisixTypeVersion": "{0}:{1} APISIX 类型不支持该版本",
+		},
+	)
 }

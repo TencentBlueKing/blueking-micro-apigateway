@@ -107,9 +107,24 @@ type Plugin struct {
 	DocUrl          string         `json:"doc_url"`
 }
 
+var streamRoutePluginMap = buildStreamRoutePluginMap()
+
+func buildStreamRoutePluginMap() map[constant.APISIXVersion]map[string]struct{} {
+	result := make(map[constant.APISIXVersion]map[string]struct{}, len(schemaVersionMap))
+	for version, schemaInfo := range schemaVersionMap {
+		plugins := make(map[string]struct{})
+		for name := range schemaInfo.Get("stream_plugins").Map() {
+			plugins[name] = struct{}{}
+		}
+		result[version] = plugins
+	}
+	return result
+}
+
 // IsStreamRoutePlugin reports whether the selected APISIX version has a stream schema for the plugin.
 func IsStreamRoutePlugin(version constant.APISIXVersion, name string) bool {
-	return GetPluginSchema(version, name, "stream") != nil
+	_, ok := streamRoutePluginMap[version][name]
+	return ok
 }
 
 // GetPlugins 获取插件

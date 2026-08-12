@@ -24,7 +24,9 @@ import (
 	"strings"
 	"testing"
 
+	validator "github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -37,6 +39,64 @@ import (
 func init() {
 	// 初始化加密组件，用于测试
 	_ = cryptography.Init("jxi18GX5w2qgHwfZCFpn07q8FScXJOd3", "k2dbCGetyusW")
+}
+
+func TestCheckAPISIXTypeVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		apisixType    string
+		apisixVersion string
+		want          bool
+	}{
+		{
+			name:          "official APISIX supports 3.17",
+			apisixType:    constant.APISIXTypeAPISIX,
+			apisixVersion: "3.17.0",
+			want:          true,
+		},
+		{
+			name:          "official APISIX supports another 3.17 patch",
+			apisixType:    constant.APISIXTypeAPISIX,
+			apisixVersion: "3.17.1",
+			want:          true,
+		},
+		{
+			name:          "BK APISIX supports 3.17",
+			apisixType:    constant.APISIXTypeBKAPISIX,
+			apisixVersion: "3.17.0",
+			want:          true,
+		},
+		{
+			name:          "TAPISIX does not support 3.17",
+			apisixType:    constant.APISIXTypeTAPISIX,
+			apisixVersion: "3.17.0",
+			want:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, CheckAPISIXTypeVersion(tt.apisixType, tt.apisixVersion))
+		})
+	}
+}
+
+func TestGatewayAPISIXTypeVersionCheckValidation(t *testing.T) {
+	validate := validator.New()
+	require.NoError(t, validate.RegisterValidation("gatewayName", func(_ validator.FieldLevel) bool {
+		return true
+	}))
+	validate.RegisterStructValidationCtx(GatewayAPISIXTypeVersionCheckValidation, GatewayInputInfo{})
+
+	err := validate.Struct(GatewayInputInfo{
+		APISIXType:    constant.APISIXTypeTAPISIX,
+		APISIXVersion: "3.17.0",
+	})
+
+	var validationErrors validator.ValidationErrors
+	require.ErrorAs(t, err, &validationErrors)
+	require.Len(t, validationErrors, 1)
+	assert.Equal(t, "apisixTypeVersion", validationErrors[0].Tag())
 }
 
 // createTestGateway 创建测试网关

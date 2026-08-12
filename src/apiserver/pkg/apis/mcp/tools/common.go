@@ -33,6 +33,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/middleware"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	versionx "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/version"
 )
 
 // ValidResourceTypes lists all valid APISIX resource types
@@ -131,7 +132,10 @@ func parseResourceType(resourceType string) (constant.APISIXResource, error) {
 
 // parseAPISIXVersion converts string to APISIXVersion type
 func parseAPISIXVersion(version string) (constant.APISIXVersion, error) {
-	v := constant.APISIXVersion(version)
+	v, err := versionx.ToXVersion(version)
+	if err != nil {
+		return "", fmt.Errorf("invalid APISIX version: %s", version)
+	}
 	switch v {
 	case constant.APISIXVersion313, constant.APISIXVersion317:
 		return v, nil

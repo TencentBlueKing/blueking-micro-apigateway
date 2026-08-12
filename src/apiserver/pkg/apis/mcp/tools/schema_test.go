@@ -29,6 +29,7 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/tests/util"
 )
 
 func TestGetResourceSchemaHandlerSupports317(t *testing.T) {
@@ -75,6 +76,58 @@ func TestGetResourceSchemaHandlerDefaultsToGatewayVersion(t *testing.T) {
 	content, ok := result.Content[0].(*mcp.TextContent)
 	require.True(t, ok)
 	assert.Contains(t, content.Text, `"apisix_version": "3.17.X"`)
+}
+
+func TestValidateResourceConfigHandlerRejectsInvalid317PluginConfigs(t *testing.T) {
+	util.InitEmbedDb()
+
+	tests := []struct {
+		name       string
+		plugins    map[string]any
+		wantErrMsg string
+	}{
+		{
+			name: "missing required plugin field",
+			plugins: map[string]any{
+				"cas-auth": map[string]any{
+					"idp_uri":          "https://cas.example.com",
+					"cas_callback_uri": "/api/cas/callback",
+					"logout_uri":       "https://cas.example.com/logout",
+				},
+			},
+			wantErrMsg: "cookie",
+		},
+		{
+			name: "unknown plugin",
+			plugins: map[string]any{
+				"unknown-plugin": map[string]any{},
+			},
+			wantErrMsg: "unknown-plugin",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _, err := validateResourceConfigHandler(
+				gatewayContext("3.17.0"),
+				nil,
+				ValidateResourceConfigInput{
+					ResourceType: "route",
+					Config: map[string]any{
+						"uris":    []any{"/mcp-validation"},
+						"plugins": tt.plugins,
+					},
+				},
+			)
+
+			require.NoError(t, err)
+			require.False(t, result.IsError)
+			content, ok := result.Content[0].(*mcp.TextContent)
+			require.True(t, ok)
+			assert.Contains(t, content.Text, `"valid": false`)
+			assert.Contains(t, content.Text, tt.wantErrMsg)
+		})
+	}
 }
 
 func TestSchemaHandlersRejectVersionDifferentFromGateway(t *testing.T) {

@@ -158,6 +158,18 @@ func TestParseAPISIXVersion(t *testing.T) {
 			expectedError:   false,
 		},
 		{
+			name:            "valid patch version 3.13",
+			version:         "3.13.0",
+			expectedVersion: constant.APISIXVersion313,
+			expectedError:   false,
+		},
+		{
+			name:            "valid patch version 3.17",
+			version:         "3.17.0",
+			expectedVersion: constant.APISIXVersion317,
+			expectedError:   false,
+		},
+		{
 			name:            "unsupported version 3.11",
 			version:         "3.11.X",
 			expectedVersion: "",

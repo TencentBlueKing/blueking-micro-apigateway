@@ -374,8 +374,8 @@ func PluginsGet(c *gin.Context) {
 		if kind == constant.Metadata && len(plugin.MetadataExample) == 0 {
 			continue
 		}
-		// 当查询的插件类别为 stream 时，仅获取 StreamRoutePluginMap 匹配的插件
-		if kind == constant.Stream && schema.StreamRoutePluginMap[plugin.Name] == "" {
+		// 当查询的插件类别为 stream 时，仅获取当前版本具有 stream schema 的插件
+		if kind == constant.Stream && !schema.IsStreamRoutePlugin(version, plugin.Name) {
 			continue
 		}
 		// 只有 stream route 资源才能使用 stream 类型的插件，其他资源需要排除掉

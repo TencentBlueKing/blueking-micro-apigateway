@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -37,6 +38,12 @@ func TestGetPlugins(t *testing.T) {
 		version    constant.APISIXVersion
 		shouldFail bool
 	}{
+		{
+			name:       "APISIX 3.17",
+			apisixType: constant.APISIXTypeAPISIX,
+			version:    constant.APISIXVersion317,
+			shouldFail: false,
+		},
 		{
 			name:       "APISIX 3.13",
 			apisixType: constant.APISIXTypeAPISIX,
@@ -95,6 +102,7 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	type exampleCase struct {
@@ -152,13 +160,13 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 					}
 
 					schemaBytes, err := json.Marshal(schemaValue)
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					s, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaBytes))
-					assert.NoError(t, err)
+					require.NoError(t, err)
 
 					result, err := s.Validate(gojsonschema.NewGoLoader(tc.example))
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					assert.Truef(
 						t,
 						result.Valid(),
@@ -175,6 +183,7 @@ func TestConsumerPluginFrontendFallbackExamplesMatchConsumerSchema(t *testing.T)
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	for _, version := range versions {
@@ -253,6 +262,7 @@ func TestOpenWhiskNamePatternsUseEcmaCompatibleAnchors(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 	expectedPattern := `^([\w]|[\w][\w@ .-]*[\w@.-]+)$`
 
@@ -292,6 +302,7 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 	versions := []constant.APISIXVersion{
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
+		constant.APISIXVersion317,
 	}
 
 	for _, version := range versions {
@@ -318,7 +329,7 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 					version,
 					plugin.Name,
 				)
-			case StreamRoutePluginMap[plugin.Name] != "":
+			case IsStreamRoutePlugin(version, plugin.Name):
 				scopeCounts["stream"]++
 				assert.NotEmpty(
 					t,
@@ -352,6 +363,21 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 		assert.Positive(t, scopeCounts["metadata"], "%s should have metadata plugins", version)
 		assert.Positive(t, scopeCounts["stream"], "%s should have stream plugins", version)
 	}
+}
+
+func TestIsStreamRoutePluginUsesVersionSchema(t *testing.T) {
+	assert.True(t, IsStreamRoutePlugin(constant.APISIXVersion313, "syslog"))
+	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion313, "traffic-split"))
+	assert.True(t, IsStreamRoutePlugin(constant.APISIXVersion317, "traffic-split"))
+	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion317, "jwt-auth"))
+}
+
+func TestIsStreamRoutePluginDoesNotAllocatePerLookup(t *testing.T) {
+	allocations := testing.AllocsPerRun(100, func() {
+		IsStreamRoutePlugin(constant.APISIXVersion317, "traffic-split")
+	})
+
+	assert.Zero(t, allocations)
 }
 
 func TestOpenFunctionAuthorizationSchemaShape(t *testing.T) {

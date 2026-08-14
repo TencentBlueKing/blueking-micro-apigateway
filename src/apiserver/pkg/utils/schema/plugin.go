@@ -26,6 +26,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
+//go:embed 3.17/plugin.json
+var rawPluginV317 []byte
+
 //go:embed 3.13/plugin.json
 var rawPluginV313 []byte
 
@@ -40,6 +43,9 @@ var rawPluginV32 []byte
 
 // bk-apisix plugin
 //
+//go:embed 3.17/bk_apisix_plugin.json
+var rawBkAPISIXPluginV317 []byte
+
 //go:embed 3.13/bk_apisix_plugin.json
 var rawBkAPISIXPluginV313 []byte
 
@@ -48,6 +54,9 @@ var rawBkAPISIXPluginV311 []byte
 
 // tapisix plugin
 //
+//go:embed 3.17/tapisix_plugin.json
+var rawTAPISIXPluginV317 []byte
+
 //go:embed 3.13/tapisix_plugin.json
 var rawTAPISIXPluginV313 []byte
 
@@ -58,6 +67,7 @@ var rawTAPISIXPluginV311 []byte
 var rawTAPISIXPluginV33 []byte
 
 var versionPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion317: rawPluginV317,
 	constant.APISIXVersion32:  rawPluginV32,
 	constant.APISIXVersion33:  rawPluginV33,
 	constant.APISIXVersion311: rawPluginV311,
@@ -65,11 +75,13 @@ var versionPluginMap = map[constant.APISIXVersion][]byte{
 }
 
 var versionBkAPISIXPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion317: rawBkAPISIXPluginV317,
 	constant.APISIXVersion313: rawBkAPISIXPluginV313,
 	constant.APISIXVersion311: rawBkAPISIXPluginV311,
 }
 
 var versionTAPISIXPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion317: rawTAPISIXPluginV317,
 	constant.APISIXVersion33:  rawTAPISIXPluginV33,
 	constant.APISIXVersion311: rawTAPISIXPluginV311,
 	constant.APISIXVersion313: rawTAPISIXPluginV313,
@@ -77,6 +89,7 @@ var versionTAPISIXPluginMap = map[constant.APISIXVersion][]byte{
 
 // VersionDocUrlMap ...
 var VersionDocUrlMap = map[constant.APISIXVersion]string{
+	constant.APISIXVersion317: "https://apisix.apache.org/zh/docs/apisix/plugins/%s/",
 	constant.APISIXVersion32:  "https://apache-apisix.netlify.app/zh/docs/apisix/3.2/plugins/%s/",
 	constant.APISIXVersion33:  "https://apache-apisix.netlify.app/zh/docs/apisix/3.3/plugins/%s/",
 	constant.APISIXVersion311: "https://apache-apisix.netlify.app/zh/docs/apisix/3.11/plugins/%s/",
@@ -94,13 +107,24 @@ type Plugin struct {
 	DocUrl          string         `json:"doc_url"`
 }
 
-// StreamRoutePluginMap ...
-var StreamRoutePluginMap = map[string]string{
-	"ip-restriction": "ip-restriction",
-	"limit-conn":     "limit-conn",
-	"mqtt-proxy":     "mqtt-proxy",
-	"prometheus":     "prometheus",
-	"syslog":         "syslog",
+var streamRoutePluginMap = buildStreamRoutePluginMap()
+
+func buildStreamRoutePluginMap() map[constant.APISIXVersion]map[string]struct{} {
+	result := make(map[constant.APISIXVersion]map[string]struct{}, len(schemaVersionMap))
+	for version, schemaInfo := range schemaVersionMap {
+		plugins := make(map[string]struct{})
+		for name := range schemaInfo.Get("stream_plugins").Map() {
+			plugins[name] = struct{}{}
+		}
+		result[version] = plugins
+	}
+	return result
+}
+
+// IsStreamRoutePlugin reports whether the selected APISIX version has a stream schema for the plugin.
+func IsStreamRoutePlugin(version constant.APISIXVersion, name string) bool {
+	_, ok := streamRoutePluginMap[version][name]
+	return ok
 }
 
 // GetPlugins 获取插件

@@ -152,6 +152,24 @@ func TestParseAPISIXVersion(t *testing.T) {
 			expectedError:   false,
 		},
 		{
+			name:            "valid version 3.17",
+			version:         "3.17.X",
+			expectedVersion: constant.APISIXVersion317,
+			expectedError:   false,
+		},
+		{
+			name:            "valid patch version 3.13",
+			version:         "3.13.0",
+			expectedVersion: constant.APISIXVersion313,
+			expectedError:   false,
+		},
+		{
+			name:            "valid patch version 3.17",
+			version:         "3.17.0",
+			expectedVersion: constant.APISIXVersion317,
+			expectedError:   false,
+		},
+		{
 			name:            "unsupported version 3.11",
 			version:         "3.11.X",
 			expectedVersion: "",
@@ -303,6 +321,7 @@ func TestAPISIXVersionDescription(t *testing.T) {
 	desc := APISIXVersionDescription()
 	assert.Contains(t, desc, "One of:")
 	assert.Contains(t, desc, "3.13.X")
+	assert.Contains(t, desc, "3.17.X")
 	assert.NotContains(t, desc, "3.11.X")
 }
 
@@ -339,6 +358,7 @@ func TestValidAPISIXVersions(t *testing.T) {
 	t.Parallel()
 
 	// Verify all supported versions are present
-	assert.Len(t, ValidAPISIXVersions, 1)
+	assert.Len(t, ValidAPISIXVersions, 2)
 	assert.Contains(t, ValidAPISIXVersions, "3.13.X")
+	assert.Contains(t, ValidAPISIXVersions, "3.17.X")
 }

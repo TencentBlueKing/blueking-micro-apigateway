@@ -74,6 +74,7 @@ func TestHandleMCPAuthErrorGatewayNotSupported(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotImplemented, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), "gateway does not support MCP")
+	assert.Contains(t, recorder.Body.String(), "3.13.X or 3.17.X")
 }
 
 func TestGetMCPAccessToken(t *testing.T) {

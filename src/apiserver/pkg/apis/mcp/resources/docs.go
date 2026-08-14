@@ -148,7 +148,7 @@ BK Micro APIGateway manages the following APISIX resource types:
 ## MCP Operation Notes
 
 - Gateway context is selected by MCP endpoint path (` + "`/mcp/gateways/:gateway_id/`" + `).
-- Gateway-bound MCP operations require APISIX ` + "`3.13.X`" + `.
+- Gateway-bound MCP operations require APISIX ` + "`3.13.X`" + ` or ` + "`3.17.X`" + `.
 - MCP supports ` + "`publish_preview`" + ` only; actual publish is done in Web UI/OpenAPI.
 
 ## Core Concepts
@@ -463,7 +463,7 @@ delete_resource(resource_type="route", resource_ids=["old-route"])
 
 ## Step 4: Validate and Review
 ` + "```" + `
-validate_resource_config(apisix_version="3.13", resource_type="route", config={...})
+validate_resource_config(resource_type="route", config={...})
 diff_resources()
 diff_detail(resource_type="route", resource_id="route-1")
 publish_preview()
@@ -503,7 +503,7 @@ const apiErrorDetailsDoc = `# API Error Details
 - Token does not match gateway in request path
 
 ### 501 Not Implemented
-- Gateway APISIX version does not support MCP (requires ` + "`3.13.X`" + `)
+- Gateway APISIX version does not support MCP (requires ` + "`3.13.X`" + ` or ` + "`3.17.X`" + `)
 
 ## Common Tool-Level Validation Errors
 
@@ -534,7 +534,7 @@ const apiErrorDetailsDoc = `# API Error Details
 ## Notes
 
 - MCP publish tools are disabled by design; publish is performed via Web UI/OpenAPI.
-- Schema tools support MCP-supported APISIX version ` + "`3.13.X`" + `.
+- Schema tools always use the current gateway's APISIX version.
 `
 
 const pluginPrecedenceDoc = `# Plugin Merging Precedence

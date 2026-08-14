@@ -78,21 +78,26 @@ func TestNewDatabasePayloadValidatorBuildsDatabaseValidators(t *testing.T) {
 		},
 	)
 
-	validator, err := NewDatabasePayloadValidator(
+	for _, version := range []constant.APISIXVersion{
 		constant.APISIXVersion313,
-		constant.Route,
-		customSchemaMap,
-	)
+		constant.APISIXVersion317,
+	} {
+		validator, err := NewDatabasePayloadValidator(
+			version,
+			constant.Route,
+			customSchemaMap,
+		)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, validator)
-	assert.Equal(t, constant.APISIXVersion313, gotSchemaVersion)
-	assert.Equal(t, "main.route", gotSchemaPath)
-	assert.Equal(t, constant.APISIXVersion313, gotJSONVersion)
-	assert.Equal(t, constant.Route, gotResourceType)
-	assert.Equal(t, "main.route", gotJSONPath)
-	assert.Equal(t, customSchemaMap, gotCustomSchemaMap)
-	assert.Equal(t, constant.DATABASE, gotDataType)
+		assert.NoError(t, err)
+		assert.NotNil(t, validator)
+		assert.Equal(t, version, gotSchemaVersion)
+		assert.Equal(t, "main.route", gotSchemaPath)
+		assert.Equal(t, version, gotJSONVersion)
+		assert.Equal(t, constant.Route, gotResourceType)
+		assert.Equal(t, "main.route", gotJSONPath)
+		assert.Equal(t, customSchemaMap, gotCustomSchemaMap)
+		assert.Equal(t, constant.DATABASE, gotDataType)
+	}
 }
 
 func TestDatabasePayloadValidatorValidateRunsSchemaThenJSONSchema(t *testing.T) {

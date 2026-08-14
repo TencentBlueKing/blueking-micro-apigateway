@@ -123,6 +123,7 @@ type APISIXVersion string
 
 // APISIXVersion311 ...
 const (
+	APISIXVersion317 APISIXVersion = "3.17.X"
 	APISIXVersion313 APISIXVersion = "3.13.X"
 	APISIXVersion311 APISIXVersion = "3.11.X"
 	APISIXVersion33  APISIXVersion = "3.3.X"
@@ -131,6 +132,7 @@ const (
 
 // SupportAPISIXVersionMap ...
 var SupportAPISIXVersionMap = map[string]string{
+	"3.17.X": string(APISIXVersion317),
 	"3.13.X": string(APISIXVersion313),
 	"3.11.X": string(APISIXVersion311),
 	"3.3.X":  string(APISIXVersion33),

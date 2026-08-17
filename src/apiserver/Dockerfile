@@ -5,6 +5,9 @@ WORKDIR /app
 
 ARG VERSION=latest
 ARG COMMIT=HEAD
+ARG GOPROXY=https://proxy.golang.org,direct
+
+ENV GOPROXY=${GOPROXY}
 
 # Copy go mod files first for better caching
 COPY go.mod go.sum ./

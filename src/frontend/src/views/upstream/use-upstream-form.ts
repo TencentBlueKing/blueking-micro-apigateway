@@ -110,9 +110,9 @@ export const useUpstreamForm = () => {
     // discovery_type: 'dns',
     key: '',
     timeout: {
-      send: 6,
-      connect: 6,
-      read: 6,
+      send: 60,
+      connect: 60,
+      read: 60,
     },
     pass_host: 'pass',
     // upstream_host: '',

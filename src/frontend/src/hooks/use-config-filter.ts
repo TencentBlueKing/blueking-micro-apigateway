@@ -76,9 +76,9 @@ export const defaultResourceConfigMap: Record<string, IDefaultConfigMap> = {
     },
     timeout: {
       default: {
-        send: 6,
-        connect: 6,
-        read: 6,
+        send: 60,
+        connect: 60,
+        read: 60,
       },
       advanced: true,
     },

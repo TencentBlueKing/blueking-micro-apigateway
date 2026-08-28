@@ -62,6 +62,14 @@ func TestInjectRequiredResourceIDForValidation(t *testing.T) {
 			wantConfig:   `{"plugins":{},"id":"pc-generated-id"}`,
 		},
 		{
+			name:         "does not inject optional id in 3.18",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion318,
+			resourceID:   "pc-generated-id",
+			rawConfig:    json.RawMessage(`{"plugins":{}}`),
+			wantConfig:   `{"plugins":{}}`,
+		},
+		{
 			name:         "skips injection when resource id is empty",
 			resourceType: constant.PluginConfig,
 			version:      constant.APISIXVersion311,
@@ -361,6 +369,16 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 			wantIdentity:     "cg-generated-id",
 		},
 		{
+			name:             "consumer group drops id and name on 3.18",
+			resourceType:     constant.ConsumerGroup,
+			version:          constant.APISIXVersion318,
+			configRaw:        `{"id":"cg-generated-id","name":"consumer-group-demo","plugins":{}}`,
+			resourceID:       "cg-generated-id",
+			fallbackIdentity: "fallback-name",
+			wantPayload:      `{"plugins":{}}`,
+			wantIdentity:     "cg-generated-id",
+		},
+		{
 			name:             "proto on 3.11 keeps name out of payload",
 			resourceType:     constant.Proto,
 			version:          constant.APISIXVersion311,
@@ -430,6 +448,15 @@ func TestPrepareWebValidationPayload(t *testing.T) {
 			configRaw:        `{"content":"syntax = \"proto3\";"}`,
 			fallbackIdentity: "proto-demo",
 			wantPayload:      `{"content":"syntax = \"proto3\";","name":"proto-demo"}`,
+			wantIdentity:     "proto-demo",
+		},
+		{
+			name:             "proto on 3.18 keeps name out of validation payload",
+			resourceType:     constant.Proto,
+			version:          constant.APISIXVersion318,
+			configRaw:        `{"content":"syntax = \"proto3\";"}`,
+			fallbackIdentity: "proto-demo",
+			wantPayload:      `{"content":"syntax = \"proto3\";"}`,
 			wantIdentity:     "proto-demo",
 		},
 		{

@@ -1,0 +1,35 @@
+meta {
+  name: plugin_matrix_success_3_18_0_metadata
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-318/resources/plugin_metadatas/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "id": "kafka-logger",
+        "log_format": {
+          "@timestamp": "$time_iso8601",
+          "client_ip": "$remote_addr",
+          "host": "$host"
+        }
+      },
+      "name": "kafka-logger"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.length: eq 1
+}

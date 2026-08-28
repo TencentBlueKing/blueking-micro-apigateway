@@ -130,6 +130,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			version:      constant.APISIXVersion311,
 			expected:     true,
 		},
+		{
+			name:         "plugin_config does NOT support name in 3.18",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion318,
+			expected:     false,
+		},
 
 		// Resources that added name in 3.13
 		{
@@ -168,6 +174,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			reason:       "consumer_group name remains supported in 3.17",
 		},
 		{
+			name:         "consumer_group does NOT support name in 3.18",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion318,
+			expected:     false,
+		},
+		{
 			name:         "stream_route does NOT support name in 3.11",
 			resourceType: constant.StreamRoute,
 			version:      constant.APISIXVersion311,
@@ -186,6 +198,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			expected:     true,
 		},
 		{
+			name:         "stream_route does NOT support name in 3.18",
+			resourceType: constant.StreamRoute,
+			version:      constant.APISIXVersion318,
+			expected:     false,
+		},
+		{
 			name:         "proto does NOT support name in 3.11",
 			resourceType: constant.Proto,
 			version:      constant.APISIXVersion311,
@@ -202,6 +220,12 @@ func TestResourceSupportsNameFieldForVersion(t *testing.T) {
 			resourceType: constant.Proto,
 			version:      constant.APISIXVersion317,
 			expected:     true,
+		},
+		{
+			name:         "proto does NOT support name in 3.18",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion318,
+			expected:     false,
 		},
 
 		// Resources that never support name
@@ -266,6 +290,13 @@ func TestShouldRemoveFieldBeforePublish(t *testing.T) {
 			reason:       "consumer_group requires id in 3.11/3.13 schema",
 		},
 		{
+			name:         "consumer_group id should be removed in 3.18",
+			resourceType: constant.ConsumerGroup,
+			fieldName:    "id",
+			version:      constant.APISIXVersion318,
+			expected:     true,
+		},
+		{
 			name:         "route id should NOT be removed",
 			resourceType: constant.Route,
 			fieldName:    "id",
@@ -314,6 +345,13 @@ func TestShouldRemoveFieldBeforePublish(t *testing.T) {
 			version:      constant.APISIXVersion311,
 			expected:     false,
 			reason:       "plugin_config supports name",
+		},
+		{
+			name:         "plugin_config name should be removed in 3.18",
+			resourceType: constant.PluginConfig,
+			fieldName:    "name",
+			version:      constant.APISIXVersion318,
+			expected:     true,
 		},
 	}
 
@@ -496,6 +534,24 @@ func TestResourceRequiresIDInSchemaForVersion(t *testing.T) {
 			version:      constant.APISIXVersion317,
 			expected:     true,
 			reason:       "global_rule id remains required in 3.17",
+		},
+		{
+			name:         "consumer_group does not require id in 3.18",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion318,
+			expected:     false,
+		},
+		{
+			name:         "plugin_config does not require id in 3.18",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion318,
+			expected:     false,
+		},
+		{
+			name:         "global_rule does not require id in 3.18",
+			resourceType: constant.GlobalRule,
+			version:      constant.APISIXVersion318,
+			expected:     false,
 		},
 		{
 			name:         "route never requires id",

@@ -1,0 +1,72 @@
+meta {
+  name: plugin_matrix_success_3_18_0_stream
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-318/resources/stream_routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "plugins": {
+          "traffic-split": {
+            "rules": [
+              {
+                "weighted_upstreams": [
+                  {
+                    "upstream": {
+                      "nodes": {
+                        "node1": 1,
+                        "node2": 2
+                      },
+                      "type": "roundrobin"
+                    },
+                    "weight": 70
+                  },
+                  {
+                    "upstream": {
+                      "nodes": {
+                        "node3": 1,
+                        "node4": 2
+                      },
+                      "type": "roundrobin"
+                    },
+                    "weight": 30
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "server_addr": "127.0.0.1",
+        "server_port": 9101,
+        "upstream": {
+          "nodes": [
+            {
+              "host": "127.0.0.1",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "tcp",
+          "type": "roundrobin"
+        }
+      },
+      "name": "plugin-traffic-split-318"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.length: eq 1
+}

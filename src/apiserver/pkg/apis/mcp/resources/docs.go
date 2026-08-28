@@ -148,7 +148,7 @@ BK Micro APIGateway manages the following APISIX resource types:
 ## MCP Operation Notes
 
 - Gateway context is selected by MCP endpoint path (` + "`/mcp/gateways/:gateway_id/`" + `).
-- Gateway-bound MCP operations require APISIX ` + "`3.13.X`" + ` or ` + "`3.17.X`" + `.
+- Gateway-bound MCP operations require APISIX ` + "`3.13.X`" + `, ` + "`3.17.X`" + `, or ` + "`3.18.X`" + `.
 - MCP supports ` + "`publish_preview`" + ` only; actual publish is done in Web UI/OpenAPI.
 
 ## Core Concepts
@@ -503,7 +503,7 @@ const apiErrorDetailsDoc = `# API Error Details
 - Token does not match gateway in request path
 
 ### 501 Not Implemented
-- Gateway APISIX version does not support MCP (requires ` + "`3.13.X`" + ` or ` + "`3.17.X`" + `)
+- Gateway APISIX version does not support MCP (requires ` + "`3.13.X`" + `, ` + "`3.17.X`" + `, or ` + "`3.18.X`" + `)
 
 ## Common Tool-Level Validation Errors
 

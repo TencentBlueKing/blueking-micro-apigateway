@@ -1,0 +1,40 @@
+meta {
+  name: plugin_matrix_success_3_18_0_consumer
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-318/resources/consumers/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "labels": {
+          "env": "test"
+        },
+        "plugins": {
+          "jwt-auth": {
+            "algorithm": "EdDSA",
+            "key": "user-key",
+            "public_key": "public-key"
+          }
+        },
+        "username": "plugin_jwt_auth_318"
+      },
+      "name": "plugin_jwt_auth_318"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.length: eq 1
+}

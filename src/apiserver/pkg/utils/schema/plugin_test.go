@@ -39,6 +39,12 @@ func TestGetPlugins(t *testing.T) {
 		shouldFail bool
 	}{
 		{
+			name:       "APISIX 3.18",
+			apisixType: constant.APISIXTypeAPISIX,
+			version:    constant.APISIXVersion318,
+			shouldFail: false,
+		},
+		{
 			name:       "APISIX 3.17",
 			apisixType: constant.APISIXTypeAPISIX,
 			version:    constant.APISIXVersion317,
@@ -103,6 +109,7 @@ func TestPluginExamplesMatchSchema(t *testing.T) {
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
 		constant.APISIXVersion317,
+		constant.APISIXVersion318,
 	}
 
 	type exampleCase struct {
@@ -184,6 +191,7 @@ func TestConsumerPluginFrontendFallbackExamplesMatchConsumerSchema(t *testing.T)
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
 		constant.APISIXVersion317,
+		constant.APISIXVersion318,
 	}
 
 	for _, version := range versions {
@@ -263,6 +271,7 @@ func TestOpenWhiskNamePatternsUseEcmaCompatibleAnchors(t *testing.T) {
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
 		constant.APISIXVersion317,
+		constant.APISIXVersion318,
 	}
 	expectedPattern := `^([\w]|[\w][\w@ .-]*[\w@.-]+)$`
 
@@ -303,6 +312,7 @@ func TestPluginCanonicalScopeInventory(t *testing.T) {
 		constant.APISIXVersion311,
 		constant.APISIXVersion313,
 		constant.APISIXVersion317,
+		constant.APISIXVersion318,
 	}
 
 	for _, version := range versions {
@@ -370,6 +380,8 @@ func TestIsStreamRoutePluginUsesVersionSchema(t *testing.T) {
 	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion313, "traffic-split"))
 	assert.True(t, IsStreamRoutePlugin(constant.APISIXVersion317, "traffic-split"))
 	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion317, "jwt-auth"))
+	assert.True(t, IsStreamRoutePlugin(constant.APISIXVersion318, "traffic-split"))
+	assert.False(t, IsStreamRoutePlugin(constant.APISIXVersion318, "jwt-auth"))
 }
 
 func TestIsStreamRoutePluginDoesNotAllocatePerLookup(t *testing.T) {

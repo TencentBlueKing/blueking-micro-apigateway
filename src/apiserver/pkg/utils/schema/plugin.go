@@ -26,6 +26,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
+//go:embed 3.18/plugin.json
+var rawPluginV318 []byte
+
 //go:embed 3.17/plugin.json
 var rawPluginV317 []byte
 
@@ -43,6 +46,9 @@ var rawPluginV32 []byte
 
 // bk-apisix plugin
 //
+//go:embed 3.18/bk_apisix_plugin.json
+var rawBkAPISIXPluginV318 []byte
+
 //go:embed 3.17/bk_apisix_plugin.json
 var rawBkAPISIXPluginV317 []byte
 
@@ -54,6 +60,9 @@ var rawBkAPISIXPluginV311 []byte
 
 // tapisix plugin
 //
+//go:embed 3.18/tapisix_plugin.json
+var rawTAPISIXPluginV318 []byte
+
 //go:embed 3.17/tapisix_plugin.json
 var rawTAPISIXPluginV317 []byte
 
@@ -67,6 +76,7 @@ var rawTAPISIXPluginV311 []byte
 var rawTAPISIXPluginV33 []byte
 
 var versionPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion318: rawPluginV318,
 	constant.APISIXVersion317: rawPluginV317,
 	constant.APISIXVersion32:  rawPluginV32,
 	constant.APISIXVersion33:  rawPluginV33,
@@ -75,12 +85,14 @@ var versionPluginMap = map[constant.APISIXVersion][]byte{
 }
 
 var versionBkAPISIXPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion318: rawBkAPISIXPluginV318,
 	constant.APISIXVersion317: rawBkAPISIXPluginV317,
 	constant.APISIXVersion313: rawBkAPISIXPluginV313,
 	constant.APISIXVersion311: rawBkAPISIXPluginV311,
 }
 
 var versionTAPISIXPluginMap = map[constant.APISIXVersion][]byte{
+	constant.APISIXVersion318: rawTAPISIXPluginV318,
 	constant.APISIXVersion317: rawTAPISIXPluginV317,
 	constant.APISIXVersion33:  rawTAPISIXPluginV33,
 	constant.APISIXVersion311: rawTAPISIXPluginV311,
@@ -89,6 +101,7 @@ var versionTAPISIXPluginMap = map[constant.APISIXVersion][]byte{
 
 // VersionDocUrlMap ...
 var VersionDocUrlMap = map[constant.APISIXVersion]string{
+	constant.APISIXVersion318: "https://apisix.apache.org/zh/docs/apisix/plugins/%s/",
 	constant.APISIXVersion317: "https://apisix.apache.org/zh/docs/apisix/plugins/%s/",
 	constant.APISIXVersion32:  "https://apache-apisix.netlify.app/zh/docs/apisix/3.2/plugins/%s/",
 	constant.APISIXVersion33:  "https://apache-apisix.netlify.app/zh/docs/apisix/3.3/plugins/%s/",

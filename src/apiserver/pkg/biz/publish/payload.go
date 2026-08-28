@@ -53,8 +53,8 @@ var publishPayloadCleanupRules = map[constant.APISIXResource][]publishPayloadCle
 		{Field: "id", VersionGated: true},
 	},
 	constant.ConsumerGroup: {
-		// Keep both id/name here to mirror the pre-refactor review points.
-		// Under current version rules, id is retained and name is removed only before APISIX 3.13.
+		// Keep both id/name explicit: 3.18 removes both, while older supported versions retain id
+		// and keep name only when their schema exposes it.
 		{Field: "id", VersionGated: true},
 		{Field: "name", VersionGated: true},
 	},
@@ -62,8 +62,7 @@ var publishPayloadCleanupRules = map[constant.APISIXResource][]publishPayloadCle
 		{Field: "name", VersionGated: true},
 	},
 	constant.PluginConfig: {
-		// Keep both id/name here to make the checked fields explicit.
-		// Under current version rules, neither field is removed, so these entries are a no-op today.
+		// Keep both id/name explicit: 3.18 removes name, while id remains supported.
 		{Field: "id", VersionGated: true},
 		{Field: "name", VersionGated: true},
 	},

@@ -36,6 +36,22 @@ These are not one-off fixes. Treat them as authoring rules for every new APISIX 
 - The 3.17 official catalog excludes `ai`, `example-plugin`, `inspect`, `log-rotate`, `mcp-bridge`, and `node-status`.
 - The 3.17 TAPISIX catalog and Schema files are intentionally empty compatibility placeholders.
 
+## APISIX 3.18 Source Baseline
+
+- Official APISIX 3.18 assets are pinned to commit
+  `0796d9c2cbedb1f8bf8194292ff526599f4fde20` (tag `3.18.0`).
+- BK-APISIX 3.18 assets are pinned to `blueking-apigateway-apisix` commit
+  `5ee31bde6811cf0ac70ac6b8539040e814196771`, whose APISIX submodule points to the official commit above.
+- The normalized schema source is the committed Dashboard/Operator asset at
+  `blueking-apigateway` commit `097b5c987b1bbc8ba54c59653a723fcd3609ba57`.
+- The pinned BK runtime exposes five of the seven compatibility-catalog plugins. `bk-echo` and
+  `bk-login-required` use 3.17 compatibility snapshots because the 3.18 runtime does not ship them.
+- The 3.18 official catalog adds `ai-cache` and `ai-lakera-guard`. It no longer exposes the 3.17 entries
+  `batch-requests`, `dubbo-proxy`, `error-log-logger`, `mqtt-proxy`, `opentelemetry`, or `skywalking`.
+- `ai`, `example-plugin`, `inspect`, `log-rotate`, and `mcp-bridge` retain runtime schemas but are intentionally
+  excluded from the control-plane catalog. `node-status` is absent from the 3.18 runtime schema.
+- The 3.18 TAPISIX catalog and Schema files are intentionally empty compatibility placeholders.
+
 ## Directory Contract
 
 - `plugin.json` is a plugin catalog consumed by `plugin.go`.

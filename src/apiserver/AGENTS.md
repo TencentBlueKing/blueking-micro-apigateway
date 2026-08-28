@@ -62,7 +62,8 @@ pkg/
 │       ├── 3.3/
 │       ├── 3.11/
 │       ├── 3.13/
-│       └── 3.17/
+│       ├── 3.17/
+│       └── 3.18/
 └── version/               # Version information
 ```
 
@@ -115,7 +116,7 @@ Web/Open/Basic API sub-modules normally contain:
 - **Serializer** - Request/response struct definitions with validation tags
 
 MCP is different: read `pkg/apis/mcp/AGENTS.md` before changing MCP tools, resources, prompts, or auth flows.
-MCP gateway support is restricted to APISIX `3.13.X` and `3.17.X`.
+MCP gateway support is restricted to APISIX `3.13.X`, `3.17.X`, and `3.18.X`.
 
 ```plaintext
 pkg/apis/
@@ -304,29 +305,29 @@ nextStatus, err := statusOp.NextStatus(ctx, constant.OperationTypePublish)
 
 ### 3. Multi-Version APISIX Support
 
-The system supports APISIX 3.2.X, 3.3.X, 3.11.X, 3.13.X, and 3.17.X with version-aware schema validation
+The system supports APISIX 3.2.X, 3.3.X, 3.11.X, 3.13.X, 3.17.X, and 3.18.X with version-aware schema validation
 and field cleanup. Integration coverage includes full 3.11/3.13 plugin-matrix cases and compact representative
-3.17 cases.
+3.17/3.18 cases.
 
 **Schema Breaking Change**: APISIX 3.x introduced `additionalProperties: false` which strictly enforces that NO extra fields are allowed beyond those defined in the schema.
 
 #### 3.1 Version-Specific Field Support
 
-| Resource | Field | 3.2.X | 3.3.X | 3.11.X | 3.13.X | 3.17.X | Action |
-|----------|-------|-------|-------|--------|--------|--------|--------|
-| `route` | name | Yes | Yes | Yes | Yes | Yes | Always keep |
-| `service` | name | Yes | Yes | Yes | Yes | Yes | Always keep |
-| `upstream` | name | Yes | Yes | Yes | Yes | Yes | Always keep |
-| `plugin_config` | name | Yes | Yes | Yes | Yes | Yes | Always keep |
-| `consumer` | id | No | No | No | No | No | Always remove (uses username) |
-| `consumer_group` | name | No | No | No | Yes | Yes | Remove in 3.2/3.3/3.11 |
-| `stream_route` | name | No | No | No | Yes | Yes | Remove in 3.2/3.3/3.11 |
-| `proto` | name | No | No | No | Yes | Yes | Remove in 3.2/3.3/3.11 |
-| `global_rule` | name | No | No | No | No | No | Always remove |
-| `ssl` | name | No | No | No | No | No | Always remove |
-| `consumer_group` | id | No | No | Required | Required | Required | Inject for validation when schema requires it |
-| `plugin_config` | id | Present | Present | Required | Required | Required | Inject for validation when schema requires it |
-| `global_rule` | id | Present | Present | Required | Required | Required | Inject for validation when schema requires it |
+| Resource | Field | 3.2.X | 3.3.X | 3.11.X | 3.13.X | 3.17.X | 3.18.X | Action |
+|----------|-------|-------|-------|--------|--------|--------|--------|--------|
+| `route` | name | Yes | Yes | Yes | Yes | Yes | Yes | Always keep |
+| `service` | name | Yes | Yes | Yes | Yes | Yes | Yes | Always keep |
+| `upstream` | name | Yes | Yes | Yes | Yes | Yes | Yes | Always keep |
+| `plugin_config` | name | Yes | Yes | Yes | Yes | Yes | No | Remove in 3.18 |
+| `consumer` | id | No | No | No | No | No | No | Always remove (uses username) |
+| `consumer_group` | name | No | No | No | Yes | Yes | No | Keep only in 3.13/3.17 |
+| `stream_route` | name | No | No | No | Yes | Yes | No | Keep only in 3.13/3.17 |
+| `proto` | name | No | No | No | Yes | Yes | No | Keep only in 3.13/3.17 |
+| `global_rule` | name | No | No | No | No | No | No | Always remove |
+| `ssl` | name | No | No | No | No | No | No | Always remove |
+| `consumer_group` | id | No | No | Required | Required | Required | No | Remove in 3.18; otherwise inject when required |
+| `plugin_config` | id | Present | Present | Required | Required | Required | Optional | Inject only when required |
+| `global_rule` | id | Present | Present | Required | Required | Required | Optional | Inject only when required |
 
 #### 3.2 Key Functions for Version Handling
 
@@ -368,7 +369,7 @@ sequenceDiagram
 #### 3.4 Schema Verify and Update
 
 The schema directories are `pkg/utils/schema/{version}/schema.json` and
-`pkg/utils/schema/{version}/plugin.json` for `3.2`, `3.3`, `3.11`, `3.13`, and `3.17`.
+`pkg/utils/schema/{version}/plugin.json` for `3.2`, `3.3`, `3.11`, `3.13`, `3.17`, and `3.18`.
 
 - `schema.json` is the APISIX resource schema.
 - `plugin.json` is the APISIX plugin list/schema source.
@@ -446,7 +447,8 @@ Before publishing to APISIX/etcd, `pkg/biz/publish/payload.go` removes fields ba
 - **Datatype**: `constant.ETCD`
 - **Key helpers**: `pkg/biz/publish.buildPublishResourceOperation()`,
   `pkg/biz/publish.cleanupPublishPayloadFields()`, and `pkg/publisher.EtcdPublisher.Validate()`
-- **Example**: `consumer_group` must have `id` in config when publishing to APISIX 3.11/3.13/3.17
+- **Example**: `consumer_group` must have `id` in config when publishing to APISIX 3.11/3.13/3.17,
+  but APISIX 3.18 rejects that field
 
 ### 5.3 Validation Flow
 

@@ -48,16 +48,19 @@ var (
 	ErrMCPTokenNotFound       = errors.New("MCP access token not found")
 	ErrMCPTokenExpired        = errors.New("MCP access token has expired")
 	ErrMCPTokenInvalidScope   = errors.New("invalid MCP access token scope")
-	ErrMCPGatewayNotSupported = errors.New("gateway does not support MCP (requires APISIX 3.13.X or 3.17.X)")
-	ErrMCPTokenNameExists     = errors.New("MCP access token name already exists")
-	ErrMCPInsufficientScope   = errors.New("insufficient access scope for this operation")
-	ErrMCPTokenLimitExceeded  = errors.New("maximum number of MCP access tokens per gateway exceeded (limit: 20)")
+	ErrMCPGatewayNotSupported = errors.New(
+		"gateway does not support MCP (requires APISIX 3.13.X, 3.17.X, or 3.18.X)",
+	)
+	ErrMCPTokenNameExists    = errors.New("MCP access token name already exists")
+	ErrMCPInsufficientScope  = errors.New("insufficient access scope for this operation")
+	ErrMCPTokenLimitExceeded = errors.New("maximum number of MCP access tokens per gateway exceeded (limit: 20)")
 )
 
 // MCPSupportedAPISIXVersions 支持 MCP 的 APISIX 版本列表
 var MCPSupportedAPISIXVersions = []constant.APISIXVersion{
 	constant.APISIXVersion313,
 	constant.APISIXVersion317,
+	constant.APISIXVersion318,
 }
 
 // MaxMCPAccessTokensPerGateway 每个网关最大 MCP 访问令牌数量

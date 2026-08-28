@@ -15,6 +15,7 @@ func TestToXVersion(t *testing.T) {
 		{"3.1", "3.1.X", false},
 		{"3.2.1", "3.2.X", false},
 		{"3.17.0", constant.APISIXVersion317, false},
+		{"3.18.0", constant.APISIXVersion318, false},
 		{"3", "", true},
 		{"3.2.1.4", "", true},
 	}

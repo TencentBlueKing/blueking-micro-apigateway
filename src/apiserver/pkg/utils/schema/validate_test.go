@@ -31,6 +31,7 @@ import (
 )
 
 var APISIXVersionList = []constant.APISIXVersion{
+	constant.APISIXVersion318,
 	constant.APISIXVersion317,
 	constant.APISIXVersion313,
 	constant.APISIXVersion311,
@@ -235,6 +236,7 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 		dataType   constant.DataType
 		jsonPath   string
 		config     string
+		config318  string
 		shouldFail bool
 	}{
 		{
@@ -506,6 +508,15 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
                 }
               }
             }`,
+			config318: `{
+              "plugins": {
+                "authz-casbin": {
+                  "model": "path/to/model.conf",
+                  "policy": "path/to/policy.csv",
+                  "username": "admin"
+                }
+              }
+            }`,
 			shouldFail: false,
 		},
 		{
@@ -516,6 +527,16 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			config: `{
               "id": "plugin_config1",
               "name": "plugin_config1",
+              "plugins": {
+                "authz-casbin": {
+                  "model": "path/to/model.conf",
+                  "policy": "path/to/policy.csv",
+                  "username": "admin"
+                }
+              }
+            }`,
+			config318: `{
+              "id": "plugin_config1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -728,6 +749,15 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
                 }
               }
             }`,
+			config318: `{
+              "plugins": {
+                "authz-casbin": {
+                  "model": "path/to/model.conf",
+                  "policy": "path/to/policy.csv",
+                  "username": "admin"
+                }
+              }
+            }`,
 			shouldFail: false,
 		},
 		{
@@ -738,6 +768,16 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 			config: `{
               "id": "plugin_config1",
               "name": "plugin_config1",
+              "plugins": {
+                "authz-casbin": {
+                  "model": "path/to/model.conf",
+                  "policy": "path/to/policy.csv",
+                  "username": "admin"
+                }
+              }
+            }`,
+			config318: `{
+              "id": "plugin_config1",
               "plugins": {
                 "authz-casbin": {
                   "model": "path/to/model.conf",
@@ -1048,7 +1088,11 @@ func TestAPISIXJsonSchemaValidatorValidate(t *testing.T) {
 				)
 				assert.NoError(t, err)
 
-				err = validator.Validate(json.RawMessage(tt.config))
+				config := tt.config
+				if version == constant.APISIXVersion318 && tt.config318 != "" {
+					config = tt.config318
+				}
+				err = validator.Validate(json.RawMessage(config))
 				if tt.shouldFail {
 					assert.Error(t, err)
 				} else {

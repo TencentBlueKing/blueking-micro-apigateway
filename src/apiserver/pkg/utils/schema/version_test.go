@@ -26,11 +26,13 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
-func TestGetSupportVersionMapIncludes317(t *testing.T) {
+func TestGetSupportVersionMapIncludesCurrentVersions(t *testing.T) {
 	versions := GetSupportVersionMap()
 
 	assert.Contains(t, versions[constant.APISIXTypeAPISIX].SupportVersion, "3.17.0")
 	assert.Contains(t, versions[constant.APISIXTypeBKAPISIX].SupportVersion, "3.17.0")
+	assert.Contains(t, versions[constant.APISIXTypeAPISIX].SupportVersion, "3.18.0")
+	assert.Contains(t, versions[constant.APISIXTypeBKAPISIX].SupportVersion, "3.18.0")
 	_, hasTAPISIX := versions[constant.APISIXTypeTAPISIX]
 	assert.False(t, hasTAPISIX)
 }

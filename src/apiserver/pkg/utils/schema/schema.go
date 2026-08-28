@@ -26,6 +26,9 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
+//go:embed 3.18/schema.json
+var rawSchemaV318 []byte
+
 //go:embed 3.17/schema.json
 var rawSchemaV317 []byte
 
@@ -34,6 +37,9 @@ var rawSchemaV313 []byte
 
 // BK-APISIX plugin schema
 //
+//go:embed 3.18/bk_apisix_plugin_schema.json
+var rawBkAPISIXPluginSchemaV318 []byte
+
 //go:embed 3.17/bk_apisix_plugin_schema.json
 var rawBkAPISIXPluginSchemaV317 []byte
 
@@ -45,6 +51,9 @@ var rawBkAPISIXPluginSchemaV313 []byte
 
 // TAPISIX plugin schema
 //
+//go:embed 3.18/tapisix_plugin_schema.json
+var rawTAPISIXPluginSchemaV318 []byte
+
 //go:embed 3.17/tapisix_plugin_schema.json
 var rawTAPISIXPluginSchemaV317 []byte
 
@@ -67,6 +76,7 @@ var rawSchemaV33 []byte
 var rawSchemaV32 []byte
 
 var schemaVersionMap = map[constant.APISIXVersion]gjson.Result{
+	constant.APISIXVersion318: gjson.ParseBytes(rawSchemaV318),
 	constant.APISIXVersion317: gjson.ParseBytes(rawSchemaV317),
 	constant.APISIXVersion32:  gjson.ParseBytes(rawSchemaV32),
 	constant.APISIXVersion33:  gjson.ParseBytes(rawSchemaV33),
@@ -75,12 +85,14 @@ var schemaVersionMap = map[constant.APISIXVersion]gjson.Result{
 }
 
 var bkAPISIXPluginSchemaVersionMap = map[constant.APISIXVersion]gjson.Result{
+	constant.APISIXVersion318: gjson.ParseBytes(rawBkAPISIXPluginSchemaV318),
 	constant.APISIXVersion317: gjson.ParseBytes(rawBkAPISIXPluginSchemaV317),
 	constant.APISIXVersion313: gjson.ParseBytes(rawBkAPISIXPluginSchemaV313),
 	constant.APISIXVersion311: gjson.ParseBytes(rawBkAPISIXPluginSchemaV311),
 }
 
 var tapisixPluginSchemaVersionMap = map[constant.APISIXVersion]gjson.Result{
+	constant.APISIXVersion318: gjson.ParseBytes(rawTAPISIXPluginSchemaV318),
 	constant.APISIXVersion317: gjson.ParseBytes(rawTAPISIXPluginSchemaV317),
 	constant.APISIXVersion33:  gjson.ParseBytes(rawTAPISIXPluginSchemaV33),
 	constant.APISIXVersion311: gjson.ParseBytes(rawTAPISIXPluginSchemaV311),

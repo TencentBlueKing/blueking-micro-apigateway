@@ -72,6 +72,30 @@ func TestCheckAPISIXTypeVersion(t *testing.T) {
 			apisixVersion: "3.17.0",
 			want:          false,
 		},
+		{
+			name:          "official APISIX supports 3.18",
+			apisixType:    constant.APISIXTypeAPISIX,
+			apisixVersion: "3.18.0",
+			want:          true,
+		},
+		{
+			name:          "official APISIX supports another 3.18 patch",
+			apisixType:    constant.APISIXTypeAPISIX,
+			apisixVersion: "3.18.1",
+			want:          true,
+		},
+		{
+			name:          "BK APISIX supports 3.18",
+			apisixType:    constant.APISIXTypeBKAPISIX,
+			apisixVersion: "3.18.0",
+			want:          true,
+		},
+		{
+			name:          "TAPISIX does not support 3.18",
+			apisixType:    constant.APISIXTypeTAPISIX,
+			apisixVersion: "3.18.0",
+			want:          false,
+		},
 	}
 
 	for _, tt := range tests {

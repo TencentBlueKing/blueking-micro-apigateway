@@ -81,6 +81,7 @@ func TestNewDatabasePayloadValidatorBuildsDatabaseValidators(t *testing.T) {
 	for _, version := range []constant.APISIXVersion{
 		constant.APISIXVersion313,
 		constant.APISIXVersion317,
+		constant.APISIXVersion318,
 	} {
 		validator, err := NewDatabasePayloadValidator(
 			version,

@@ -74,11 +74,25 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			wantConfig:   `{"id":"cg-id","name":"cg-demo","plugins":{}}`,
 		},
 		{
+			name:         "consumer group drops id and name in 3.18",
+			resourceType: constant.ConsumerGroup,
+			version:      constant.APISIXVersion318,
+			rawConfig:    `{"id":"cg-id","name":"cg-demo","plugins":{}}`,
+			wantConfig:   `{"plugins":{}}`,
+		},
+		{
 			name:         "plugin config keeps id and name",
 			resourceType: constant.PluginConfig,
 			version:      constant.APISIXVersion311,
 			rawConfig:    `{"id":"pc-id","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
 			wantConfig:   `{"id":"pc-id","name":"pc-demo","plugins":{"limit-count":{"count":1,"time_window":60,"key":"remote_addr","policy":"local"}}}`,
+		},
+		{
+			name:         "plugin config drops name in 3.18",
+			resourceType: constant.PluginConfig,
+			version:      constant.APISIXVersion318,
+			rawConfig:    `{"id":"pc-id","name":"pc-demo","plugins":{}}`,
+			wantConfig:   `{"id":"pc-id","plugins":{}}`,
 		},
 		{
 			name:         "global rule drops name",
@@ -137,11 +151,25 @@ func TestCleanupPublishPayloadFields(t *testing.T) {
 			wantConfig:   `{"id":"sr-id","name":"stream-demo","server_port":9100}`,
 		},
 		{
+			name:         "stream route drops name and labels in 3.18",
+			resourceType: constant.StreamRoute,
+			version:      constant.APISIXVersion318,
+			rawConfig:    `{"id":"sr-id","name":"stream-demo","labels":{"env":"prod"},"server_port":9100}`,
+			wantConfig:   `{"id":"sr-id","server_port":9100}`,
+		},
+		{
 			name:         "proto keeps name in 3.17",
 			resourceType: constant.Proto,
 			version:      constant.APISIXVersion317,
 			rawConfig:    `{"id":"proto-id","name":"demo.proto","content":"syntax = \"proto3\";"}`,
 			wantConfig:   `{"id":"proto-id","name":"demo.proto","content":"syntax = \"proto3\";"}`,
+		},
+		{
+			name:         "proto drops name in 3.18",
+			resourceType: constant.Proto,
+			version:      constant.APISIXVersion318,
+			rawConfig:    `{"id":"proto-id","name":"demo.proto","content":"syntax = \"proto3\";"}`,
+			wantConfig:   `{"id":"proto-id","content":"syntax = \"proto3\";"}`,
 		},
 		{
 			name:         "route stays unchanged",

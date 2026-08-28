@@ -1,0 +1,109 @@
+meta {
+  name: plugin_matrix_success_3_18_0_http
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{scheme}}://{{host}}/api/v1/open/gateways/bk-apisix-plugin-matrix-318/resources/routes/
+}
+
+headers {
+  Content-Type: application/json
+  X-BK-API-TOKEN: {{x_bk_api_token}}
+}
+
+body {
+  [
+    {
+      "config": {
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-cache": {
+            "policy": "redis",
+            "redis_host": "redis"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-cache-318"
+        ]
+      },
+      "name": "plugin-ai-cache-318"
+    },
+    {
+      "config": {
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-lakera-guard": {
+            "api_key": "LAKERA_API_KEY"
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-lakera-guard-318"
+        ]
+      },
+      "name": "plugin-ai-lakera-guard-318"
+    },
+    {
+      "config": {
+        "methods": [
+          "GET"
+        ],
+        "plugins": {
+          "ai-rate-limiting": {
+            "limit": 300,
+            "limit_strategy": "prompt_tokens",
+            "policy": "local",
+            "time_window": 30
+          }
+        },
+        "upstream": {
+          "nodes": [
+            {
+              "host": "httpbin.org",
+              "port": 80,
+              "weight": 1
+            }
+          ],
+          "scheme": "http",
+          "type": "roundrobin"
+        },
+        "uris": [
+          "/plugin-ai-rate-limiting-318"
+        ]
+      },
+      "name": "plugin-ai-rate-limiting-318"
+    }
+  ]
+}
+
+assert {
+  res.status: eq 200
+  res.body.data.length: eq 3
+}

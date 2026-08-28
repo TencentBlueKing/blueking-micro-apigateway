@@ -48,6 +48,11 @@ func TestGetResourceSchema(t *testing.T) {
 			shouldFail: false,
 		},
 		{
+			name:       "APISIX 3.18 - Existing Resource",
+			version:    constant.APISIXVersion318,
+			shouldFail: false,
+		},
+		{
 			name:       "APISIX 3.17 - Existing Resource",
 			version:    constant.APISIXVersion317,
 			shouldFail: false,
@@ -82,6 +87,12 @@ func TestGet317OfficialAssets(t *testing.T) {
 	assert.NotNil(t, GetResourceSchema(constant.APISIXVersion317, constant.Route.String()))
 	assert.NotNil(t, GetPluginSchema(constant.APISIXVersion317, "jwt-auth", ""))
 	assert.NotNil(t, GetPluginSchema(constant.APISIXVersion317, "traffic-split", "stream"))
+}
+
+func TestGet318OfficialAssets(t *testing.T) {
+	assert.NotNil(t, GetResourceSchema(constant.APISIXVersion318, constant.Route.String()))
+	assert.NotNil(t, GetPluginSchema(constant.APISIXVersion318, "jwt-auth", ""))
+	assert.NotNil(t, GetPluginSchema(constant.APISIXVersion318, "traffic-split", "stream"))
 }
 
 func TestGetPluginSchema(t *testing.T) {

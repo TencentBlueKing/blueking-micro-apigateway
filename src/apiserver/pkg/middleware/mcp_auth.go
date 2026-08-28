@@ -144,7 +144,7 @@ func handleMCPAuthError(c *gin.Context, err error) {
 		abortWithMCPError(
 			c,
 			http.StatusNotImplemented,
-			"gateway does not support MCP (requires APISIX 3.13.X or 3.17.X)",
+			"gateway does not support MCP (requires APISIX 3.13.X, 3.17.X, or 3.18.X)",
 		)
 	default:
 		log.ErrorFWithContext(c.Request.Context(), "MCP auth: %v", err)

@@ -64,6 +64,22 @@ func TestGetPluginSchemaHandlerSupports317Plugin(t *testing.T) {
 	assert.Contains(t, content.Text, `"plugin_name": "oas-validator"`)
 }
 
+func TestGetPluginSchemaHandlerSupports318Plugin(t *testing.T) {
+	result, _, err := getPluginSchemaHandler(
+		gatewayContext("3.18.0"),
+		nil,
+		GetPluginSchemaInput{APISIXVersion: "3.18.X", PluginName: "ai-cache"},
+	)
+
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	require.Len(t, result.Content, 1)
+	content, ok := result.Content[0].(*mcp.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, content.Text, `"apisix_version": "3.18.X"`)
+	assert.Contains(t, content.Text, `"plugin_name": "ai-cache"`)
+}
+
 func TestGetResourceSchemaHandlerDefaultsToGatewayVersion(t *testing.T) {
 	result, _, err := getResourceSchemaHandler(
 		gatewayContext("3.17.0"),

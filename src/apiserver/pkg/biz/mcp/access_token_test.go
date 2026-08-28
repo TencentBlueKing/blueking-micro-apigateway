@@ -234,6 +234,8 @@ func TestCheckGatewayMCPSupport(t *testing.T) {
 		{name: "supports 3.13 family", version: string(constant.APISIXVersion313)},
 		{name: "supports saved 3.17 patch version", version: "3.17.0"},
 		{name: "supports 3.17 family", version: string(constant.APISIXVersion317)},
+		{name: "supports saved 3.18 patch version", version: "3.18.0"},
+		{name: "supports 3.18 family", version: string(constant.APISIXVersion318)},
 		{name: "rejects 3.11", version: string(constant.APISIXVersion311), expectError: true},
 		{name: "rejects other versions", version: "3.2.X", expectError: true},
 	}

@@ -25,6 +25,7 @@ type ResourceSchemaCapability struct {
 	// This varies by APISIX version:
 	// - 3.11: route, service, upstream, plugin_config
 	// - 3.13/3.17: adds consumer_group, stream_route, proto
+	// - 3.18: removes name from plugin_config, consumer_group, stream_route, proto
 	SupportsNameField bool
 
 	// RequiresIDInSchema indicates if the resource type requires "id" in the schema
@@ -38,7 +39,8 @@ type ResourceSchemaCapability struct {
 }
 
 // ResourceSupportsNameField checks if a resource type has "name" property in its APISIX 3.11 schema.
-// This function is conservative and only returns true for resources that support name in ALL APISIX versions.
+// This legacy helper reflects the APISIX 3.11 baseline. New code should use
+// ResourceSupportsNameFieldForVersion.
 //
 // For APISIX 3.11 (current baseline):
 //   - route, service, upstream, plugin_config: have "name" field
@@ -67,11 +69,17 @@ func ResourceSupportsNameField(resourceType APISIXResource) bool {
 //   - route, service, upstream, plugin_config: have "name"
 //   - consumer_group, stream_route, proto: have "name" (ADDED in 3.13)
 //   - global_rule, ssl: NO "name"
+//
+// APISIX 3.18:
+//   - route, service, upstream: have "name"
+//   - plugin_config, consumer_group, stream_route, proto, global_rule, ssl: NO "name"
 func ResourceSupportsNameFieldForVersion(resourceType APISIXResource, version APISIXVersion) bool {
 	// Resources that support name in all versions
 	switch resourceType {
-	case Route, Service, Upstream, PluginConfig:
+	case Route, Service, Upstream:
 		return true
+	case PluginConfig:
+		return version != APISIXVersion318
 	case ConsumerGroup, StreamRoute, Proto:
 		// Added in 3.13; older schemas do not expose name.
 		return version == APISIXVersion313 || version == APISIXVersion317
@@ -107,9 +115,9 @@ func ShouldRemoveFieldBeforeValidationOrPublish(
 ) bool {
 	switch fieldName {
 	case "id":
-		// Remove id only from consumer (which uses username as key)
-		// ConsumerGroup, PluginConfig, GlobalRule all REQUIRE id in the schema
-		return resourceType == Consumer
+		// Consumer uses username as key. APISIX 3.18 consumer_group no longer exposes id.
+		return resourceType == Consumer ||
+			(version == APISIXVersion318 && resourceType == ConsumerGroup)
 	case "name":
 		// Remove name only if the schema doesn't support it for this version
 		return !ResourceSupportsNameFieldForVersion(resourceType, version)
@@ -141,6 +149,10 @@ func ResourceRequiresIDInSchema(resourceType APISIXResource) bool {
 //
 // APISIX 3.11/3.13/3.17:
 //   - consumer_group, plugin_config, global_rule: require id
+//
+// APISIX 3.18:
+//   - consumer_group does not expose id
+//   - plugin_config and global_rule expose id but do not require it
 func ResourceRequiresIDInSchemaForVersion(resourceType APISIXResource, version APISIXVersion) bool {
 	switch resourceType {
 	case ConsumerGroup, PluginConfig, GlobalRule:

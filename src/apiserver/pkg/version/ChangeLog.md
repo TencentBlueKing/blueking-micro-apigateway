@@ -5,13 +5,13 @@
 
 ### 新增功能
 
-- **APISIX 3.18 支持**：支持管理 APISIX 3.18 数据平面（#143）
+- **APISIX 3.18 支持**：支持管理 APISIX 3.18 数据平面
 
 ### 缺陷修复
 
-- **Go Module Proxy**：允许通过环境变量覆盖 Go module 代理配置（#140）
-- **APISIX 版本展示**：停止展示已不再支持的旧版 APISIX（#141）
-- **上游超时**：提高 upstream 默认超时时间（#142）
+- **Go Module Proxy**：允许通过环境变量覆盖 Go module 代理配置
+- **APISIX 版本展示**：停止展示已不再支持的旧版 APISIX
+- **上游超时**：提高 upstream 默认超时时间
 
 ---
 
@@ -20,17 +20,13 @@
 
 ### 新增功能
 
-- **APISIX 3.17 支持**：支持管理 APISIX 3.17 数据平面（#139）
+- **APISIX 3.17 支持**：支持管理 APISIX 3.17 数据平面
 
 ### 功能优化
 
-- **插件文档入口**：仅在配置 `doc_url` 时展示插件文档按钮（#132）
-- **前端依赖**：移除未使用的 bun 包管理器配置，并替换 `js-yaml` 依赖（#133、#138）
-- **MCP Go SDK**：升级至 v1.4.1（#134）
-
-### 缺陷修复
-
-- **etcd 连通性测试**：修复测试连接接口的 IDOR 漏洞，并在编辑网关时使用独立测试接口（#135、#136、#137）
+- **插件文档入口**：仅在配置 `doc_url` 时展示插件文档按钮
+- **前端依赖**：移除未使用的 bun 包管理器配置，并替换 `js-yaml` 依赖
+- **MCP Go SDK**：升级至 v1.4.1
 
 ---
 
@@ -49,34 +45,34 @@
 
 ### 新增功能
 
-- **MCP Server 支持**：新增 MCP Server 集成，支持 AI 助手接入（#84）
-- **MCP Server Token**：新增 MCP Server Token 功能，含 Token 掩码展示及完整配置支持（#90、#92、#93、#94）
-- **数据库 TLS/SSL**：MySQL 连接新增 TLS/SSL 加密支持（#77）
-- **插件配置优化**：优化插件配置展示交互（#65）
-- **健康检查交互统一**：统一共享网关与微网关的健康检查交互，健康检查 host 改为非必填（#85、#87）
+- **MCP Server 支持**：新增 MCP Server 集成，支持 AI 助手接入
+- **MCP Server Token**：新增 MCP Server Token 功能，含 Token 掩码展示及完整配置支持
+- **数据库 TLS/SSL**：MySQL 连接新增 TLS/SSL 加密支持
+- **插件配置优化**：优化插件配置展示交互
+- **健康检查交互统一**：统一共享网关与微网关的健康检查交互，健康检查 host 改为非必填
 
 ### 功能优化
 
-- **同步架构重构**：移除基于 channel 的 Syncer，简化同步架构（#73）
-- **配置模板简化**：移除遗留 platform 字段，精简配置模板（#75）
-- **代码质量**：升级 golangci-lint 并新增更多检查规则（#91）
-- **Diff 对话框**：优化 diff 编辑框展示（#69）
-- **请求失败处理**：优化前端请求失败的处理逻辑（#76）
+- **同步架构重构**：移除基于 channel 的 Syncer，简化同步架构
+- **配置模板简化**：移除遗留 platform 字段，精简配置模板
+- **代码质量**：升级 golangci-lint 并新增更多检查规则
+- **Diff 对话框**：优化 diff 编辑框展示
+- **请求失败处理**：优化前端请求失败的处理逻辑
 
 ### 缺陷修复
 
-- **依赖修复**：修复 go.mod 依赖问题（#60）
-- **资源更新**：修复仅 extra 字段变更时更新被跳过的问题（#63）
-- **Session**：为 Cookie 设置明确的 path，防止多个 Session 共存（#68）
-- **审计日志**：仅更新 `last_synced_at` 时跳过审计日志写入（#66）
-- **Schema 升级**：升级 Python 3.11/3.13 的 JSON Schema 至最新版本（#62）
-- **同步竞态条件**：修复 `gateway_sync_data` 中导致 diff 为空的竞态条件（#67）
-- **网关同步与校验**：修复网关同步及校验相关问题（#70、#71）
-- **同步查询过滤**：`GetSyncedItemByID` 查询新增资源类型过滤（#72）
-- **CSRF**：新增 `TrustedOrigins` 配置，修复 origin 校验失败问题（#80）
-- **CORS/CSRF Origin 规范化**：统一规范化 CORS 与 CSRF 的 origin 格式（#83）
-- **Makefile 测试**：修复 `tests/util` 偶发性失败问题（#78）
-- **MCP Server**：修复 MCP Server 实现的代码审查反馈问题（#89）
+- **依赖修复**：修复 go.mod 依赖问题
+- **资源更新**：修复仅 extra 字段变更时更新被跳过的问题
+- **Session**：为 Cookie 设置明确的 path，防止多个 Session 共存
+- **审计日志**：仅更新 `last_synced_at` 时跳过审计日志写入
+- **Schema 升级**：升级 Python 3.11/3.13 的 JSON Schema 至最新版本
+- **同步竞态条件**：修复 `gateway_sync_data` 中导致 diff 为空的竞态条件
+- **网关同步与校验**：修复网关同步及校验相关问题
+- **同步查询过滤**：`GetSyncedItemByID` 查询新增资源类型过滤
+- **CSRF**：新增 `TrustedOrigins` 配置，修复 origin 校验失败问题
+- **CORS/CSRF Origin 规范化**：统一规范化 CORS 与 CSRF 的 origin 格式
+- **Makefile 测试**：修复 `tests/util` 偶发性失败问题
+- **MCP Server**：修复 MCP Server 实现的代码审查反馈问题
 
 ---
 

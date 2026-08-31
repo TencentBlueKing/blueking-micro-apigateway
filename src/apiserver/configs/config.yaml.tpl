@@ -27,6 +27,8 @@ service:
   metricToken: <masked>
   # 是否启用 Swagger 服务
   enableSwagger: false
+  # 是否启用 TAPISIX 支持
+  enableTAPISIX: false
   # 文档，静态文件，模板的基础目录
   docFileBaseDir: docs
   staticFileBaseDir: static
@@ -90,4 +92,3 @@ mysqlconfig:
 crypto:
   nonce: k2dbCGetyusW
   key: jxi18GX5w2qgHwfZCFpn07q8FScXJOd3
-

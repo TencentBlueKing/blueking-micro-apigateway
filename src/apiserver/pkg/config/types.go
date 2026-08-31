@@ -61,7 +61,7 @@ type ServiceConfig struct {
 
 	// 是否启用 swagger docs
 	EnableSwagger bool
-	// 是否在枚举接口和插件列表中展示 TAPISIX
+	// 是否启用 TAPISIX 支持
 	EnableTAPISIX bool
 	// 文档文件存放目录
 	DocFileBaseDir string

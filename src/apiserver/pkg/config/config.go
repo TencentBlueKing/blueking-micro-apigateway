@@ -60,3 +60,11 @@ func IsDemoMode() bool {
 	}
 	return G.Service.DemoMode
 }
+
+// IsTAPISIXEnabled reports whether TAPISIX support is enabled.
+func IsTAPISIXEnabled() bool {
+	if G == nil {
+		return false
+	}
+	return G.Service.EnableTAPISIX
+}

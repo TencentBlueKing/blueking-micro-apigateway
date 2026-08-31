@@ -42,6 +42,7 @@ const (
 // APISIXTypeMap ...
 var APISIXTypeMap = map[string]string{
 	APISIXTypeAPISIX:   "APISIX（开源社区版本）",
+	APISIXTypeTAPISIX:  "TAPISIX（腾讯定制版本）",
 	APISIXTypeBKAPISIX: "BK-APISIX (蓝鲸定制版本）",
 }
 

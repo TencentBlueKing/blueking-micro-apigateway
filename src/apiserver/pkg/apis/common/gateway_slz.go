@@ -30,6 +30,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -127,6 +128,9 @@ func CheckGatewayMode(fl validator.FieldLevel) bool {
 // CheckAPISIXType 校验 apisix 类型
 func CheckAPISIXType(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
+	if value == constant.APISIXTypeTAPISIX && !config.IsTAPISIXEnabled() {
+		return false
+	}
 	_, ok := constant.APISIXTypeMap[value]
 	return ok
 }

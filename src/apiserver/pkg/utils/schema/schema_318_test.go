@@ -47,6 +47,8 @@ func Test318OfficialAssetsRegistered(t *testing.T) {
 }
 
 func Test318PluginCompositionPreservesCompatibilityCatalog(t *testing.T) {
+	enableTAPISIXForTest(t)
+
 	official, err := GetPlugins(constant.APISIXTypeAPISIX, constant.APISIXVersion318)
 	require.NoError(t, err)
 	tapisix, err := GetPlugins(constant.APISIXTypeTAPISIX, constant.APISIXVersion318)
@@ -54,8 +56,11 @@ func Test318PluginCompositionPreservesCompatibilityCatalog(t *testing.T) {
 	bk, err := GetPlugins(constant.APISIXTypeBKAPISIX, constant.APISIXVersion318)
 	require.NoError(t, err)
 
-	assert.Equal(t, pluginNames(official), pluginNames(tapisix))
-	assert.Len(t, bk, len(official)+7)
+	assert.Len(t, tapisix, len(official)+len(expectedTAPISIXPluginNames))
+	for _, name := range expectedTAPISIXPluginNames {
+		assert.Contains(t, pluginNames(tapisix), name)
+	}
+	assert.Len(t, bk, len(official)+len(expectedTAPISIXPluginNames)+7)
 	for _, name := range []string{
 		"bk-break-recursive-call",
 		"bk-delete-cookie",
@@ -69,24 +74,6 @@ func Test318PluginCompositionPreservesCompatibilityCatalog(t *testing.T) {
 		assert.NotContains(t, pluginNames(official), name)
 		assert.NotNil(t, GetPluginSchema(constant.APISIXVersion318, name, ""))
 	}
-}
-
-func Test318EmptyTAPISIXAssets(t *testing.T) {
-	catalog, ok := versionTAPISIXPluginMap[constant.APISIXVersion318]
-	require.True(t, ok)
-	var plugins []Plugin
-	require.NoError(t, json.Unmarshal(catalog, &plugins))
-	assert.Empty(t, plugins)
-
-	schemaValue, ok := tapisixPluginSchemaVersionMap[constant.APISIXVersion318]
-	require.True(t, ok)
-	assert.True(t, schemaValue.Get("plugins").IsObject())
-	assert.Empty(t, schemaValue.Get("plugins").Map())
-
-	_, ok = versionBkAPISIXPluginMap[constant.APISIXVersion318]
-	assert.True(t, ok)
-	_, ok = bkAPISIXPluginSchemaVersionMap[constant.APISIXVersion318]
-	assert.True(t, ok)
 }
 
 func Test318CatalogSchemasAndExamples(t *testing.T) {

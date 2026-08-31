@@ -16,26 +16,33 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-package schema
+package config
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/stretchr/testify/require"
 )
 
-func TestGetSupportVersionMapIncludesCurrentVersions(t *testing.T) {
-	versions := GetSupportVersionMap()
+func TestLoadServiceConfigTAPISIXVisibility(t *testing.T) {
+	previousValue, wasSet := os.LookupEnv("ENABLE_TAPISIX")
+	require.NoError(t, os.Unsetenv("ENABLE_TAPISIX"))
+	t.Cleanup(func() {
+		if wasSet {
+			require.NoError(t, os.Setenv("ENABLE_TAPISIX", previousValue))
+			return
+		}
+		require.NoError(t, os.Unsetenv("ENABLE_TAPISIX"))
+	})
 
-	assert.Contains(t, versions[constant.APISIXTypeAPISIX].SupportVersion, "3.17.0")
-	assert.Contains(t, versions[constant.APISIXTypeBKAPISIX].SupportVersion, "3.17.0")
-	assert.Contains(t, versions[constant.APISIXTypeAPISIX].SupportVersion, "3.18.0")
-	assert.Contains(t, versions[constant.APISIXTypeBKAPISIX].SupportVersion, "3.18.0")
-	assert.Contains(t, constant.APISIXTypeMap, constant.APISIXTypeTAPISIX)
-	assert.Contains(t, versions, constant.APISIXTypeTAPISIX)
-	assert.Contains(t, versions[constant.APISIXTypeTAPISIX].SupportVersion, "3.3.0")
-	assert.NotContains(t, versions[constant.APISIXTypeTAPISIX].SupportVersion, "3.17.0")
-	assert.NotContains(t, versions[constant.APISIXTypeTAPISIX].SupportVersion, "3.18.0")
+	defaultConfig, err := loadServiceConfigFromEnv()
+	require.NoError(t, err)
+	assert.False(t, defaultConfig.EnableTAPISIX)
+
+	require.NoError(t, os.Setenv("ENABLE_TAPISIX", "true"))
+	enabledConfig, err := loadServiceConfigFromEnv()
+	require.NoError(t, err)
+	assert.True(t, enabledConfig.EnableTAPISIX)
 }

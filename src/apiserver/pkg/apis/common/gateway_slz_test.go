@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	gatewaybiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/gateway"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/base"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
@@ -103,6 +104,27 @@ func TestCheckAPISIXTypeVersion(t *testing.T) {
 			assert.Equal(t, tt.want, CheckAPISIXTypeVersion(tt.apisixType, tt.apisixVersion))
 		})
 	}
+}
+
+func TestCheckAPISIXTypeRespectsTAPISIXVisibility(t *testing.T) {
+	validate := validator.New()
+	require.NoError(t, validate.RegisterValidation("apisixType", CheckAPISIXType))
+
+	previousConfig := config.G
+	t.Cleanup(func() {
+		config.G = previousConfig
+	})
+
+	config.G = nil
+	require.Error(t, validate.Var(constant.APISIXTypeTAPISIX, "apisixType"))
+
+	config.G = &config.Config{Service: config.ServiceConfig{EnableTAPISIX: false}}
+	require.Error(t, validate.Var(constant.APISIXTypeTAPISIX, "apisixType"))
+	require.NoError(t, validate.Var(constant.APISIXTypeAPISIX, "apisixType"))
+	require.NoError(t, validate.Var(constant.APISIXTypeBKAPISIX, "apisixType"))
+
+	config.G = &config.Config{Service: config.ServiceConfig{EnableTAPISIX: true}}
+	require.NoError(t, validate.Var(constant.APISIXTypeTAPISIX, "apisixType"))
 }
 
 func TestGatewayAPISIXTypeVersionCheckValidation(t *testing.T) {

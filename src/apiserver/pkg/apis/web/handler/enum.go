@@ -19,9 +19,12 @@
 package handler
 
 import (
+	"maps"
+
 	"github.com/gin-gonic/gin"
 	"github.com/iancoleman/orderedmap"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/schema"
@@ -40,15 +43,22 @@ func Enum(c *gin.Context) {
 	for _, resType := range constant.ResourceTypeOrder {
 		resourceTypeOrderedMap.Set(resType.String(), constant.ResourceTypeMap[resType])
 	}
+	apisixTypeMap := make(map[string]string, len(constant.APISIXTypeMap))
+	maps.Copy(apisixTypeMap, constant.APISIXTypeMap)
+	supportVersionMap := schema.GetSupportVersionMap()
+	if !config.IsTAPISIXEnabled() {
+		delete(apisixTypeMap, constant.APISIXTypeTAPISIX)
+		delete(supportVersionMap, constant.APISIXTypeTAPISIX)
+	}
 	constants := map[string]any{
 		"gateway_mode":           constant.GatewayModeMap,
 		"resource_status":        constant.ResourceStatusMap,
 		"synced_resource_status": constant.SyncedResourceStatusMap,
 		"upload_status":          constant.UploadResourceStatusMap,
-		"apisix_type":            constant.APISIXTypeMap,
+		"apisix_type":            apisixTypeMap,
 		"resource_type":          resourceTypeOrderedMap,
 		"operation_type":         constant.OperationTypeMap,
-		"support_apisix_version": schema.GetSupportVersionMap(),
+		"support_apisix_version": supportVersionMap,
 	}
 	ginx.SuccessJSONResponse(c, constants)
 }

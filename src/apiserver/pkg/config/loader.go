@@ -189,6 +189,7 @@ func loadServiceConfigFromEnv() (ServiceConfig, error) {
 		HealthzToken:   envx.Get("HEALTHZ_TOKEN", ""),
 		MetricToken:    envx.Get("METRIC_TOKEN", "metric_token"),
 		EnableSwagger:  cast.ToBool(envx.Get("ENABLE_SWAGGER", lo.Ternary(isLocalDev, "true", "false"))),
+		EnableTAPISIX:  envx.GetBoolean("ENABLE_TAPISIX", false),
 		DocFileBaseDir: envx.Get(
 			"DOC_FILE_BASE_DIR",
 			lo.Ternary(isLocalDev, BaseDir+"/docs/", "/app/docs/"),

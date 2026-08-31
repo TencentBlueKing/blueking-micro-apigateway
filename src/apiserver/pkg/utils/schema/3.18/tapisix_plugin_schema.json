@@ -1,3 +1,1539 @@
 {
-  "plugins": {}
+  "plugins": {
+    "polaris-circuit-breaker": {
+      "priority": 505,
+      "schema": {
+        "properties": {
+          "healthy": {
+            "type": "object",
+            "default": {
+              "ok_status": [
+                200,
+                301,
+                302
+              ]
+            },
+            "required": [
+              "ok_status"
+            ],
+            "properties": {
+              "ok_status": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "uniqueItems": true,
+                "type": "array",
+                "default": [
+                  200,
+                  301,
+                  302
+                ],
+                "minItems": 1
+              }
+            }
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "unhealthy": {
+            "type": "object",
+            "default": {
+              "error_status": [
+                429,
+                404,
+                500,
+                501,
+                502,
+                503,
+                504,
+                505
+              ],
+              "timeout_status": [
+                504
+              ]
+            },
+            "required": [
+              "timeout_status",
+              "error_status"
+            ],
+            "properties": {
+              "error_status": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "uniqueItems": true,
+                "type": "array",
+                "default": [
+                  429,
+                  404,
+                  500,
+                  501,
+                  502,
+                  503,
+                  504,
+                  505
+                ],
+                "minItems": 1
+              },
+              "timeout_status": {
+                "items": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "uniqueItems": true,
+                "type": "array",
+                "default": [
+                  504
+                ],
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "healthy",
+          "unhealthy"
+        ],
+        "$comment": "this is a mark for our injected plugin schema"
+      },
+      "version": 0.1
+    },
+    "polaris-limit": {
+      "priority": 1004,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "rejected_msg": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allow_degradation": {
+            "type": "boolean",
+            "default": false
+          },
+          "polaris_server_name": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "object",
+            "minItems": 1
+          },
+          "polaris_namespace": {
+            "type": "string"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "rejected_code": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 599,
+            "default": 503
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "response-wrapper": {
+      "priority": 870,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "func_ret_header_var": {
+            "type": "string",
+            "default": "trpc-func-ret"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "frame_ret_header_var": {
+            "type": "string",
+            "default": "trpc-ret"
+          },
+          "err_msg_header_var": {
+            "type": "string",
+            "default": "trpc-error-msg"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "sign-auth": {
+      "priority": 11013,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "timestamp_key": {
+            "type": "string",
+            "minLength": 2
+          },
+          "nonce_key": {
+            "type": "string",
+            "minLength": 2
+          },
+          "signature_key": {
+            "type": "string",
+            "minLength": 2
+          },
+          "auth_key": {
+            "type": "string",
+            "minLength": 2
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "tauth-auth": {
+      "priority": 2601,
+      "schema": {
+        "type": "object",
+        "title": "work with route or service object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          }
+        }
+      },
+      "type": "auth",
+      "consumer_schema": {
+        "type": "object",
+        "title": "work with consumer object",
+        "required": [
+          "tauth_user"
+        ],
+        "properties": {
+          "tauth_user": {
+            "type": "string"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "tauth-proxy": {
+      "priority": 2602,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "required": [
+          "target_service"
+        ],
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "target_service": {
+            "type": "string"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "t-header-filter": {
+      "priority": 124,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "filter_value": {
+            "description": "filter value",
+            "type": "string"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "header_name": {
+            "description": "filter header_name",
+            "type": "string"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "tof-auth": {
+      "priority": 123,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "tof_token": {
+            "type": "string"
+          },
+          "paas_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "consumer"
+            ],
+            "default": "consumer"
+          }
+        }
+      },
+      "type": "auth",
+      "consumer_schema": {
+        "type": "object",
+        "required": [
+          "paas_id",
+          "token"
+        ],
+        "properties": {
+          "paas_id": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "trpc-canary": {
+      "priority": 950,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "match": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "vars": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                },
+                "trans_info": {
+                  "type": "object",
+                  "description": "used to put tags on request by passing header trpc-trans-info"
+                }
+              }
+            }
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "trpc-transcode": {
+      "priority": 677,
+      "schema": {
+        "properties": {
+          "trpc_version": {
+            "description": "trpc version, v0.8.5",
+            "type": "string",
+            "default": "v2.0.0"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "method": {
+            "description": "the trpc method",
+            "type": "string"
+          },
+          "timeout": {
+            "description": "trpc call timeout",
+            "type": "integer",
+            "default": 2000
+          },
+          "proto_id": {
+            "description": "the trpc proto id",
+            "type": "string"
+          },
+          "is_passthrough": {
+            "description": "body passthrough or encode",
+            "type": "boolean",
+            "default": false
+          },
+          "service": {
+            "description": "the trpc service_name",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "proto_id"
+        ],
+        "$comment": "this is a mark for our injected plugin schema"
+      },
+      "version": 0.1
+    },
+    "zhiyan-log": {
+      "priority": 504,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "labels": {
+            "type": "object"
+          },
+          "limit_req_size": {
+            "type": "integer",
+            "default": 1048576
+          },
+          "limit_resp_size": {
+            "type": "integer",
+            "default": 1048576
+          },
+          "include_resp_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_req_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "cls-logger": {
+      "priority": 399,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "required": [
+          "cls_host",
+          "cls_topic",
+          "secret_id",
+          "secret_key"
+        ],
+        "properties": {
+          "cls_host": {
+            "type": "string"
+          },
+          "cls_topic": {
+            "type": "string"
+          },
+          "secret_id": {
+            "type": "string"
+          },
+          "secret_key": {
+            "type": "string"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "global_tag": {
+            "type": "object"
+          },
+          "inactive_timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          },
+          "include_req_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "buffer_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60
+          },
+          "name": {
+            "type": "string",
+            "default": "cls-logger"
+          },
+          "retry_delay": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+          },
+          "max_retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "batch_max_size": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1000
+          },
+          "log_format": {
+            "type": "object"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "include_resp_body": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "version": 0.1,
+      "metadata_schema": {
+        "properties": {
+          "log_format": {
+            "default": {
+              "@timestamp": "$time_iso8601",
+              "client_ip": "$remote_addr",
+              "host": "$host"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "downgrade-cache": {
+      "priority": 850,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "cache_http_status": {
+            "items": {
+              "description": "http response status",
+              "minimum": 200,
+              "maximum": 599,
+              "type": "integer"
+            },
+            "uniqueItems": true,
+            "type": "array",
+            "default": [
+              200,
+              301,
+              404
+            ],
+            "minItems": 1
+          },
+          "batch_max_size": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 50
+          },
+          "frame_ret_header_var": {
+            "type": "string",
+            "default": "trpc-ret"
+          },
+          "error_func_ret": {
+            "items": {
+              "description": "func response error code",
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "type": "array",
+            "default": [],
+            "minItems": 0
+          },
+          "error_http_status": {
+            "items": {
+              "description": "http response error status",
+              "minimum": 200,
+              "maximum": 599,
+              "type": "integer"
+            },
+            "uniqueItems": true,
+            "type": "array",
+            "default": [
+              500,
+              501,
+              502,
+              503,
+              504
+            ],
+            "minItems": 1
+          },
+          "max_retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "cache_method": {
+            "items": {
+              "description": "supported http method",
+              "enum": [
+                "GET",
+                "POST",
+                "HEAD"
+              ],
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "type": "array",
+            "default": [
+              "GET",
+              "HEAD"
+            ],
+            "minItems": 1
+          },
+          "inactive_timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "cache_freq": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          },
+          "buffer_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "cache_mode": {
+            "type": "string",
+            "enum": [
+              "passive",
+              "active"
+            ]
+          },
+          "cache_key": {
+            "type": "array",
+            "items": {
+              "description": "a key for caching",
+              "type": "string",
+              "pattern": "(^[^\\$].+$|^\\$[0-9a-zA-Z_]+$)"
+            },
+            "default": [
+              "$host",
+              "$request_uri"
+            ],
+            "minItems": 1
+          },
+          "cache_ttl": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 300
+          },
+          "error_frame_ret": {
+            "items": {
+              "description": "frame response error code",
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "type": "array",
+            "default": [
+              "21",
+              "22",
+              "101",
+              "111",
+              "131",
+              "141"
+            ],
+            "minItems": 1
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "func_ret_header_var": {
+            "type": "string",
+            "default": "trpc-func-ret"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "galileo-metrics": {
+      "priority": 611,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "required": [
+          "addr"
+        ],
+        "properties": {
+          "user_ext1": {
+            "type": "string"
+          },
+          "addr": {
+            "type": "string"
+          },
+          "user_ext3": {
+            "type": "string"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "callee_service": {
+            "type": "string"
+          },
+          "user_ext2": {
+            "type": "string"
+          },
+          "ssl_verify": {
+            "type": "boolean",
+            "default": false
+          },
+          "auth_header": {
+            "type": "string"
+          },
+          "caller_server": {
+            "type": "string"
+          },
+          "caller_service": {
+            "type": "string"
+          },
+          "caller_method": {
+            "type": "string"
+          },
+          "callee_server": {
+            "type": "string"
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "callee_method": {
+            "type": "string"
+          },
+          "self_service": {
+            "type": "string"
+          },
+          "self_method": {
+            "type": "string"
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "galileo-sampler": {
+      "priority": 5300,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "sample_rate": {
+            "type": "number",
+            "minimum": 0.00001,
+            "maximum": 1
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "ip-city": {
+      "priority": 3001,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "log-replay": {
+      "priority": 455,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "batch_max_size": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 30
+          },
+          "max_retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "retry_delay": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+          },
+          "buffer_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60
+          },
+          "module_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commit_id": {
+            "type": "string",
+            "default": "0.0.0"
+          },
+          "sample_with_opentelemetry": {
+            "type": "boolean",
+            "default": false
+          },
+          "app_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "app_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sample_ratio": {
+            "type": "number",
+            "minimum": 0.00001,
+            "maximum": 1,
+            "default": 1
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "include_req_body": {
+            "type": "boolean",
+            "default": true
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "inactive_timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          }
+        }
+      },
+      "version": 0.1
+    },
+    "pangu-authn": {
+      "priority": 2570,
+      "schema": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "domains"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "cookie_expire_seconds": {
+            "type": "integer",
+            "default": 3600
+          },
+          "pangu_customerParams": {
+            "type": "string",
+            "default": ""
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "token": {
+            "type": "string",
+            "default": ""
+          },
+          "login_type": {
+            "type": "string",
+            "enum": [
+              "qqconnect",
+              "oa"
+            ],
+            "default": "oa"
+          },
+          "qqconnect": {
+            "type": "object",
+            "properties": {
+              "appid": {
+                "type": "string",
+                "default": ""
+              },
+              "appkey": {
+                "type": "string",
+                "default": ""
+              }
+            },
+            "required": [
+              "appid"
+            ]
+          },
+          "skip_path_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "login_type": {
+                  "const": "qqconnect"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "required": [
+                "qqconnect"
+              ]
+            }
+          }
+        ]
+      },
+      "version": 0.1
+    },
+    "pangu-authz": {
+      "priority": 2010,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "cookie_expire_seconds": {
+            "type": "integer",
+            "default": 3600
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "project_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ]
+      },
+      "version": 0.1
+    },
+    "pangu-wolf-rbac": {
+      "priority": 1,
+      "schema": {
+        "type": "object",
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "path_prefix": {
+            "type": "string",
+            "default": "/"
+          },
+          "_meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "error_response": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              },
+              "pre_function": {
+                "description": "function to be executed in each phase before execution of plugins. The pre_function will have access to two arguments: `conf` and `ctx`.",
+                "type": "string"
+              },
+              "disable": {
+                "type": "boolean"
+              },
+              "priority": {
+                "description": "priority of plugins by customized order",
+                "type": "integer"
+              },
+              "filter": {
+                "description": "filter determines whether the plugin needs to be executed at runtime",
+                "type": "array"
+              }
+            }
+          },
+          "white_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "project_id",
+          "token",
+          "white_list"
+        ]
+      },
+      "version": 0.1
+    }
+  }
 }

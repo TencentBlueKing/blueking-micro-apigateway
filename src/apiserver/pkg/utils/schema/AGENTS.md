@@ -22,6 +22,15 @@ Future version bumps must preserve the same fixes so the same bugs are not reint
 
 These are not one-off fixes. Treat them as authoring rules for every new APISIX version added here.
 
+## TAPISIX Source Baseline
+
+- The 3.3 and 3.11 TAPISIX assets preserve the normalized legacy TE snapshots. In particular,
+  `galileo-metrics` still uses the `uri` option in those versions.
+- The 3.13 TAPISIX Schema snapshot comes from `bk-apisix:3.13.0.5` at `/v1/schema`; from this version onward,
+  `galileo-metrics` uses `addr`. Runtime-exported Lua Schema artifacts must still be normalized by the rules below.
+- TAPISIX plugin catalogs are exposed and composed into BK-APISIX only when `ENABLE_TAPISIX=true`. Keep the
+  embedded Schema snapshots available so existing resources can still be validated when the catalog is hidden.
+
 ## APISIX 3.17 Source Baseline
 
 - Official APISIX 3.17 assets are pinned to commit
@@ -34,7 +43,9 @@ These are not one-off fixes. Treat them as authoring rules for every new APISIX 
   3.13-compatible composition. Their 3.17 Schema entries are compatibility snapshots copied from 3.13, not
   runtime-exported evidence from the pinned BK image.
 - The 3.17 official catalog excludes `ai`, `example-plugin`, `inspect`, `log-rotate`, `mcp-bridge`, and `node-status`.
-- The 3.17 TAPISIX catalog and Schema files are intentionally empty compatibility placeholders.
+- The 3.17 TAPISIX catalog contains the 20 internal plugins shipped by `bk-apisix:3.17.0.2`.
+  Its Schema snapshot comes from that image's `/v1/schema` response and is normalized for this repository's
+  JSON Schema validators. These assets are only composed into BK-APISIX; standalone TAPISIX 3.17 is not advertised.
 
 ## APISIX 3.18 Source Baseline
 
@@ -50,7 +61,10 @@ These are not one-off fixes. Treat them as authoring rules for every new APISIX 
   `batch-requests`, `dubbo-proxy`, `error-log-logger`, `mqtt-proxy`, `opentelemetry`, or `skywalking`.
 - `ai`, `example-plugin`, `inspect`, `log-rotate`, and `mcp-bridge` retain runtime schemas but are intentionally
   excluded from the control-plane catalog. `node-status` is absent from the 3.18 runtime schema.
-- The 3.18 TAPISIX catalog and Schema files are intentionally empty compatibility placeholders.
+- The 3.18 TAPISIX catalog contains the same 20 internal plugins shipped by `bk-apisix:3.18.0.1`.
+  Its Schema snapshot comes from that image's `/v1/schema` response and is normalized independently even when
+  it currently matches the 3.17 snapshot. These assets are only composed into BK-APISIX; standalone TAPISIX 3.18
+  is not advertised.
 
 ## Directory Contract
 

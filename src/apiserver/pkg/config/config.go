@@ -60,3 +60,11 @@ func IsDemoMode() bool {
 	}
 	return G.Service.DemoMode
 }
+
+// IsTAPISIXEnabled reports whether TAPISIX should be exposed by public enums and plugin catalogs.
+func IsTAPISIXEnabled() bool {
+	if G == nil {
+		return false
+	}
+	return G.Service.EnableTAPISIX
+}

@@ -1,4 +1,864 @@
 {
   "plugins": {
+    "tof-auth": {
+      "priority": 123,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "consumer"
+            ],
+            "default": "consumer"
+          },
+          "paas_id": {
+            "type": "string"
+          },
+          "tof_token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "zhiyan-log": {
+      "priority": 504,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "limit_req_size": {
+            "type": "integer",
+            "default": 1048576
+          },
+          "limit_resp_size": {
+            "type": "integer",
+            "default": 1048576
+          },
+          "include_resp_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_req_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "labels": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "trpc-transcode": {
+      "priority": 677,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "proto_id": {
+            "description": "the trpc proto id",
+            "type": "string"
+          },
+          "service": {
+            "description": "the trpc service_name",
+            "type": "string"
+          },
+          "method": {
+            "description": "the trpc method",
+            "type": "string"
+          },
+          "timeout": {
+            "description": "trpc call timeout",
+            "type": "integer",
+            "default": 2000
+          },
+          "is_passthrough": {
+            "description": "body passthrough or encode",
+            "type": "boolean",
+            "default": false
+          },
+          "trpc_version": {
+            "description": "trpc version, v0.8.5",
+            "type": "string",
+            "default": "v2.0.0"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "proto_id"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "trpc-canary": {
+      "priority": 950,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "match": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "vars": {
+                        "type": "array"
+                      }
+                    }
+                  }
+                },
+                "trans_info": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "tauth-proxy": {
+      "priority": 2602,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object",
+        "properties": {
+          "target_service": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_service"
+        ],
+        "additionalProperties": false
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "tauth-auth": {
+      "priority": 2601,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "tauth_user": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tauth_user"
+        ],
+        "type": "object"
+      },
+      "consumer_schema": {
+        "properties": {
+          "tauth_user": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tauth_user"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "t-header-filter": {
+      "priority": 124,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "header_name": {
+            "description": "filter header_name",
+            "type": "string"
+          },
+          "filter_value": {
+            "description": "filter value",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "sign-auth": {
+      "priority": 11013,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "timestamp_key": {
+            "type": "string",
+            "minLength": 2
+          },
+          "nonce_key": {
+            "type": "string",
+            "minLength": 2
+          },
+          "signature_key": {
+            "type": "string",
+            "minLength": 2
+          },
+          "auth_key": {
+            "type": "string",
+            "minLength": 2
+          }
+        },
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "response-wrapper": {
+      "priority": 870,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "frame_ret_header_var": {
+            "type": "string",
+            "default": "trpc-ret"
+          },
+          "func_ret_header_var": {
+            "type": "string",
+            "default": "trpc-func-ret"
+          },
+          "err_msg_header_var": {
+            "type": "string",
+            "default": "trpc-error-msg"
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "polaris-limit": {
+      "priority": 1004,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "rejected_code": {
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 599,
+            "default": 503
+          },
+          "rejected_msg": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allow_degradation": {
+            "type": "boolean",
+            "default": false
+          },
+          "labels": {
+            "type": "object",
+            "minItems": 1
+          },
+          "polaris_namespace": {
+            "type": "string"
+          },
+          "polaris_server_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "polaris-circuit-breaker": {
+      "priority": 505,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "healthy": {
+            "type": "object",
+            "properties": {
+              "ok_status": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "uniqueItems": true,
+                "default": [
+                  200,
+                  301,
+                  302
+                ]
+              }
+            },
+            "default": {
+              "ok_status": [
+                200,
+                301,
+                302
+              ]
+            },
+            "required": [
+              "ok_status"
+            ]
+          },
+          "unhealthy": {
+            "type": "object",
+            "properties": {
+              "timeout_status": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "uniqueItems": true,
+                "default": [
+                  504
+                ]
+              },
+              "error_status": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 200,
+                  "maximum": 599
+                },
+                "uniqueItems": true,
+                "default": [
+                  429,
+                  404,
+                  500,
+                  501,
+                  502,
+                  503,
+                  504,
+                  505
+                ]
+              }
+            },
+            "default": {
+              "timeout_status": [
+                504
+              ],
+              "error_status": [
+                429,
+                404,
+                500,
+                501,
+                502,
+                503,
+                504,
+                505
+              ]
+            },
+            "required": [
+              "timeout_status",
+              "error_status"
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "healthy",
+          "unhealthy"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "pangu-wolf-rbac": {
+      "priority": 1,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "white_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "path_prefix": {
+            "type": "string",
+            "default": "/"
+          }
+        },
+        "required": [
+          "project_id",
+          "token",
+          "white_list"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "pangu-authz": {
+      "priority": 2010,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "cookie_expire_seconds": {
+            "type": "integer",
+            "default": 3600
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "pangu-authn": {
+      "priority": 2570,
+      "schema": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "domains"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "cookie_expire_seconds": {
+            "type": "integer",
+            "default": 3600
+          },
+          "pangu_customerParams": {
+            "type": "string",
+            "default": ""
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "token": {
+            "type": "string",
+            "default": ""
+          },
+          "login_type": {
+            "type": "string",
+            "enum": [
+              "qqconnect",
+              "oa"
+            ],
+            "default": "oa"
+          },
+          "qqconnect": {
+            "type": "object",
+            "properties": {
+              "appid": {
+                "type": "string",
+                "default": ""
+              },
+              "appkey": {
+                "type": "string",
+                "default": ""
+              }
+            },
+            "required": [
+              "appid"
+            ]
+          },
+          "skip_path_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "login_type": {
+                  "const": "qqconnect"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "required": [
+                "qqconnect"
+              ]
+            }
+          }
+        ]
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "ip-city": {
+      "priority": 3001,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "log-replay": {
+      "priority": 455,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "max_retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "retry_delay": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+          },
+          "buffer_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60
+          },
+          "inactive_timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          },
+          "batch_max_size": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 30
+          },
+          "module_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commit_id": {
+            "type": "string",
+            "default": "0.0.0"
+          },
+          "app_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "app_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sample_ratio": {
+            "type": "number",
+            "minimum": 0.00001,
+            "maximum": 1,
+            "default": 1
+          },
+          "sample_with_opentelemetry": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_req_body": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "galileo-sampler": {
+      "priority": 5300,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "sample_rate": {
+            "type": "number",
+            "minimum": 0.00001,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "galileo-metrics": {
+      "priority": 611,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "auth_header": {
+            "type": "string"
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "ssl_verify": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "uri"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "downgrade-cache": {
+      "priority": 850,
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "cache_mode": {
+            "type": "string",
+            "enum": [
+              "passive",
+              "active"
+            ]
+          },
+          "cache_key": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "description": "a key for caching",
+              "type": "string",
+              "pattern": "^(^[^\\$].+$|^\\$[0-9a-zA-Z_]+$)"
+            },
+            "default": [
+              "$host",
+              "$request_uri"
+            ]
+          },
+          "cache_http_status": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "description": "http response status",
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 599
+            },
+            "uniqueItems": true,
+            "default": [
+              200,
+              301,
+              404
+            ]
+          },
+          "frame_ret_header_var": {
+            "type": "string",
+            "default": "trpc-ret"
+          },
+          "func_ret_header_var": {
+            "type": "string",
+            "default": "trpc-func-ret"
+          },
+          "error_frame_ret": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "description": "frame response error code",
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "default": [
+              "21",
+              "22",
+              "101",
+              "111",
+              "131",
+              "141"
+            ]
+          },
+          "error_func_ret": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "description": "func response error code",
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "default": []
+          },
+          "error_http_status": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "description": "http response error status",
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 599
+            },
+            "uniqueItems": true,
+            "default": [
+              500,
+              501,
+              502,
+              503,
+              504
+            ]
+          },
+          "cache_method": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "description": "supported http method",
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "HEAD"
+              ]
+            },
+            "uniqueItems": true,
+            "default": [
+              "GET",
+              "HEAD"
+            ]
+          },
+          "cache_ttl": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 300
+          },
+          "cache_freq": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          },
+          "buffer_duration": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3
+          },
+          "inactive_timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "batch_max_size": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 50
+          },
+          "max_retry_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        },
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    },
+    "cls-logger": {
+      "priority": 399,
+      "metadata_schema": {
+        "properties": {
+          "log_format": {
+            "default": {
+              "@timestamp": "$time_iso8601",
+              "client_ip": "$remote_addr",
+              "host": "$host"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "schema": {
+        "$comment": "this is a mark for our injected plugin schema",
+        "properties": {
+          "cls_host": {
+            "type": "string"
+          },
+          "cls_topic": {
+            "type": "string"
+          },
+          "secret_id": {
+            "type": "string"
+          },
+          "secret_key": {
+            "type": "string"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "include_req_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "include_resp_body": {
+            "type": "boolean",
+            "default": false
+          },
+          "global_tag": {
+            "type": "object"
+          },
+          "log_format": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "cls_host",
+          "cls_topic",
+          "secret_id",
+          "secret_key"
+        ],
+        "type": "object"
+      },
+      "scope": "global",
+      "version": 0.1
+    }
   }
 }

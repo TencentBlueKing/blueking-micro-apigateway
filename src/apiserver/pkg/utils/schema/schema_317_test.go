@@ -31,6 +31,8 @@ import (
 )
 
 func Test317PluginComposition(t *testing.T) {
+	enableTAPISIXForTest(t)
+
 	official, err := GetPlugins(constant.APISIXTypeAPISIX, constant.APISIXVersion317)
 	require.NoError(t, err)
 	tapisix, err := GetPlugins(constant.APISIXTypeTAPISIX, constant.APISIXVersion317)
@@ -38,7 +40,10 @@ func Test317PluginComposition(t *testing.T) {
 	bk, err := GetPlugins(constant.APISIXTypeBKAPISIX, constant.APISIXVersion317)
 	require.NoError(t, err)
 
-	assert.Equal(t, pluginNames(official), pluginNames(tapisix))
+	assert.Len(t, tapisix, len(official)+len(expectedTAPISIXPluginNames))
+	for _, name := range expectedTAPISIXPluginNames {
+		assert.Contains(t, pluginNames(tapisix), name)
+	}
 	for _, name := range []string{
 		"proxy-buffering",
 		"saml-auth",
@@ -54,7 +59,7 @@ func Test317PluginComposition(t *testing.T) {
 	} {
 		assert.Contains(t, pluginNames(official), name)
 	}
-	assert.Len(t, bk, len(official)+7)
+	assert.Len(t, bk, len(official)+len(expectedTAPISIXPluginNames)+7)
 	for _, name := range []string{
 		"bk-break-recursive-call",
 		"bk-delete-cookie",
@@ -67,24 +72,6 @@ func Test317PluginComposition(t *testing.T) {
 		assert.Contains(t, pluginNames(bk), name)
 		assert.NotContains(t, pluginNames(official), name)
 	}
-}
-
-func Test317EmptyTAPISIXAssets(t *testing.T) {
-	catalog, ok := versionTAPISIXPluginMap[constant.APISIXVersion317]
-	require.True(t, ok)
-	var plugins []Plugin
-	require.NoError(t, json.Unmarshal(catalog, &plugins))
-	assert.Empty(t, plugins)
-
-	schemaValue, ok := tapisixPluginSchemaVersionMap[constant.APISIXVersion317]
-	require.True(t, ok)
-	assert.True(t, schemaValue.Get("plugins").IsObject())
-	assert.Empty(t, schemaValue.Get("plugins").Map())
-
-	_, ok = versionBkAPISIXPluginMap[constant.APISIXVersion317]
-	assert.True(t, ok)
-	_, ok = bkAPISIXPluginSchemaVersionMap[constant.APISIXVersion317]
-	assert.True(t, ok)
 }
 
 func Test317CatalogSchemasAndExamples(t *testing.T) {

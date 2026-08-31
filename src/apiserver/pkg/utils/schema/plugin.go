@@ -23,6 +23,7 @@ import (
 	_ "embed"
 	"encoding/json"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 )
 
@@ -152,7 +153,7 @@ func GetPlugins(apisixType string, version constant.APISIXVersion) ([]*Plugin, e
 		return plugins, nil
 	}
 
-	if tapisixPluginInfo, ok := versionTAPISIXPluginMap[version]; ok {
+	if tapisixPluginInfo, ok := versionTAPISIXPluginMap[version]; ok && config.IsTAPISIXEnabled() {
 		var tapisixPlugins []*Plugin
 		err = json.Unmarshal(tapisixPluginInfo, &tapisixPlugins)
 		if err != nil {

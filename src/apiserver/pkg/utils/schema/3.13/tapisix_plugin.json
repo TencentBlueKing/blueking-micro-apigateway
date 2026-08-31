@@ -1,3 +1,268 @@
 [
-
+  {
+    "name": "tof-auth",
+    "type": "tapisix",
+    "example": {
+      "mode": "consumer",
+      "paas_id": "your_paas_id",
+      "tof_token": "your_tof_token"
+    },
+    "consumer_example": {
+      "paas_id": "your_paas_id",
+      "token": "your_token"
+    }
+  },
+  {
+    "name": "zhiyan-log",
+    "type": "tapisix",
+    "example": {
+      "limit_req_size": 1048576,
+      "limit_resp_size": 1048576,
+      "include_resp_body": false,
+      "include_req_body": false,
+      "labels": {}
+    }
+  },
+  {
+    "name": "trpc-transcode",
+    "type": "tapisix",
+    "example": {
+      "proto_id": "your_proto_id",
+      "service": "your_service",
+      "method": "your_method",
+      "timeout": 2000,
+      "is_passthrough": false,
+      "trpc_version": "v2.0.0"
+    }
+  },
+  {
+    "name": "trpc-canary",
+    "type": "tapisix",
+    "example": {
+      "rules": [
+        {
+          "match": [],
+          "trans_info": {}
+        }
+      ]
+    }
+  },
+  {
+    "name": "tauth-proxy",
+    "type": "tapisix",
+    "example": {
+      "target_service": "your_target_service"
+    }
+  },
+  {
+    "name": "tauth-auth",
+    "type": "tapisix",
+    "example": {
+      "tauth_user": "your_tauth_user"
+    },
+    "consumer_example": {
+      "tauth_user": "your_tauth_user"
+    }
+  },
+  {
+    "name": "t-header-filter",
+    "type": "tapisix",
+    "example": {
+      "header_name": "your_header_name",
+      "filter_value": "your_filter_value"
+    }
+  },
+  {
+    "name": "sign-auth",
+    "type": "tapisix",
+    "example": {
+      "timestamp_key": "your_timestamp_key",
+      "nonce_key": "your_nonce_key",
+      "signature_key": "your_signature_key",
+      "auth_key": "your_auth_key"
+    }
+  },
+  {
+    "name": "response-wrapper",
+    "type": "tapisix",
+    "example": {
+      "frame_ret_header_var": "trpc-ret",
+      "func_ret_header_var": "trpc-func-ret",
+      "err_msg_header_var": "trpc-error-msg"
+    }
+  },
+  {
+    "name": "polaris-limit",
+    "type": "tapisix",
+    "example": {
+      "rejected_code": 503,
+      "rejected_msg": "your_rejected_msg",
+      "allow_degradation": false,
+      "labels": {},
+      "polaris_namespace": "your_polaris_namespace",
+      "polaris_server_name": "your_polaris_server_name"
+    }
+  },
+  {
+    "name": "polaris-circuit-breaker",
+    "type": "tapisix",
+    "example": {
+      "healthy": {
+        "ok_status": [
+          200,
+          301,
+          302
+        ]
+      },
+      "unhealthy": {
+        "timeout_status": [
+          504
+        ],
+        "error_status": [
+          429,
+          404,
+          500,
+          501,
+          502,
+          503,
+          504,
+          505
+        ]
+      }
+    }
+  },
+  {
+    "name": "pangu-wolf-rbac",
+    "type": "tapisix",
+    "example": {
+      "project_id": "your_project_id",
+      "token": "your_token",
+      "white_list": [],
+      "path_prefix": "/"
+    }
+  },
+  {
+    "name": "pangu-authz",
+    "type": "tapisix",
+    "example": {
+      "project_id": "your_project_id",
+      "cookie_expire_seconds": 3600
+    }
+  },
+  {
+    "name": "pangu-authn",
+    "type": "tapisix",
+    "example": {
+      "project_id": "your_project_id",
+      "cookie_expire_seconds": 3600,
+      "pangu_customerParams": "",
+      "domains": [],
+      "token": "",
+      "login_type": "oa",
+      "dependencies": {},
+      "skip_path_list": []
+    }
+  },
+  {
+    "name": "ip-city",
+    "type": "tapisix",
+    "example": {}
+  },
+  {
+    "name": "log-replay",
+    "type": "tapisix",
+    "example": {
+      "timeout": 3,
+      "max_retry_count": 0,
+      "retry_delay": 1,
+      "buffer_duration": 60,
+      "inactive_timeout": 5,
+      "batch_max_size": 30,
+      "module_id": "your_module_id",
+      "commit_id": "0.0.0",
+      "app_id": "your_app_id",
+      "app_key": "your_app_key",
+      "sample_ratio": 1,
+      "sample_with_opentelemetry": false,
+      "include_req_body": true
+    }
+  },
+  {
+    "name": "galileo-sampler",
+    "type": "tapisix",
+    "example": {
+      "sample_rate": 0.5
+    }
+  },
+  {
+    "name": "galileo-metrics",
+    "type": "tapisix",
+    "example": {
+      "addr": "http://127.0.0.1:8080",
+      "auth_header": "your_auth_header",
+      "timeout": 3,
+      "ssl_verify": false
+    }
+  },
+  {
+    "name": "downgrade-cache",
+    "type": "tapisix",
+    "example": {
+      "cache_mode": "passive",
+      "cache_key": [
+        "$host",
+        "$request_uri"
+      ],
+      "cache_http_status": [
+        200,
+        301,
+        404
+      ],
+      "frame_ret_header_var": "trpc-ret",
+      "func_ret_header_var": "trpc-func-ret",
+      "error_frame_ret": [
+        "21",
+        "22",
+        "101",
+        "111",
+        "131",
+        "141"
+      ],
+      "error_func_ret": [],
+      "error_http_status": [
+        500,
+        501,
+        502,
+        503,
+        504
+      ],
+      "cache_method": [
+        "GET",
+        "HEAD"
+      ],
+      "cache_ttl": 300,
+      "cache_freq": 5,
+      "buffer_duration": 3,
+      "inactive_timeout": 1,
+      "batch_max_size": 50,
+      "max_retry_count": 0
+    }
+  },
+  {
+    "name": "cls-logger",
+    "type": "tapisix",
+    "example": {
+      "cls_host": "cls.tencentcloudapi.com",
+      "cls_topic": "your_topic",
+      "secret_id": "your_secret_id",
+      "secret_key": "your_secret_key"
+    },
+    "metadata_example": {
+      "log_format": {
+        "host": "$host",
+        "@timestamp": "$time_iso8601",
+        "client_ip": "$remote_addr"
+      }
+    }
+  }
 ]

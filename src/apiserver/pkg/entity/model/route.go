@@ -29,7 +29,7 @@ import (
 
 // Route 路由资源表
 type Route struct {
-	Name string `gorm:"column:name;type:varchar(64);uniqueIndex:idx_name"` // route 名称
+	Name string `gorm:"column:name;type:varchar(256);uniqueIndex:idx_name"` // route 名称
 	// 关联 service 唯一标识
 	ServiceID string `gorm:"column:service_id;type:varchar(255)"`
 	// 关联 upstream_id 唯一标识

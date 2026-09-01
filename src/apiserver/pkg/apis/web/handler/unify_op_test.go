@@ -19,13 +19,21 @@
 package handler
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/datatypes"
+
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 )
 
 func TestResourcesDiffReturnsEmptyDiffForUnsupportedTypeBeforeBindingBody(t *testing.T) {
@@ -42,4 +50,40 @@ func TestResourcesDiffReturnsEmptyDiffForUnsupportedTypeBeforeBindingBody(t *tes
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"data":[]`)
 	assert.NotContains(t, w.Body.String(), "cannot unmarshal")
+}
+
+func TestSyncedResourceManagedReturnsConflictForDuplicateNamesWithinBatch(t *testing.T) {
+	initWebCreateHandlerTestEnv()
+
+	suffix := time.Now().UnixNano()
+	gateway := &model.Gateway{ID: int(suffix % 1000000000)}
+	name := fmt.Sprintf("duplicate-route-name-%d", suffix)
+	firstID := fmt.Sprintf("route-first-%d", suffix)
+	secondID := fmt.Sprintf("route-second-%d", suffix)
+	assert.NoError(t, repo.Q.GatewaySyncData.WithContext(context.Background()).CreateInBatches(
+		[]*model.GatewaySyncData{
+			{
+				ID:        firstID,
+				GatewayID: gateway.ID,
+				Type:      constant.Route,
+				Config:    datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/first"}`, name)),
+			},
+			{
+				ID:        secondID,
+				GatewayID: gateway.ID,
+				Type:      constant.Route,
+				Config:    datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/second"}`, name)),
+			},
+		},
+		100,
+	))
+
+	body := fmt.Sprintf(`{"resource_id_list":[%q,%q]}`, firstID, secondID)
+	c, w := newWebCreateTestContext(t, body, gateway, "sync-tester")
+	SyncedResourceManaged(c)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"Conflict"`)
+	assert.Contains(t, w.Body.String(), name)
+	assert.NotContains(t, w.Body.String(), "InternalServerError")
 }

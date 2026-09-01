@@ -2,16 +2,27 @@ package model_test
 
 import (
 	"encoding/json"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/datatypes"
+	"gorm.io/gorm/schema"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 )
 
 var _ = Describe("Route", func() {
 	var route model.Route
+
+	It("should store the maximum route name length supported by APISIX schemas", func() {
+		parsedSchema, err := schema.Parse(&model.Route{}, &sync.Map{}, schema.NamingStrategy{})
+		Expect(err).NotTo(HaveOccurred())
+
+		nameField := parsedSchema.LookUpField("Name")
+		Expect(nameField).NotTo(BeNil())
+		Expect(nameField.DataType).To(Equal(schema.DataType("varchar(256)")))
+	})
 
 	BeforeEach(func() {
 		route = model.Route{

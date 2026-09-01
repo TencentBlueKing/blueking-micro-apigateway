@@ -21,6 +21,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -121,6 +122,10 @@ func SyncedResourceManaged(c *gin.Context) {
 	}
 	syncedResourceTypeStats, err := unifyopbiz.AddSyncedResources(c.Request.Context(), req.ResourceIDList)
 	if err != nil {
+		if errors.Is(err, unifyopbiz.ErrResourceNameConflict) {
+			ginx.ConflictJSONResponse(c, err)
+			return
+		}
 		ginx.SystemErrorJSONResponse(c, err)
 		return
 	}

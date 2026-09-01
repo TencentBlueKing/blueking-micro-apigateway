@@ -62,6 +62,9 @@ type UnifyOpInterface interface {
 
 var _ UnifyOpInterface = &UnifyOp{}
 
+// ErrResourceNameConflict indicates that different resource IDs use the same name.
+var ErrResourceNameConflict = errors.New("resource name conflict")
+
 // UnifyOp ...
 type UnifyOp struct {
 	etcdStore   storage.StorageInterface // etcd client
@@ -112,7 +115,14 @@ func removeDuplicatedResource(
 			// 如果 name 存在，且 id 不一致，则说明存在冲突
 			if id != r.ID {
 				return syncedResources,
-					fmt.Errorf("existed %s [id:%s name:%s] conflict", r.Type, id, r.GetName())
+					fmt.Errorf(
+						"%w: %s name %q is used by resource IDs %q and %q",
+						ErrResourceNameConflict,
+						r.Type,
+						r.GetName(),
+						id,
+						r.ID,
+					)
 			}
 			continue
 		}
@@ -120,6 +130,8 @@ func removeDuplicatedResource(
 			// 去除已经添加的资源
 			continue
 		}
+		resourceNameMap[r.GetName()] = r.ID
+		resourceIDMap[r.ID] = r.GetName()
 		syncedResources = append(syncedResources, r)
 	}
 	return syncedResources, nil

@@ -29,13 +29,13 @@
       >
         <tag-label :labels="consumer.config.labels" />
       </list-content-row>
-      <list-content-row v-if="consumer.group_id || consumer.config?.group_id" :label="t('消费者组 ID')">
+      <list-content-row v-if="consumerGroupId" :label="t('消费者组 ID')">
         <bk-button
           text
           theme="primary"
-          @click="handleConsumerGroupIdClick(consumer.group_id || consumer.config?.group_id)"
+          @click="handleConsumerGroupIdClick(consumerGroupId)"
         >
-          {{ consumer.group_id || consumer.config?.group_id }}
+          {{ consumerGroupId }}{{ consumerGroupName ? ` (${consumerGroupName})` : '' }}
         </bk-button>
       </list-content-row>
       <list-content-rows-common :resource="consumer" />
@@ -53,6 +53,7 @@
 </template>
 
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ListContentRow from '@/components/list-display/components/list-content-row.vue';
 import ListContentArticle from '@/components/list-display/components/list-content-article.vue';
@@ -61,6 +62,8 @@ import ListContentRowsCommon from '@/components/list-display/components/list-con
 import { useRouter } from 'vue-router';
 import TagLabel from '@/components/tag-label.vue';
 import EncodeJson from '@/components/list-display/components/encode-json.vue';
+import { getConsumerGroup } from '@/http/consumer-group';
+import useRelatedResourceName from '@/hooks/use-related-resource-name';
 
 interface IProps {
   resource: IConsumer
@@ -70,6 +73,14 @@ const { resource: consumer } = defineProps<IProps>();
 
 const { t } = useI18n();
 const router = useRouter();
+
+const consumerGroupId = computed(() => consumer.group_id || consumer.config?.group_id);
+
+const consumerGroupName = useRelatedResourceName({
+  resourceId: () => consumerGroupId.value,
+  gatewayId: () => consumer.gateway_id,
+  getResource: getConsumerGroup,
+});
 
 const handleConsumerGroupIdClick = (id: string) => {
   const to = router.resolve({ name: 'consumer-group', query: { id } });

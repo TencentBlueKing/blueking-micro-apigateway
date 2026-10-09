@@ -47,12 +47,13 @@
         >
           {{ t('已配置证书和私钥') }}
         </list-content-row>
-        <list-content-row v-else label="TLS 关联证书">
+        <list-content-row v-else-if="clientCertId" label="TLS 关联证书">
           <bk-button
             text
             theme="primary"
-            @click="handleResourceLinkClick('ssl', upstream.config.tls.client_cert_id)"
-          >{{ upstream.config.tls.client_cert_id }}
+            @click="handleResourceLinkClick('ssl', clientCertId)"
+          >
+            {{ clientCertId }}{{ clientCertName ? ` (${clientCertName})` : '' }}
           </bk-button>
         </list-content-row>
       </template>
@@ -99,12 +100,15 @@ import { computed } from 'vue';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
 import TagLabel from '@/components/tag-label.vue';
 import { useRouter } from 'vue-router';
+import { getSSL } from '@/http/ssl';
+import useRelatedResourceName from '@/hooks/use-related-resource-name';
 
 interface IProps {
   resource: IUpstream
+  gatewayId?: number
 }
 
-const { resource: upstreamProp } = defineProps<IProps>();
+const { resource: upstreamProp, gatewayId } = defineProps<IProps>();
 
 const { t } = useI18n();
 const router = useRouter();
@@ -117,6 +121,17 @@ const upstream = computed<IUpstream>(() => {
   }
 
   return upstreamProp;
+});
+
+const clientCertId = computed(() => {
+  const { tls } = upstream.value.config;
+  return tls?.client_cert && tls?.client_key ? undefined : tls?.client_cert_id;
+});
+
+const clientCertName = useRelatedResourceName({
+  resourceId: () => clientCertId.value,
+  gatewayId: () => gatewayId || upstream.value.gateway_id,
+  getResource: getSSL,
 });
 
 const handleResourceLinkClick = (routeName: string, id: string) => {

@@ -283,7 +283,7 @@
 <script lang="ts" setup>
 import { IUpstreamConfig } from '@/types/upstream';
 import { Form } from 'bkui-vue';
-import { ref, useTemplateRef, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import FormHealthChecks from '@/components/form/form-health-checks.vue';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
@@ -296,6 +296,7 @@ import { isEmpty } from 'lodash-es';
 import SelectSsl from '@/components/select/select-ssl.vue';
 import UploadText from '@/components/upload-text.vue';
 import { type UploadFieldType } from '@/views/ssl/create.vue';
+import { useCommon } from '@/store';
 
 export interface IFlags {
   upstreamType: 'nodes' | 'service_discovery';
@@ -329,6 +330,7 @@ const {
 } = defineProps<IProps>();
 
 const { t } = useI18n();
+const common = useCommon();
 
 const { createDefaultUpstream } = useUpstreamForm();
 const { showFirstErrorFormItem } = useElementScroll();
@@ -420,29 +422,6 @@ const hashOnKeyOptions = [
   {
     id: 'arg_***',
     name: 'arg_***',
-  },
-];
-
-const serviceDiscoveryTypeOptions = [
-  {
-    id: 'dns',
-    name: 'DNS',
-  },
-  {
-    id: 'consul_kv',
-    name: 'Consul KV',
-  },
-  {
-    id: 'nacos',
-    name: 'Nacos',
-  },
-  {
-    id: 'eureka',
-    name: 'Eureka',
-  },
-  {
-    id: 'kubernetes',
-    name: 'Kubernetes',
   },
 ];
 
@@ -548,6 +527,38 @@ const uiConfig = ref({
 });
 
 const sslInputType = ref<'input' | 'upload'>('input');
+
+const serviceDiscoveryTypeOptions = computed(() => {
+  const options = [
+    {
+      id: 'dns',
+      name: 'DNS',
+    },
+    {
+      id: 'consul_kv',
+      name: 'Consul KV',
+    },
+    {
+      id: 'nacos',
+      name: 'Nacos',
+    },
+    {
+      id: 'eureka',
+      name: 'Eureka',
+    },
+    {
+      id: 'kubernetes',
+      name: 'Kubernetes',
+    },
+  ];
+  if (common.curGatewayData?.apisix?.type === 'tapisix') {
+    options.push({
+      id: 'polaris',
+      name: 'Polaris（北极星）',
+    });
+  }
+  return options;
+});
 
 watch(ssl_id, (id) => {
   if (!upstream.value.tls) {

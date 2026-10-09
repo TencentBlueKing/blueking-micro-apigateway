@@ -36,10 +36,12 @@
           theme="primary"
           @click="handleResourceLinkClick('service', route.service_id)"
         >
-          {{ route.service_id }}
+          {{ route.service_id }}{{ serviceName ? ` (${serviceName})` : '' }}
         </bk-button>
       </list-content-row>
-      <list-content-row :label="t('启用 WebSocket')">{{ route.config.enable_websocket }}</list-content-row>
+      <list-content-row
+        :label="t('启用 WebSocket')"
+      >{{ route.config.enable_websocket ? t('是') : t('否') }}</list-content-row>
     </list-content-article>
 
     <list-content-article>
@@ -66,7 +68,7 @@
           theme="primary"
           @click="handleResourceLinkClick('upstream', route.upstream_id)"
         >
-          {{ route.upstream_id }}
+          {{ route.upstream_id }}{{ upstreamName ? ` (${upstreamName})` : '' }}
         </bk-button>
       </list-content-row>
     </list-content-article>
@@ -75,7 +77,7 @@
       <div style="font-size: 16px;font-weight: 700;color:#313238;margin-bottom: 15px;padding-top: 16px;">
         {{ t('上游服务') }}
       </div>
-      <list-display-upstream :resource="route.config.upstream as IUpstream" />
+      <list-display-upstream :resource="route.config.upstream as IUpstream" :gateway-id="route.gateway_id" />
     </template>
 
     <list-content-article v-if="route.plugin_config_id">
@@ -86,7 +88,7 @@
           theme="primary"
           @click="handleResourceLinkClick('plugin-config', route.plugin_config_id)"
         >
-          {{ route.plugin_config_id }}
+          {{ route.plugin_config_id }}{{ pluginConfigName ? ` (${pluginConfigName})` : '' }}
         </bk-button>
       </list-content-row>
     </list-content-article>
@@ -110,6 +112,10 @@ import ListContentRowsCommon from '@/components/list-display/components/list-con
 import { useRouter } from 'vue-router';
 import TagLabel from '@/components/tag-label.vue';
 import EncodeJson from '@/components/list-display/components/encode-json.vue';
+import { getService } from '@/http/service';
+import { getUpstream } from '@/http/upstream';
+import { getPluginConfig } from '@/http/plugin-config';
+import useRelatedResourceName from '@/hooks/use-related-resource-name';
 
 interface IProps {
   resource: IRoute
@@ -119,6 +125,24 @@ const { resource: route } = defineProps<IProps>();
 
 const { t } = useI18n();
 const router = useRouter();
+
+const serviceName = useRelatedResourceName({
+  resourceId: () => route.service_id,
+  gatewayId: () => route.gateway_id,
+  getResource: getService,
+});
+
+const upstreamName = useRelatedResourceName({
+  resourceId: () => route.upstream_id,
+  gatewayId: () => route.gateway_id,
+  getResource: getUpstream,
+});
+
+const pluginConfigName = useRelatedResourceName({
+  resourceId: () => route.plugin_config_id,
+  gatewayId: () => route.gateway_id,
+  getResource: getPluginConfig,
+});
 
 const handleResourceLinkClick = (routeName: string, id: string) => {
   const to = router.resolve({ name: routeName, query: { id } });

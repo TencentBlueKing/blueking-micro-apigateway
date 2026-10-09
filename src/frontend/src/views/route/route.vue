@@ -104,6 +104,7 @@ import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 import { deleteRoute, getRoutes, getRoute } from '@/http/route';
 import { getServiceDropdowns } from '@/http/service';
 import { getUpstreamDropdowns } from '@/http/upstream';
+import { getPluginConfigDropdowns } from '@/http/plugin-config';
 import { computed, ref } from 'vue';
 import { IRoute } from '@/types/route';
 import { FilterOptionClass, type IFilterOption } from '@/types/table-filter';
@@ -124,6 +125,8 @@ const relationSearchParams = ref<{ service_id?: string, upstream_id?: string }>(
 const serviceSelectOptions = ref<{ name: string, label: string, desc: string }[]>([]);
 // 关联的上游 select 下拉选项
 const upstreamSelectOptions = ref<{ value: string, label: string, desc: string }[]>([]);
+// 关联的插件组搜索选项
+const pluginConfigSelectOptions = ref<IFilterOption[]>([]);
 
 const source = ref('');
 const isResourceViewerShow = ref(false);
@@ -257,6 +260,16 @@ const extraSearchOptions = computed(() => [
       extra: true,
     }),
   },
+  {
+    id: 'plugin_config_id',
+    name: t('插件组'),
+    children: getFilterOptions({
+      options: pluginConfigSelectOptions.value,
+      key: 'name',
+      value: 'id',
+      extra: true,
+    }),
+  },
 ]);
 
 // 根据不同键值初始化数组结构
@@ -310,6 +323,12 @@ const getUpstreamSelectOptions = async () => {
   }, {});
 };
 getUpstreamSelectOptions();
+
+const getPluginConfigSelectOptions = async () => {
+  const response = await getPluginConfigDropdowns();
+  pluginConfigSelectOptions.value = response ?? [];
+};
+getPluginConfigSelectOptions();
 
 const handleTableClearFilter = () => {
   relationSearchParams.value = {};

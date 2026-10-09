@@ -33,13 +33,13 @@
       </ListContentRow>
       <ListContentRowsCommon :resource="streamRoute" />
       <ListContentRow v-if="streamRoute.service_id" :label="t('绑定服务')">
-        <BkButton
+        <bk-button
           text
           theme="primary"
           @click="handleResourceLinkClick('service', streamRoute.service_id)"
         >
-          {{ streamRoute.service_id }}
-        </BkButton>
+          {{ streamRoute.service_id }}{{ serviceName ? ` (${serviceName})` : '' }}
+        </bk-button>
       </ListContentRow>
       <ListContentRow v-if="streamRoute.config.remote_addr" :label="t('上游地址')">
         {{ streamRoute.config.remote_addr }}
@@ -55,13 +55,13 @@
     <ListContentArticle v-if="streamRoute.upstream_id">
       <template #title>{{ t('上游服务') }}</template>
       <ListContentRow :label="t('上游服务 ID')">
-        <BkButton
+        <bk-button
           text
           theme="primary"
           @click="handleResourceLinkClick('upstream', streamRoute.upstream_id)"
         >
-          {{ streamRoute.upstream_id }}
-        </BkButton>
+          {{ streamRoute.upstream_id }}{{ upstreamName ? ` (${upstreamName})` : '' }}
+        </bk-button>
       </ListContentRow>
     </ListContentArticle>
 
@@ -69,19 +69,19 @@
       <div style="font-size: 16px;font-weight: 700;color:#313238;margin-bottom: 15px;padding-top: 16px;">
         {{ t('上游服务') }}
       </div>
-      <ListDisplayUpstream :resource="streamRoute.config.upstream" />
+      <ListDisplayUpstream :resource="streamRoute.config.upstream" :gateway-id="streamRoute.gateway_id" />
     </template>
 
     <ListContentArticle v-if="streamRoute.plugin_config_id">
       <template #title>{{ t('插件组') }}</template>
       <ListContentRow v-if="streamRoute.plugin_config_id" :label="t('插件组 ID')">
-        <BkButton
+        <bk-button
           text
           theme="primary"
           @click="handleResourceLinkClick('plugin-config', streamRoute.plugin_config_id)"
         >
-          {{ streamRoute.plugin_config_id }}
-        </BkButton>
+          {{ streamRoute.plugin_config_id }}{{ pluginConfigName ? ` (${pluginConfigName})` : '' }}
+        </bk-button>
       </ListContentRow>
     </ListContentArticle>
     <ListContentArticle v-if="streamRoute.config.plugins && Object.keys(streamRoute.config.plugins).length">
@@ -103,6 +103,10 @@ import ListContentArticle from '@/components/list-display/components/list-conten
 import ListDisplayUpstream from '@/components/list-display/list-display-upstream.vue';
 import ListContentRowsCommon from '@/components/list-display/components/list-content-rows-common.vue';
 import EncodeJson from '@/components/list-display/components/encode-json.vue';
+import { getService } from '@/http/service';
+import { getUpstream } from '@/http/upstream';
+import { getPluginConfig } from '@/http/plugin-config';
+import useRelatedResourceName from '@/hooks/use-related-resource-name';
 
 interface IProps {
   resource: IStreamRoute
@@ -112,6 +116,24 @@ const { resource: streamRoute } = defineProps<IProps>();
 
 const { t } = useI18n();
 const router = useRouter();
+
+const serviceName = useRelatedResourceName({
+  resourceId: () => streamRoute.service_id,
+  gatewayId: () => streamRoute.gateway_id,
+  getResource: getService,
+});
+
+const upstreamName = useRelatedResourceName({
+  resourceId: () => streamRoute.upstream_id,
+  gatewayId: () => streamRoute.gateway_id,
+  getResource: getUpstream,
+});
+
+const pluginConfigName = useRelatedResourceName({
+  resourceId: () => streamRoute.plugin_config_id,
+  gatewayId: () => streamRoute.gateway_id,
+  getResource: getPluginConfig,
+});
 
 const handleResourceLinkClick = (routeName: string, id: string) => {
   const to = router.resolve({ name: routeName, query: { id } });

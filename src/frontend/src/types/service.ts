@@ -33,4 +33,5 @@ export interface IService extends IBaseResource {
   name: string;
   config: IServiceConfig;
   upstream_id?: string;
+  gateway_id?: number;
 }

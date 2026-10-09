@@ -37,7 +37,9 @@
       <list-content-row v-if="service.config.hosts && service.config.hosts.length" :label="t('匹配域名')">
         {{ service.config.hosts }}
       </list-content-row>
-      <list-content-row :label="t('启用 WebSocket')">{{ service.config.enable_websocket }}</list-content-row>
+      <list-content-row
+        :label="t('启用 WebSocket')"
+      >{{ service.config.enable_websocket ? t('是') : t('否') }}</list-content-row>
     </list-content-article>
 
     <list-content-article v-if="service.config.plugins && Object.keys(service.config.plugins).length">
@@ -50,7 +52,9 @@
     <list-content-article v-if="service.config.upstream_id">
       <template #title>{{ t('上游服务') }}</template>
       <list-content-row :label="t('上游服务 ID')">
-        <bk-button text theme="primary" @click="handleUpstreamIdClick">{{ service.config.upstream_id }}</bk-button>
+        <bk-button text theme="primary" @click="handleUpstreamIdClick">
+          {{ service.config.upstream_id }}{{ upstreamName ? ` (${upstreamName})` : '' }}
+        </bk-button>
       </list-content-row>
     </list-content-article>
 
@@ -58,7 +62,7 @@
       <div style="font-size: 16px;font-weight: 700;color:#313238;margin-bottom: 15px;padding-top: 16px;">
         {{ t('上游服务') }}
       </div>
-      <list-display-upstream :resource="service.config.upstream as IUpstream" />
+      <list-display-upstream :resource="service.config.upstream as IUpstream" :gateway-id="service.gateway_id" />
     </template>
 
   </div>
@@ -75,6 +79,8 @@ import ListContentRowsCommon from '@/components/list-display/components/list-con
 import { useRouter } from 'vue-router';
 import TagLabel from '@/components/tag-label.vue';
 import EncodeJson from '@/components/list-display/components/encode-json.vue';
+import { getUpstream } from '@/http/upstream';
+import useRelatedResourceName from '@/hooks/use-related-resource-name';
 
 interface IProps {
   resource: IService
@@ -84,6 +90,12 @@ const { resource: service } = defineProps<IProps>();
 
 const { t } = useI18n();
 const router = useRouter();
+
+const upstreamName = useRelatedResourceName({
+  resourceId: () => service.config.upstream_id,
+  gatewayId: () => service.gateway_id,
+  getResource: getUpstream,
+});
 
 const handleUpstreamIdClick = () => {
   const to = router.resolve({ name: 'upstream', query: { id: service.config.upstream_id } });

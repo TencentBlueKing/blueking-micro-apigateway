@@ -51,4 +51,5 @@ export interface IUpstream extends IBaseResource {
   config: IUpstreamConfig;
   name?: string;
   ssl_id?: string;
+  gateway_id?: number;
 }

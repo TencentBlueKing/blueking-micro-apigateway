@@ -16,7 +16,7 @@ init:
 	## 安装 golangci-lint 二进制
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) v2.11.2
 	## 安装 gofumpt 二进制
-	GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
+	GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@v0.11.0
 	## 安装 goimports-reviser 二进制
 	GOBIN=$(LOCALBIN) go install github.com/incu6us/goimports-reviser/v3@latest
 	## 安装 swag 二进制

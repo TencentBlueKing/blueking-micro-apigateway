@@ -42,18 +42,19 @@ type RouteInfo struct {
 
 // RouteListRequest ...
 type RouteListRequest struct {
-	ID         string `json:"id,omitempty" form:"id"`
-	Name       string `json:"name,omitempty" form:"name"`
-	Updater    string `json:"updater,omitempty" form:"updater"`
-	ServiceID  string `json:"service_id" form:"service_id"`
-	UpstreamID string `json:"upstream_id" form:"upstream_id"`
-	Label      string `json:"label" form:"label"`
-	Path       string `json:"path" form:"path"`
-	Method     string `json:"method" form:"method"`
-	Status     string `json:"status" form:"status" binding:"resourceStatus"`
-	OrderBy    string `json:"order_by" form:"order_by"`
-	Offset     int    `json:"offset" form:"offset"`
-	Limit      int    `json:"limit" form:"limit"`
+	ID             string `json:"id,omitempty" form:"id"`
+	Name           string `json:"name,omitempty" form:"name"`
+	Updater        string `json:"updater,omitempty" form:"updater"`
+	ServiceID      string `json:"service_id" form:"service_id"`
+	UpstreamID     string `json:"upstream_id" form:"upstream_id"`
+	PluginConfigID string `json:"plugin_config_id" form:"plugin_config_id"`
+	Label          string `json:"label" form:"label"`
+	Path           string `json:"path" form:"path"`
+	Method         string `json:"method" form:"method"`
+	Status         string `json:"status" form:"status" binding:"resourceStatus"`
+	OrderBy        string `json:"order_by" form:"order_by"`
+	Offset         int    `json:"offset" form:"offset"`
+	Limit          int    `json:"limit" form:"limit"`
 }
 
 // RouteListResponse route 列表

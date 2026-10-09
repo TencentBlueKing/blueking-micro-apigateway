@@ -164,6 +164,9 @@ func RouteList(c *gin.Context) {
 	if req.ID != "" {
 		queryParam["id"] = req.ID
 	}
+	if req.PluginConfigID != "" {
+		queryParam["plugin_config_id"] = req.PluginConfigID
+	}
 	routes, total, err := resourcebiz.ListPagedRoutes(
 		c.Request.Context(),
 		queryParam,

@@ -3,6 +3,7 @@ module github.com/TencentBlueKing/blueking-micro-apigateway/apiserver
 go 1.25.5
 
 require (
+	filippo.io/csrf v0.2.1
 	github.com/agiledragon/gomonkey/v2 v2.13.0
 	github.com/apache/apisix-ingress-controller v1.8.3
 	github.com/bufbuild/protocompile v0.14.1
@@ -20,7 +21,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/gookit/goutil v0.7.0
-	github.com/gorilla/csrf v1.7.3
 	github.com/gwatts/gin-adapter v1.0.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/lib/pq v1.10.9

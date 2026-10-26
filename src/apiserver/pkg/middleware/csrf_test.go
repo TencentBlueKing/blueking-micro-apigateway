@@ -26,8 +26,8 @@ import (
 	"strings"
 	"testing"
 
+	csrf "filippo.io/csrf/gorilla"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
 	"github.com/stretchr/testify/assert"
 )
 

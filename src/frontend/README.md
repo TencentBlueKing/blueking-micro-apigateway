@@ -1,3 +1,19 @@
+## 开发环境
+
+- 使用 Node.js 24.x，最低版本为 24.22.1；Docker 构建和 `.nvmrc` 固定使用 24.22.1。
+- 此版本包含 CVE-2026-111497 的修复，详见 [Node.js 安全公告](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)。
+- 使用 nvm 时，先运行 `nvm install` 和 `nvm use`；nvm-windows 用户运行 `nvm install 24.22.1` 和 `nvm use 24.22.1`。
+
+```shell
+node --version
+npm install --legacy-peer-deps
+npm run build:ee
+npm run lint -- --no-fix
+npm run test:schema
+```
+
+现有 UI 组件存在 peer dependency 版本冲突，安装时使用 `--legacy-peer-deps`，与 Docker 构建保持一致。
+
 ## 微网关前端开发注意事项
 
 ### 1. `lodash` 改用 `lodash-es`

@@ -46,8 +46,10 @@ type ResourceChangeDetail struct {
 
 // ResourceDiffDetailResponse ...
 type ResourceDiffDetailResponse struct {
-	EditorConfig json.RawMessage `json:"editor_config" swaggertype:"object"` // 编辑区配置
-	EtcdConfig   json.RawMessage `json:"etcd_config" swaggertype:"object"`   // etcd 生效配置
+	SyncToken    string                  `json:"sync_token,omitempty"`
+	EditorStatus constant.ResourceStatus `json:"editor_status,omitempty"`
+	EditorConfig json.RawMessage         `json:"editor_config" swaggertype:"object"` // 编辑区配置
+	EtcdConfig   json.RawMessage         `json:"etcd_config" swaggertype:"object"`   // etcd 生效配置
 }
 
 // ResourceAssociateID 资源关联 ID

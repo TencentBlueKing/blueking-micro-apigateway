@@ -138,10 +138,17 @@ func removeDuplicatedResource(
 }
 
 // AddSyncedResources 添加同步资源到编辑区
-func AddSyncedResources( //nolint:gocyclo
-	ctx context.Context,
-	idList []string,
+func AddSyncedResources(ctx context.Context, idList []string) (map[constant.APISIXResource]int, error) {
+	return AddSyncedResourcesOfType(ctx, idList, "")
+}
+
+// AddSyncedResourcesOfType optionally scopes IDs to a resource type for Web selection.
+func AddSyncedResourcesOfType( //nolint:gocyclo
+	ctx context.Context, idList []string, resourceType constant.APISIXResource,
 ) (map[constant.APISIXResource]int, error) {
+	if ginx.GetGatewayInfoFromContext(ctx).ReadOnly {
+		return nil, ErrSyncReadOnly
+	}
 	// 同步资源统计
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
 	queryParam := map[string]any{
@@ -149,6 +156,9 @@ func AddSyncedResources( //nolint:gocyclo
 	}
 	if len(idList) != 0 {
 		queryParam["id"] = idList
+	}
+	if resourceType != "" {
+		queryParam["type"] = resourceType
 	}
 	items, err := syncdatabiz.QuerySyncedItems(ctx, queryParam)
 	if err != nil {
@@ -961,6 +971,10 @@ func GetResourceConfigDiffDetail(
 	if err != nil {
 		return nil, err
 	}
+	syncToken := ""
+	if syncedResource != nil {
+		syncToken = syncdatabiz.SyncToken(syncedResource, &resourceInfo)
+	}
 	// 删除状态需要特殊处理
 	if resourceInfo.Status == constant.ResourceStatusDeleteDraft {
 		resourceInfo.Config = datatypes.JSON("{}")
@@ -969,9 +983,28 @@ func GetResourceConfigDiffDetail(
 		resourceInfo.Config = []byte(jsonx.RemoveJsonKey(string(resourceInfo.Config), []string{"name"}))
 		syncedResourceConfig = []byte(jsonx.RemoveJsonKey(string(syncedResourceConfig), []string{"name"}))
 	}
+	version := ginx.GetGatewayInfoFromContext(ctx).GetAPISIXVersionX()
+	before, err := syncdatabiz.ComparableConfig(syncedResourceConfig, resourceType, version)
+	if err != nil {
+		return nil, err
+	}
+	after, err := syncdatabiz.ComparableConfig(json.RawMessage(resourceInfo.Config), resourceType, version)
+	if err != nil {
+		return nil, err
+	}
+	beforeJSON, err := json.Marshal(before)
+	if err != nil {
+		return nil, err
+	}
+	afterJSON, err := json.Marshal(after)
+	if err != nil {
+		return nil, err
+	}
 	return &dto.ResourceDiffDetailResponse{
-		EtcdConfig:   syncedResourceConfig,
-		EditorConfig: json.RawMessage(resourceInfo.Config),
+		SyncToken:    syncToken,
+		EditorStatus: resourceInfo.Status,
+		EtcdConfig:   beforeJSON,
+		EditorConfig: afterJSON,
 	}, nil
 }
 

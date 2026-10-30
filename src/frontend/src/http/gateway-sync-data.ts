@@ -71,3 +71,10 @@ export const importEtcdResources = ({ gatewayId, resources }: {
 export const getSyncedSummary = ({ gatewayId }: {
   gatewayId?: number
 }) => fetch.get(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/synced/summary/`);
+
+// 将已确认的快照覆盖到编辑区，不写入 etcd。
+export const syncResourceToEditArea = ({ type, id, data }: {
+  type: string
+  id: string
+  data: { sync_token: string, overwrite_draft: boolean }
+}) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${common.gatewayId}/unify_op/resources/${type}/sync/${encodeURIComponent(id)}/`, data);

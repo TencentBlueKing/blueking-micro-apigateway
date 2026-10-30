@@ -120,8 +120,16 @@ func SyncedResourceManaged(c *gin.Context) {
 		ginx.BadRequestErrorJSONResponse(c, err)
 		return
 	}
-	syncedResourceTypeStats, err := unifyopbiz.AddSyncedResources(c.Request.Context(), req.ResourceIDList)
+	syncedResourceTypeStats, err := unifyopbiz.AddSyncedResourcesOfType(
+		c.Request.Context(),
+		req.ResourceIDList,
+		req.ResourceType,
+	)
 	if err != nil {
+		if errors.Is(err, unifyopbiz.ErrSyncReadOnly) {
+			ginx.BadRequestErrorJSONResponse(c, err)
+			return
+		}
 		if errors.Is(err, unifyopbiz.ErrResourceNameConflict) {
 			ginx.ConflictJSONResponse(c, err)
 			return
@@ -524,4 +532,49 @@ func ResourceImport(c *gin.Context) {
 		return
 	}
 	ginx.SuccessNoContentResponse(c)
+}
+
+// ResourceSyncToEditor copies the previewed etcd snapshot into an existing edit-area row.
+//
+//	@ID			resource_sync_to_editor
+//	@Summary	同步快照到编辑区
+//	@Accept		json
+//	@Produce	json
+//	@Tags		webapi.unify_op
+//	@Param		gateway_id	path	int								true	"网关 ID" 	@Param		type		path	string							true	"资源类型"
+//	@Param		id			path	string							true	"资源 ID"
+//	@Param		request		body	serializer.SyncToEditorRequest	true	"确认覆盖"
+//	@Success	200
+//	@Router		/api/v1/web/gateways/{gateway_id}/unify_op/resources/{type}/sync/{id}/ [post]
+func ResourceSyncToEditor(c *gin.Context) {
+	var path serializer.ResourceCommonPathParam
+	if err := c.ShouldBindUri(&path); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	if !slices.Contains(constant.ResourceTypeList, path.Type) {
+		ginx.BadRequestErrorJSONResponse(c, fmt.Errorf("invalid resource type: %s", path.Type))
+		return
+	}
+	var req serializer.SyncToEditorRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	err := unifyopbiz.SyncResourceToEditor(
+		c.Request.Context(),
+		path.Type,
+		path.ID,
+		req.SyncToken,
+		req.OverwriteDraft,
+	)
+	if err != nil {
+		if errors.Is(err, unifyopbiz.ErrSyncConflict) || errors.Is(err, unifyopbiz.ErrSyncDraft) {
+			ginx.ConflictJSONResponse(c, err)
+			return
+		}
+		ginx.BadRequestErrorJSONResponse(c, err)
+		return
+	}
+	ginx.SuccessJSONResponse(c, nil)
 }

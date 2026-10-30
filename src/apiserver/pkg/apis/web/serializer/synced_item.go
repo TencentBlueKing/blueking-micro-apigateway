@@ -29,7 +29,7 @@ type SyncedItemListRequestRequest struct {
 	ID           string                  `json:"id,omitempty" form:"id"`
 	ResourceType constant.APISIXResource `json:"resource_type,omitempty" form:"resource_type"` // 资源类型：route/upstream
 	Name         string                  `json:"name,omitempty" form:"name"`
-	Status       constant.SyncStatus     `json:"status,omitempty" form:"status"` // 同步状态：success/miss
+	Status       constant.SyncStatus     `json:"status,omitempty" form:"status"` // 同步状态：success/different/miss
 	OrderBy      string                  `json:"order_by" form:"order_by"`
 	Offset       int                     `json:"offset" form:"offset"`
 	Limit        int                     `json:"limit" form:"limit"`
@@ -48,7 +48,7 @@ type SyncDataOutputInfo struct {
 	ResourceType  constant.APISIXResource `json:"resource_type"`               // 资源类型
 	ModeRevision  int                     `json:"mode_revision"`               // 同步版本
 	Config        json.RawMessage         `json:"config" swaggertype:"object"` // 同步资源配置
-	Status        constant.SyncStatus     `json:"status"`                      // 同步状态:success/miss
+	Status        constant.SyncStatus     `json:"status"`                      // 同步状态:success/different/miss
 	PublishSource string                  `json:"publish_source"`              // 发布来源: "bk_micro(为网关)/others"
 	CreatedAt     int64                   `json:"created_at"`
 	UpdatedAt     int64                   `json:"updated_at"` // 同步时间
@@ -56,8 +56,9 @@ type SyncDataOutputInfo struct {
 
 // SyncedSummaryOutputInfo 同步数据数量汇总
 type SyncedSummaryOutputInfo struct {
-	Success int64 `json:"success"` // 一致数量
-	Miss    int64 `json:"miss"`    // 缺失数量
+	Different int64 `json:"different"` // 有差异数量
+	Success   int64 `json:"success"`   // 一致数量
+	Miss      int64 `json:"miss"`      // 缺失数量
 }
 
 // SyncedTimeOutputInfo ...

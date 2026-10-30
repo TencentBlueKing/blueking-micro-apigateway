@@ -26,7 +26,7 @@
           @click="handleSync"
         >
           <i class="icon apigateway-icon icon-ag-download-line" />
-          {{ t('一键同步') }}
+          {{ t('刷新 etcd 快照') }}
         </BkButton>
         <!-- <bk-dropdown trigger="click">
           <bk-button :disabled="!selections.length">{{ t('批量操作') }}</bk-button>
@@ -61,13 +61,16 @@
           <span class="equal">{{ summary.success }}</span>
           <span>{{ t('一致') }}</span>
           <span class="line"></span>
+          <span class="different">{{ summary.different }}</span>
+          <span>{{ t('有差异') }}</span>
+          <span class="line"></span>
           <span class="lose">{{ summary.miss }}</span>
-          <span>{{ t('缺失') }}</span>
-          <template v-if="summary.miss">
+          <span>{{ t('编辑区缺失') }}</span>
+          <template v-if="summary.miss && !isReadonlyGateway">
             <span> , </span>
             <bk-pop-confirm
               width="288"
-              :content="t('将所有差异的数据添加到编辑区！')"
+              :content="t('将所有编辑区缺失的资源添加到编辑区，不覆盖已有资源。')"
               trigger="click"
               @confirm="handleBatchAdd"
             >
@@ -81,7 +84,7 @@
           v-model:table-data="tableData"
           v-model:settings="settings"
           v-model:is-all-selection="selectionHook.isAllSelection.value"
-          row-key="id"
+          row-key="resource_key"
           resizable
           :disable-data-page="true"
           :filter-value="filterData"
@@ -124,6 +127,10 @@
     :before-config="diffSliderConfig.before_config"
     :operation-type="diffSliderConfig.operationType"
     :title-config="diffSliderConfig.titleConfig"
+    :show-footer="!!syncTarget && !isReadonlyGateway"
+    :confirm-text="t('同步到编辑区')"
+    :confirm-disabled="isAddLoading"
+    @confirm="confirmSyncToEditor"
   />
 </template>
 
@@ -151,7 +158,7 @@ import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 // @ts-ignore
 import SliderResourceDiffViewer from '@/components/slider-resource-diff-viewer.vue';
 import MicroAgTable from '@/components/micro-ag-table/table';
-import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData, getSyncedSummary } from '@/http/gateway-sync-data';
+import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData, getSyncedSummary, syncResourceToEditArea } from '@/http/gateway-sync-data';
 import { getResourceDiff } from '@/http/publish';
 import { Copy } from 'bkui-vue/lib/icon';
 import { handleCopy } from '@/common/util';
@@ -166,6 +173,9 @@ const { handleSearchOutside, handleSearchSelectClick } = useSearchSelectPopoverH
 
 const isSyncLoading = ref<boolean>(false);
 const isAddLoading = ref<boolean>(false);
+const isReadonlyGateway = computed(() => !!common.curGatewayData?.read_only);
+const syncTarget = ref<IGatewaySyncDataDto>();
+const syncPreview = ref<{ sync_token?: string, editor_status?: string }>({});
 const filterData = ref<FilterValue>({});
 const sortData =  ref<SortInfo>({});
 const searchParams = ref<{ id: string, name: string, values?: { id: string, name: string }[] }[]>([]);
@@ -195,18 +205,20 @@ const allowSortField = shallowRef(['name']);
 
 const summary = ref<{
   success: number,
-  miss: number
+  miss: number,
+  different: number
 }>({
   success: 0,
   miss: 0,
+  different: 0,
 });
 
 const isDisabledSelected = (item) => {
-  return !['miss'].includes(item.status);
+  return isReadonlyGateway.value || !['miss'].includes(item.status);
 };
 
 const isAllowCheckSelection = (item) => {
-  return ['miss'].includes(item.status);
+  return !isReadonlyGateway.value && ['miss'].includes(item.status);
 };
 
 const statusList = [
@@ -215,9 +227,10 @@ const statusList = [
     id: 'success',
   },
   {
-    name: t('缺失'),
+    name: t('编辑区缺失'),
     id: 'miss',
   },
+  { name: t('有差异'), id: 'different' },
 ];
 
 const resourceTypeFilter = computed(() => {
@@ -274,7 +287,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
               }
             });
             const tables = tableData.value.filter(item => isAllowCheckSelection(item));
-            selectionHook.handleCustomSelectAllChange({ isCheck: selectionHook.isAllSelection.value, tableRowKey: 'id', tables });
+            selectionHook.handleCustomSelectAllChange({ isCheck: selectionHook.isAllSelection.value, tableRowKey: 'resource_key', tables });
           }}
           disabled={disabledSelected.value}
           indeterminate={setIndeterminate.value}
@@ -286,20 +299,20 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
         <Checkbox
           v-model={row.isCustomCheck}
           v-bk-tooltips={{
-            content: t('资源状态与编辑区一致，无需添加'),
+            content: isReadonlyGateway.value ? t('网关处于只读模式') : t('仅编辑区缺失的资源可添加，已有资源请对比后同步'),
             placement: 'top',
             disabled: !isDisabledSelected(row),
           }}
           disabled= {isDisabledSelected(row)}
           onChange={(isCheck: boolean) => {
             const results = tableData.value.filter(item => ['miss'].includes(item.status));
-            selectionHook.handleCustomSelectChange({ isCheck, tableRowKey: 'id', row });
+            selectionHook.handleCustomSelectChange({ isCheck, tableRowKey: 'resource_key', row });
             const checkedIds = tableData.value
-              .filter(item => selectionHook.selectionsRowKeys.value.includes(item.id))
-              .map(check => check.id);
+              .filter(item => selectionHook.selectionsRowKeys.value.includes(item.resource_key))
+              .map(check => check.resource_key);
             selectionHook.isAllSelection.value = checkedIds.length > 0 && checkedIds.length === results.length;
             tableData.value.forEach((item) => {
-              if (['miss'].includes(item.status) && row.id === item.id) {
+              if (['miss'].includes(item.status) && row.resource_key === item.resource_key) {
                 item.isCustomCheck = row.isCustomCheck;
               }
             });
@@ -394,7 +407,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
     title: t('状态'),
     colKey: 'status',
     width: 120,
-    cell: (h, { row }) => <bk-tag theme={row.status === 'success' ? 'success' : 'danger'}>{ row.status === 'success' ? '一致' : '缺失' }</bk-tag>,
+    cell: (h, { row }) => <bk-tag theme={({ success: 'success', different: 'warning', miss: 'danger' })[row.status]}>{ statusList.find(item => item.id === row.status)?.name }</bk-tag>,
     filter: {
       type: 'single',
       list: statusFilter.value,
@@ -403,7 +416,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
   {
     title: t('操作'),
     colKey: 'opt',
-    width: 160,
+    width: 250,
     fixed: 'right',
     cell: (h, { row }) => {
       return (
@@ -413,7 +426,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
           </bk-button>
 
           {
-            row?.status === 'success'
+            row?.status !== 'miss'
             && <bk-button text theme="primary" onClick={() => handleCheckDiff(row)}>
               {t('对比')}
             </bk-button>
@@ -421,8 +434,14 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
 
           {
             row?.status === 'miss'
-            && <bk-button text theme="primary" onClick={() => handleAdd(row)}>
+            && <bk-button text theme="primary" disabled={isReadonlyGateway.value} onClick={() => handleAdd(row)}>
               {t('添加')}
+            </bk-button>
+          }
+          {
+            row?.status !== 'miss'
+            && <bk-button text theme="primary" disabled={isReadonlyGateway.value || row.status !== 'different' || isAddLoading.value} onClick={() => handleCheckDiff(row, true)}>
+              {t('同步到编辑区')}
             </bk-button>
           }
         </div>
@@ -473,7 +492,7 @@ const searchOptions = computed(() => {
 // });
 
 const disabledSelected = computed(() => {
-  return !tableData.value?.length || tableData.value?.every(item => !['miss'].includes(item.status));
+  return isReadonlyGateway.value || !tableData.value?.length || tableData.value?.every(item => !['miss'].includes(item.status));
 });
 
 watch(
@@ -491,7 +510,9 @@ fetchSyncedSummary();
 
 const getTableData = async (params: Record<string, any> = {}) => {
   const results = await getGatewaySyncDataList({ gatewayId: common.gatewayId, query: params });
-  return results ?? [];
+  if (!results) return [];
+  results.results = results.results.map(item => ({ ...item, resource_key: `${item.resource_type}:${item.id}` }));
+  return results;
 };
 
 const getList = () => {
@@ -524,12 +545,12 @@ const handleRequestDone = () => {
   if (selectionHook.selectionsRowKeys.value?.length && tableData.value?.length) {
     const selectionTable = tableData.value.filter(item => isAllowCheckSelection(item));
     const checkedIds = tableData.value
-      .filter(item => selectionHook.selectionsRowKeys.value.includes(item.id))
-      .map(check => check.id);
+      .filter(item => selectionHook.selectionsRowKeys.value.includes(item.resource_key))
+      .map(check => check.resource_key);
     selectionHook.isAllSelection.value = checkedIds.length > 0 && checkedIds.length === selectionTable.length;
     tableData.value.forEach((item) => {
       if (isAllowCheckSelection(item)) {
-        item.isCustomCheck = checkedIds.includes(item.id);
+        item.isCustomCheck = checkedIds.includes(item.resource_key);
       }
     });
   } else {
@@ -586,21 +607,26 @@ const filterTimeKeys = (config: Record<string, any>) => {
   return _config;
 };
 
-const handleCheckDiff = async (row: IGatewaySyncDataDto) => {
+const handleCheckDiff = async (row: IGatewaySyncDataDto, sync = false) => {
+  syncTarget.value = undefined;
   const res = await getResourceDiff({ type: row.resource_type, id: row.id });
   const config = res || {
     editor_config: {},
     etcd_config: {},
   };
+  syncPreview.value = config;
+  syncTarget.value = sync ? row : undefined;
   diffSliderConfig.value.before_config = filterTimeKeys(config.etcd_config || {});
   diffSliderConfig.value.after_config = filterTimeKeys(config.editor_config || {});
   diffSliderConfig.value.visible = true;
 };
 
-const addResource = async (ids?: string[]) => {
+const addResource = async (ids?: string[], resourceType?: string) => {
+  if (isReadonlyGateway.value) return;
   isAddLoading.value = true;
   try {
-    const response = await addResourceToEditArea(ids ? { data: { resource_id_list: ids } } : { data: {} });
+    const data = ids ? { resource_id_list: ids, resource_type: resourceType } : {};
+    const response = await addResourceToEditArea({ data });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const validEntries = Object.entries(response).filter(([_, value]) => value);
     getList();
@@ -651,8 +677,40 @@ const addResource = async (ids?: string[]) => {
   }
 };
 
+const confirmSyncToEditor = () => {
+  const row = syncTarget.value;
+  const preview = syncPreview.value;
+  if (!row || isReadonlyGateway.value || isAddLoading.value) return;
+  const hasDraft = preview.editor_status !== 'success';
+  InfoBox({
+    title: t('确认同步到编辑区？'),
+    subTitle: hasDraft
+      ? t('该资源存在未发布草稿，同步将覆盖草稿并恢复为已同步状态。')
+      : t('将使用当前 etcd 快照覆盖编辑区配置，不修改 etcd。'),
+    confirmText: t('确认覆盖'),
+    onConfirm: async () => {
+      if (isReadonlyGateway.value || isAddLoading.value) return;
+      isAddLoading.value = true;
+      try {
+        await syncResourceToEditArea({
+          type: row.resource_type,
+          id: row.id,
+          data: { sync_token: preview.sync_token, overwrite_draft: hasDraft },
+        });
+        diffSliderConfig.value.visible = false;
+        syncTarget.value = undefined;
+        Message({ theme: 'success', message: t('已同步到编辑区') });
+        getList();
+        fetchSyncedSummary();
+      } finally {
+        isAddLoading.value = false;
+      }
+    },
+  });
+};
+
 const handleAdd = (row: IGatewaySyncDataDto) => {
-  addResource([row.id]);
+  addResource([row.id], row.resource_type);
 };
 
 const handleBatchAdd = () => {
@@ -668,8 +726,12 @@ const handleMultiAdd = async () => {
     return;
   }
 
-  const ids = selectionHook?.selections.value.map((item: IGatewaySyncDataDto) => item.id);
-  await addResource(ids);
+  if (isReadonlyGateway.value) return;
+  const selected = [...selectionHook.selections.value] as IGatewaySyncDataDto[];
+  const types = [...new Set(selected.map(item => item.resource_type))];
+  for (const type of types) {
+    await addResource(selected.filter(item => item.resource_type === type).map(item => item.id), type);
+  }
   handleResetSelection();
 };
 

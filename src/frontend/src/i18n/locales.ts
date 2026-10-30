@@ -23,6 +23,18 @@ interface ILocales {
 }
 
 const locales: ILocales = {
+  '刷新 etcd 快照': ['Refresh etcd snapshot'],
+  '有差异': ['Different'],
+  '编辑区缺失': ['Missing in editor'],
+  '同步到编辑区': ['Sync to editor'],
+  '将所有编辑区缺失的资源添加到编辑区，不覆盖已有资源。': ['Add all missing resources to the editor without overwriting existing resources.'],
+  '网关处于只读模式': ['The gateway is read-only'],
+  '仅编辑区缺失的资源可添加，已有资源请对比后同步': ['Only missing resources can be added. Compare existing resources before syncing.'],
+  '确认同步到编辑区？': ['Sync to editor?'],
+  '该资源存在未发布草稿，同步将覆盖草稿并恢复为已同步状态。': ['This resource has unpublished changes. Syncing will overwrite them and mark the resource as synchronized.'],
+  '将使用当前 etcd 快照覆盖编辑区配置，不修改 etcd。': ['Overwrite the editor configuration with the current etcd snapshot. This does not modify etcd.'],
+  '确认覆盖': ['Confirm overwrite'],
+  '已同步到编辑区': ['Synced to editor'],
   '路由': ['Route'],
   '创建路由': ['Create Route'],
   '路由列表': ['Route List'],

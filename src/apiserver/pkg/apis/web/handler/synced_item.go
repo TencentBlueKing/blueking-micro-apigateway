@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"gorm.io/datatypes"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
 	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
@@ -131,6 +132,7 @@ func SyncedItemSummary(c *gin.Context) {
 	}
 	var successCount int64
 	var missCount int64
+	var differentCount int64
 	// 统计一致/缺失数量
 	for _, item := range results {
 		switch item.Status {
@@ -138,11 +140,14 @@ func SyncedItemSummary(c *gin.Context) {
 			successCount++
 		case constant.SyncedResourceStatusMiss:
 			missCount++
+		case constant.SyncedResourceStatusDifferent:
+			differentCount++
 		}
 	}
 	ginx.SuccessJSONResponse(c, serializer.SyncedSummaryOutputInfo{
-		Success: successCount,
-		Miss:    missCount,
+		Success:   successCount,
+		Different: differentCount,
+		Miss:      missCount,
 	})
 }
 
@@ -153,8 +158,7 @@ func enrichOutputInfo(
 	status constant.SyncStatus,
 	name string,
 ) ([]*serializer.SyncDataOutputInfo, error) {
-	resourceIDMap := make(map[constant.APISIXResource][]string)      // resourceType:[]id
-	outputDataMap := make(map[string]*serializer.SyncDataOutputInfo) // id:sync
+	resourceIDMap := make(map[constant.APISIXResource][]string) // resourceType:[]id
 	var output []*serializer.SyncDataOutputInfo
 	var filterOutput []*serializer.SyncDataOutputInfo
 	for _, sync := range syncDataList {
@@ -173,24 +177,28 @@ func enrichOutputInfo(
 			CreatedAt:    sync.CreatedAt.Unix(),
 			UpdatedAt:    sync.UpdatedAt.Unix(),
 		}
-		outputDataMap[sync.ID] = syncData
 		output = append(output, syncData)
 	}
 
-	dbResourceIDMap := make(map[string]*model.ResourceCommonModel)
+	dbResourceIDMap := make(map[constant.APISIXResource]map[string]*model.ResourceCommonModel)
 	for resourceType, idList := range resourceIDMap {
 		dbResources, err := resourcebiz.BatchGetResources(ctx, resourceType, idList)
 		if err != nil {
 			return nil, err
 		}
+		dbResourceIDMap[resourceType] = make(map[string]*model.ResourceCommonModel)
 		for _, dbResource := range dbResources {
-			dbResourceIDMap[dbResource.ID] = dbResource
+			dbResourceIDMap[resourceType][dbResource.ID] = dbResource
 		}
 	}
 	for _, sync := range output {
-		if _, ok := dbResourceIDMap[sync.ID]; !ok {
-			sync.Status = constant.SyncedResourceStatusMiss
+		syncStatus, err := syncdatabiz.ConfigStatus(&model.GatewaySyncData{
+			ID: sync.ID, Type: sync.ResourceType, Config: datatypes.JSON(sync.Config),
+		}, dbResourceIDMap[sync.ResourceType][sync.ID], ginx.GetGatewayInfoFromContext(ctx).GetAPISIXVersionX())
+		if err != nil {
+			return nil, err
 		}
+		sync.Status = syncStatus
 		// 判断发布来源 todo: 根据标签来判断
 		if strings.HasPrefix(sync.ID, "bk.") {
 			sync.PublishSource = constant.PublishByBkAPISIXControlPlane

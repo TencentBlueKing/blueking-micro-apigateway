@@ -116,6 +116,7 @@ func (r ResourceCommonModel) ToResourceModel(resourceType constant.APISIXResourc
 		return &Upstream{
 			ResourceCommonModel: r,
 			Name:                r.GetName(resourceType),
+			SSLID:               r.GetSSLID(),
 		}
 	case constant.Consumer:
 		return &Consumer{

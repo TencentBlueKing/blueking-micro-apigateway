@@ -59,7 +59,9 @@
     </template>
     <template v-if="showFooter" #footer>
       <div class="footer-actions">
-        <bk-button theme="primary" @click="handleConfirmClick">{{ t('确定') }}</bk-button>
+        <bk-button theme="primary" :disabled="confirmDisabled" @click="handleConfirmClick">
+          {{ confirmText || t('确定') }}
+        </bk-button>
         <bk-button @click="handleCancelClick">{{ t('取消') }}</bk-button>
       </div>
     </template>
@@ -79,6 +81,8 @@ interface IProps {
   beforeConfig: Record<string, any>
   afterConfig: Record<string, any>
   operationType?: string
+  confirmText?: string
+  confirmDisabled?: boolean
   showFooter?: boolean
   titleConfig?: Record<string, any>
 }
@@ -93,6 +97,8 @@ const {
   afterConfig,
   operationType,
   showFooter = false,
+  confirmText = '',
+  confirmDisabled = false,
   titleConfig = {
     title: i18n.global.t('查看变更'),
     before: i18n.global.t('变更前'),

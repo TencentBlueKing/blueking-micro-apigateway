@@ -152,14 +152,16 @@ type SyncStatus string
 
 // SyncedResourceStatusSuccess ...
 const (
-	SyncedResourceStatusSuccess SyncStatus = "success" // 同步成功
-	SyncedResourceStatusMiss    SyncStatus = "miss"    // 编辑区无此资源
+	SyncedResourceStatusSuccess   SyncStatus = "success"   // 同步成功
+	SyncedResourceStatusDifferent SyncStatus = "different" // 编辑区配置与快照不同
+	SyncedResourceStatusMiss      SyncStatus = "miss"      // 编辑区无此资源
 )
 
 // SyncedResourceStatusMap ...
 var SyncedResourceStatusMap = map[SyncStatus]SyncStatus{
-	SyncedResourceStatusSuccess: SyncedResourceStatusSuccess,
-	SyncedResourceStatusMiss:    SyncedResourceStatusMiss,
+	SyncedResourceStatusSuccess:   SyncedResourceStatusSuccess,
+	SyncedResourceStatusMiss:      SyncedResourceStatusMiss,
+	SyncedResourceStatusDifferent: SyncedResourceStatusDifferent,
 }
 
 // UploadStatus 资源上传状态

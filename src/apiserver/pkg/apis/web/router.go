@@ -176,6 +176,7 @@ func RegisterWebApi(path string, router *gin.RouterGroup) {
 
 	// unify_op
 	gatewayGroup.POST("/unify_op/resources/:type/revert/", handler.ResourceRevert)
+	gatewayGroup.POST("/unify_op/resources/:type/sync/:id/", handler.ResourceSyncToEditor)
 	gatewayGroup.POST("/unify_op/resources/-/managed/", handler.SyncedResourceManaged)
 	gatewayGroup.POST("/unify_op/resources/-/diff/", handler.ResourcesDiffAll)
 	gatewayGroup.POST("/unify_op/resources/:type/diff/", handler.ResourcesDiff)

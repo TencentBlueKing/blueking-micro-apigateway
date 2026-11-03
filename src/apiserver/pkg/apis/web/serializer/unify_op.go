@@ -50,7 +50,8 @@ type DeleteRequest struct {
 
 // ResourceManagedRequest ...
 type ResourceManagedRequest struct {
-	ResourceIDList []string `json:"resource_id_list"` // 资源ID列表，不传则同步所有资源
+	ResourceType   constant.APISIXResource `json:"resource_type,omitempty"`
+	ResourceIDList []string                `json:"resource_id_list"` // 资源ID列表，不传则同步所有资源
 }
 
 // ResourceManagedResponse ...
@@ -127,4 +128,10 @@ func init() {
 		CheckResourceDiffOperationType,
 		"{0}:{1} must be update,create,delete",
 	)
+}
+
+// SyncToEditorRequest confirms the revisions displayed in the config preview.
+type SyncToEditorRequest struct {
+	SyncToken      string `json:"sync_token" binding:"required,len=64"`
+	OverwriteDraft bool   `json:"overwrite_draft"`
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/tidwall/gjson"
 	"gorm.io/datatypes"
 
+	diffbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/diff"
 	syncdatabiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/syncdata"
 	unifyopbiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/unifyop"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
@@ -36,6 +37,63 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
+
+func TestSyncToEditorSameConfigDraftRestoresPublishedState(t *testing.T) {
+	initWebCreateHandlerTestEnv()
+	for _, state := range []constant.ResourceStatus{
+		constant.ResourceStatusCreateDraft, constant.ResourceStatusUpdateDraft,
+	} {
+		t.Run(string(state), func(t *testing.T) {
+			gateway := &model.Gateway{ID: 9876547, APISIXVersion: "3.13.0"}
+			ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+			id := uniqueWebCreateName("same-config-draft")
+			route := &model.Route{Name: id, ResourceCommonModel: model.ResourceCommonModel{
+				ID: id, GatewayID: gateway.ID, Status: state, Config: datatypes.JSON(`{"uri":"/demo"}`),
+			}}
+			require.NoError(t, repo.Route.WithContext(ctx).Create(route))
+			snapshot := &model.GatewaySyncData{
+				ID: id, GatewayID: gateway.ID, Type: constant.Route, Config: route.Config,
+			}
+			require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(snapshot))
+			preview, err := unifyopbiz.GetResourceConfigDiffDetail(ctx, constant.Route, id)
+			require.NoError(t, err)
+			pending, err := diffbiz.DiffResources(ctx, constant.Route, []string{id}, "", nil, false)
+			require.NoError(t, err)
+			require.Len(t, pending, 1)
+			require.Equal(t, 1, pending[0].AddedCount+pending[0].UpdateCount)
+			call := func(token string, confirm bool) int {
+				c, w := newWebCreateTestContext(t, mustJSONBody(t, map[string]any{
+					"sync_token": token, "overwrite_draft": confirm,
+				}), gateway, "sync-tester")
+				c.Params = gin.Params{
+					{Key: "gateway_id", Value: fmt.Sprint(gateway.ID)},
+					{Key: "type", Value: "route"},
+					{Key: "id", Value: id},
+				}
+				ResourceSyncToEditor(c)
+				return w.Code
+			}
+			require.Equal(t, http.StatusConflict, call(preview.SyncToken, false))
+			require.Equal(t, http.StatusOK, call(preview.SyncToken, true))
+			saved, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(id)).Take()
+			require.NoError(t, err)
+			require.Equal(t, constant.ResourceStatusSuccess, saved.Status)
+			require.JSONEq(t, string(route.Config), string(saved.Config))
+			require.Equal(t, "sync-tester", saved.Updater)
+			pending, err = diffbiz.DiffResources(ctx, constant.Route, []string{id}, "", nil, false)
+			require.NoError(t, err)
+			require.Empty(t, pending)
+			require.Equal(t, http.StatusConflict, call(preview.SyncToken, true))
+			preview, err = unifyopbiz.GetResourceConfigDiffDetail(ctx, constant.Route, id)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, call(preview.SyncToken, true))
+			logs, err := repo.OperationAuditLog.WithContext(ctx).
+				Where(repo.OperationAuditLog.ResourceIDs.Eq(id)).Find()
+			require.NoError(t, err)
+			require.Len(t, logs, 2)
+		})
+	}
+}
 
 func TestSyncToEditorGuardsAndPersistence(t *testing.T) {
 	initWebCreateHandlerTestEnv()

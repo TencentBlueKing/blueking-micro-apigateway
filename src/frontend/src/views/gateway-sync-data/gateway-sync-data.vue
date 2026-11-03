@@ -511,7 +511,7 @@ fetchSyncedSummary();
 const getTableData = async (params: Record<string, any> = {}) => {
   const results = await getGatewaySyncDataList({ gatewayId: common.gatewayId, query: params });
   if (!results) return [];
-  results.results = results.results.map(item => ({ ...item, resource_key: `${item.resource_type}:${item.id}` }));
+  results.results = (results.results ?? []).map(item => ({ ...item, resource_key: `${item.resource_type}:${item.id}` }));
   return results;
 };
 

@@ -93,7 +93,8 @@ func SyncResourceToEditor(ctx context.Context, resourceType constant.APISIXResou
 		if err != nil {
 			return err
 		}
-		if syncStatus == constant.SyncedResourceStatusSuccess {
+		if syncStatus == constant.SyncedResourceStatusSuccess &&
+			editor.Status == constant.ResourceStatusSuccess {
 			return nil
 		}
 		editor.Config, err = editorSyncConfig(&snapshot, &editor, gateway.GetAPISIXVersionX())

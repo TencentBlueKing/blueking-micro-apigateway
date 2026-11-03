@@ -47,6 +47,13 @@ func TestConfigStatus(t *testing.T) {
 		{"SSL internal validity", constant.SSL, constant.APISIXVersion313, `{"cert":"cert"}`, `{"cert":"cert","name":"local","validity_start":1,"validity_end":2}`, constant.SyncedResourceStatusSuccess},
 		{"stream labels", constant.StreamRoute, constant.APISIXVersion313, `{"server_port":123}`, `{"server_port":123,"labels":{"internal":"1"}}`, constant.SyncedResourceStatusSuccess},
 		{"array order matters", constant.Route, constant.APISIXVersion313, `{"plugins":{"custom":{"items":[1,2]}}}`, `{"plugins":{"custom":{"items":[2,1]}}}`, constant.SyncedResourceStatusDifferent},
+		{"empty route vars", constant.Route, constant.APISIXVersion313, `{"uri":"/demo","vars":[]}`, `{"uri":"/demo"}`, constant.SyncedResourceStatusSuccess},
+		{"empty route labels", constant.Route, constant.APISIXVersion313, `{"uri":"/demo","labels":{}}`, `{"uri":"/demo"}`, constant.SyncedResourceStatusSuccess},
+		{"empty upstream nodes", constant.Upstream, constant.APISIXVersion313, `{"type":"roundrobin","nodes":[]}`, `{"type":"roundrobin"}`, constant.SyncedResourceStatusSuccess},
+		{"empty inline upstream nodes", constant.Route, constant.APISIXVersion313, `{"uri":"/demo","upstream":{"type":"roundrobin","nodes":{}}}`, `{"uri":"/demo","upstream":{"type":"roundrobin"}}`, constant.SyncedResourceStatusSuccess},
+		{"empty containers in non-plugin arrays", constant.Route, constant.APISIXVersion313, `{"vars":[[],["arg_x","==","1"]]}`, `{"vars":[["arg_x","==","1"]]}`, constant.SyncedResourceStatusSuccess},
+		{"nested plugin empty values are meaningful", constant.Route, constant.APISIXVersion313, `{"plugins":{"custom":{"options":{},"items":[]}}}`, `{"plugins":{"custom":{}}}`, constant.SyncedResourceStatusDifferent},
+		{"empty labels do not hide plugin changes", constant.Route, constant.APISIXVersion313, `{"labels":{},"plugins":{"key-auth":{}}}`, `{"plugins":{}}`, constant.SyncedResourceStatusDifferent},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := []byte(test.before)

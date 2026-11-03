@@ -19,26 +19,41 @@
 package syncdata
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/tidwall/gjson"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/jsonx"
 )
 
-// ComparableConfig removes only known control-plane fields. Plugin payloads are opaque:
-// unknown plugins, empty plugin objects, arrays and nested timestamps must survive.
+// ComparableConfig mirrors save-time normalization and removes control-plane fields.
+// Plugin payloads remain opaque, including empty objects, arrays and nested timestamps.
 func ComparableConfig(config json.RawMessage, resourceType constant.APISIXResource,
 	version constant.APISIXVersion,
 ) (map[string]any, error) {
+	if !json.Valid(config) {
+		return nil, fmt.Errorf("resource config must be valid JSON")
+	}
+	normalized, err := jsonx.RemoveEmptyObjectsAndArrays(string(config))
+	if err != nil {
+		return nil, err
+	}
+	if resourceType == constant.SSL && gjson.Get(normalized, "snis").String() == "" {
+		ssl := model.SSL{ResourceCommonModel: model.ResourceCommonModel{Config: []byte(normalized)}}
+		// Use the same SNI inference as saving, without requiring opaque certificate references to resolve.
+		if err := ssl.HandleConfig(); err == nil {
+			normalized = string(ssl.Config)
+		}
+	}
 	var value map[string]any
-	decoder := json.NewDecoder(bytes.NewReader(config))
+	decoder := json.NewDecoder(strings.NewReader(normalized))
 	decoder.UseNumber()
 	if err := decoder.Decode(&value); err != nil {
 		return nil, err

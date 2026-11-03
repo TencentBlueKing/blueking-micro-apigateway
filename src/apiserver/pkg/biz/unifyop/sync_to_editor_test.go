@@ -39,6 +39,102 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
+func TestSyncToEditorConvergesAfterSaveNormalization(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		kind   constant.APISIXResource
+		config string
+	}{
+		{"route vars", constant.Route, `{"uri":"/demo","vars":[],"plugins":{"key-auth":{},"custom":{"items":[],"options":{}}}}`},
+		{"route labels", constant.Route, `{"uri":"/demo","labels":{}}`},
+		{"upstream nodes", constant.Upstream, `{"type":"roundrobin","nodes":[]}`},
+		{"inline upstream", constant.Route, `{"uri":"/demo","upstream":{"type":"roundrobin","nodes":{}}}`},
+		{"SSL inferred snis", constant.SSL, `{"sni":"test.com"}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			id := idx.GenResourceID(test.kind)
+			config, err := sjson.Set(test.config, "name", id)
+			require.NoError(t, err)
+			if test.kind == constant.SSL {
+				config, err = sjson.Set(config, "cert", strings.ReplaceAll(testSSLCert, `\n`, "\n"))
+				require.NoError(t, err)
+				config, err = sjson.Set(config, "key", strings.ReplaceAll(testSSLKey, `\n`, "\n"))
+				require.NoError(t, err)
+			}
+			before, err := sjson.Set(config, "desc", "before")
+			require.NoError(t, err)
+			typed, err := resourcebiz.NewTypedResourceModel(test.kind, model.ResourceCommonModel{
+				ID:        id,
+				GatewayID: gatewayInfo.ID,
+				Status:    constant.ResourceStatusSuccess,
+				Config:    []byte(before),
+			})
+			require.NoError(t, err)
+			require.NoError(t, database.Client().WithContext(gatewayCtx).Create(typed).Error)
+			after, err := sjson.Set(config, "desc", "after")
+			require.NoError(t, err)
+			snapshot := &model.GatewaySyncData{
+				ID:          id,
+				GatewayID:   gatewayInfo.ID,
+				Type:        test.kind,
+				Config:      []byte(after),
+				ModRevision: 1,
+			}
+			require.NoError(t, repo.GatewaySyncData.WithContext(gatewayCtx).Create(snapshot))
+			for range 2 {
+				preview, err := GetResourceConfigDiffDetail(gatewayCtx, test.kind, id)
+				require.NoError(t, err)
+				require.NoError(
+					t,
+					SyncResourceToEditor(gatewayCtx, test.kind, id, preview.SyncToken, false),
+				)
+				saved, err := resourcebiz.GetResourceByID(gatewayCtx, test.kind, id)
+				require.NoError(t, err)
+				require.Equal(t, "after", gjson.GetBytes(saved.Config, "desc").String())
+				state, err := syncdatabiz.ConfigStatus(
+					snapshot,
+					&saved,
+					gatewayInfo.GetAPISIXVersionX(),
+				)
+				require.NoError(t, err)
+				require.Equal(t, constant.SyncedResourceStatusSuccess, state)
+				if test.name == "route vars" {
+					require.JSONEq(
+						t,
+						`{"key-auth":{},"custom":{"items":[],"options":{}}}`,
+						gjson.GetBytes(saved.Config, "plugins").Raw,
+					)
+				}
+			}
+			logs, err := repo.OperationAuditLog.WithContext(gatewayCtx).
+				Where(repo.OperationAuditLog.ResourceIDs.Eq(id)).Find()
+			require.NoError(t, err)
+			require.Len(t, logs, 2)
+		})
+	}
+}
+
+func TestAddSyncedResourcesConvergesAfterSaveNormalization(t *testing.T) {
+	id := idx.GenResourceID(constant.Route)
+	snapshot := &model.GatewaySyncData{
+		ID:        id,
+		GatewayID: gatewayInfo.ID,
+		Type:      constant.Route,
+		Config: datatypes.JSON(
+			fmt.Sprintf(`{"name":%q,"uri":"/demo","vars":[],"labels":{},"plugins":{"key-auth":{}}}`, id),
+		),
+	}
+	require.NoError(t, repo.GatewaySyncData.WithContext(gatewayCtx).Create(snapshot))
+	_, err := AddSyncedResources(gatewayCtx, []string{id})
+	require.NoError(t, err)
+	saved, err := resourcebiz.GetResourceByID(gatewayCtx, constant.Route, id)
+	require.NoError(t, err)
+	state, err := syncdatabiz.ConfigStatus(snapshot, &saved, gatewayInfo.GetAPISIXVersionX())
+	require.NoError(t, err)
+	require.Equal(t, constant.SyncedResourceStatusSuccess, state)
+	require.True(t, gjson.GetBytes(saved.Config, "plugins.key-auth").Exists())
+}
+
 func TestAddSyncedResourcesReadOnly(t *testing.T) {
 	gateway := *gatewayInfo
 	gateway.ReadOnly = true

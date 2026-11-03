@@ -139,9 +139,69 @@ func TestSyncToEditorGuardsAndPersistence(t *testing.T) {
 	}
 }
 
-func TestSyncedResourceManagedRejectsReadOnly(t *testing.T) {
+func TestSyncedResourceManagedAllowsReadOnlyAddMissing(t *testing.T) {
 	initWebCreateHandlerTestEnv()
-	c, w := newWebCreateTestContext(t, `{}`, &model.Gateway{ID: 9876545, ReadOnly: true}, "sync-tester")
-	SyncedResourceManaged(c)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	gateway := &model.Gateway{ID: 9876545, ReadOnly: true, APISIXVersion: "3.13.0"}
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+	id := uniqueWebCreateName("readonly-route")
+	snapshot := &model.GatewaySyncData{
+		ID: id, GatewayID: gateway.ID, Type: constant.Route,
+		Config: datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/snapshot"}`, id)),
+	}
+	require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(snapshot))
+	for range 2 {
+		c, w := newWebCreateTestContext(t, mustJSONBody(t, map[string]any{
+			"resource_type": "route", "resource_id_list": []string{id},
+		}), gateway, "sync-tester")
+		SyncedResourceManaged(c)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	}
+	saved, err := repo.Route.WithContext(
+		ctx,
+	).Where(
+		repo.Route.GatewayID.Eq(gateway.ID),
+		repo.Route.ID.Eq(id),
+	).Take()
+	require.NoError(t, err)
+	require.Equal(t, constant.ResourceStatusSuccess, saved.Status)
+	require.Equal(t, "/snapshot", gjson.GetBytes(saved.Config, "uri").String())
+}
+
+func TestSyncToEditorMissingDependencyReturnsConflict(t *testing.T) {
+	initWebCreateHandlerTestEnv()
+	gateway := &model.Gateway{ID: 9876546, APISIXVersion: "3.13.0"}
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+	id := uniqueWebCreateName("missing-dependency-route")
+	route := &model.Route{Name: id, ResourceCommonModel: model.ResourceCommonModel{
+		ID: id, GatewayID: gateway.ID, Status: constant.ResourceStatusUpdateDraft,
+		Config: datatypes.JSON(`{"uri":"/draft"}`),
+	}}
+	require.NoError(t, repo.Route.WithContext(ctx).Create(route))
+	snapshot := &model.GatewaySyncData{
+		ID: id, GatewayID: gateway.ID, Type: constant.Route,
+		Config: datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/snapshot","upstream_id":"snapshot-only"}`, id)),
+	}
+	require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(snapshot))
+	preview, err := unifyopbiz.GetResourceConfigDiffDetail(ctx, constant.Route, id)
+	require.NoError(t, err)
+	c, w := newWebCreateTestContext(t, mustJSONBody(t, map[string]any{
+		"sync_token": preview.SyncToken, "overwrite_draft": true,
+	}), gateway, "sync-tester")
+	c.Params = gin.Params{
+		{Key: "gateway_id", Value: fmt.Sprint(gateway.ID)},
+		{Key: "type", Value: "route"},
+		{Key: "id", Value: id},
+	}
+	ResourceSyncToEditor(c)
+	require.Equal(t, http.StatusConflict, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), "snapshot-only")
+	saved, err := repo.Route.WithContext(
+		ctx,
+	).Where(
+		repo.Route.GatewayID.Eq(gateway.ID),
+		repo.Route.ID.Eq(id),
+	).Take()
+	require.NoError(t, err)
+	require.Equal(t, route.Config, saved.Config)
+	require.Equal(t, constant.ResourceStatusUpdateDraft, saved.Status)
 }

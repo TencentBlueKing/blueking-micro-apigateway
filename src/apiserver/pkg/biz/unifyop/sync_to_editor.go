@@ -42,12 +42,14 @@ import (
 )
 
 var (
-	// ErrSyncReadOnly prevents writes to the edit area of a read-only gateway.
+	// ErrSyncReadOnly prevents overwriting resources in a read-only gateway.
 	ErrSyncReadOnly = errors.New("网关只读模式，不允许同步到编辑区")
 	// ErrSyncConflict requires a new preview before overwriting changed data.
 	ErrSyncConflict = errors.New("资源已变化，请重新对比后同步")
 	// ErrSyncDraft requires explicit consent to discard unpublished edits.
 	ErrSyncDraft = errors.New("同步将覆盖未发布草稿，请确认后重试")
+	// ErrSyncDependencyMissing requires importing dependencies before overwriting a resource.
+	ErrSyncDependencyMissing = errors.New("关联资源在编辑区缺失，请先添加关联资源")
 )
 
 // SyncResourceToEditor overwrites one existing resource from the displayed snapshot.
@@ -98,6 +100,9 @@ func SyncResourceToEditor(ctx context.Context, resourceType constant.APISIXResou
 		if err != nil {
 			return err
 		}
+		if err := checkEditorDependencies(tx, resourceType, &editor); err != nil {
+			return err
+		}
 		editor.Status = constant.ResourceStatusSuccess
 		editor.Updater = ginx.GetUserIDFromContext(ctx)
 		typed, err := resourcebiz.NewTypedResourceModel(resourceType, editor)
@@ -108,6 +113,53 @@ func SyncResourceToEditor(ctx context.Context, resourceType constant.APISIXResou
 		return tx.Model(typed).Where("gateway_id = ? AND id = ?", gateway.ID, id).
 			Select("*").Omit("auto_id", "id", "gateway_id", "creator", "created_at").Updates(typed).Error
 	})
+}
+
+func checkEditorDependencies(
+	tx *gorm.DB,
+	resourceType constant.APISIXResource,
+	editor *model.ResourceCommonModel,
+) error {
+	type dependency struct {
+		resourceType constant.APISIXResource
+		id           string
+	}
+	var dependencies []dependency
+	switch resourceType {
+	case constant.Route:
+		dependencies = []dependency{
+			{constant.Service, editor.GetServiceID()},
+			{constant.Upstream, editor.GetUpstreamID()},
+			{constant.PluginConfig, editor.GetPluginConfigID()},
+		}
+	case constant.Service:
+		dependencies = []dependency{{constant.Upstream, editor.GetUpstreamID()}}
+	case constant.StreamRoute:
+		dependencies = []dependency{
+			{constant.Service, editor.GetServiceID()},
+			{constant.Upstream, editor.GetUpstreamID()},
+		}
+	case constant.Consumer:
+		dependencies = []dependency{{constant.ConsumerGroup, editor.GetGroupID()}}
+	case constant.Upstream:
+		dependencies = []dependency{{constant.SSL, editor.GetSSLID()}}
+	}
+	for _, dependency := range dependencies {
+		if dependency.id == "" {
+			continue
+		}
+		var referenced model.ResourceCommonModel
+		err := tx.Table(resourcebiz.ResourceTableName(dependency.resourceType)).
+			Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").
+			Where("gateway_id = ? AND id = ?", editor.GatewayID, dependency.id).Take(&referenced).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("%w: %s/%s", ErrSyncDependencyMissing, dependency.resourceType, dependency.id)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // editorSyncConfig preserves fields that are owned only by the control plane and

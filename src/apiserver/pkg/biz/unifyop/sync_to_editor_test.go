@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"gorm.io/datatypes"
 
 	resourcebiz "github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/biz/resource"
@@ -34,10 +35,183 @@ import (
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/infras/database"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/repo"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/idx"
 )
 
+func TestAddSyncedResourcesReadOnly(t *testing.T) {
+	gateway := *gatewayInfo
+	gateway.ReadOnly = true
+	ctx := ginx.SetGatewayInfoToContext(gatewayCtx, &gateway)
+	existingID := idx.GenResourceID(constant.Route)
+	newID := idx.GenResourceID(constant.Route)
+	upstreamID := idx.GenResourceID(constant.Upstream)
+	existing := &model.Route{Name: existingID, ResourceCommonModel: model.ResourceCommonModel{
+		ID: existingID, GatewayID: gateway.ID, Status: constant.ResourceStatusUpdateDraft,
+		Config: datatypes.JSON(`{"uri":"/draft"}`),
+	}}
+	require.NoError(t, repo.Route.WithContext(ctx).Create(existing))
+	require.NoError(t, repo.GatewaySyncData.WithContext(ctx).CreateInBatches([]*model.GatewaySyncData{
+		{
+			ID: existingID, GatewayID: gateway.ID, Type: constant.Route,
+			Config: datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/deployed"}`, existingID)),
+		},
+		{
+			ID:        newID,
+			GatewayID: gateway.ID,
+			Type:      constant.Route,
+			Config: datatypes.JSON(
+				fmt.Sprintf(`{"name":%q,"uri":"/new","upstream_id":%q}`, newID, upstreamID),
+			),
+		},
+		{
+			ID:        upstreamID,
+			GatewayID: gateway.ID,
+			Type:      constant.Upstream,
+			Config: datatypes.JSON(
+				fmt.Sprintf(`{"name":%q,"type":"roundrobin","nodes":{"127.0.0.1:80":1}}`, upstreamID),
+			),
+		},
+	}, 3))
+	counts, err := AddSyncedResources(ctx, []string{existingID, newID})
+	require.NoError(t, err)
+	require.Equal(t, 1, counts[constant.Route])
+	require.Equal(t, 1, counts[constant.Upstream])
+	saved, err := resourcebiz.GetResourceByID(ctx, constant.Route, existingID)
+	require.NoError(t, err)
+	require.Equal(t, existing.Config, saved.Config)
+	require.Equal(t, constant.ResourceStatusUpdateDraft, saved.Status)
+	added, err := resourcebiz.GetResourceByID(ctx, constant.Route, newID)
+	require.NoError(t, err)
+	require.Equal(t, upstreamID, added.GetUpstreamID())
+	require.Equal(t, constant.ResourceStatusSuccess, added.Status)
+	_, err = resourcebiz.GetResourceByID(ctx, constant.Upstream, upstreamID)
+	require.NoError(t, err)
+	preview, err := GetResourceConfigDiffDetail(ctx, constant.Route, existingID)
+	require.NoError(t, err)
+	require.ErrorIs(
+		t,
+		SyncResourceToEditor(ctx, constant.Route, existingID, preview.SyncToken, true),
+		ErrSyncReadOnly,
+	)
+}
+
+func TestSyncToEditorRequiresEditorDependencies(t *testing.T) {
+	for _, test := range []struct {
+		kind       constant.APISIXResource
+		field      string
+		dependency constant.APISIXResource
+	}{
+		{constant.Route, "service_id", constant.Service},
+		{constant.Route, "upstream_id", constant.Upstream},
+		{constant.Route, "plugin_config_id", constant.PluginConfig},
+		{constant.Service, "upstream_id", constant.Upstream},
+		{constant.StreamRoute, "service_id", constant.Service},
+		{constant.StreamRoute, "upstream_id", constant.Upstream},
+		{constant.Consumer, "group_id", constant.ConsumerGroup},
+		{constant.Upstream, "tls.client_cert_id", constant.SSL},
+	} {
+		t.Run(string(test.kind)+"/"+test.field, func(t *testing.T) {
+			id := idx.GenResourceID(test.kind)
+			dependencyID := idx.GenResourceID(test.dependency)
+			nameField := model.GetResourceNameKey(test.kind)
+			before := datatypes.JSON(fmt.Sprintf(`{%q:%q,"desc":"draft"}`, nameField, id))
+			common := model.ResourceCommonModel{
+				ID:        id,
+				GatewayID: gatewayInfo.ID,
+				Config:    before,
+				Status:    constant.ResourceStatusUpdateDraft,
+			}
+			typed, err := resourcebiz.NewTypedResourceModel(test.kind, common)
+			require.NoError(t, err)
+			require.NoError(t, database.Client().WithContext(gatewayCtx).Create(typed).Error)
+			original, err := resourcebiz.GetResourceByID(gatewayCtx, test.kind, id)
+			require.NoError(t, err)
+			incoming, err := sjson.SetBytes(before, test.field, dependencyID)
+			require.NoError(t, err)
+			snapshot := &model.GatewaySyncData{
+				ID: id, GatewayID: gatewayInfo.ID, Type: test.kind, Config: incoming, ModRevision: 1,
+			}
+			require.NoError(t, repo.GatewaySyncData.WithContext(gatewayCtx).Create(snapshot))
+			dependencyConfig := datatypes.JSON(fmt.Sprintf(`{"name":%q}`, dependencyID))
+			if test.dependency == constant.SSL {
+				dependencyConfig, err = sjson.SetBytes(
+					dependencyConfig,
+					"cert",
+					strings.ReplaceAll(testSSLCert, `\n`, "\n"),
+				)
+				require.NoError(t, err)
+				dependencyConfig, err = sjson.SetBytes(
+					dependencyConfig,
+					"key",
+					strings.ReplaceAll(testSSLKey, `\n`, "\n"),
+				)
+				require.NoError(t, err)
+			}
+			require.NoError(t, repo.GatewaySyncData.WithContext(gatewayCtx).Create(&model.GatewaySyncData{
+				ID:        dependencyID,
+				GatewayID: gatewayInfo.ID,
+				Type:      test.dependency,
+				Config:    dependencyConfig,
+			}))
+			// A snapshot, another type with this ID, or another gateway's row cannot satisfy the reference.
+			wrongType := constant.PluginConfig
+			if test.dependency == wrongType {
+				wrongType = constant.ConsumerGroup
+			}
+			for _, candidate := range []struct {
+				kind    constant.APISIXResource
+				gateway int
+			}{{wrongType, gatewayInfo.ID}, {test.dependency, gatewayInfo.ID + 100}} {
+				dependency, err := resourcebiz.NewTypedResourceModel(
+					candidate.kind,
+					model.ResourceCommonModel{
+						ID:        dependencyID,
+						GatewayID: candidate.gateway,
+						Config:    dependencyConfig,
+						Status:    constant.ResourceStatusSuccess,
+					},
+				)
+				require.NoError(t, err)
+				require.NoError(t, database.Client().WithContext(gatewayCtx).Create(dependency).Error)
+			}
+			preview, err := GetResourceConfigDiffDetail(gatewayCtx, test.kind, id)
+			require.NoError(t, err)
+			err = SyncResourceToEditor(gatewayCtx, test.kind, id, preview.SyncToken, true)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), dependencyID)
+			unchanged, err := resourcebiz.GetResourceByID(gatewayCtx, test.kind, id)
+			require.NoError(t, err)
+			require.Equal(t, original, unchanged)
+			logs, err := repo.OperationAuditLog.WithContext(gatewayCtx).
+				Where(repo.OperationAuditLog.ResourceIDs.Eq(id)).Find()
+			require.NoError(t, err)
+			require.Len(t, logs, 1)
+
+			dependency, err := resourcebiz.NewTypedResourceModel(test.dependency, model.ResourceCommonModel{
+				ID: dependencyID, GatewayID: gatewayInfo.ID, Config: dependencyConfig,
+				Status: constant.ResourceStatusSuccess,
+			})
+			require.NoError(t, err)
+			require.NoError(t, database.Client().WithContext(gatewayCtx).Create(dependency).Error)
+			require.NoError(t, SyncResourceToEditor(gatewayCtx, test.kind, id, preview.SyncToken, true))
+			saved, err := resourcebiz.GetResourceByID(gatewayCtx, test.kind, id)
+			require.NoError(t, err)
+			require.Equal(t, dependencyID, gjson.GetBytes(saved.Config, test.field).String())
+			require.Equal(t, constant.ResourceStatusSuccess, saved.Status)
+		})
+	}
+}
+
 func TestSyncToEditorAllResourceTypes(t *testing.T) {
+	clientCertID := idx.GenResourceID(constant.SSL)
+	require.NoError(t, repo.SSL.WithContext(gatewayCtx).Create(&model.SSL{
+		Name: clientCertID,
+		ResourceCommonModel: model.ResourceCommonModel{
+			ID: clientCertID, GatewayID: gatewayInfo.ID, Status: constant.ResourceStatusSuccess,
+			Config: datatypes.JSON(`{"snis":["client.example.com"]}`),
+		},
+	}))
 	for _, kind := range constant.ResourceTypeList {
 		t.Run(string(kind), func(t *testing.T) {
 			id := idx.GenResourceID(kind)
@@ -46,7 +220,7 @@ func TestSyncToEditorAllResourceTypes(t *testing.T) {
 				config = map[string]any{"username": id, "desc": "before"}
 			}
 			if kind == constant.Upstream {
-				config["tls"] = map[string]any{"client_cert_id": "client-cert"}
+				config["tls"] = map[string]any{"client_cert_id": clientCertID}
 			}
 			if kind == constant.SSL {
 				config["snis"] = []string{"example.com"}
@@ -80,14 +254,14 @@ func TestSyncToEditorAllResourceTypes(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "after", gjson.GetBytes(saved.Config, "desc").String())
 			if kind == constant.Upstream {
-				require.Equal(t, "client-cert", saved.GetSSLID())
+				require.Equal(t, clientCertID, saved.GetSSLID())
 				upstream, queryErr := repo.Upstream.WithContext(
 					gatewayCtx,
 				).Where(
 					repo.Upstream.ID.Eq(id),
 				).Take()
 				require.NoError(t, queryErr)
-				require.Equal(t, "client-cert", upstream.SSLID)
+				require.Equal(t, clientCertID, upstream.SSLID)
 			}
 			got, err := syncdatabiz.ConfigStatus(snapshot, &saved, gatewayInfo.GetAPISIXVersionX())
 			require.NoError(t, err)
@@ -178,6 +352,17 @@ func TestSyncToEditorPreservesSSLMetadata(t *testing.T) {
 }
 
 func TestSyncToEditorNumericReferenceRoundTrip(t *testing.T) {
+	for _, dependency := range []struct {
+		kind constant.APISIXResource
+		id   string
+	}{{constant.Upstream, "123"}, {constant.Service, "456"}, {constant.PluginConfig, "789"}} {
+		typed, err := resourcebiz.NewTypedResourceModel(dependency.kind, model.ResourceCommonModel{
+			ID: dependency.id, GatewayID: gatewayInfo.ID, Status: constant.ResourceStatusSuccess,
+			Config: datatypes.JSON(fmt.Sprintf(`{"name":%q}`, dependency.id)),
+		})
+		require.NoError(t, err)
+		require.NoError(t, database.Client().WithContext(gatewayCtx).Create(typed).Error)
+	}
 	id := idx.GenResourceID(constant.Route)
 	route := &model.Route{Name: id, ResourceCommonModel: model.ResourceCommonModel{
 		ID: id, GatewayID: gatewayInfo.ID,

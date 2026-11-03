@@ -126,10 +126,6 @@ func SyncedResourceManaged(c *gin.Context) {
 		req.ResourceType,
 	)
 	if err != nil {
-		if errors.Is(err, unifyopbiz.ErrSyncReadOnly) {
-			ginx.BadRequestErrorJSONResponse(c, err)
-			return
-		}
 		if errors.Is(err, unifyopbiz.ErrResourceNameConflict) {
 			ginx.ConflictJSONResponse(c, err)
 			return
@@ -569,7 +565,8 @@ func ResourceSyncToEditor(c *gin.Context) {
 		req.OverwriteDraft,
 	)
 	if err != nil {
-		if errors.Is(err, unifyopbiz.ErrSyncConflict) || errors.Is(err, unifyopbiz.ErrSyncDraft) {
+		if errors.Is(err, unifyopbiz.ErrSyncConflict) || errors.Is(err, unifyopbiz.ErrSyncDraft) ||
+			errors.Is(err, unifyopbiz.ErrSyncDependencyMissing) {
 			ginx.ConflictJSONResponse(c, err)
 			return
 		}

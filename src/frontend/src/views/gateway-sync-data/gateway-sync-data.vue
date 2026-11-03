@@ -66,7 +66,7 @@
           <span class="line"></span>
           <span class="lose">{{ summary.miss }}</span>
           <span>{{ t('编辑区缺失') }}</span>
-          <template v-if="summary.miss && !isReadonlyGateway">
+          <template v-if="summary.miss">
             <span> , </span>
             <bk-pop-confirm
               width="288"
@@ -214,11 +214,11 @@ const summary = ref<{
 });
 
 const isDisabledSelected = (item) => {
-  return isReadonlyGateway.value || !['miss'].includes(item.status);
+  return !['miss'].includes(item.status);
 };
 
 const isAllowCheckSelection = (item) => {
-  return !isReadonlyGateway.value && ['miss'].includes(item.status);
+  return ['miss'].includes(item.status);
 };
 
 const statusList = [
@@ -299,7 +299,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
         <Checkbox
           v-model={row.isCustomCheck}
           v-bk-tooltips={{
-            content: isReadonlyGateway.value ? t('网关处于只读模式') : t('仅编辑区缺失的资源可添加，已有资源请对比后同步'),
+            content: t('仅编辑区缺失的资源可添加，已有资源请对比后同步'),
             placement: 'top',
             disabled: !isDisabledSelected(row),
           }}
@@ -434,7 +434,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
 
           {
             row?.status === 'miss'
-            && <bk-button text theme="primary" disabled={isReadonlyGateway.value} onClick={() => handleAdd(row)}>
+            && <bk-button text theme="primary" onClick={() => handleAdd(row)}>
               {t('添加')}
             </bk-button>
           }
@@ -492,7 +492,7 @@ const searchOptions = computed(() => {
 // });
 
 const disabledSelected = computed(() => {
-  return isReadonlyGateway.value || !tableData.value?.length || tableData.value?.every(item => !['miss'].includes(item.status));
+  return !tableData.value?.length || tableData.value?.every(item => !['miss'].includes(item.status));
 });
 
 watch(
@@ -622,7 +622,6 @@ const handleCheckDiff = async (row: IGatewaySyncDataDto, sync = false) => {
 };
 
 const addResource = async (ids?: string[], resourceType?: string) => {
-  if (isReadonlyGateway.value) return;
   isAddLoading.value = true;
   try {
     const data = ids ? { resource_id_list: ids, resource_type: resourceType } : {};
@@ -726,7 +725,6 @@ const handleMultiAdd = async () => {
     return;
   }
 
-  if (isReadonlyGateway.value) return;
   const selected = [...selectionHook.selections.value] as IGatewaySyncDataDto[];
   const types = [...new Set(selected.map(item => item.resource_type))];
   for (const type of types) {

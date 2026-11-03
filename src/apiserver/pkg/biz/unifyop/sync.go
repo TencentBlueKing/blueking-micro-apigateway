@@ -146,9 +146,6 @@ func AddSyncedResources(ctx context.Context, idList []string) (map[constant.APIS
 func AddSyncedResourcesOfType( //nolint:gocyclo
 	ctx context.Context, idList []string, resourceType constant.APISIXResource,
 ) (map[constant.APISIXResource]int, error) {
-	if ginx.GetGatewayInfoFromContext(ctx).ReadOnly {
-		return nil, ErrSyncReadOnly
-	}
 	// 同步资源统计
 	syncedResourceTypeStats := make(map[constant.APISIXResource]int)
 	queryParam := map[string]any{

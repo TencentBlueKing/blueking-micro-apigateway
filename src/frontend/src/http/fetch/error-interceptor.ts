@@ -28,7 +28,7 @@ export default (errorData: any, config: IFetchConfig) => {
   const {
     status,
     error,
-  } = errorData;
+  } = errorData || {};
   const loginCallbackURL = `${window.BK_DASHBOARD_FE_URL}/static/login_success.html?is_ajax=1`;
   const siteLoginUrl = BK_LOGIN_URL || '';
   const loginUrl = `${BK_LOGIN_URL}?app_code=1&c_url=${encodeURIComponent(loginCallbackURL)}`;
@@ -54,12 +54,19 @@ export default (errorData: any, config: IFetchConfig) => {
       showLoginModal({ loginUrl, width: iframeWidth, height: iframeHeight });
       break;
   }
-  // 全局捕获错误给出提示
-  if (config.globalError) {
-    if ((error?.message && JSON.parse(error.message)?.error?.code !== 'Unauthorized') && !useCommon()?.noGlobalError) {
-      Message({ theme: 'error', message: error?.message || 'Error' });
-    }
+  // Proxy errors may be HTML/plain text; native fetch errors have no nested error.
+  let message = error?.message || errorData?.message || 'Request failed';
+  let code: string | undefined;
+  try {
+    const body = JSON.parse(message);
+    code = body?.error?.code;
+    message = body?.error?.message || message;
+  } catch {
+    if (status) message = `Request failed (HTTP ${status})`;
   }
-  console.log('=>(error-interceptor.ts:46) errorData', errorData);
-  return Promise.reject(error);
+  if (config.globalError && code !== 'Unauthorized' && !useCommon()?.noGlobalError) {
+    Message({ theme: 'error', message });
+  }
+  console.log('=>(error-interceptor.ts) errorData', errorData);
+  return Promise.reject(error || errorData);
 };

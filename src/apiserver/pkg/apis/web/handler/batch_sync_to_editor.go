@@ -19,6 +19,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/apis/web/serializer"
@@ -38,7 +40,7 @@ import (
 func ReadonlyEditorSyncPreview(c *gin.Context) {
 	preview, err := unifyopbiz.PreviewReadonlyEditorSync(c.Request.Context())
 	if err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
+		readonlyEditorSyncErrorResponse(c, err)
 		return
 	}
 	ginx.SuccessJSONResponse(c, preview)
@@ -63,8 +65,20 @@ func ReadonlyEditorSync(c *gin.Context) {
 	}
 	result, err := unifyopbiz.BatchSyncReadonlyEditor(c.Request.Context(), req.Resources, req.OverwriteDrafts)
 	if err != nil {
-		ginx.BadRequestErrorJSONResponse(c, err)
+		readonlyEditorSyncErrorResponse(c, err)
 		return
 	}
 	ginx.SuccessJSONResponse(c, result)
+}
+
+func readonlyEditorSyncErrorResponse(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, unifyopbiz.ErrBatchSyncRequiresReadOnly),
+		errors.Is(err, unifyopbiz.ErrInvalidEditorSyncItem):
+		ginx.BadRequestErrorJSONResponse(c, err)
+	case errors.Is(err, unifyopbiz.ErrResourceNameConflict):
+		ginx.ConflictJSONResponse(c, err)
+	default:
+		ginx.SystemErrorJSONResponse(c, err)
+	}
 }

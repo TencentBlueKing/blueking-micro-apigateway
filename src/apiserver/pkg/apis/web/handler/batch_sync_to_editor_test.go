@@ -188,3 +188,222 @@ func TestReadonlyBatchSyncRejectsWritableAndInvalidRequestsBeforeAdding(t *testi
 	require.NoError(t, err)
 	require.Zero(t, count)
 }
+
+func TestReadonlyBatchSyncRenamedResourceReleasesName(t *testing.T) {
+	initWebCreateHandlerTestEnv()
+	for index, tc := range []struct {
+		name              string
+		withDependency    bool
+		renamedDependency bool
+		blocked           string
+	}{
+		{name: "rename"},
+		{name: "rename_with_missing_dependency", withDependency: true},
+		{name: "rename_with_blocked_dependency", withDependency: true, renamedDependency: true},
+		{name: "stale_rename", withDependency: true, blocked: "资源已变化"},
+		{name: "unconfirmed_draft", withDependency: true, blocked: "草稿"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withDependency := tc.withDependency
+			gateway := &model.Gateway{ID: 912340 + index, ReadOnly: true, APISIXVersion: "3.13.0"}
+			ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+			a, b, upstream := uniqueWebCreateName("a"), uniqueWebCreateName("b"), uniqueWebCreateName("up")
+			foo, bar := uniqueWebCreateName("foo"), uniqueWebCreateName("bar")
+			editor := &model.Route{Name: foo, ResourceCommonModel: model.ResourceCommonModel{
+				ID:        a,
+				GatewayID: gateway.ID,
+				Status:    constant.ResourceStatusSuccess,
+				Config:    datatypes.JSON(`{"uri":"/old"}`),
+			}}
+			require.NoError(t, repo.Route.WithContext(ctx).Create(editor))
+			configA := fmt.Sprintf(`{"name":%q,"uri":"/new"}`, bar)
+			if withDependency {
+				configA = fmt.Sprintf(`{"name":%q,"uri":"/new","upstream_id":%q}`, bar, upstream)
+				require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(&model.GatewaySyncData{
+					ID:        upstream,
+					GatewayID: gateway.ID,
+					Type:      constant.Upstream,
+					Config: datatypes.JSON(
+						fmt.Sprintf(
+							`{"name":%q,"type":"roundrobin","nodes":{"127.0.0.1:80":1}}`,
+							upstream,
+						),
+					),
+				}))
+			}
+			if tc.renamedDependency {
+				// The missing upstream's name must also be released by a confirmed overwrite.
+				oldID := uniqueWebCreateName("old-upstream")
+				require.NoError(t, repo.Upstream.WithContext(ctx).Create(&model.Upstream{
+					Name: upstream, ResourceCommonModel: model.ResourceCommonModel{
+						ID:        oldID,
+						GatewayID: gateway.ID,
+						Status:    constant.ResourceStatusSuccess,
+						Config: datatypes.JSON(
+							`{"type":"roundrobin","nodes":{"127.0.0.1:80":1}}`,
+						),
+					},
+				}))
+				require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(&model.GatewaySyncData{
+					ID:        oldID,
+					GatewayID: gateway.ID,
+					Type:      constant.Upstream,
+					Config: datatypes.JSON(
+						fmt.Sprintf(
+							`{"name":%q,"type":"roundrobin","nodes":{"127.0.0.1:80":1}}`,
+							oldID,
+						),
+					),
+				}))
+			}
+			for _, snapshot := range []*model.GatewaySyncData{
+				{ID: a, GatewayID: gateway.ID, Type: constant.Route, Config: datatypes.JSON(configA)},
+				{ID: b, GatewayID: gateway.ID, Type: constant.Route, Config: datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/b"}`, foo))},
+			} {
+				require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(snapshot))
+			}
+			if tc.blocked == "草稿" {
+				_, err := repo.Route.WithContext(
+					ctx,
+				).Where(
+					repo.Route.ID.Eq(a),
+				).Update(
+					repo.Route.Status,
+					constant.ResourceStatusUpdateDraft,
+				)
+				require.NoError(t, err)
+			}
+			preview, err := unifyopbiz.PreviewReadonlyEditorSync(ctx)
+			require.NoError(t, err)
+			wantMissing := 1
+			if withDependency {
+				wantMissing++
+			}
+			require.Equal(t, wantMissing, preview.Missing)
+			wantSynced := 1
+			if tc.renamedDependency {
+				wantSynced++
+			}
+			require.Len(t, preview.Resources, wantSynced)
+			if tc.blocked == "资源已变化" {
+				_, err := repo.GatewaySyncData.WithContext(
+					ctx,
+				).Where(
+					repo.GatewaySyncData.GatewayID.Eq(gateway.ID),
+					repo.GatewaySyncData.ID.Eq(a),
+				).Update(
+					repo.GatewaySyncData.ModRevision,
+					2,
+				)
+				require.NoError(t, err)
+			}
+			c, w := newWebCreateTestContext(
+				t,
+				mustJSONBody(t, map[string]any{"resources": preview.Resources}),
+				gateway,
+				"sync-tester",
+			)
+			ReadonlyEditorSync(c)
+			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+			var response struct {
+				Data dto.ReadonlyEditorSyncResult `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+			result := response.Data
+			saved, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(a)).Take()
+			require.NoError(t, err)
+			if withDependency {
+				require.Equal(t, 1, result.Added[constant.Upstream])
+			}
+			if tc.blocked != "" {
+				require.Equal(t, foo, saved.Name)
+				require.Zero(t, result.Synced)
+				require.Zero(t, result.Added[constant.Route])
+				require.Len(t, result.Failed, 2)
+				failures := map[string]string{}
+				for _, item := range result.Failed {
+					failures[item.ID] = item.Error
+				}
+				require.Contains(t, failures[a], tc.blocked)
+				require.Contains(t, failures[b], unifyopbiz.ErrResourceNameConflict.Error())
+				count, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(b)).Count()
+				require.NoError(t, err)
+				require.Zero(t, count)
+				return
+			}
+			require.Equal(t, wantSynced, result.Synced)
+			require.Equal(t, 1, result.Added[constant.Route])
+			require.Empty(t, result.Failed)
+			require.Equal(t, bar, saved.Name)
+			if withDependency {
+				require.Equal(t, upstream, saved.UpstreamID)
+			}
+			saved, err = repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(b)).Take()
+			require.NoError(t, err)
+			require.Equal(t, foo, saved.Name)
+			fresh, err := unifyopbiz.PreviewReadonlyEditorSync(ctx)
+			require.NoError(t, err)
+			require.Zero(t, fresh.Missing)
+			require.Empty(t, fresh.Resources)
+		})
+	}
+}
+
+func TestReadonlyBatchSyncQueryErrorsReturnInternalServerError(t *testing.T) {
+	initWebCreateHandlerTestEnv()
+	gateway := &model.Gateway{ID: 912349, ReadOnly: true, APISIXVersion: "3.13.0"}
+	for _, operation := range []string{"preview", "batch", "existing-add"} {
+		t.Run(operation, func(t *testing.T) {
+			c, w := newWebCreateTestContext(t, `{"resources":[]}`, gateway, "sync-tester")
+			ctx, cancel := context.WithCancel(c.Request.Context())
+			c.Request = c.Request.WithContext(ctx)
+			cancel()
+			switch operation {
+			case "preview":
+				ReadonlyEditorSyncPreview(c)
+			case "batch":
+				ReadonlyEditorSync(c)
+			case "existing-add":
+				SyncedResourceManaged(c)
+			}
+			want := http.StatusInternalServerError
+			require.Equal(t, want, w.Code, w.Body.String())
+		})
+	}
+}
+
+func TestReadonlyBatchSyncUnresolvedNameConflictReturnsConflict(t *testing.T) {
+	initWebCreateHandlerTestEnv()
+	gateway := &model.Gateway{ID: 912350, ReadOnly: true, APISIXVersion: "3.13.0"}
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+	name := uniqueWebCreateName("duplicate")
+	require.NoError(
+		t,
+		repo.Route.WithContext(
+			ctx,
+		).Create(
+			&model.Route{Name: name, ResourceCommonModel: model.ResourceCommonModel{
+				ID: uniqueWebCreateName(
+					"existing",
+				),
+				GatewayID: gateway.ID,
+				Status:    constant.ResourceStatusSuccess,
+				Config:    datatypes.JSON(`{"uri":"/existing"}`),
+			}},
+		),
+	)
+	require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(&model.GatewaySyncData{
+		ID: uniqueWebCreateName(
+			"missing",
+		),
+		GatewayID: gateway.ID,
+		Type:      constant.Route,
+		Config:    datatypes.JSON(fmt.Sprintf(`{"name":%q,"uri":"/missing"}`, name)),
+	}))
+	c, w := newWebCreateTestContext(t, `{"resources":[]}`, gateway, "sync-tester")
+	ReadonlyEditorSync(c)
+	require.Equal(t, http.StatusConflict, w.Code, w.Body.String())
+	count, err := repo.Route.WithContext(ctx).Where(repo.Route.GatewayID.Eq(gateway.ID)).Count()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
+}

@@ -803,7 +803,7 @@ const confirmBatchSync = async () => {
         resources: preview.resources,
         overwrite_drafts: batchDraftCount.value > 0,
       })
-      : { added: await addResourceToEditArea({ gatewayId, data: {} }), synced: 0, failed: [] };
+      : { added: await addResourceToEditArea({ gatewayId, data: {}, globalError: false }), synced: 0, failed: [] };
     batchSync.value.visible = false;
     const addedCount = Object.values(result.added).reduce((total, count) => total + count, 0);
     InfoBox({
@@ -819,6 +819,25 @@ const confirmBatchSync = async () => {
           h('ul', { style: { maxHeight: '240px', overflow: 'auto' } }, result.failed.map(item => h('li', `${item.resource_type} / ${item.id}: ${item.error}`))),
         ] : []),
       ]),
+    });
+  } catch (error: any) {
+    // Preserve actionable API errors without rendering an HTML proxy response.
+    let detail = error instanceof Error ? error.message : '';
+    try {
+      const message = JSON.parse(error?.message)?.error?.message;
+      if (typeof message === 'string') detail = message;
+    } catch {}
+    // The request may have committed changes before its response was lost.
+    // Close the stale confirmation so the next attempt must load a fresh preview.
+    batchSync.value.visible = false;
+    InfoBox({
+      type: 'warning',
+      title: t('未能确认批量同步结果'),
+      content: h('div', [
+        h('p', t('请求异常，部分操作可能已完成，请重新预览确认。')),
+        ...(detail ? [h('p', detail)] : []),
+      ]),
+      confirmText: t('知道了'),
     });
   } finally {
     isAddLoading.value = false;

@@ -97,103 +97,105 @@ func TestSyncToEditorSameConfigDraftRestoresPublishedState(t *testing.T) {
 
 func TestSyncToEditorGuardsAndPersistence(t *testing.T) {
 	initWebCreateHandlerTestEnv()
-	for _, state := range []constant.ResourceStatus{
-		constant.ResourceStatusSuccess,
-		constant.ResourceStatusUpdateDraft, constant.ResourceStatusDeleteDraft, constant.ResourceStatusCreateDraft,
-	} {
-		t.Run(string(state), func(t *testing.T) {
-			gateway := &model.Gateway{ID: 9876544, APISIXVersion: "3.13.0"}
-			ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
-			id := uniqueWebCreateName("sync-route")
-			route := &model.Route{
-				Name:           id,
-				ServiceID:      "old-service",
-				UpstreamID:     "old-upstream",
-				PluginConfigID: "old-config",
-				ResourceCommonModel: model.ResourceCommonModel{
-					ID: id, GatewayID: gateway.ID, Status: state,
-					Config: datatypes.JSON(`{"uri":"/old","plugins":{"key-auth":{}}}`),
-				},
-			}
-			require.NoError(t, repo.Route.WithContext(ctx).Create(route))
-			snapshot := &model.GatewaySyncData{
-				ID:          id,
-				GatewayID:   gateway.ID,
-				Type:        constant.Route,
-				ModRevision: 2,
-				Config: datatypes.JSON(
-					fmt.Sprintf(
-						`{"name":%q,"uri":"/new","plugins":{"ai-proxy-multi":{"instances":[{"auth":{}}]},"unknown-plugin":{},"key-auth":{"_meta":{"disable":true}}}}`,
-						id,
-					),
-				),
-			}
-			require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(snapshot))
-			preview, err := unifyopbiz.GetResourceConfigDiffDetail(ctx, constant.Route, id)
-			require.NoError(t, err)
-			require.NotEmpty(t, preview.SyncToken)
-			call := func(token string, confirm bool) int {
-				c, w := newWebCreateTestContext(
-					t,
-					mustJSONBody(
-						t,
-						map[string]any{"sync_token": token, "overwrite_draft": confirm},
-					),
-					gateway,
-					"sync-tester",
-				)
-				c.Params = gin.Params{
-					{Key: "gateway_id", Value: fmt.Sprint(gateway.ID)},
-					{Key: "type", Value: "route"},
-					{Key: "id", Value: id},
+	for _, readOnly := range []bool{false, true} {
+		for _, state := range []constant.ResourceStatus{
+			constant.ResourceStatusSuccess,
+			constant.ResourceStatusUpdateDraft, constant.ResourceStatusDeleteDraft, constant.ResourceStatusCreateDraft,
+		} {
+			t.Run(fmt.Sprintf("readonly=%t/%s", readOnly, state), func(t *testing.T) {
+				gateway := &model.Gateway{ID: 9876544, ReadOnly: readOnly, APISIXVersion: "3.13.0"}
+				ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+				id := uniqueWebCreateName("sync-route")
+				route := &model.Route{
+					Name:           id,
+					ServiceID:      "old-service",
+					UpstreamID:     "old-upstream",
+					PluginConfigID: "old-config",
+					ResourceCommonModel: model.ResourceCommonModel{
+						ID: id, GatewayID: gateway.ID, Status: state,
+						Config: datatypes.JSON(`{"uri":"/old","plugins":{"key-auth":{}}}`),
+					},
 				}
-				ResourceSyncToEditor(c)
-				return w.Code
-			}
-			gateway.ReadOnly = true
-			require.Equal(t, http.StatusBadRequest, call(preview.SyncToken, true))
-			gateway.ReadOnly = false
-			require.Equal(t, http.StatusConflict, call(fmt.Sprintf("%064d", 0), true))
-			if state != constant.ResourceStatusSuccess {
-				require.Equal(t, http.StatusConflict, call(preview.SyncToken, false))
-			}
-			unchanged, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(id)).Take()
-			require.NoError(t, err)
-			require.Equal(t, state, unchanged.Status)
-			require.Equal(t, "old-service", unchanged.ServiceID)
-			require.Equal(t, http.StatusOK, call(preview.SyncToken, true))
-			saved, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(id)).Take()
-			require.NoError(t, err)
-			require.Equal(t, route.AutoID, saved.AutoID)
-			require.Equal(t, constant.ResourceStatusSuccess, saved.Status)
-			require.Equal(t, "sync-tester", saved.Updater)
-			require.Empty(t, saved.ServiceID)
-			require.Empty(t, saved.UpstreamID)
-			require.Empty(t, saved.PluginConfigID)
-			require.True(t, gjson.GetBytes(saved.Config, "plugins.unknown-plugin").Exists())
-			require.True(
-				t,
-				gjson.GetBytes(saved.Config, "plugins.ai-proxy-multi.instances.0.auth").Exists(),
-			)
-			require.Equal(t, "/new", gjson.GetBytes(saved.Config, "uri").String())
-			result, err := syncdatabiz.ConfigStatus(
-				snapshot,
-				&saved.ResourceCommonModel,
-				gateway.GetAPISIXVersionX(),
-			)
-			require.NoError(t, err)
-			require.Equal(t, constant.SyncedResourceStatusSuccess, result)
-			logs, err := repo.OperationAuditLog.WithContext(
-				ctx,
-			).Where(
-				repo.OperationAuditLog.ResourceIDs.Eq(id),
-			).Find()
-			require.NoError(t, err)
-			require.Len(t, logs, 2)
-			require.Equal(t, "sync-tester", logs[1].Operator)
-			// Old confirmations cannot overwrite changes made after the preview.
-			require.Equal(t, http.StatusConflict, call(preview.SyncToken, true))
-		})
+				require.NoError(t, repo.Route.WithContext(ctx).Create(route))
+				snapshot := &model.GatewaySyncData{
+					ID:          id,
+					GatewayID:   gateway.ID,
+					Type:        constant.Route,
+					ModRevision: 2,
+					Config: datatypes.JSON(
+						fmt.Sprintf(
+							`{"name":%q,"uri":"/new","plugins":{"ai-proxy-multi":{"instances":[{"auth":{}}]},"unknown-plugin":{},"key-auth":{"_meta":{"disable":true}}}}`,
+							id,
+						),
+					),
+				}
+				require.NoError(t, repo.GatewaySyncData.WithContext(ctx).Create(snapshot))
+				preview, err := unifyopbiz.GetResourceConfigDiffDetail(ctx, constant.Route, id)
+				require.NoError(t, err)
+				require.NotEmpty(t, preview.SyncToken)
+				call := func(token string, confirm bool) int {
+					c, w := newWebCreateTestContext(
+						t,
+						mustJSONBody(
+							t,
+							map[string]any{"sync_token": token, "overwrite_draft": confirm},
+						),
+						gateway,
+						"sync-tester",
+					)
+					c.Params = gin.Params{
+						{Key: "gateway_id", Value: fmt.Sprint(gateway.ID)},
+						{Key: "type", Value: "route"},
+						{Key: "id", Value: id},
+					}
+					ResourceSyncToEditor(c)
+					return w.Code
+				}
+				require.Equal(t, http.StatusConflict, call(fmt.Sprintf("%064d", 0), true))
+				if state != constant.ResourceStatusSuccess {
+					require.Equal(t, http.StatusConflict, call(preview.SyncToken, false))
+				}
+				unchanged, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(id)).Take()
+				require.NoError(t, err)
+				require.Equal(t, state, unchanged.Status)
+				require.Equal(t, "old-service", unchanged.ServiceID)
+				require.Equal(t, http.StatusOK, call(preview.SyncToken, true))
+				saved, err := repo.Route.WithContext(ctx).Where(repo.Route.ID.Eq(id)).Take()
+				require.NoError(t, err)
+				require.Equal(t, route.AutoID, saved.AutoID)
+				require.Equal(t, constant.ResourceStatusSuccess, saved.Status)
+				require.Equal(t, "sync-tester", saved.Updater)
+				require.Empty(t, saved.ServiceID)
+				require.Empty(t, saved.UpstreamID)
+				require.Empty(t, saved.PluginConfigID)
+				require.True(t, gjson.GetBytes(saved.Config, "plugins.unknown-plugin").Exists())
+				require.True(
+					t,
+					gjson.GetBytes(
+						saved.Config,
+						"plugins.ai-proxy-multi.instances.0.auth",
+					).Exists(),
+				)
+				require.Equal(t, "/new", gjson.GetBytes(saved.Config, "uri").String())
+				result, err := syncdatabiz.ConfigStatus(
+					snapshot,
+					&saved.ResourceCommonModel,
+					gateway.GetAPISIXVersionX(),
+				)
+				require.NoError(t, err)
+				require.Equal(t, constant.SyncedResourceStatusSuccess, result)
+				logs, err := repo.OperationAuditLog.WithContext(
+					ctx,
+				).Where(
+					repo.OperationAuditLog.ResourceIDs.Eq(id),
+				).Find()
+				require.NoError(t, err)
+				require.Len(t, logs, 2)
+				require.Equal(t, "sync-tester", logs[1].Operator)
+				// Old confirmations cannot overwrite changes made after the preview.
+				require.Equal(t, http.StatusConflict, call(preview.SyncToken, true))
+			})
+		}
 	}
 }
 

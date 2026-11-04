@@ -185,11 +185,11 @@ func TestAddSyncedResourcesReadOnly(t *testing.T) {
 	require.NoError(t, err)
 	preview, err := GetResourceConfigDiffDetail(ctx, constant.Route, existingID)
 	require.NoError(t, err)
-	require.ErrorIs(
-		t,
-		SyncResourceToEditor(ctx, constant.Route, existingID, preview.SyncToken, true),
-		ErrSyncReadOnly,
-	)
+	require.NoError(t, SyncResourceToEditor(ctx, constant.Route, existingID, preview.SyncToken, true))
+	saved, err = resourcebiz.GetResourceByID(ctx, constant.Route, existingID)
+	require.NoError(t, err)
+	require.Equal(t, "/deployed", gjson.GetBytes(saved.Config, "uri").String())
+	require.Equal(t, constant.ResourceStatusSuccess, saved.Status)
 }
 
 func TestSyncToEditorRequiresEditorDependencies(t *testing.T) {

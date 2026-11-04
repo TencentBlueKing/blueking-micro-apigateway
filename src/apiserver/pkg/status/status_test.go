@@ -20,12 +20,15 @@ package status
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/config"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/constant"
 	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/entity/model"
+	"github.com/TencentBlueKing/blueking-micro-apigateway/apiserver/pkg/utils/ginx"
 )
 
 func TestNewResourceStatusOp(t *testing.T) {
@@ -230,6 +233,53 @@ func TestResourceStatusOp_NextStatus(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantStatus, gotStatus)
+		})
+	}
+}
+
+func TestCanSyncToEditorPreservesOtherReadOnlyRestrictions(t *testing.T) {
+	gateway := &model.Gateway{ReadOnly: true}
+	ctx := ginx.SetGatewayInfoToContext(context.Background(), gateway)
+	for _, state := range []constant.ResourceStatus{
+		constant.ResourceStatusSuccess, constant.ResourceStatusCreateDraft,
+		constant.ResourceStatusUpdateDraft, constant.ResourceStatusDeleteDraft,
+	} {
+		t.Run(string(state), func(t *testing.T) {
+			resource := model.ResourceCommonModel{Status: state}
+			assert.NoError(t, NewResourceStatusOp(resource).CanSyncToEditor(ctx))
+			assert.True(t, gateway.ReadOnly)
+			for _, operation := range []constant.OperationType{
+				constant.OperationTypeCreate, constant.OperationTypeUpdate,
+				constant.OperationTypeDelete, constant.OperationTypeRevert, constant.OperationTypePublish,
+			} {
+				assert.ErrorContains(t, NewResourceStatusOp(resource).CanDo(ctx, operation), "网关只读模式")
+			}
+		})
+	}
+}
+
+func TestCanSyncToEditorRetainsResourceGuards(t *testing.T) {
+	previous := config.G
+	t.Cleanup(func() { config.G = previous })
+	config.G = &config.Config{
+		Service: config.ServiceConfig{DemoMode: true},
+		Biz:     config.BizConfig{DemoProtectResources: map[string]bool{"protected": true}},
+	}
+	for _, readOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("readonly=%t", readOnly), func(t *testing.T) {
+			ctx := ginx.SetGatewayInfoToContext(context.Background(), &model.Gateway{ReadOnly: readOnly})
+			protected := model.ResourceCommonModel{ID: "protected", Status: constant.ResourceStatusSuccess}
+			assert.ErrorContains(t, NewResourceStatusOp(protected).CanSyncToEditor(ctx), "被保护状态禁止修改")
+			for _, state := range []constant.ResourceStatus{"", "invalid"} {
+				assert.Error(
+					t,
+					NewResourceStatusOp(
+						model.ResourceCommonModel{Status: state},
+					).CanSyncToEditor(
+						ctx,
+					),
+				)
+			}
 		})
 	}
 }

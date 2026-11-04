@@ -23,6 +23,20 @@ interface ILocales {
 }
 
 const locales: ILocales = {
+  '当前网关处于只读模式，允许从 etcd 同步资源到编辑区。其他修改操作请先在“基本信息”中关闭只读模式，注意，关闭后变更将可以发布到生产环境，请谨慎操作！': ['This gateway is read-only. Syncing resources from etcd into the editor is allowed. For other changes, disable read-only mode in Basic Information. Changes can then be published to production; proceed carefully.'],
+  '批量同步到编辑区': ['Batch sync to editor'],
+  '批量同步会补充编辑区缺失的资源；勾选“同时覆盖有差异的资源”后，将使用 etcd 快照覆盖差异配置，不修改 etcd。': ['Batch sync adds missing resources. Select "Also overwrite differing resources" to overwrite editor differences with etcd snapshots. This does not modify etcd.'],
+  '操作范围为当前网关全部资源，不受列表筛选和分页影响。': ['This applies to all resources in the current gateway, regardless of list filters or pagination.'],
+  '将补充缺失资源：{count} 条': ['Missing resources to add: {count}'],
+  '同时覆盖有差异的资源（{count} 条）': ['Also overwrite differing resources ({count})'],
+  '将使用 etcd 快照覆盖以下资源的编辑区配置，不修改 etcd。': ['Overwrite the following editor configurations with etcd snapshots. This does not modify etcd.'],
+  '其中 {count} 条存在未发布草稿，确认覆盖将丢弃这些修改并恢复为已同步状态。': ['{count} resources have unpublished drafts. Confirming overwrite discards these changes and marks them as synchronized.'],
+  '存在未发布草稿': ['Has unpublished changes'],
+  '确认覆盖并同步': ['Confirm overwrite and sync'],
+  '确认同步': ['Confirm sync'],
+  '部分资源同步失败': ['Some resources failed to sync'],
+  '已新增 {added} 条，已覆盖 {synced} 条，失败 {failed} 条。': ['Added: {added}. Overwritten: {synced}. Failed: {failed}.'],
+  '已成功的操作不会回滚；请处理失败原因后重新预览并同步。': ['Successful operations are retained. Resolve the failures, then preview and sync again.'],
   '刷新 etcd 快照': ['Refresh etcd snapshot'],
   '有差异': ['Different'],
   '编辑区缺失': ['Missing in editor'],

@@ -109,6 +109,20 @@ func NewResourceStatusOp(resourceInfo model.ResourceCommonModel) *ResourceStatus
 
 // CanDo 判断是否可以进行操作
 func (s *ResourceStatusOp) CanDo(ctx context.Context, operationType constant.OperationType) error {
+	return s.canDo(ctx, operationType, false)
+}
+
+// CanSyncToEditor allows importing an etcd snapshot into a read-only gateway's editor.
+// It retains the normal resource protection and lifecycle checks without allowing etcd writes.
+func (s *ResourceStatusOp) CanSyncToEditor(ctx context.Context) error {
+	operation := constant.OperationTypeUpdate
+	if s.resourceInfo.Status == constant.ResourceStatusDeleteDraft {
+		operation = constant.OperationTypeRevert
+	}
+	return s.canDo(ctx, operation, true)
+}
+
+func (s *ResourceStatusOp) canDo(ctx context.Context, operationType constant.OperationType, allowReadOnly bool) error {
 	// demo 站点进行特殊处理，部分资源不允许进行任何操作
 	if config.IsDemoMode() {
 		if config.G.Biz.DemoProtectResources[s.resourceInfo.ID] {
@@ -116,8 +130,8 @@ func (s *ResourceStatusOp) CanDo(ctx context.Context, operationType constant.Ope
 			return errors.New(msg)
 		}
 	}
-	// 如果网关是只读模式，则不允许进行任何操作
-	if ginx.GetGatewayInfoFromContext(ctx) != nil && ginx.GetGatewayInfoFromContext(ctx).ReadOnly {
+	// Only snapshot-to-editor synchronization is allowed to bypass the read-only restriction.
+	if gateway := ginx.GetGatewayInfoFromContext(ctx); !allowReadOnly && gateway != nil && gateway.ReadOnly {
 		return errors.New("网关只读模式，不允许进行任何变更操作")
 	}
 

@@ -28,6 +28,14 @@
           <i class="icon apigateway-icon icon-ag-download-line" />
           {{ t('刷新 etcd 快照') }}
         </BkButton>
+        <BkButton
+          v-if="isReadonlyGateway"
+          :loading="isBatchPreviewLoading"
+          :disabled="isAddLoading || isSyncLoading || !(summary.miss || summary.different)"
+          @click="openBatchSync"
+        >
+          {{ t('批量同步到编辑区') }}
+        </BkButton>
         <!-- <bk-dropdown trigger="click">
           <bk-button :disabled="!selections.length">{{ t('批量操作') }}</bk-button>
           <template #content>
@@ -55,6 +63,9 @@
         />
       </div>
     </div>
+    <p v-if="isReadonlyGateway" class="batch-sync-tip">
+      {{ t('批量同步会补充编辑区缺失的资源；勾选“同时覆盖有差异的资源”后，将使用 etcd 快照覆盖差异配置，不修改 etcd。') }}
+    </p>
     <div class="table-wrapper">
       <bk-loading :loading="isAddLoading" class="index-higher">
         <div class="table-top-total">
@@ -66,7 +77,7 @@
           <span class="line"></span>
           <span class="lose">{{ summary.miss }}</span>
           <span>{{ t('编辑区缺失') }}</span>
-          <template v-if="summary.miss">
+          <template v-if="summary.miss && !isReadonlyGateway">
             <span> , </span>
             <bk-pop-confirm
               width="288"
@@ -114,6 +125,49 @@
     </div>
   </div>
 
+  <bk-dialog
+    v-model:is-show="batchSync.visible"
+    :title="t('批量同步到编辑区')"
+    width="640"
+    :quick-close="false"
+    :close-icon="!isAddLoading"
+    :esc-close="!isAddLoading"
+  >
+    <p>{{ t('操作范围为当前网关全部资源，不受列表筛选和分页影响。') }}</p>
+    <p>{{ t('将补充缺失资源：{count} 条', { count: batchSync.preview.missing }) }}</p>
+    <bk-checkbox
+      v-model="batchSync.includeDifferences"
+      :disabled="isAddLoading || !batchSync.preview.resources.length"
+    >
+      {{ t('同时覆盖有差异的资源（{count} 条）', { count: batchSync.preview.resources.length }) }}
+    </bk-checkbox>
+    <template v-if="batchSync.includeDifferences">
+      <p>{{ t('将使用 etcd 快照覆盖以下资源的编辑区配置，不修改 etcd。') }}</p>
+      <bk-alert
+        v-if="batchDraftCount"
+        theme="warning"
+        :title="t('其中 {count} 条存在未发布草稿，确认覆盖将丢弃这些修改并恢复为已同步状态。', { count: batchDraftCount })"
+      />
+      <ul class="batch-sync-items">
+        <li v-for="item in batchSync.preview.resources" :key="`${item.resource_type}:${item.id}`">
+          {{ common.enums?.resource_type?.[item.resource_type] || item.resource_type }} / {{ item.id }}
+          <span v-if="item.editor_status !== 'success'">（{{ t('存在未发布草稿') }}）</span>
+        </li>
+      </ul>
+    </template>
+    <template #footer>
+      <bk-button
+        theme="primary"
+        :loading="isAddLoading"
+        :disabled="!canConfirmBatchSync"
+        @click="confirmBatchSync"
+      >
+        {{ batchSync.includeDifferences ? t('确认覆盖并同步') : t('确认同步') }}
+      </bk-button>
+      <bk-button :disabled="isAddLoading" @click="batchSync.visible = false">{{ t('取消') }}</bk-button>
+    </template>
+  </bk-dialog>
+
   <SliderResourceViewer
     v-model="isResourceViewerShow"
     :resource="resource"
@@ -127,7 +181,7 @@
     :before-config="diffSliderConfig.before_config"
     :operation-type="diffSliderConfig.operationType"
     :title-config="diffSliderConfig.titleConfig"
-    :show-footer="!!syncTarget && !isReadonlyGateway"
+    :show-footer="!!syncTarget"
     :confirm-text="t('同步到编辑区')"
     :confirm-disabled="isAddLoading"
     @confirm="confirmSyncToEditor"
@@ -159,6 +213,12 @@ import SliderResourceViewer from '@/components/slider-resource-viewer.vue';
 import SliderResourceDiffViewer from '@/components/slider-resource-diff-viewer.vue';
 import MicroAgTable from '@/components/micro-ag-table/table';
 import { addResourceToEditArea, getGatewaySyncDataList, postGatewaySyncData, getSyncedSummary, syncResourceToEditArea } from '@/http/gateway-sync-data';
+import {
+  batchSyncReadonlyEditor,
+  getReadonlyEditorSyncPreview,
+  type IReadonlyEditorSyncPreview,
+  type IReadonlyEditorSyncResult,
+} from '@/http/gateway-sync-data';
 import { getResourceDiff } from '@/http/publish';
 import { Copy } from 'bkui-vue/lib/icon';
 import { handleCopy } from '@/common/util';
@@ -174,6 +234,18 @@ const { handleSearchOutside, handleSearchSelectClick } = useSearchSelectPopoverH
 const isSyncLoading = ref<boolean>(false);
 const isAddLoading = ref<boolean>(false);
 const isReadonlyGateway = computed(() => !!common.curGatewayData?.read_only);
+const isBatchPreviewLoading = ref(false);
+const batchSync = ref({
+  visible: false,
+  gatewayId: 0,
+  includeDifferences: false,
+  preview: { missing: 0, resources: [] } as IReadonlyEditorSyncPreview,
+});
+const batchDraftCount = computed(() => batchSync.value.preview.resources.filter(item => item.editor_status !== 'success').length);
+const canConfirmBatchSync = computed(() => isReadonlyGateway.value && !isAddLoading.value
+  && batchSync.value.gatewayId === common.gatewayId
+  && (batchSync.value.preview.missing > 0
+    || (batchSync.value.includeDifferences && batchSync.value.preview.resources.length > 0)));
 const syncTarget = ref<IGatewaySyncDataDto>();
 const syncPreview = ref<{ sync_token?: string, editor_status?: string }>({});
 const filterData = ref<FilterValue>({});
@@ -440,7 +512,7 @@ const columns: PrimaryTableProps['columns'] = computed(() => [
           }
           {
             row?.status !== 'miss'
-            && <bk-button text theme="primary" disabled={isReadonlyGateway.value || row.status !== 'different' || isAddLoading.value} onClick={() => handleCheckDiff(row, true)}>
+            && <bk-button text theme="primary" disabled={row.status !== 'different' || isAddLoading.value} onClick={() => handleCheckDiff(row, true)}>
               {t('同步到编辑区')}
             </bk-button>
           }
@@ -679,7 +751,7 @@ const addResource = async (ids?: string[], resourceType?: string) => {
 const confirmSyncToEditor = () => {
   const row = syncTarget.value;
   const preview = syncPreview.value;
-  if (!row || isReadonlyGateway.value || isAddLoading.value) return;
+  if (!row || isAddLoading.value) return;
   const hasDraft = preview.editor_status !== 'success';
   InfoBox({
     title: t('确认同步到编辑区？'),
@@ -688,7 +760,7 @@ const confirmSyncToEditor = () => {
       : t('将使用当前 etcd 快照覆盖编辑区配置，不修改 etcd。'),
     confirmText: t('确认覆盖'),
     onConfirm: async () => {
-      if (isReadonlyGateway.value || isAddLoading.value) return;
+      if (isAddLoading.value) return;
       isAddLoading.value = true;
       try {
         await syncResourceToEditArea({
@@ -706,6 +778,56 @@ const confirmSyncToEditor = () => {
       }
     },
   });
+};
+
+const openBatchSync = async () => {
+  if (!isReadonlyGateway.value || isAddLoading.value || isBatchPreviewLoading.value) return;
+  const { gatewayId } = common;
+  isBatchPreviewLoading.value = true;
+  try {
+    const preview = await getReadonlyEditorSyncPreview(gatewayId);
+    if (gatewayId !== common.gatewayId || !isReadonlyGateway.value) return;
+    batchSync.value = { visible: true, gatewayId, includeDifferences: false, preview };
+  } finally {
+    isBatchPreviewLoading.value = false;
+  }
+};
+
+const confirmBatchSync = async () => {
+  if (!canConfirmBatchSync.value) return;
+  const { gatewayId, includeDifferences, preview } = batchSync.value;
+  isAddLoading.value = true;
+  try {
+    const result: IReadonlyEditorSyncResult = includeDifferences
+      ? await batchSyncReadonlyEditor(gatewayId, {
+        resources: preview.resources,
+        overwrite_drafts: batchDraftCount.value > 0,
+      })
+      : { added: await addResourceToEditArea({ gatewayId, data: {} }), synced: 0, failed: [] };
+    batchSync.value.visible = false;
+    const addedCount = Object.values(result.added).reduce((total, count) => total + count, 0);
+    InfoBox({
+      type: result.failed.length ? 'warning' : 'success',
+      title: result.failed.length ? t('部分资源同步失败') : t('已同步到编辑区'),
+      confirmText: t('完成'),
+      content: h('div', [
+        h('p', t('已新增 {added} 条，已覆盖 {synced} 条，失败 {failed} 条。', {
+          added: addedCount, synced: result.synced, failed: result.failed.length,
+        })),
+        ...(result.failed.length ? [
+          h('p', t('已成功的操作不会回滚；请处理失败原因后重新预览并同步。')),
+          h('ul', { style: { maxHeight: '240px', overflow: 'auto' } }, result.failed.map(item => h('li', `${item.resource_type} / ${item.id}: ${item.error}`))),
+        ] : []),
+      ]),
+    });
+  } finally {
+    isAddLoading.value = false;
+    if (gatewayId === common.gatewayId) {
+      handleResetSelection();
+      getList();
+      fetchSyncedSummary();
+    }
+  }
 };
 
 const handleAdd = (row: IGatewaySyncDataDto) => {
@@ -786,6 +908,19 @@ const handleResetSelection = () => {
       }
     }
   }
+}
+
+.batch-sync-tip {
+  color: #63656e;
+  line-height: 22px;
+}
+
+.batch-sync-items {
+  max-height: 240px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding-left: 20px;
+  line-height: 24px;
 }
 
 .header-actions {

@@ -135,3 +135,15 @@ type SyncToEditorRequest struct {
 	SyncToken      string `json:"sync_token" binding:"required,len=64"`
 	OverwriteDraft bool   `json:"overwrite_draft"`
 }
+
+// BatchSyncToEditorRequest confirms the previewed differences in a read-only gateway.
+type BatchSyncToEditorRequest struct {
+	Resources       []dto.EditorSyncItem `json:"resources" binding:"required"`
+	OverwriteDrafts bool                 `json:"overwrite_drafts"`
+}
+
+// ReadonlyEditorSyncPreview is the batch overwrite preview response.
+type ReadonlyEditorSyncPreview dto.ReadonlyEditorSyncPreview
+
+// ReadonlyEditorSyncResult is the batch overwrite result response.
+type ReadonlyEditorSyncResult dto.ReadonlyEditorSyncResult

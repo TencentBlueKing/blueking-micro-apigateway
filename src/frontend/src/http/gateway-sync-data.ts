@@ -78,3 +78,28 @@ export const syncResourceToEditArea = ({ type, id, data }: {
   id: string
   data: { sync_token: string, overwrite_draft: boolean }
 }) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${common.gatewayId}/unify_op/resources/${type}/sync/${encodeURIComponent(id)}/`, data);
+
+export interface IEditorSyncItem {
+  resource_type: string;
+  id: string;
+  sync_token: string;
+  editor_status: string;
+}
+
+export interface IReadonlyEditorSyncPreview {
+  missing: number;
+  resources: IEditorSyncItem[];
+}
+
+export interface IReadonlyEditorSyncResult {
+  added: Record<string, number>;
+  synced: number;
+  failed: { resource_type: string, id: string, error: string }[];
+}
+
+export const getReadonlyEditorSyncPreview = (gatewayId: number) => fetch.get(`${BK_DASHBOARD_URL}/gateways/${gatewayId}/unify_op/resources/-/sync/preview/`);
+
+export const batchSyncReadonlyEditor = (gatewayId: number, data: {
+  resources: IEditorSyncItem[];
+  overwrite_drafts: boolean;
+}) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gatewayId}/unify_op/resources/-/sync/`, data);

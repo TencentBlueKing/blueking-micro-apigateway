@@ -64,3 +64,31 @@ type ResourceAssociateID struct {
 func (r ResourceAssociateID) GetResourceKey(resourceType constant.APISIXResource, id string) string {
 	return fmt.Sprintf(constant.ResourceKeyFormat, resourceType, id)
 }
+
+// EditorSyncItem identifies one previewed difference to overwrite.
+type EditorSyncItem struct {
+	ResourceType constant.APISIXResource `json:"resource_type"`
+	ID           string                  `json:"id"`
+	SyncToken    string                  `json:"sync_token"`
+	EditorStatus constant.ResourceStatus `json:"editor_status,omitempty"`
+}
+
+// ReadonlyEditorSyncPreview covers the entire gateway, independently of list pagination.
+type ReadonlyEditorSyncPreview struct {
+	Missing   int              `json:"missing"`
+	Resources []EditorSyncItem `json:"resources"`
+}
+
+// EditorSyncFailure reports an item that was not overwritten.
+type EditorSyncFailure struct {
+	ResourceType constant.APISIXResource `json:"resource_type"`
+	ID           string                  `json:"id"`
+	Error        string                  `json:"error"`
+}
+
+// ReadonlyEditorSyncResult reports additions and individual overwrite outcomes.
+type ReadonlyEditorSyncResult struct {
+	Added  map[constant.APISIXResource]int `json:"added"`
+	Synced int                             `json:"synced"`
+	Failed []EditorSyncFailure             `json:"failed"`
+}

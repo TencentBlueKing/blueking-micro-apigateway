@@ -42,8 +42,6 @@ import (
 )
 
 var (
-	// ErrSyncReadOnly prevents overwriting resources in a read-only gateway.
-	ErrSyncReadOnly = errors.New("网关只读模式，不允许同步到编辑区")
 	// ErrSyncConflict requires a new preview before overwriting changed data.
 	ErrSyncConflict = errors.New("资源已变化，请重新对比后同步")
 	// ErrSyncDraft requires explicit consent to discard unpublished edits.
@@ -58,9 +56,6 @@ func SyncResourceToEditor(ctx context.Context, resourceType constant.APISIXResou
 	id, token string, overwriteDraft bool,
 ) error {
 	gateway := ginx.GetGatewayInfoFromContext(ctx)
-	if gateway.ReadOnly {
-		return ErrSyncReadOnly
-	}
 	if !slices.Contains(constant.ResourceTypeList, resourceType) {
 		return fmt.Errorf("invalid resource type: %s", resourceType)
 	}
@@ -79,11 +74,7 @@ func SyncResourceToEditor(ctx context.Context, resourceType constant.APISIXResou
 		if token == "" || token != syncdatabiz.SyncToken(&snapshot, &editor) {
 			return ErrSyncConflict
 		}
-		operation := constant.OperationTypeUpdate
-		if editor.Status == constant.ResourceStatusDeleteDraft {
-			operation = constant.OperationTypeRevert
-		}
-		if err := status.NewResourceStatusOp(editor).CanDo(ctx, operation); err != nil {
+		if err := status.NewResourceStatusOp(editor).CanSyncToEditor(ctx); err != nil {
 			return err
 		}
 		if editor.Status != constant.ResourceStatusSuccess && !overwriteDraft {

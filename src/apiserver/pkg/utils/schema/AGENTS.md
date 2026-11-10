@@ -58,7 +58,10 @@ These are not one-off fixes. Treat them as authoring rules for every new APISIX 
 - The pinned BK runtime exposes five of the seven compatibility-catalog plugins. `bk-echo` and
   `bk-login-required` use 3.17 compatibility snapshots because the 3.18 runtime does not ship them.
 - The 3.18 official catalog adds `ai-cache` and `ai-lakera-guard`. It no longer exposes the 3.17 entries
-  `batch-requests`, `dubbo-proxy`, `error-log-logger`, `mqtt-proxy`, `opentelemetry`, or `skywalking`.
+  `batch-requests`, `dubbo-proxy`, `error-log-logger`, `mqtt-proxy`, or `skywalking`.
+- The `opentelemetry` plugin and metadata schemas are normalized from the pinned official 3.18 source at
+  `apisix/plugins/opentelemetry.lua`. The catalog exposes this plugin for data planes that explicitly enable it;
+  the official 3.18 default plugin list in `apisix/cli/config.lua` does not enable it.
 - `ai`, `example-plugin`, `inspect`, `log-rotate`, and `mcp-bridge` retain runtime schemas but are intentionally
   excluded from the control-plane catalog. `node-status` is absent from the 3.18 runtime schema.
 - The 3.18 TAPISIX catalog contains the same 20 internal plugins shipped by `bk-apisix:3.18.0.1`.
@@ -78,6 +81,10 @@ These are not one-off fixes. Treat them as authoring rules for every new APISIX 
   - `stream_plugins.<name>.schema`
 
 If those paths move or disappear, validation and example lookup will silently break.
+
+For `opentelemetry`, 3.2/3.3/3.11 use `plugin_attr` and must not advertise plugin metadata support.
+Versions 3.13/3.17/3.18 use `metadata_schema` and must include a non-empty `metadata_example` in their catalogs.
+Normalize scalar attribute/header alternatives to standard JSON Schema `oneOf`; do not copy Lua arrays or `one_of`.
 
 ## When Adding A New Version
 

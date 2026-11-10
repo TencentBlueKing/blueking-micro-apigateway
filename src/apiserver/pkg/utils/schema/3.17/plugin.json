@@ -938,6 +938,14 @@
         "name": "always_on"
       }
     },
+    "metadata_example": {
+      "collector": {
+        "address": "127.0.0.1:4318"
+      },
+      "resource": {
+        "service.name": "APISIX"
+      }
+    },
     "name": "opentelemetry",
     "type": "observability"
   },

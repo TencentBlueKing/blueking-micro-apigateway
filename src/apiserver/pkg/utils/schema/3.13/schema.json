@@ -4092,6 +4092,106 @@
       }
     },
     "opentelemetry": {
+      "metadata_schema": {
+        "properties": {
+          "batch_span_processor": {
+            "default": {},
+            "description": "batch span processor",
+            "properties": {
+              "batch_timeout": {
+                "description": "maximum duration for constructing a batch",
+                "type": "number"
+              },
+              "drop_on_queue_full": {
+                "description": "if true, drop span when queue is full, otherwise force process batches",
+                "type": "boolean"
+              },
+              "inactive_timeout": {
+                "description": "maximum duration for processing batches",
+                "type": "number"
+              },
+              "max_export_batch_size": {
+                "description": "maximum number of spans to process in a single batch",
+                "type": "integer"
+              },
+              "max_queue_size": {
+                "description": "maximum queue size to buffer spans for delayed processing",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "collector": {
+            "default": {
+              "address": "127.0.0.1:4318",
+              "request_timeout": 3
+            },
+            "description": "opentelemetry collector",
+            "properties": {
+              "address": {
+                "default": "127.0.0.1:4318",
+                "description": "host:port",
+                "type": "string"
+              },
+              "request_headers": {
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "description": "http headers",
+                "type": "object"
+              },
+              "request_timeout": {
+                "default": 3,
+                "description": "second uint",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": {
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "additional resource",
+            "type": "object"
+          },
+          "set_ngx_var": {
+            "default": false,
+            "description": "set nginx variables",
+            "type": "boolean"
+          },
+          "trace_id_source": {
+            "default": "random",
+            "description": "the source of trace id",
+            "enum": [
+              "x-request-id",
+              "random"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "version": 0.1,
       "priority": 12009,
       "schema": {

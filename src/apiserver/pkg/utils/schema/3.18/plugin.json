@@ -918,6 +918,23 @@
   },
   {
     "example": {
+      "sampler": {
+        "name": "always_on"
+      }
+    },
+    "metadata_example": {
+      "resource": {
+        "service.name": "APISIX"
+      },
+      "collector": {
+        "address": "127.0.0.1:4318"
+      }
+    },
+    "name": "opentelemetry",
+    "type": "observability"
+  },
+  {
+    "example": {
       "prefer_name": true
     },
     "name": "prometheus",

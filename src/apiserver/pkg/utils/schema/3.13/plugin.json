@@ -862,6 +862,14 @@
       "sampler": {
         "name": "always_on"
       }
+    },
+    "metadata_example": {
+      "resource": {
+        "service.name": "APISIX"
+      },
+      "collector": {
+        "address": "127.0.0.1:4318"
+      }
     }
   },
   {

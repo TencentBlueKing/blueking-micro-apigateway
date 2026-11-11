@@ -43,10 +43,12 @@ export const postGatewaySyncData = ({
 export const addResourceToEditArea = ({
   gatewayId,
   data,
+  globalError = true,
 }: {
   gatewayId?: number
   data?: object
-}) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/unify_op/resources/-/managed/`, data);
+  globalError?: boolean
+}) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gatewayId || common.gatewayId}/unify_op/resources/-/managed/`, data, { globalError });
 
 // 获取最新同步时间
 export const getSyncLastTime = ({ gatewayId }: {
@@ -102,4 +104,4 @@ export const getReadonlyEditorSyncPreview = (gatewayId: number) => fetch.get(`${
 export const batchSyncReadonlyEditor = (gatewayId: number, data: {
   resources: IEditorSyncItem[];
   overwrite_drafts: boolean;
-}) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gatewayId}/unify_op/resources/-/sync/`, data);
+}) => fetch.post(`${BK_DASHBOARD_URL}/gateways/${gatewayId}/unify_op/resources/-/sync/`, data, { globalError: false });

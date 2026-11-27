@@ -13,6 +13,7 @@
     "build": "bk-cli-service-webpack build",
     "server": "node ./paas-server/index.js",
     "test:sync-feedback": "node --test scripts/test-sync-feedback.mjs",
+    "test:route-match": "node --test scripts/test-route-match.mjs",
     "test:schema": "node scripts/validate-apiserver-schema.mjs",
     "lint": "eslint . --fix --color --ext .vue,.js,.jsx,.ts,.tsx",
     "lint:style": "stylelint **/*.{html,vue,css,sass,scss,less} --fix"

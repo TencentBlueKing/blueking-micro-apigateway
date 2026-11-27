@@ -41,26 +41,29 @@
 
               <form-advanced-switch v-model="uiConfig.showAdvanced" />
 
-              <!-- 高级配置 -->
-              <template v-if="uiConfig.showAdvanced">
-                <!-- hosts -->
-                <bk-form-item :label="t('匹配域名')">
-                  <form-hosts-new ref="hosts-form" :hosts="formModel.hosts">
-                    <template #tooltips>
-                      {{
-                        t('非必填，如果填写，则代表附加了匹配规则，只有命中域名的请求' +
-                          '才会继续匹配 service 下的route; 例如 配置 *.bar.com，' +
-                          '此时`a.bar.com/get`可以命中，使用`foor.com/get`则会 404')
-                      }}
-                    </template>
-                  </form-hosts-new>
-                </bk-form-item>
+              <!-- 高级配置（使用 v-show 保留折叠前的最新输入） -->
+              <!-- hosts -->
+              <bk-form-item v-show="uiConfig.showAdvanced" :label="t('匹配域名')">
+                <form-hosts-new ref="hosts-form" :hosts="formModel.hosts">
+                  <template #tooltips>
+                    {{
+                      t('非必填，如果填写，则代表附加了匹配规则，只有命中域名的请求' +
+                        '才会继续匹配 service 下的route; 例如 配置 *.bar.com，' +
+                        '此时`a.bar.com/get`可以命中，使用`foor.com/get`则会 404')
+                    }}
+                  </template>
+                </form-hosts-new>
+              </bk-form-item>
 
-                <!-- enable_websocket -->
-                <bk-form-item :label="t('启用 WebSocket')" class="form-item" property="enable_websocket">
-                  <bk-switcher v-model="formModel.enable_websocket" theme="primary" />
-                </bk-form-item>
-              </template>
+              <!-- enable_websocket -->
+              <bk-form-item
+                v-show="uiConfig.showAdvanced"
+                :label="t('启用 WebSocket')"
+                class="form-item"
+                property="enable_websocket"
+              >
+                <bk-switcher v-model="formModel.enable_websocket" theme="primary" />
+              </bk-form-item>
             </div>
           </form-card>
 
@@ -136,7 +139,7 @@ import { IService, IServiceConfig } from '@/types/service';
 import { Form, InfoBox, Message } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { getService, postService, putService } from '@/http/service';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
 import SelectUpstream from '@/components/select/select-upstream.vue';
@@ -283,12 +286,17 @@ const handleLabels = async () => {
 };
 
 const handleHosts = async () => {
-  const hosts = await hostsFormRef.value?.getValue() || [];
+  const hosts = await hostsFormRef.value?.getValue() ?? [];
 
   if (!hosts.length || hosts.every(host => isEmpty(host))) {
     return Promise.resolve();
   }
-  return await hostsFormRef.value?.validate();
+  try {
+    return await hostsFormRef.value?.validate();
+  } catch (err) {
+    uiConfig.value.showAdvanced = true;
+    throw err;
+  }
 };
 
 const handleSubmit = async () => {
@@ -370,7 +378,7 @@ const handleSubmit = async () => {
       ]);
     }
 
-    config.hosts = await hostsFormRef.value?.getValue() || formModel.value.hosts || [];
+    config.hosts = await hostsFormRef.value?.getValue() ?? formModel.value.hosts ?? [];
     config.hosts = uniq(config.hosts.filter(value => !!value));
     if (!config.hosts.length) {
       delete config.hosts;
@@ -421,6 +429,7 @@ const handleSubmit = async () => {
     });
   } catch (e) {
     const error = e as Error;
+    await nextTick();
     showFirstErrorFormItem();
     Message({
       theme: 'error',

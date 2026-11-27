@@ -67,6 +67,50 @@
             }}
             </template>
             <div>
+              <bk-alert
+                v-if="matchConflictList.length"
+                class="match-conflict-alert"
+                theme="warning"
+              >
+                <template #title>
+                  <div>
+                    {{
+                      t('检测到原始路由配置同时包含互斥的单值与数组匹配字段，已默认回显数组字段，未做自动合并。' +
+                        '请确认采用哪一项或直接修改对应输入框后再提交。')
+                    }}
+                  </div>
+                  <div
+                    v-for="conflict in matchConflictList"
+                    :key="conflict.key"
+                    class="match-conflict-item"
+                  >
+                    <span class="match-conflict-detail">
+                      {{ conflict.singleKey }}: {{ JSON.stringify(conflict.singleValue) }}
+                      /
+                      {{ conflict.arrayKey }}: {{ JSON.stringify(conflict.arrayValues) }}
+                    </span>
+                    <span class="match-conflict-actions">
+                      <bk-button
+                        size="small"
+                        text
+                        theme="primary"
+                        @click="resolveMatchConflict(conflict.key, 'single')"
+                      >
+                        {{ t('采用 {field}', { field: conflict.singleKey }) }}
+                      </bk-button>
+                      <bk-button
+                        size="small"
+                        text
+                        theme="primary"
+                        @click="resolveMatchConflict(conflict.key, 'array')"
+                      >
+                        {{ t('采用 {field}', { field: conflict.arrayKey }) }}
+                      </bk-button>
+                    </span>
+                  </div>
+                </template>
+              </bk-alert>
+
               <!-- methods -->
               <bk-form-item :label="t('HTTP 方法')" class="form-item" property="methods">
                 <bk-select
@@ -88,7 +132,7 @@
 
               <!-- uris -->
               <bk-form-item :label="t('路径')" required>
-                <form-uris ref="uris-form" v-model="routeConfig.uris">
+                <form-uris ref="uris-form" v-model="routeConfig.uris" @change="clearMatchConflict('uris')">
                   <template #tooltips>
                     {{
                       t('HTTP 请求路径，如 /foo/index.html，支持请求路径前缀 /foo/*。/* 代表所有路径，' +
@@ -101,42 +145,53 @@
 
               <form-advanced-switch v-model="uiConfig.showAdvanced" />
 
-              <!-- 高级配置 -->
-              <template v-if="uiConfig.showAdvanced">
-                <!-- priority -->
-                <bk-form-item :label="t('优先级')" class="form-item w120" property="priority">
-                  <bk-input v-model="routeConfig.priority" :min="0" :precision="0" :step="1" type="number" />
-                  <div class="common-form-tips">
-                    {{
-                      t('非必填，默认不需要设置；只有不同路由中包含了相同的uri， 才需要配置，会根据优先级匹配；值越大优先级越高。')
-                    }}
-                  </div>
-                </bk-form-item>
+              <!-- 高级配置（使用 v-show 保留折叠前的最新输入） -->
+              <!-- priority -->
+              <bk-form-item
+                v-show="uiConfig.showAdvanced"
+                :label="t('优先级')"
+                class="form-item w120"
+                property="priority"
+              >
+                <bk-input v-model="routeConfig.priority" :min="0" :precision="0" :step="1" type="number" />
+                <div class="common-form-tips">
+                  {{
+                    t('非必填，默认不需要设置；只有不同路由中包含了相同的uri， 才需要配置，会根据优先级匹配；值越大优先级越高。')
+                  }}
+                </div>
+              </bk-form-item>
 
-                <!-- hosts -->
-                <bk-form-item :label="t('域名')">
-                  <form-hosts-new ref="hosts-form" :hosts="routeConfig.hosts">
-                    <template #tooltips>{{
-                      t('非必填，路由匹配的域名列表。支持泛域名，如：*.test.com；' +
-                        '如果填写，则代表附加了匹配规则，只有命中域名的请求才会匹配，例如路径是`/get`，域名配置 `foo.com`，' +
-                        '那么只有`foo.com/get`才能命中当前路由，`bar.com/get`不会命中当前路由。')
-                    }}
-                    </template>
-                  </form-hosts-new>
-                </bk-form-item>
+              <!-- hosts -->
+              <bk-form-item v-show="uiConfig.showAdvanced" :label="t('域名')">
+                <form-hosts-new
+                  ref="hosts-form"
+                  :hosts="routeConfig.hosts"
+                  @change="clearMatchConflict('hosts')"
+                >
+                  <template #tooltips>{{
+                    t('非必填，路由匹配的域名列表。支持泛域名，如：*.test.com；' +
+                      '如果填写，则代表附加了匹配规则，只有命中域名的请求才会匹配，例如路径是`/get`，域名配置 `foo.com`，' +
+                      '那么只有`foo.com/get`才能命中当前路由，`bar.com/get`不会命中当前路由。')
+                  }}
+                  </template>
+                </form-hosts-new>
+              </bk-form-item>
 
-                <!-- remote_addr -->
-                <bk-form-item :label="t('客户端地址')">
-                  <form-remote-addrs-new ref="remote-addrs-form" :addrs="routeConfig.remote_addrs">
-                    <template #tooltips>{{
-                      t('非必填，匹配规则，客户端与服务器握手时 IP，即客户端 IP，' +
-                        '例如：192.168.1.101，192.168.1.0/24，::1，fe80::1，fe80::1/64；' +
-                        '如果填写，则代表附加了匹配规则，只有配置的客户端 IP 才会命中路由。')
-                    }}
-                    </template>
-                  </form-remote-addrs-new>
-                </bk-form-item>
-              </template>
+              <!-- remote_addr -->
+              <bk-form-item v-show="uiConfig.showAdvanced" :label="t('客户端地址')">
+                <form-remote-addrs-new
+                  ref="remote-addrs-form"
+                  :addrs="routeConfig.remote_addrs"
+                  @change="clearMatchConflict('remote_addrs')"
+                >
+                  <template #tooltips>{{
+                    t('非必填，匹配规则，客户端与服务器握手时 IP，即客户端 IP，' +
+                      '例如：192.168.1.101，192.168.1.0/24，::1，fe80::1，fe80::1/64；' +
+                      '如果填写，则代表附加了匹配规则，只有配置的客户端 IP 才会命中路由。')
+                  }}
+                  </template>
+                </form-remote-addrs-new>
+              </bk-form-item>
 
               <!-- vars -->
               <bk-form-item v-show="uiConfig.showAdvanced" label="Vars">
@@ -229,7 +284,7 @@ import FormUris from '@/components/form/form-uris.vue';
 import { Form, InfoBox, Message } from 'bkui-vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
-import { computed, ref, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import { getRoute, postRoute, putRoute } from '@/http/route';
 import { getUpstream } from '@/http/upstream';
 import { cloneDeep, isEmpty, uniq } from 'lodash-es';
@@ -247,6 +302,12 @@ import FormLabelsNew from '@/components/form/form-labels-new.vue';
 import FormHostsNew from '@/components/form/form-hosts-new.vue';
 import FormRemoteAddrsNew from '@/components/form/form-remote-addrs-new.vue';
 import VarsManagement from '@/components/vars-management/index.vue';
+import {
+  applyRouteMatchFieldsForSubmit,
+  type IRouteMatchConflict,
+  normalizeRouteMatchFields,
+  type RouteMatchGroupKey,
+} from './route-match-utils';
 
 interface ILocalPlugin {
   doc_url?: string
@@ -274,7 +335,7 @@ const formModel = ref<Omit<IRoute, 'config'>>({
   service_id: '__none__',
 });
 
-const routeConfig = ref<Partial<IRouteConfig>>({
+const createDefaultRouteConfig = (): Partial<IRouteConfig> => ({
   methods: [
     'GET',
     'POST',
@@ -289,6 +350,11 @@ const routeConfig = ref<Partial<IRouteConfig>>({
   vars: [],
   // plugin_config_id: '',
 });
+
+const routeConfig = ref<Partial<IRouteConfig>>(createDefaultRouteConfig());
+const matchConflicts = ref<Partial<Record<RouteMatchGroupKey, IRouteMatchConflict>>>({});
+const matchConflictList = computed(() => Object.values(matchConflicts.value)
+  .filter((item): item is IRouteMatchConflict => !!item));
 
 const ssl_id = ref('');
 
@@ -342,7 +408,13 @@ watch(() => route.params.id, async (id: unknown) => {
       ...restConfig
     } = config;
 
-    routeConfig.value = { ...routeConfig.value, ...restConfig };
+    const { config: normalizedRestConfig, conflicts } = normalizeRouteMatchFields(restConfig);
+    routeConfig.value = { ...createDefaultRouteConfig(), ...normalizedRestConfig };
+    matchConflicts.value = conflicts;
+
+    if (conflicts.hosts || conflicts.remote_addrs) {
+      uiConfig.value.showAdvanced = true;
+    }
 
     if (!restConfig.methods?.length) {
       routeConfig.value.methods = [];
@@ -416,22 +488,49 @@ const handleLabels = async () => {
   return await labelsFormNewRef.value.validate();
 };
 
+const clearMatchConflict = (key: RouteMatchGroupKey) => {
+  if (matchConflicts.value[key]) {
+    const nextConflicts = { ...matchConflicts.value };
+    delete nextConflicts[key];
+    matchConflicts.value = nextConflicts;
+  }
+};
+
+const resolveMatchConflict = (key: RouteMatchGroupKey, source: 'single' | 'array') => {
+  const conflict = matchConflicts.value[key];
+  if (!conflict) {
+    return;
+  }
+  routeConfig.value[key] = source === 'single' ? [conflict.singleValue] : [...conflict.arrayValues];
+  clearMatchConflict(key);
+};
+
 const handleHosts = async () => {
-  const hosts = await hostsFormRef.value?.getValue() || [];
+  const hosts = await hostsFormRef.value?.getValue() ?? [];
 
   if (!hosts.length || hosts.every(host => isEmpty(host))) {
     return Promise.resolve();
   }
-  return await hostsFormRef.value?.validate();
+  try {
+    return await hostsFormRef.value?.validate();
+  } catch (err) {
+    uiConfig.value.showAdvanced = true;
+    throw err;
+  }
 };
 
 const handleRemoteAddrs = async () => {
-  const addrs = await remoteAddrsFormRef.value?.getValue() || [];
+  const addrs = await remoteAddrsFormRef.value?.getValue() ?? [];
 
   if (!addrs.length || addrs.every(addr => isEmpty(addr))) {
     return Promise.resolve();
   }
-  return await remoteAddrsFormRef.value?.validate();
+  try {
+    return await remoteAddrsFormRef.value?.validate();
+  } catch (err) {
+    uiConfig.value.showAdvanced = true;
+    throw err;
+  }
 };
 
 const handleSubmit = async () => {
@@ -498,6 +597,13 @@ const handleSubmit = async () => {
       config.upstream_id = formModel.value.upstream_id;
     }
 
+    if (matchConflictList.value.length) {
+      if (matchConflicts.value.hosts || matchConflicts.value.remote_addrs) {
+        uiConfig.value.showAdvanced = true;
+      }
+      throw new Error(t('请先确认或修改存在冲突的匹配条件字段'));
+    }
+
     // 校验表单
     await Promise.all([
       formRef.value?.validate(),
@@ -513,19 +619,13 @@ const handleSubmit = async () => {
 
     config.labels = await labelsFormNewRef.value.getValue() || {};
 
-    config.uris = uniq(config.uris.filter(value => !!value));
-
-    config.hosts = await hostsFormRef.value?.getValue() || routeConfig.value.hosts || [];
-    config.hosts = uniq(config.hosts.filter(value => !!value) || []);
-    if (!config.hosts.length) {
-      delete config.hosts;
-    }
-
-    config.remote_addrs = await remoteAddrsFormRef.value?.getValue() || routeConfig.value.remote_addrs || [];
-    config.remote_addrs = uniq(config.remote_addrs?.filter(value => !!value) || []);
-    if (!config.remote_addrs.length) {
-      delete config.remote_addrs;
-    }
+    const hosts = await hostsFormRef.value?.getValue() ?? routeConfig.value.hosts ?? [];
+    const remoteAddrs = await remoteAddrsFormRef.value?.getValue() ?? routeConfig.value.remote_addrs ?? [];
+    config = applyRouteMatchFieldsForSubmit(config, {
+      uris: config.uris,
+      hosts,
+      remoteAddrs,
+    });
 
     config.vars = varsManagementRef.value?.getValue() || [];
 
@@ -587,6 +687,7 @@ const handleSubmit = async () => {
     });
   } catch (e) {
     const error = e as Error;
+    await nextTick();
     showFirstErrorFormItem();
     Message({
       theme: 'error',
@@ -626,6 +727,31 @@ const handleUpstreamSelect = async () => {
   border-radius: 2px;
   background: #ffffff;
   box-shadow: 0 2px 4px 0 #1919290d;
+}
+
+.match-conflict-alert {
+  margin: 0 0 16px 150px;
+  width: 640px;
+
+  .match-conflict-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+
+  .match-conflict-detail {
+    word-break: break-all;
+  }
+
+  .match-conflict-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
 }
 
 </style>

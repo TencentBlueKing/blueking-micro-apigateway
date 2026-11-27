@@ -34,8 +34,8 @@
             <bk-input
               v-model="host.value"
               clearable
-              @input="emitChange"
-              @clear="emitChange"
+              @input="(val: string) => handleInput(index, val)"
+              @clear="handleClear(index)"
             />
             <div class="suffix-actions">
               <icon
@@ -74,7 +74,7 @@ interface IProps {
 const { hosts = [''] } = defineProps<IProps>();
 
 const emit = defineEmits<{
-  change: [void];
+  change: [values: string[]];
 }>();
 
 const localHosts = ref<{ value: string }[]>([]);
@@ -101,8 +101,16 @@ watch(() => hosts, () => {
   localHosts.value = hosts.map(host => ({ value: host }));
 }, { deep: true, immediate: true });
 
-const emitChange = () => {
-  emit('change');
+const emitChange = (values?: string[]) => {
+  emit('change', values ?? localHosts.value.map(item => item.value));
+};
+
+const handleInput = (index: number, value: string) => {
+  emitChange(localHosts.value.map((item, i) => (i === index ? value : item.value)));
+};
+
+const handleClear = (index: number) => {
+  emitChange(localHosts.value.map((item, i) => (i === index ? '' : item.value)));
 };
 
 const handleAddItem = () => {

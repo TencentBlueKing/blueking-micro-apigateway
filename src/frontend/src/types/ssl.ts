@@ -19,13 +19,26 @@
 import { IBaseResource } from '@/types/common';
 
 export interface ISSLConfig {
-  cert: string
-  key: string
-  snis: string[]
-  id?: string
-  status?: number
-  validity_end?: number
-  validity_start?: number
+  cert: string;
+  key: string;
+  snis?: string[];
+  sni?: string;
+  certs?: string[];
+  keys?: string[];
+  type?: 'server' | 'client';
+  client?: {
+    ca: string;
+    depth?: number;
+    skip_mtls_uri_regex?: string[];
+  };
+  ssl_protocols?: string[];
+  labels?: Record<string, string>;
+  id?: string;
+  name?: string;
+  status?: number;
+  validity_end?: number;
+  validity_start?: number;
+  [key: string]: any;
 }
 
 export interface ISSL extends IBaseResource {

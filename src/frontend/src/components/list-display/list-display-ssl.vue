@@ -22,7 +22,9 @@
       <template #title>{{ t('基本信息') }}</template>
       <list-content-row :label="t('名称')">{{ ssl.name }}</list-content-row>
       <list-content-row label="ID">{{ ssl.id }}</list-content-row>
-      <list-content-row label="SNIS">{{ ssl.config.snis.join(', ') }}</list-content-row>
+      <list-content-row label="SNIS">
+        {{ (ssl.config.snis?.length ? ssl.config.snis.join(', ') : ssl.config.sni) || '--' }}
+      </list-content-row>
       <list-content-row :label="t('过期时间')">
         {{
           dayjs.unix(ssl.config.validity_end)

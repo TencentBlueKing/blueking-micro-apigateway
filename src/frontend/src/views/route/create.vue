@@ -132,7 +132,7 @@
 
               <!-- uris -->
               <bk-form-item :label="t('路径')" required>
-                <form-uris ref="uris-form" v-model="routeConfig.uris" @change="clearMatchConflict('uris')">
+                <form-uris ref="uris-form" v-model="routeConfig.uris" @change="handleMatchFieldChange('uris', $event)">
                   <template #tooltips>
                     {{
                       t('HTTP 请求路径，如 /foo/index.html，支持请求路径前缀 /foo/*。/* 代表所有路径，' +
@@ -166,7 +166,7 @@
                 <form-hosts-new
                   ref="hosts-form"
                   :hosts="routeConfig.hosts"
-                  @change="clearMatchConflict('hosts')"
+                  @change="handleMatchFieldChange('hosts', $event)"
                 >
                   <template #tooltips>{{
                     t('非必填，路由匹配的域名列表。支持泛域名，如：*.test.com；' +
@@ -182,7 +182,7 @@
                 <form-remote-addrs-new
                   ref="remote-addrs-form"
                   :addrs="routeConfig.remote_addrs"
-                  @change="clearMatchConflict('remote_addrs')"
+                  @change="handleMatchFieldChange('remote_addrs', $event)"
                 >
                   <template #tooltips>{{
                     t('非必填，匹配规则，客户端与服务器握手时 IP，即客户端 IP，' +
@@ -307,6 +307,7 @@ import {
   type IRouteMatchConflict,
   normalizeRouteMatchFields,
   type RouteMatchGroupKey,
+  shouldClearMatchConflict,
 } from './route-match-utils';
 
 interface ILocalPlugin {
@@ -496,6 +497,13 @@ const clearMatchConflict = (key: RouteMatchGroupKey) => {
   }
 };
 
+const handleMatchFieldChange = (key: RouteMatchGroupKey, currentValues: string[]) => {
+  const conflict = matchConflicts.value[key];
+  if (conflict && shouldClearMatchConflict(conflict, currentValues)) {
+    clearMatchConflict(key);
+  }
+};
+
 const resolveMatchConflict = (key: RouteMatchGroupKey, source: 'single' | 'array') => {
   const conflict = matchConflicts.value[key];
   if (!conflict) {
@@ -553,11 +561,11 @@ const handleSubmit = async () => {
     }
 
     if (formModel.value.upstream_id === '__config__') {
-      const checks = upstreamFormRef.value?.getHealthChecks();
-      if (checks) {
-        upstream.value.checks = checks;
-      }
       const upstreamCopy = cloneDeep(upstream.value);
+      const checks = upstreamFormRef.value?.getHealthChecks();
+      if (checks !== undefined) {
+        upstreamCopy.checks = checks;
+      }
 
       if (upstreamCopy.checks) {
         if (!Object.keys(upstreamCopy.checks).length) {

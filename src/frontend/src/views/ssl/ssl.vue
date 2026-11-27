@@ -59,8 +59,9 @@ const columns: PrimaryTableProps['columns'] = [
     title: 'SNIS',
     colKey: 'snis',
     cell: (h, { row }: TableRowData) => {
-      return row.config?.snis?.map((sni: string) => sni)
-        .join(', ') || '--';
+      return (row.config?.snis?.length
+        ? row.config.snis.map((sni: string) => sni).join(', ')
+        : row.config?.sni) || '--';
     },
   },
   {

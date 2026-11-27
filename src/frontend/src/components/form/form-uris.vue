@@ -34,8 +34,8 @@
             <bk-input
               v-model="uris[index]"
               clearable
-              @input="emitChange"
-              @clear="emitChange"
+              @input="(val: string) => handleInput(index, val)"
+              @clear="handleClear(index)"
             />
             <div class="suffix-actions">
               <icon
@@ -69,7 +69,7 @@ import { useI18n } from 'vue-i18n';
 const uris = defineModel<string[]>();
 
 const emit = defineEmits<{
-  change: [void];
+  change: [values: string[]];
 }>();
 
 const { t } = useI18n();
@@ -88,8 +88,20 @@ const rules = {
   ],
 };
 
-const emitChange = () => {
-  emit('change');
+const emitChange = (values?: string[]) => {
+  emit('change', values ?? [...(uris.value ?? [])]);
+};
+
+const handleInput = (index: number, value: string) => {
+  const next = [...(uris.value ?? [])];
+  next[index] = value;
+  emitChange(next);
+};
+
+const handleClear = (index: number) => {
+  const next = [...(uris.value ?? [])];
+  next[index] = '';
+  emitChange(next);
 };
 
 const handleAddItem = () => {

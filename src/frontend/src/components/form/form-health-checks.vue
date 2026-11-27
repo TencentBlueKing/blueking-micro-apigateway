@@ -387,14 +387,49 @@ const healthCheckerTypeOptions = [
 ];
 
 watch(() => checks, () => {
+  const nextLocalChecks = createDefaultHealthCheck();
   if (checks && isPlainObject(checks)) {
     flags.value.active = checks.active !== undefined;
     flags.value.passive = checks.passive !== undefined;
-    Object.assign(localChecks.value, cloneDeep(checks));
+    if (checks.active) {
+      nextLocalChecks.active = {
+        ...nextLocalChecks.active,
+        ...cloneDeep(checks.active),
+        healthy: {
+          ...nextLocalChecks.active.healthy,
+          ...cloneDeep(checks.active.healthy),
+        },
+        unhealthy: {
+          ...nextLocalChecks.active.unhealthy,
+          ...cloneDeep(checks.active.unhealthy),
+        },
+      };
+    }
+    if (checks.passive) {
+      nextLocalChecks.passive = {
+        ...nextLocalChecks.passive,
+        ...cloneDeep(checks.passive),
+        healthy: {
+          ...nextLocalChecks.passive.healthy,
+          ...cloneDeep(checks.passive.healthy),
+        },
+        unhealthy: {
+          ...nextLocalChecks.passive.unhealthy,
+          ...cloneDeep(checks.passive.unhealthy),
+        },
+      };
+    }
+  } else {
+    flags.value.active = false;
+    flags.value.passive = false;
   }
+  localChecks.value = nextLocalChecks;
 }, { immediate: true, deep: true });
 
 const validate = async () => {
+  if (!flags.value.active && !flags.value.passive) {
+    return;
+  }
   if (!flags.value.active && flags.value.passive) {
     Message({
       theme: 'error',
@@ -409,14 +444,14 @@ const validate = async () => {
 defineExpose({
   validate,
   getValue: () => {
-    const checks = {};
+    const nextChecks: IHealthCheck = {};
     if (flags.value.active) {
-      Object.assign(checks, { active: localChecks.value.active });
+      nextChecks.active = cloneDeep(localChecks.value.active);
     }
     if (flags.value.passive) {
-      Object.assign(checks, { passive: localChecks.value.passive });
+      nextChecks.passive = cloneDeep(localChecks.value.passive);
     }
-    return checks;
+    return nextChecks;
   },
 });
 </script>

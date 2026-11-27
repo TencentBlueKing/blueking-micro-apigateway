@@ -304,10 +304,10 @@ import FormRemoteAddrsNew from '@/components/form/form-remote-addrs-new.vue';
 import VarsManagement from '@/components/vars-management/index.vue';
 import {
   applyRouteMatchFieldsForSubmit,
+  getUnresolvedMatchConflicts,
   type IRouteMatchConflict,
   normalizeRouteMatchFields,
   type RouteMatchGroupKey,
-  shouldClearMatchConflict,
 } from './route-match-utils';
 
 interface ILocalPlugin {
@@ -353,9 +353,21 @@ const createDefaultRouteConfig = (): Partial<IRouteConfig> => ({
 });
 
 const routeConfig = ref<Partial<IRouteConfig>>(createDefaultRouteConfig());
-const matchConflicts = ref<Partial<Record<RouteMatchGroupKey, IRouteMatchConflict>>>({});
-const matchConflictList = computed(() => Object.values(matchConflicts.value)
-  .filter((item): item is IRouteMatchConflict => !!item));
+// 保留加载时检测到的原始冲突记录，不随中间编辑过程永久删除
+const initialMatchConflicts = ref<Partial<Record<RouteMatchGroupKey, IRouteMatchConflict>>>({});
+// 仅记录用户点击「采用 xxx」显式确认过的字段组
+const confirmedMatchConflicts = ref<RouteMatchGroupKey[]>([]);
+// 跟踪各匹配字段最新输入，用于实时判定冲突告警是否显示或恢复
+const currentMatchValues = ref<Record<RouteMatchGroupKey, string[]>>({
+  uris: [''],
+  hosts: [],
+  remote_addrs: [],
+});
+const matchConflictList = computed(() => getUnresolvedMatchConflicts(
+  initialMatchConflicts.value,
+  confirmedMatchConflicts.value,
+  currentMatchValues.value,
+));
 
 const ssl_id = ref('');
 
@@ -411,7 +423,13 @@ watch(() => route.params.id, async (id: unknown) => {
 
     const { config: normalizedRestConfig, conflicts } = normalizeRouteMatchFields(restConfig);
     routeConfig.value = { ...createDefaultRouteConfig(), ...normalizedRestConfig };
-    matchConflicts.value = conflicts;
+    initialMatchConflicts.value = conflicts;
+    confirmedMatchConflicts.value = [];
+    currentMatchValues.value = {
+      uris: [...(routeConfig.value.uris ?? [])],
+      hosts: [...(routeConfig.value.hosts ?? [])],
+      remote_addrs: [...(routeConfig.value.remote_addrs ?? [])],
+    };
 
     if (conflicts.hosts || conflicts.remote_addrs) {
       uiConfig.value.showAdvanced = true;
@@ -489,28 +507,27 @@ const handleLabels = async () => {
   return await labelsFormNewRef.value.validate();
 };
 
-const clearMatchConflict = (key: RouteMatchGroupKey) => {
-  if (matchConflicts.value[key]) {
-    const nextConflicts = { ...matchConflicts.value };
-    delete nextConflicts[key];
-    matchConflicts.value = nextConflicts;
-  }
-};
-
 const handleMatchFieldChange = (key: RouteMatchGroupKey, currentValues: string[]) => {
-  const conflict = matchConflicts.value[key];
-  if (conflict && shouldClearMatchConflict(conflict, currentValues)) {
-    clearMatchConflict(key);
-  }
+  currentMatchValues.value = {
+    ...currentMatchValues.value,
+    [key]: [...currentValues],
+  };
 };
 
 const resolveMatchConflict = (key: RouteMatchGroupKey, source: 'single' | 'array') => {
-  const conflict = matchConflicts.value[key];
+  const conflict = initialMatchConflicts.value[key];
   if (!conflict) {
     return;
   }
-  routeConfig.value[key] = source === 'single' ? [conflict.singleValue] : [...conflict.arrayValues];
-  clearMatchConflict(key);
+  const nextValues = source === 'single' ? [conflict.singleValue] : [...conflict.arrayValues];
+  routeConfig.value[key] = nextValues;
+  currentMatchValues.value = {
+    ...currentMatchValues.value,
+    [key]: [...nextValues],
+  };
+  if (!confirmedMatchConflicts.value.includes(key)) {
+    confirmedMatchConflicts.value = [...confirmedMatchConflicts.value, key];
+  }
 };
 
 const handleHosts = async () => {
@@ -605,8 +622,19 @@ const handleSubmit = async () => {
       config.upstream_id = formModel.value.upstream_id;
     }
 
-    if (matchConflictList.value.length) {
-      if (matchConflicts.value.hosts || matchConflicts.value.remote_addrs) {
+    const latestHosts = await hostsFormRef.value?.getValue() ?? routeConfig.value.hosts ?? [];
+    const latestRemoteAddrs = await remoteAddrsFormRef.value?.getValue() ?? routeConfig.value.remote_addrs ?? [];
+    const unresolvedConflicts = getUnresolvedMatchConflicts(
+      initialMatchConflicts.value,
+      confirmedMatchConflicts.value,
+      {
+        uris: routeConfig.value.uris ?? [],
+        hosts: latestHosts,
+        remote_addrs: latestRemoteAddrs,
+      },
+    );
+    if (unresolvedConflicts.length) {
+      if (unresolvedConflicts.some(item => item.key === 'hosts' || item.key === 'remote_addrs')) {
         uiConfig.value.showAdvanced = true;
       }
       throw new Error(t('请先确认或修改存在冲突的匹配条件字段'));
@@ -627,12 +655,10 @@ const handleSubmit = async () => {
 
     config.labels = await labelsFormNewRef.value.getValue() || {};
 
-    const hosts = await hostsFormRef.value?.getValue() ?? routeConfig.value.hosts ?? [];
-    const remoteAddrs = await remoteAddrsFormRef.value?.getValue() ?? routeConfig.value.remote_addrs ?? [];
     config = applyRouteMatchFieldsForSubmit(config, {
       uris: config.uris,
-      hosts,
-      remoteAddrs,
+      hosts: latestHosts,
+      remoteAddrs: latestRemoteAddrs,
     });
 
     config.vars = varsManagementRef.value?.getValue() || [];

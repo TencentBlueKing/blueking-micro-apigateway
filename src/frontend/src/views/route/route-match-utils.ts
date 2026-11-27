@@ -41,6 +41,12 @@ export interface IRouteMatchSubmitValues {
   remoteAddrs?: string[];
 }
 
+export interface IRouteMatchCurrentValues {
+  uris?: unknown;
+  hosts?: unknown;
+  remote_addrs?: unknown;
+}
+
 interface IMatchGroupSpec {
   singleKey: RouteMatchSingleKey;
   arrayKey: RouteMatchGroupKey;
@@ -119,6 +125,26 @@ export const shouldClearMatchConflict = (
     return false;
   }
   return !isEqual(effectiveValues, conflict.arrayValues);
+};
+
+/**
+ * 实时计算当前仍未解决的路由匹配冲突列表：
+ * - 仅点击显式确认按钮加入 confirmedKeys 的字段组视为永久确认；
+ * - 未显式确认的字段组基于当前最新有效值动态判定，避免修改后又改回原值绕过确认。
+ */
+export const getUnresolvedMatchConflicts = (
+  initialConflicts: Partial<Record<RouteMatchGroupKey, IRouteMatchConflict>>,
+  confirmedKeys: Iterable<RouteMatchGroupKey>,
+  currentValues: IRouteMatchCurrentValues,
+): IRouteMatchConflict[] => {
+  const confirmedSet = new Set(confirmedKeys);
+  return Object.values(initialConflicts)
+    .filter((conflict): conflict is IRouteMatchConflict => {
+      if (!conflict || confirmedSet.has(conflict.key)) {
+        return false;
+      }
+      return !shouldClearMatchConflict(conflict, currentValues[conflict.key]);
+    });
 };
 
 /**

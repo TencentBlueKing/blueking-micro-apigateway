@@ -44,6 +44,9 @@ const loadRouteMatchUtils = () => {
     // 将 vm realm 对象转换为宿主 realm，便于 node:assert/strict 做 deepEqual 断言
     normalizeRouteMatchFields: raw => structuredClone(exports.normalizeRouteMatchFields(raw)),
     shouldClearMatchConflict: (conflict, values) => exports.shouldClearMatchConflict(conflict, values),
+    getUnresolvedMatchConflicts: (initial, confirmed, current) => {
+      return structuredClone(exports.getUnresolvedMatchConflicts(initial, confirmed, current));
+    },
     applyRouteMatchFieldsForSubmit: (config, values) => {
       return structuredClone(exports.applyRouteMatchFieldsForSubmit(config, values));
     },
@@ -77,6 +80,7 @@ const loadSchemaValidator = (resource, version = '3.11') => {
 const {
   normalizeRouteMatchFields,
   shouldClearMatchConflict,
+  getUnresolvedMatchConflicts,
   applyRouteMatchFieldsForSubmit,
 } = loadRouteMatchUtils();
 
@@ -309,21 +313,34 @@ test('冲突态下新增再删除空行或重复行无法绕过冲突确认，�
   assert.equal(shouldClearMatchConflict(conflicts.remote_addrs, ['']), true);
   assert.equal(shouldClearMatchConflict(conflicts.remote_addrs, ['10.0.0.1']), true);
 
-  // 模拟生产事件流：form-uris 新增空行再删除空行后调用 handleMatchFieldChange，冲突依然保留
+  // 模拟生产事件流：增删空行或把 /two 改为 /tw 再改回 /two，均无法绕过冲突确认
   const formUrisSource = readFrontendSource('components/form/form-uris.vue');
   const routeCreateSource = readFrontendSource('views/route/create.vue');
   const startUris = formUrisSource.indexOf('const emitChange =');
   const endUris = formUrisSource.indexOf('const validate =', startUris);
-  const startRoute = routeCreateSource.indexOf('const clearMatchConflict =');
+  const startRoute = routeCreateSource.indexOf('const handleMatchFieldChange =');
   const endRoute = routeCreateSource.indexOf('const handleHosts =', startRoute);
   assert.ok(startUris >= 0 && endUris > startUris);
   assert.ok(startRoute >= 0 && endRoute > startRoute);
 
-  const matchConflicts = { value: structuredClone(conflicts) };
+  const initialMatchConflicts = { value: structuredClone(conflicts) };
+  const confirmedMatchConflicts = { value: [] };
+  const currentMatchValues = {
+    value: {
+      uris: ['/two'],
+      hosts: ['two.example.com'],
+      remote_addrs: ['10.0.0.2'],
+    },
+  };
   const routeConfig = { value: { uris: ['/two'] } };
   const routeHandlers = runInNewContext(
     `${compileTs(routeCreateSource.slice(startRoute, endRoute))}\n({ handleMatchFieldChange, resolveMatchConflict });`,
-    { matchConflicts, routeConfig, shouldClearMatchConflict },
+    {
+      initialMatchConflicts,
+      confirmedMatchConflicts,
+      currentMatchValues,
+      routeConfig,
+    },
   );
   const urisRef = { value: ['/two'] };
   const urisHandlers = runInNewContext(
@@ -337,24 +354,40 @@ test('冲突态下新增再删除空行或重复行无法绕过冲突确认，�
       },
     },
   );
+  const getUrisConflict = () => getUnresolvedMatchConflicts(
+    initialMatchConflicts.value,
+    confirmedMatchConflicts.value,
+    currentMatchValues.value,
+  ).find(item => item.key === 'uris');
 
-  // 点击 + 新增空行，再点击 - 删除空行
+  // 1) 点击 + 新增空行，再点击 - 删除空行
   urisHandlers.handleAddItem();
   assert.deepEqual(urisRef.value, ['/two', '']);
-  assert.ok(matchConflicts.value.uris, '新增空行不应清除冲突');
+  assert.ok(getUrisConflict(), '新增空行不应清除冲突');
   urisHandlers.handleRemoveItem(1);
   assert.deepEqual(urisRef.value, ['/two']);
-  assert.ok(matchConflicts.value.uris, '删除空行后有效值未变化，不应清除冲突');
+  assert.ok(getUrisConflict(), '删除空行后有效值未变化，不应清除冲突');
 
-  // 显式点击“采用 uris”后才解除冲突
+  // 2) 把 /two 改为 /tw 再改回 /two，冲突应自动恢复且不可绕过
+  urisHandlers.handleInput(0, '/tw');
+  assert.equal(getUrisConflict(), undefined, '改为其他有效路径时当前不拦截');
+  urisHandlers.handleInput(0, '/two');
+  assert.ok(getUrisConflict(), '改回 /two 后冲突应自动恢复，不可绕过确认');
+
+  // 3) 显式点击“采用 uris”后才永久解除冲突，即使保持 /two 也不再拦截
   routeHandlers.resolveMatchConflict('uris', 'array');
-  assert.equal(matchConflicts.value.uris, undefined);
+  assert.equal(getUrisConflict(), undefined);
   assert.deepEqual(structuredClone(routeConfig.value.uris), ['/two']);
 
-  // 重新放入冲突后，实质修改为新路径应自动解除冲突
-  matchConflicts.value = { uris: structuredClone(conflicts.uris) };
-  urisHandlers.handleInput(0, '/three');
-  assert.equal(matchConflicts.value.uris, undefined);
+  // 4) 域名/客户端地址同样支持改回原值后恢复冲突
+  const hostsOnlyUnresolved = getUnresolvedMatchConflicts(
+    { hosts: conflicts.hosts },
+    [],
+    { hosts: ['two.example.com'] },
+  );
+  assert.equal(hostsOnlyUnresolved.length, 1);
+  assert.equal(getUnresolvedMatchConflicts({ hosts: conflicts.hosts }, [], { hosts: ['two.example.co'] }).length, 0);
+  assert.equal(getUnresolvedMatchConflicts({ hosts: conflicts.hosts }, [], { hosts: ['two.example.com'] }).length, 1);
 });
 
 test('路由、服务与 Upstream 高级配置均使用 v-show 避免折叠卸载丢失输入，且 form-uris 校验失败时不再吞异常', () => {

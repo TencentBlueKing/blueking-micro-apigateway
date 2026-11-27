@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	csrf "filippo.io/csrf/gorilla"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
 	adapter "github.com/gwatts/gin-adapter"
 )
 

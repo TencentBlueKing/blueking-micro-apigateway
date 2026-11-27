@@ -149,11 +149,11 @@ watch(() => route.params.id, async (id: unknown) => {
 
 const handleSubmit = async () => {
   try {
-    const checks = upstreamFormRef.value?.getHealthChecks();
-    if (checks) {
-      upstream.value.checks = checks;
-    }
     let upstreamCopy = cloneDeep(upstream.value);
+    const checks = upstreamFormRef.value?.getHealthChecks();
+    if (checks !== undefined) {
+      upstreamCopy.checks = checks;
+    }
 
     if (upstreamCopy.checks) {
       if (!Object.keys(upstreamCopy.checks).length) {

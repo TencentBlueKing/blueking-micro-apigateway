@@ -106,7 +106,10 @@ import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import { checkSSL, getSSL, postSSL, putSSL } from '@/http/ssl';
 import FormCard from '@/components/form-card.vue';
 import dayjs from 'dayjs';
+import { cloneDeep } from 'lodash-es';
 import UploadText from '@/components/upload-text.vue';
+import type { ISSLConfig } from '@/types/ssl';
+import { buildSSLSubmitConfig, extractSSLSnis } from './ssl-config-utils';
 
 export type UploadFieldType = 'cert' | 'key';
 
@@ -134,6 +137,8 @@ const formModel = ref<IFormModel>({
   key: '',
   snis: [],
 });
+// 保留加载到的原始 SSL 配置，提交时避免丢弃 certs/keys/client 等附加字段
+const rawSSLConfig = ref<Partial<ISSLConfig> | null>(null);
 
 const fileList = ref([]);
 
@@ -177,19 +182,23 @@ const isEditMode = computed(() => {
 watch(() => route.params.id, async (id: unknown) => {
   if (id) {
     const response = await getSSL({ id } as { id: string });
+    rawSSLConfig.value = cloneDeep(response.config || {});
     formModel.value.name = response.name;
     formModel.value.cert = response.config.cert;
     formModel.value.key = response.config.key;
-    formModel.value.snis = response.config.snis || [];
+    formModel.value.snis = extractSSLSnis(response.config);
     fileList.value = [];
     await nextTick(() => {
       checkStatus.value = {
         checked: true,
         valid: true,
-        expire_at: dayjs.unix(response.config.validity_end)
-          .format('YYYY-MM-DD HH:mm:ss'),
+        expire_at: response.config.validity_end
+          ? dayjs.unix(response.config.validity_end).format('YYYY-MM-DD HH:mm:ss')
+          : '',
       };
     });
+  } else {
+    rawSSLConfig.value = null;
   }
 }, { immediate: true });
 
@@ -265,11 +274,12 @@ const handleSubmit = async () => {
       },
     });
 
-    const config = {
+    const config = buildSSLSubmitConfig(rawSSLConfig.value, {
       cert: checkResponse.cert,
       key: checkResponse.key,
-      snis: formModel.value.snis.length ? formModel.value.snis : checkResponse.snis,
-    };
+      snis: formModel.value.snis,
+      fallbackSnis: checkResponse.snis,
+    });
 
     const data = {
       config,

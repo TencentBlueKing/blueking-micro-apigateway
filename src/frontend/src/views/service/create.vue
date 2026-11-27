@@ -310,11 +310,11 @@ const handleSubmit = async () => {
     if (upstreamId.value === '__config__') {
       const { upstream_id, ...rest } = formModel.value;
 
-      const checks = upstreamFormRef.value?.getHealthChecks();
-      if (checks) {
-        upstream.value.checks = checks;
-      }
       const upstreamCopy = cloneDeep(upstream.value);
+      const checks = upstreamFormRef.value?.getHealthChecks();
+      if (checks !== undefined) {
+        upstreamCopy.checks = checks;
+      }
 
       if (upstreamCopy.checks) {
         if (!Object.keys(upstreamCopy.checks).length) {

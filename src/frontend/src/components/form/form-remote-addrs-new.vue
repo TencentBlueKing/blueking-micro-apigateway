@@ -34,8 +34,8 @@
             <bk-input
               v-model="addr.value"
               clearable
-              @input="emitChange"
-              @clear="emitChange"
+              @input="(val: string) => handleInput(index, val)"
+              @clear="handleClear(index)"
             />
             <div class="suffix-actions" v-if="showAddIcon">
               <icon
@@ -77,7 +77,7 @@ interface IProps {
 const { addrs = [''], showAddIcon = true } = defineProps<IProps>();
 
 const emit = defineEmits<{
-  change: [void];
+  change: [values: string[]];
 }>();
 
 const localAddrs = ref<{ value: string }[]>([]);
@@ -112,8 +112,16 @@ watch(() => addrs, () => {
   localAddrs.value = addrs.map(addr => ({ value: addr }));
 }, { deep: true, immediate: true });
 
-const emitChange = () => {
-  emit('change');
+const emitChange = (values?: string[]) => {
+  emit('change', values ?? localAddrs.value.map(item => item.value));
+};
+
+const handleInput = (index: number, value: string) => {
+  emitChange(localAddrs.value.map((item, i) => (i === index ? value : item.value)));
+};
+
+const handleClear = (index: number) => {
+  emitChange(localAddrs.value.map((item, i) => (i === index ? '' : item.value)));
 };
 
 const handleAddItem = () => {

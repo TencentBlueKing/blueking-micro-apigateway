@@ -212,8 +212,8 @@
 
       <form-advanced-switch v-model="uiConfig.showAdvanced" />
 
-      <!-- 高级配置 -->
-      <template v-if="uiConfig.showAdvanced">
+      <!-- 高级配置（使用 v-show 保留折叠前的健康检查等最新输入） -->
+      <div v-show="uiConfig.showAdvanced">
         <form-collapse :title="t('重试')" style="margin-left: 150px;width: 640px;">
           <div>
             <!-- retries -->
@@ -275,7 +275,7 @@
         <div style="margin-left: 150px;">
           <form-health-checks ref="health-check-form" :checks="upstream.checks" />
         </div>
-      </template>
+      </div>
     </bk-form>
   </div>
 </template>
@@ -283,7 +283,7 @@
 <script lang="ts" setup>
 import { IUpstreamConfig } from '@/types/upstream';
 import { Form } from 'bkui-vue';
-import { computed, ref, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import FormHealthChecks from '@/components/form/form-health-checks.vue';
 import { useUpstreamForm } from '@/views/upstream/use-upstream-form';
@@ -653,11 +653,10 @@ const setLabels = async () => {
 };
 
 const getHealthChecks = () => {
-  const checks = healthCheckFormRef.value?.getValue();
-  if (checks && Object.keys(checks).length) {
-    return checks;
+  if (!healthCheckFormRef.value) {
+    return undefined;
   }
-  return null;
+  return healthCheckFormRef.value.getValue();
 };
 
 const validate = async () => {
@@ -671,13 +670,18 @@ const validate = async () => {
       tasks.push(nodesTableFormRef.value.validate());
     }
 
-    if (upstream.value.checks && Object.keys(upstream.value.checks).length && healthCheckFormRef.value) {
-      tasks.push(healthCheckFormRef.value.validate());
+    const currentChecks = healthCheckFormRef.value?.getValue();
+    if (currentChecks && Object.keys(currentChecks).length && healthCheckFormRef.value) {
+      tasks.push(healthCheckFormRef.value.validate().catch((err) => {
+        uiConfig.value.showAdvanced = true;
+        throw err;
+      }));
     }
 
     await Promise.all(tasks);
     await setLabels();
   } catch (error) {
+    await nextTick();
     showFirstErrorFormItem();
     throw error;
   }

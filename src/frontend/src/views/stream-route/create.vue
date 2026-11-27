@@ -364,11 +364,11 @@ const handleSubmit = async () => {
     const upstreamId = formModel.value.upstream_id;
     config.upstream_id = upstreamId;
     if (['__config__'].includes(upstreamId)) {
-      const checks = upstreamFormRef.value?.getHealthChecks();
-      if (checks) {
-        upstream.value.checks = checks;
-      }
       const upstreamCopy = cloneDeep(upstream.value);
+      const checks = upstreamFormRef.value?.getHealthChecks();
+      if (checks !== undefined) {
+        upstreamCopy.checks = checks;
+      }
       if (upstreamCopy.checks) {
         if (!Object.keys(upstreamCopy.checks).length) {
           delete upstreamCopy.checks;

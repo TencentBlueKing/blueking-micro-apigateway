@@ -16,7 +16,7 @@
  * to the current version of the project delivered to anyone in the future.
  */
 
-import { uniq } from 'lodash-es';
+import { isEqual, uniq } from 'lodash-es';
 import type { IRouteConfig } from '@/types/route';
 
 export type RouteMatchGroupKey = 'uris' | 'hosts' | 'remote_addrs';
@@ -39,6 +39,12 @@ export interface IRouteMatchSubmitValues {
   uris?: string[];
   hosts?: string[];
   remoteAddrs?: string[];
+}
+
+export interface IRouteMatchCurrentValues {
+  uris?: unknown;
+  hosts?: unknown;
+  remote_addrs?: unknown;
 }
 
 interface IMatchGroupSpec {
@@ -103,6 +109,42 @@ export const normalizeRouteMatchFields = (rawConfig: Partial<IRouteConfig> = {})
     config: normalized,
     conflicts,
   };
+};
+
+/**
+ * 判断用户在冲突态下的编辑是否实质改变了有效匹配值：
+ * 增删空行或重复行不会改变清洗后的有效值，无法绕过冲突确认；
+ * 必填项 uris 被清空时也不视为已解决冲突。
+ */
+export const shouldClearMatchConflict = (
+  conflict: IRouteMatchConflict,
+  currentValues: unknown,
+): boolean => {
+  const effectiveValues = sanitizeStringArray(currentValues);
+  if (conflict.key === 'uris' && effectiveValues.length === 0) {
+    return false;
+  }
+  return !isEqual(effectiveValues, conflict.arrayValues);
+};
+
+/**
+ * 实时计算当前仍未解决的路由匹配冲突列表：
+ * - 仅点击显式确认按钮加入 confirmedKeys 的字段组视为永久确认；
+ * - 未显式确认的字段组基于当前最新有效值动态判定，避免修改后又改回原值绕过确认。
+ */
+export const getUnresolvedMatchConflicts = (
+  initialConflicts: Partial<Record<RouteMatchGroupKey, IRouteMatchConflict>>,
+  confirmedKeys: Iterable<RouteMatchGroupKey>,
+  currentValues: IRouteMatchCurrentValues,
+): IRouteMatchConflict[] => {
+  const confirmedSet = new Set(confirmedKeys);
+  return Object.values(initialConflicts)
+    .filter((conflict): conflict is IRouteMatchConflict => {
+      if (!conflict || confirmedSet.has(conflict.key)) {
+        return false;
+      }
+      return !shouldClearMatchConflict(conflict, currentValues[conflict.key]);
+    });
 };
 
 /**

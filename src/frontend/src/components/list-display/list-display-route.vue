@@ -46,10 +46,10 @@
 
     <list-content-article>
       <template #title>{{ t('匹配条件') }}</template>
-      <list-content-row v-if="route.config.hosts" :label="t('域名')">{{ route.config.hosts }}</list-content-row>
-      <list-content-row :label="t('路径')">{{ route.config.uris }}</list-content-row>
-      <list-content-row v-if="route.config.remote_addrs" :label="t('客户端地址')">
-        {{ route.config.remote_addrs }}
+      <list-content-row v-if="displayHosts" :label="t('域名')">{{ displayHosts }}</list-content-row>
+      <list-content-row :label="t('路径')">{{ displayUris }}</list-content-row>
+      <list-content-row v-if="displayRemoteAddrs" :label="t('客户端地址')">
+        {{ displayRemoteAddrs }}
       </list-content-row>
       <list-content-row :label="t('HTTP 方法')">{{ route.config.methods }}</list-content-row>
       <list-content-row v-if="route.config.priority && route.config.priority !== 0" :label="t('优先级')">
@@ -102,6 +102,7 @@
 </template>
 
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ListContentRow from '@/components/list-display/components/list-content-row.vue';
 import ListContentArticle from '@/components/list-display/components/list-content-article.vue';
@@ -116,6 +117,7 @@ import { getService } from '@/http/service';
 import { getUpstream } from '@/http/upstream';
 import { getPluginConfig } from '@/http/plugin-config';
 import useRelatedResourceName from '@/hooks/use-related-resource-name';
+import { normalizeRouteMatchFields } from '@/views/route/route-match-utils';
 
 interface IProps {
   resource: IRoute
@@ -125,6 +127,35 @@ const { resource: route } = defineProps<IProps>();
 
 const { t } = useI18n();
 const router = useRouter();
+
+const normalizedMatch = computed(() => normalizeRouteMatchFields(route.config));
+
+const displayUris = computed(() => {
+  const conflict = normalizedMatch.value.conflicts.uris;
+  if (conflict) {
+    return `${conflict.singleKey}: ${conflict.singleValue} / ${conflict.arrayKey}: ${JSON.stringify(conflict.arrayValues)}`;
+  }
+  const uris = normalizedMatch.value.config.uris?.filter(Boolean) || [];
+  return uris.length ? uris : undefined;
+});
+
+const displayHosts = computed(() => {
+  const conflict = normalizedMatch.value.conflicts.hosts;
+  if (conflict) {
+    return `${conflict.singleKey}: ${conflict.singleValue} / ${conflict.arrayKey}: ${JSON.stringify(conflict.arrayValues)}`;
+  }
+  const hosts = normalizedMatch.value.config.hosts?.filter(Boolean) || [];
+  return hosts.length ? hosts : undefined;
+});
+
+const displayRemoteAddrs = computed(() => {
+  const conflict = normalizedMatch.value.conflicts.remote_addrs;
+  if (conflict) {
+    return `${conflict.singleKey}: ${conflict.singleValue} / ${conflict.arrayKey}: ${JSON.stringify(conflict.arrayValues)}`;
+  }
+  const addrs = normalizedMatch.value.config.remote_addrs?.filter(Boolean) || [];
+  return addrs.length ? addrs : undefined;
+});
 
 const serviceName = useRelatedResourceName({
   resourceId: () => route.service_id,

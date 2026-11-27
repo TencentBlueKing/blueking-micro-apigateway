@@ -31,7 +31,12 @@
       >
         <div class="multi-line-wrapper">
           <section class="multi-line-item has-suffix">
-            <bk-input v-model="host.value" clearable />
+            <bk-input
+              v-model="host.value"
+              clearable
+              @input="emitChange"
+              @clear="emitChange"
+            />
             <div class="suffix-actions">
               <icon
                 v-if="localHosts.length > 1"
@@ -68,6 +73,10 @@ interface IProps {
 
 const { hosts = [''] } = defineProps<IProps>();
 
+const emit = defineEmits<{
+  change: [void];
+}>();
+
 const localHosts = ref<{ value: string }[]>([]);
 
 const formRefs = useTemplateRef<InstanceType<typeof Form>[]>('forms');
@@ -92,12 +101,18 @@ watch(() => hosts, () => {
   localHosts.value = hosts.map(host => ({ value: host }));
 }, { deep: true, immediate: true });
 
+const emitChange = () => {
+  emit('change');
+};
+
 const handleAddItem = () => {
   localHosts.value.push({ value: '' });
+  emitChange();
 };
 
 const handleRemoveItem = (index: number) => {
   localHosts.value.splice(index, 1);
+  emitChange();
 };
 
 const validate = async () => {

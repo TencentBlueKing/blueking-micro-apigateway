@@ -31,7 +31,12 @@
       >
         <div class="multi-line-wrapper">
           <section class="multi-line-item has-suffix">
-            <bk-input v-model="uris[index]" clearable />
+            <bk-input
+              v-model="uris[index]"
+              clearable
+              @input="emitChange"
+              @clear="emitChange"
+            />
             <div class="suffix-actions">
               <icon
                 v-if="uris.length > 1"
@@ -63,6 +68,10 @@ import { useI18n } from 'vue-i18n';
 
 const uris = defineModel<string[]>();
 
+const emit = defineEmits<{
+  change: [void];
+}>();
+
 const { t } = useI18n();
 
 const formRefs = useTemplateRef<InstanceType<typeof Form>[]>('forms');
@@ -79,25 +88,33 @@ const rules = {
   ],
 };
 
+const emitChange = () => {
+  emit('change');
+};
+
 const handleAddItem = () => {
   if (!uris.value) {
     uris.value = [''];
   } else {
     uris.value.push('');
   }
+  emitChange();
 };
 
 const handleRemoveItem = (index: number) => {
   uris.value.splice(index, 1);
+  emitChange();
 };
 
 const validate = async () => {
-  try {
-    await Promise.all(formRefs.value.map(nodeForm => nodeForm.validate()));
-    return true;
-  } catch {
-    return false;
+  if (!uris.value?.length || !formRefs.value?.length) {
+    throw new Error(t('必填项'));
   }
+  await Promise.all(formRefs.value.map(nodeForm => nodeForm.validate()));
+  if (!uris.value.some(uri => !!uri)) {
+    throw new Error(t('必填项'));
+  }
+  return true;
 };
 
 defineExpose({

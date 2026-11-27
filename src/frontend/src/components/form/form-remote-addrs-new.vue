@@ -31,7 +31,12 @@
       >
         <div class="multi-line-wrapper">
           <section class="multi-line-item has-suffix">
-            <bk-input v-model="addr.value" clearable />
+            <bk-input
+              v-model="addr.value"
+              clearable
+              @input="emitChange"
+              @clear="emitChange"
+            />
             <div class="suffix-actions" v-if="showAddIcon">
               <icon
                 v-if="localAddrs.length > 1"
@@ -71,6 +76,10 @@ interface IProps {
 
 const { addrs = [''], showAddIcon = true } = defineProps<IProps>();
 
+const emit = defineEmits<{
+  change: [void];
+}>();
+
 const localAddrs = ref<{ value: string }[]>([]);
 
 const formRefs = useTemplateRef<InstanceType<typeof Form>[]>('forms');
@@ -103,12 +112,18 @@ watch(() => addrs, () => {
   localAddrs.value = addrs.map(addr => ({ value: addr }));
 }, { deep: true, immediate: true });
 
+const emitChange = () => {
+  emit('change');
+};
+
 const handleAddItem = () => {
   localAddrs.value.push({ value: '' });
+  emitChange();
 };
 
 const handleRemoveItem = (index: number) => {
   localAddrs.value.splice(index, 1);
+  emitChange();
 };
 
 const validate = async () => {

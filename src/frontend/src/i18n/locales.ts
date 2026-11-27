@@ -127,6 +127,9 @@ const locales: ILocales = {
   'stream 路由': ['Stream Route'],
   '自定义插件': ['Schema'],
   '共享网关': ['API Gateway'],
+  '检测到原始路由配置同时包含互斥的单值与数组匹配字段，已默认回显数组字段，未做自动合并。请确认采用哪一项或直接修改对应输入框后再提交。': ['The original route configuration contains both mutually exclusive singular and array match fields. The array field is displayed by default without automatic merging. Please confirm which field to use or edit the input directly before submitting.'],
+  '采用 {field}': ['Use {field}'],
+  '请先确认或修改存在冲突的匹配条件字段': ['Please confirm or edit the conflicting match condition fields first'],
 };
 
 export default locales;
